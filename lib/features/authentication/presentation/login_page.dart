@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/layout/app_breakpoints.dart';
+import '../../../shared/models/school_membership.dart';
+import '../../dashboard/presentation/dashboard_page.dart';
+import '../../school_switcher/presentation/school_selection_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,6 +17,21 @@ class _LoginPageState extends State<LoginPage> {
   final _identityController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  static const _demoMemberships = <SchoolMembership>[
+    SchoolMembership(
+      id: 'membership-teacher-001',
+      schoolId: 'school-al-hikma',
+      schoolName: 'Al-Hikma Academy',
+      role: SchoolRole.teacher,
+    ),
+    SchoolMembership(
+      id: 'membership-parent-001',
+      schoolId: 'school-bright-future',
+      schoolName: 'Bright Future School',
+      role: SchoolRole.parent,
+    ),
+  ];
 
   @override
   void dispose() {
@@ -94,11 +112,28 @@ class _LoginPageState extends State<LoginPage> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Login UI is ready. API authentication and school membership selection come next.',
+    // Foundation-only flow. Real credentials and memberships will come from
+    // the SchoolOS authentication API. Keeping this explicit prevents mock
+    // authentication from leaking into the production data layer later.
+    if (_demoMemberships.length == 1) {
+      _openDashboard(_demoMemberships.single);
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => SchoolSelectionPage(
+          memberships: _demoMemberships,
+          onSelected: _openDashboard,
         ),
+      ),
+    );
+  }
+
+  void _openDashboard(SchoolMembership membership) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => DashboardPage(membership: membership),
       ),
     );
   }
@@ -205,7 +240,7 @@ class _LoginCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Your available schools and roles are loaded after authentication.',
+                'Foundation mode: any non-empty credentials open demo school memberships. Real API authentication comes next.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
