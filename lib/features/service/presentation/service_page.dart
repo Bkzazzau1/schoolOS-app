@@ -297,7 +297,7 @@ class _ProjectRegister extends StatelessWidget {
                 SizedBox(
                   width: 220,
                   child: DropdownButtonFormField<ServiceProjectStatus?>(
-                    value: selectedStatus,
+                    initialValue: selectedStatus,
                     decoration: const InputDecoration(labelText: 'Status'),
                     items: [
                       const DropdownMenuItem<ServiceProjectStatus?>(
