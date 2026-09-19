@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/app_services.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({
+    super.key,
+    required this.services,
+  });
+
+  final AppServices services;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -130,10 +136,17 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _openDashboard(SchoolMembership membership) {
+  Future<void> _openDashboard(SchoolMembership membership) async {
+    await widget.services.schoolSession.selectSchool(membership);
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (context) => DashboardPage(membership: membership),
+        builder: (context) => DashboardPage(
+          membership: membership,
+          localDatabase: widget.services.localDatabase,
+          schoolSession: widget.services.schoolSession,
+        ),
       ),
     );
   }
