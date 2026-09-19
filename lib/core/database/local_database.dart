@@ -362,7 +362,7 @@ class LocalDatabase {
   }
 
   void close() {
-    _database?.dispose();
+    _database?.close();
     _database = null;
   }
 
