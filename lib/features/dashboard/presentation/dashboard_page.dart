@@ -10,6 +10,7 @@ import '../../attendance/presentation/attendance_page.dart';
 import '../../lesson_plans/data/lesson_plan_generation_service.dart';
 import '../../lesson_plans/data/lesson_plan_repository.dart';
 import '../../lesson_plans/presentation/lesson_plan_page.dart';
+import '../../sync_center/presentation/sync_center_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({
@@ -120,6 +121,18 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  Future<void> _openSyncCenter() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => SyncCenterPage(
+          localDatabase: widget.localDatabase,
+          membership: widget.membership,
+        ),
+      ),
+    );
+    _refreshPendingCount();
+  }
+
   Widget _buildWorkspace() {
     final destination = _destinations[_selectedIndex];
 
@@ -169,7 +182,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                 _SyncStatusButton(
                   pendingCount: _pendingSyncCount,
-                  onPressed: _refreshPendingCount,
+                  onPressed: _openSyncCenter,
                 ),
                 const SizedBox(width: 8),
               ],
@@ -238,7 +251,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             ],
                             _SyncStatusButton(
                               pendingCount: _pendingSyncCount,
-                              onPressed: _refreshPendingCount,
+                              onPressed: _openSyncCenter,
                             ),
                           ],
                         ),
@@ -495,8 +508,8 @@ class _SyncStatusButton extends StatelessWidget {
     final synced = pendingCount == 0;
     return Tooltip(
       message: synced
-          ? 'No changes waiting to sync'
-          : '$pendingCount change${pendingCount == 1 ? '' : 's'} waiting to sync',
+          ? 'Open Sync Center'
+          : 'Open Sync Center · $pendingCount change${pendingCount == 1 ? '' : 's'} waiting',
       child: OutlinedButton.icon(
         onPressed: onPressed,
         icon: Icon(
