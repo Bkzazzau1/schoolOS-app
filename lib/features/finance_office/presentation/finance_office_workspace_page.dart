@@ -9,8 +9,10 @@ import '../../dashboard/presentation/dashboard_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../data/finance_concessions_repository.dart';
 import '../data/finance_office_dashboard_demo_data.dart';
 import '../domain/finance_office_dashboard_models.dart';
+import 'finance_concessions_page.dart';
 import 'finance_fee_structure_page.dart';
 import 'finance_office_dashboard_page.dart';
 
@@ -36,6 +38,7 @@ class FinanceOfficeWorkspacePage extends StatefulWidget {
 class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+  late final FinanceConcessionsRepository _concessions;
 
   FinanceOfficeNavItem get _activeItem => financeOfficeNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -45,6 +48,10 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
   @override
   void initState() {
     super.initState();
+    _concessions = FinanceConcessionsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _refreshPendingCount();
   }
 
@@ -121,6 +128,10 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
             onNavigate: _select,
           ),
         'fee-structure' => const FinanceFeeStructurePage(),
+        'scholarships' => FinanceConcessionsPage(
+            repository: _concessions,
+            onMutationQueued: _refreshPendingCount,
+          ),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
@@ -182,10 +193,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
           child: ListView(
             children: [
               const ListTile(
-                title: Text(
-                  'Finance Office',
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
+                title: Text('Finance Office', style: TextStyle(fontWeight: FontWeight.w900)),
                 subtitle: Text('Finance operations'),
               ),
               const Divider(),
@@ -202,10 +210,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
               const Divider(),
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: Text(
-                  financeOfficeScopeBoundary,
-                  style: TextStyle(fontSize: 12),
-                ),
+                child: Text(financeOfficeScopeBoundary, style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
@@ -217,10 +222,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: Text(
-              _activeItem.label,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
+            child: Text(_activeItem.label, style: const TextStyle(fontWeight: FontWeight.w800)),
           ),
           Expanded(child: _content()),
         ],
@@ -238,9 +240,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
               width: extended ? 290 : 88,
               decoration: BoxDecoration(
                 border: Border(
-                  right: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                 ),
               ),
               child: Column(
@@ -251,10 +251,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                         ? const ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: CircleAvatar(child: Text('S')),
-                            title: Text(
-                              'SchoolOS',
-                              style: TextStyle(fontWeight: FontWeight.w900),
-                            ),
+                            title: Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)),
                             subtitle: Text('Finance Office'),
                           )
                         : const CircleAvatar(child: Text('S')),
@@ -269,22 +266,10 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'ACTIVE SCHOOL',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
+                              const Text('ACTIVE SCHOOL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                               const SizedBox(height: 4),
-                              Text(
-                                widget.membership.schoolName,
-                                style: const TextStyle(fontWeight: FontWeight.w900),
-                              ),
-                              const Text(
-                                financeOfficeCampusLabel,
-                                style: TextStyle(fontSize: 12),
-                              ),
+                              Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)),
+                              const Text(financeOfficeCampusLabel, style: TextStyle(fontSize: 12)),
                             ],
                           ),
                         ),
@@ -296,13 +281,10 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                         for (final item in financeOfficeNavigation)
                           ListTile(
                             selected: item.key == _activeKey,
-                            selectedTileColor:
-                                Theme.of(context).colorScheme.primaryContainer,
+                            selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
                             leading: Icon(_iconFor(item.key)),
                             title: extended ? Text(item.label) : null,
-                            trailing: extended && item.key == 'ai'
-                                ? const Chip(label: Text('AI'))
-                                : null,
+                            trailing: extended && item.key == 'ai' ? const Chip(label: Text('AI')) : null,
                             onTap: () => _select(item.key),
                           ),
                       ],
@@ -314,15 +296,9 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'FINANCE ACCESS',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
-                          ),
+                          Text('FINANCE ACCESS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                           SizedBox(height: 5),
-                          Text(
-                            'Fee, transaction, approved financing and payroll-processing data only.',
-                            style: TextStyle(fontSize: 12),
-                          ),
+                          Text('Fee, transaction, approved financing and payroll-processing data only.', style: TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),
@@ -342,10 +318,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Finance Operations',
-                                style: TextStyle(fontWeight: FontWeight.w900),
-                              ),
+                              const Text('Finance Operations', style: TextStyle(fontWeight: FontWeight.w900)),
                               Text(_activeItem.label),
                             ],
                           ),
@@ -360,11 +333,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                         OutlinedButton.icon(
                           onPressed: _openSyncCenter,
                           icon: const Icon(Icons.cloud_sync_outlined, size: 18),
-                          label: Text(
-                            _pendingSyncCount == 0
-                                ? 'Synced'
-                                : '$_pendingSyncCount pending',
-                          ),
+                          label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending'),
                         ),
                         const SizedBox(width: 12),
                         const CircleAvatar(child: Text('AB')),
@@ -373,14 +342,8 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                           const Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                financeOfficeLeaderName,
-                                style: TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                              Text(
-                                financeOfficeLeaderTitle,
-                                style: TextStyle(fontSize: 12),
-                              ),
+                              Text(financeOfficeLeaderName, style: TextStyle(fontWeight: FontWeight.w800)),
+                              Text(financeOfficeLeaderTitle, style: TextStyle(fontSize: 12)),
                             ],
                           ),
                         ],
@@ -419,10 +382,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
 }
 
 class _UpcomingFinanceFeature extends StatelessWidget {
-  const _UpcomingFinanceFeature({
-    required this.item,
-    required this.onDashboard,
-  });
+  const _UpcomingFinanceFeature({required this.item, required this.onDashboard});
 
   final FinanceOfficeNavItem item;
   final VoidCallback onDashboard;
@@ -443,24 +403,11 @@ class _UpcomingFinanceFeature extends StatelessWidget {
                 children: [
                   Icon(_FinanceOfficeWorkspacePageState._iconFor(item.key), size: 42),
                   const SizedBox(height: 12),
-                  Text(
-                    item.label,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(item.label, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900), textAlign: TextAlign.center),
                   const SizedBox(height: 8),
-                  const Text(
-                    'This Finance Office destination exists on the SchoolOS website and will be ported in sequence. It is intentionally not simulated yet.',
-                    textAlign: TextAlign.center,
-                  ),
+                  const Text('This Finance Office destination exists on the SchoolOS website and will be ported in sequence. It is intentionally not simulated yet.', textAlign: TextAlign.center),
                   const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: onDashboard,
-                    icon: const Icon(Icons.dashboard_rounded),
-                    label: const Text('Back to dashboard'),
-                  ),
+                  FilledButton.icon(onPressed: onDashboard, icon: const Icon(Icons.dashboard_rounded), label: const Text('Back to dashboard')),
                 ],
               ),
             ),
@@ -490,10 +437,7 @@ class _SchoolSwitcherButton extends StatelessWidget {
       icon: const Icon(Icons.swap_horiz_rounded),
       itemBuilder: (_) => [
         for (final membership in memberships)
-          PopupMenuItem(
-            value: membership,
-            child: Text('${membership.schoolName} · ${membership.roleLabel}'),
-          ),
+          PopupMenuItem(value: membership, child: Text('${membership.schoolName} · ${membership.roleLabel}')),
       ],
     );
   }
