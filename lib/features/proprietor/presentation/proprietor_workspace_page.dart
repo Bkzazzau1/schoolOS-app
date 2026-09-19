@@ -32,6 +32,8 @@ import '../../noticeboard/presentation/noticeboard_page.dart';
 import '../../service/data/service_repository.dart';
 import '../../service/presentation/service_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../../teaching_models/data/teaching_model_repository.dart';
+import '../../teaching_models/presentation/teaching_models_page.dart';
 import '../../transport/data/transport_repository.dart';
 import '../../transport/presentation/transport_page.dart';
 import '../../visitors/data/visitor_repository.dart';
@@ -380,6 +382,22 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           ),
           onBack: () => Navigator.of(context).pop(),
           onAwardsChanged: _refreshPendingCount,
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'teaching-models') {
+      await _pushSharedModule(
+        title: 'Teaching Models',
+        body: TeachingModelsPage(
+          schoolName: widget.membership.schoolName,
+          repository: TeachingModelRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+          onTeachingModelsChanged: _refreshPendingCount,
         ),
       );
       return;
