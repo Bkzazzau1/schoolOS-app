@@ -8,7 +8,7 @@ const financeReceipts = <FinanceReceipt>[
     admissionNumber: 'BGA/2023/SEC/001',
     amount: 25000,
     date: '13 Sep 2026',
-    method: 'Student Term Account',
+    method: 'Family Term Account',
     transactionReference: 'TRX-260913-94821',
     previousBalance: 150000,
     newBalance: 125000,
@@ -21,7 +21,7 @@ const financeReceipts = <FinanceReceipt>[
     admissionNumber: 'BGA/2024/PRI/014',
     amount: 50000,
     date: '13 Sep 2026',
-    method: 'Student Term Account',
+    method: 'Family Term Account',
     transactionReference: 'TRX-260913-94817',
     previousBalance: 100000,
     newBalance: 50000,
@@ -34,7 +34,7 @@ const financeReceipts = <FinanceReceipt>[
     admissionNumber: 'BGA/2025/NUR/007',
     amount: 15000,
     date: '13 Sep 2026',
-    method: 'Student Term Account',
+    method: 'Family Term Account',
     transactionReference: 'TRX-260913-94811',
     previousBalance: 65000,
     newBalance: 50000,
@@ -47,10 +47,10 @@ const financeReceiptCampusLine = 'Kaduna Campus · Knowledge · Character · Exc
 const financeReceiptTerm = '2026/2027 · Term 1';
 
 const financeReceiptIssuanceBoundary =
-    'A confirmed receipt may be created only after the authoritative collection event is confirmed and the credit is posted to the student fee ledger. Queued, pending, failed, unmatched or provider-attempt states must not create a confirmed receipt.';
+    'A confirmed receipt may be created only after the authoritative family-account collection event is confirmed, allocated to the intended child, and posted to that child fee ledger. Queued, pending, failed, unmatched, unallocated or provider-attempt states must not create a confirmed receipt.';
 
 const financeReceiptMutationBoundary =
-    'Printing or exporting a receipt is a document action only. It must never post another payment, alter the student balance, change the collection status or create a duplicate receipt.';
+    'Printing or exporting a receipt is a document action only. It must never post another payment, alter the child ledger balance, change the collection status or create a duplicate receipt.';
 
 const financeReceiptPrototypeBoundary =
     'The website uses browser print and exposes Export register without a persistence or export contract. Native SchoolOS keeps these as non-financial prototype document actions until a real print/export integration is connected.';
