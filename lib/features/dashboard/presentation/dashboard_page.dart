@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/app_capability.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/layout/app_breakpoints.dart';
@@ -32,18 +33,53 @@ class _DashboardPageState extends State<DashboardPage> {
   late final AttendanceRepository _attendanceRepository;
   late final LessonPlanRepository _lessonPlanRepository;
   late final LessonPlanGenerationService _lessonPlanGenerationService;
+  late final List<_AppDestination> _destinations;
 
-  static const _destinations = <_AppDestination>[
-    _AppDestination('Dashboard', Icons.dashboard_outlined, Icons.dashboard_rounded),
-    _AppDestination('Students', Icons.groups_outlined, Icons.groups_rounded),
-    _AppDestination('Attendance', Icons.fact_check_outlined, Icons.fact_check_rounded),
-    _AppDestination('Academics', Icons.menu_book_outlined, Icons.menu_book_rounded),
-    _AppDestination('Messages', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded),
+  static const _allDestinations = <_AppDestination>[
+    _AppDestination(
+      'Dashboard',
+      Icons.dashboard_outlined,
+      Icons.dashboard_rounded,
+      AppCapability.dashboard,
+    ),
+    _AppDestination(
+      'Students',
+      Icons.groups_outlined,
+      Icons.groups_rounded,
+      AppCapability.students,
+    ),
+    _AppDestination(
+      'Attendance',
+      Icons.fact_check_outlined,
+      Icons.fact_check_rounded,
+      AppCapability.attendance,
+    ),
+    _AppDestination(
+      'Academics',
+      Icons.menu_book_outlined,
+      Icons.menu_book_rounded,
+      AppCapability.academics,
+    ),
+    _AppDestination(
+      'Messages',
+      Icons.chat_bubble_outline_rounded,
+      Icons.chat_bubble_rounded,
+      AppCapability.messaging,
+    ),
   ];
 
   @override
   void initState() {
     super.initState();
+    _destinations = _allDestinations
+        .where(
+          (destination) => RolePermissions.can(
+            widget.membership.role,
+            destination.capability,
+          ),
+        )
+        .toList(growable: false);
+
     _attendanceRepository = AttendanceRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
@@ -68,14 +104,20 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildWorkspace() {
-    if (_selectedIndex == 2) {
+    final destination = _destinations[_selectedIndex];
+
+    if (destination.capability == AppCapability.attendance) {
       return AttendancePage(
         repository: _attendanceRepository,
         onSaved: _refreshPendingCount,
       );
     }
 
-    if (_selectedIndex == 3) {
+    if (destination.capability == AppCapability.academics &&
+        RolePermissions.can(
+          widget.membership.role,
+          AppCapability.lessonPlans,
+        )) {
       return LessonPlanPage(
         membership: widget.membership,
         generationService: _lessonPlanGenerationService,
@@ -85,7 +127,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     return _Workspace(
-      destination: _destinations[_selectedIndex],
+      destination: destination,
       membership: widget.membership,
       pendingSyncCount: _pendingSyncCount,
     );
@@ -253,7 +295,7 @@ class _Workspace extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Attendance and lesson-plan drafts now use the tenant-scoped encrypted local data layer. Changes selected for cloud sync are placed in the durable outbox.',
+                  'This workspace is filtered by the role attached to this school membership. Offline records remain tenant-scoped and encrypted before storage.',
                   style: theme.textTheme.bodyMedium,
                 ),
               ],
@@ -387,9 +429,15 @@ class _SyncStatusButton extends StatelessWidget {
 }
 
 class _AppDestination {
-  const _AppDestination(this.label, this.icon, this.selectedIcon);
+  const _AppDestination(
+    this.label,
+    this.icon,
+    this.selectedIcon,
+    this.capability,
+  );
 
   final String label;
   final IconData icon;
   final IconData selectedIcon;
+  final AppCapability capability;
 }
