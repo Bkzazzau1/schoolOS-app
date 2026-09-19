@@ -20,6 +20,8 @@ import '../../houses/presentation/houses_page.dart';
 import '../../noticeboard/data/noticeboard_repository.dart';
 import '../../noticeboard/presentation/noticeboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../../transport/data/transport_repository.dart';
+import '../../transport/presentation/transport_page.dart';
 import '../data/concession_repository.dart';
 import '../data/proprietor_school_life_data.dart';
 import '../data/proprietor_structure_repository.dart';
@@ -237,6 +239,22 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           ),
           onBack: () => Navigator.of(context).pop(),
           onExcursionsChanged: _refreshPendingCount,
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'transport') {
+      await _pushSharedModule(
+        title: 'School Transport',
+        body: TransportPage(
+          schoolName: widget.membership.schoolName,
+          repository: TransportRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+          onTransportChanged: _refreshPendingCount,
         ),
       );
       return;
