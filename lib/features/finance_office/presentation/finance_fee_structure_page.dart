@@ -117,10 +117,14 @@ class _Header extends StatelessWidget {
               width: 210,
               child: DropdownButtonFormField<String>(
                 initialValue: term,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Term'),
                 items: [
                   for (final item in financeFeeTerms)
-                    DropdownMenuItem(value: item, child: Text(item)),
+                    DropdownMenuItem(
+                      value: item,
+                      child: Text(item, overflow: TextOverflow.ellipsis),
+                    ),
                 ],
                 onChanged: (value) {
                   if (value != null) onTermChanged(value);
