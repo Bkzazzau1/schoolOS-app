@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../features/authentication/presentation/login_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
+import '../features/proprietor/presentation/proprietor_workspace_page.dart';
+import '../shared/models/school_membership.dart';
 import 'app_services.dart';
 
 class SchoolOsApp extends StatelessWidget {
@@ -34,11 +36,17 @@ class SchoolOsApp extends StatelessWidget {
       ),
       home: restoredMembership == null
           ? LoginPage(services: services)
-          : DashboardPage(
-              membership: restoredMembership,
-              localDatabase: services.localDatabase,
-              schoolSession: services.schoolSession,
-            ),
+          : restoredMembership.role == SchoolRole.proprietor
+              ? ProprietorWorkspacePage(
+                  membership: restoredMembership,
+                  localDatabase: services.localDatabase,
+                  schoolSession: services.schoolSession,
+                )
+              : DashboardPage(
+                  membership: restoredMembership,
+                  localDatabase: services.localDatabase,
+                  schoolSession: services.schoolSession,
+                ),
     );
   }
 }
