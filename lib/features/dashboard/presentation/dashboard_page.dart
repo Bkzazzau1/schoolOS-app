@@ -21,13 +21,13 @@ class DashboardPage extends StatefulWidget {
     required this.membership,
     required this.localDatabase,
     required this.schoolSession,
-    required this.schoolAppearance,
+    this.schoolAppearance,
   });
 
   final SchoolMembership membership;
   final LocalDatabase localDatabase;
   final SchoolSessionController schoolSession;
-  final SchoolAppearanceController schoolAppearance;
+  final SchoolAppearanceController? schoolAppearance;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -38,54 +38,27 @@ class _DashboardPageState extends State<DashboardPage> {
   int _pendingSyncCount = 0;
   late final AttendanceRepository _attendanceRepository;
   late final LessonPlanRepository _lessonPlanRepository;
-  late final LessonPlanGenerationService _lessonPlanGenerationService;
   late final List<_AppDestination> _destinations;
 
   static const _allDestinations = <_AppDestination>[
+    _AppDestination('Dashboard', Icons.dashboard_outlined,
+        Icons.dashboard_rounded, AppCapability.dashboard),
     _AppDestination(
-      'Dashboard',
-      Icons.dashboard_outlined,
-      Icons.dashboard_rounded,
-      AppCapability.dashboard,
-    ),
-    _AppDestination(
-      'Students',
-      Icons.groups_outlined,
-      Icons.groups_rounded,
-      AppCapability.students,
-    ),
-    _AppDestination(
-      'Attendance',
-      Icons.fact_check_outlined,
-      Icons.fact_check_rounded,
-      AppCapability.attendance,
-    ),
-    _AppDestination(
-      'Academics',
-      Icons.menu_book_outlined,
-      Icons.menu_book_rounded,
-      AppCapability.academics,
-    ),
-    _AppDestination(
-      'Messages',
-      Icons.chat_bubble_outline_rounded,
-      Icons.chat_bubble_rounded,
-      AppCapability.messaging,
-    ),
+        'Students', Icons.groups_outlined, Icons.groups_rounded, AppCapability.students),
+    _AppDestination('Attendance', Icons.fact_check_outlined,
+        Icons.fact_check_rounded, AppCapability.attendance),
+    _AppDestination('Academics', Icons.menu_book_outlined,
+        Icons.menu_book_rounded, AppCapability.academics),
+    _AppDestination('Messages', Icons.chat_bubble_outline_rounded,
+        Icons.chat_bubble_rounded, AppCapability.messaging),
   ];
 
   @override
   void initState() {
     super.initState();
     _destinations = _allDestinations
-        .where(
-          (destination) => RolePermissions.can(
-            widget.membership.role,
-            destination.capability,
-          ),
-        )
+        .where((item) => RolePermissions.can(widget.membership.role, item.capability))
         .toList(growable: false);
-
     _attendanceRepository = AttendanceRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
@@ -94,60 +67,20 @@ class _DashboardPageState extends State<DashboardPage> {
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
-    _lessonPlanGenerationService = const LessonPlanGenerationService();
     _refreshPendingCount();
   }
 
   void _refreshPendingCount() {
-    final activeMembership = widget.schoolSession.requireActiveMembership();
-    if (activeMembership.id != widget.membership.id) return;
-
-    final count = widget.localDatabase.pendingCount(
-      tenantId: widget.membership.schoolId,
-    );
-    if (!mounted) return;
-    setState(() => _pendingSyncCount = count);
-  }
-
-  Future<void> _switchSchool(SchoolMembership membership) async {
-    if (membership.id == widget.membership.id) return;
-
-    await widget.schoolSession.selectSchool(membership);
-    if (!mounted) return;
-
-    final Widget page;
-    if (membership.role == SchoolRole.proprietor) {
-      page = ProprietorWorkspacePage(
-        membership: membership,
-        localDatabase: widget.localDatabase,
-        schoolSession: widget.schoolSession,
-        schoolAppearance: widget.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.administrator) {
-      page = AdministratorWorkspacePage(
-        membership: membership,
-        localDatabase: widget.localDatabase,
-        schoolSession: widget.schoolSession,
-        schoolAppearance: widget.schoolAppearance,
-      );
-    } else {
-      page = DashboardPage(
-        membership: membership,
-        localDatabase: widget.localDatabase,
-        schoolSession: widget.schoolSession,
-        schoolAppearance: widget.schoolAppearance,
-      );
-    }
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (context) => page),
-    );
+    final active = widget.schoolSession.requireActiveMembership();
+    if (active.id != widget.membership.id) return;
+    final count = widget.localDatabase.pendingCount(tenantId: widget.membership.schoolId);
+    if (mounted) setState(() => _pendingSyncCount = count);
   }
 
   Future<void> _openSyncCenter() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => SyncCenterPage(
+        builder: (_) => SyncCenterPage(
           localDatabase: widget.localDatabase,
           membership: widget.membership,
         ),
@@ -156,29 +89,55 @@ class _DashboardPageState extends State<DashboardPage> {
     _refreshPendingCount();
   }
 
-  Widget _buildWorkspace() {
-    final destination = _destinations[_selectedIndex];
+  Future<void> _switchSchool(SchoolMembership membership) async {
+    if (membership.id == widget.membership.id) return;
+    await widget.schoolSession.selectSchool(membership);
+    if (!mounted) return;
 
-    if (destination.capability == AppCapability.attendance) {
-      return AttendancePage(
-        repository: _attendanceRepository,
-        onSaved: _refreshPendingCount,
+    final appearance = widget.schoolAppearance;
+    final Widget page;
+    if (membership.role == SchoolRole.proprietor && appearance != null) {
+      page = ProprietorWorkspacePage(
+        membership: membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    } else if (membership.role == SchoolRole.administrator && appearance != null) {
+      page = AdministratorWorkspacePage(
+        membership: membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    } else {
+      page = DashboardPage(
+        membership: membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
       );
     }
 
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => page),
+    );
+  }
+
+  Widget _workspace() {
+    final destination = _destinations[_selectedIndex];
+    if (destination.capability == AppCapability.attendance) {
+      return AttendancePage(repository: _attendanceRepository, onSaved: _refreshPendingCount);
+    }
     if (destination.capability == AppCapability.academics &&
-        RolePermissions.can(
-          widget.membership.role,
-          AppCapability.lessonPlans,
-        )) {
+        RolePermissions.can(widget.membership.role, AppCapability.lessonPlans)) {
       return LessonPlanPage(
         membership: widget.membership,
-        generationService: _lessonPlanGenerationService,
+        generationService: const LessonPlanGenerationService(),
         repository: _lessonPlanRepository,
         onQueuedForSync: _refreshPendingCount,
       );
     }
-
     return _Workspace(
       destination: destination,
       membership: widget.membership,
@@ -191,31 +150,16 @@ class _DashboardPageState extends State<DashboardPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final phone = AppBreakpoints.isPhone(constraints.maxWidth);
-
         if (phone) {
           return Scaffold(
             appBar: AppBar(
               title: _SchoolTitle(membership: widget.membership),
-              actions: [
-                if (widget.schoolSession.canSwitchSchool)
-                  _SchoolSwitcherButton(
-                    activeMembership: widget.membership,
-                    memberships: widget.schoolSession.memberships,
-                    onSelected: _switchSchool,
-                  ),
-                _SyncStatusButton(
-                  pendingCount: _pendingSyncCount,
-                  onPressed: _openSyncCenter,
-                ),
-                const SizedBox(width: 8),
-              ],
+              actions: _topActions(),
             ),
-            body: _buildWorkspace(),
+            body: _workspace(),
             bottomNavigationBar: NavigationBar(
               selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) {
-                setState(() => _selectedIndex = index);
-              },
+              onDestinationSelected: (index) => setState(() => _selectedIndex = index),
               destinations: [
                 for (final item in _destinations)
                   NavigationDestination(
@@ -235,9 +179,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: NavigationRail(
                   extended: constraints.maxWidth >= 1180,
                   selectedIndex: _selectedIndex,
-                  onDestinationSelected: (index) {
-                    setState(() => _selectedIndex = index);
-                  },
+                  onDestinationSelected: (index) => setState(() => _selectedIndex = index),
                   leading: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                     child: _SchoolMark(membership: widget.membership),
@@ -261,26 +203,13 @@ class _DashboardPageState extends State<DashboardPage> {
                         padding: const EdgeInsets.fromLTRB(28, 18, 28, 12),
                         child: Row(
                           children: [
-                            Expanded(
-                              child: _SchoolTitle(membership: widget.membership),
-                            ),
-                            if (widget.schoolSession.canSwitchSchool) ...[
-                              _SchoolSwitcherButton(
-                                activeMembership: widget.membership,
-                                memberships: widget.schoolSession.memberships,
-                                onSelected: _switchSchool,
-                              ),
-                              const SizedBox(width: 10),
-                            ],
-                            _SyncStatusButton(
-                              pendingCount: _pendingSyncCount,
-                              onPressed: _openSyncCenter,
-                            ),
+                            Expanded(child: _SchoolTitle(membership: widget.membership)),
+                            ..._topActions(),
                           ],
                         ),
                       ),
                       const Divider(height: 1),
-                      Expanded(child: _buildWorkspace()),
+                      Expanded(child: _workspace()),
                     ],
                   ),
                 ),
@@ -291,6 +220,17 @@ class _DashboardPageState extends State<DashboardPage> {
       },
     );
   }
+
+  List<Widget> _topActions() => [
+        if (widget.schoolSession.canSwitchSchool)
+          _SchoolSwitcherButton(
+            activeMembership: widget.membership,
+            memberships: widget.schoolSession.memberships,
+            onSelected: _switchSchool,
+          ),
+        _SyncStatusButton(pendingCount: _pendingSyncCount, onPressed: _openSyncCenter),
+        const SizedBox(width: 8),
+      ];
 }
 
 class _Workspace extends StatelessWidget {
@@ -307,22 +247,15 @@ class _Workspace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        Text(
-          destination.label,
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
+        Text(destination.label,
+            style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
         Text(
           '${membership.roleLabel} workspace · ${membership.schoolName}',
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 28),
         Wrap(
@@ -347,25 +280,12 @@ class _Workspace extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        Card(
+        const Card(
           elevation: 0,
           child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Offline foundation active',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'This workspace is filtered by the role attached to this school membership. Offline records remain tenant-scoped and encrypted before storage.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ],
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Offline foundation active. This workspace is filtered by the role attached to this school membership. Offline records remain tenant-scoped and encrypted before storage.',
             ),
           ),
         ),
@@ -375,12 +295,7 @@ class _Workspace extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
+  const _SummaryCard({required this.label, required this.value, required this.icon});
   final String label;
   final String value;
   final IconData icon;
@@ -388,7 +303,6 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return SizedBox(
       width: 220,
       child: Card(
@@ -400,12 +314,8 @@ class _SummaryCard extends StatelessWidget {
             children: [
               Icon(icon, color: theme.colorScheme.primary),
               const SizedBox(height: 18),
-              Text(
-                value,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              Text(value,
+                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
               Text(label),
             ],
@@ -418,7 +328,6 @@ class _SummaryCard extends StatelessWidget {
 
 class _SchoolTitle extends StatelessWidget {
   const _SchoolTitle({required this.membership});
-
   final SchoolMembership membership;
 
   @override
@@ -433,15 +342,10 @@ class _SchoolTitle extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                membership.schoolName,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              Text(
-                membership.roleLabel,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text(membership.schoolName,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(membership.roleLabel, style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
         ),
@@ -452,16 +356,14 @@ class _SchoolTitle extends StatelessWidget {
 
 class _SchoolMark extends StatelessWidget {
   const _SchoolMark({required this.membership});
-
   final SchoolMembership membership;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+    final scheme = Theme.of(context).colorScheme;
     return CircleAvatar(
-      backgroundColor: colorScheme.primaryContainer,
-      foregroundColor: colorScheme.onPrimaryContainer,
+      backgroundColor: scheme.primaryContainer,
+      foregroundColor: scheme.onPrimaryContainer,
       child: Text(membership.schoolName.characters.first.toUpperCase()),
     );
   }
@@ -502,10 +404,7 @@ class _SchoolSwitcherButton extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(membership.schoolName),
-                      Text(
-                        membership.roleLabel,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                      Text(membership.roleLabel, style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
@@ -518,11 +417,7 @@ class _SchoolSwitcherButton extends StatelessWidget {
 }
 
 class _SyncStatusButton extends StatelessWidget {
-  const _SyncStatusButton({
-    required this.pendingCount,
-    required this.onPressed,
-  });
-
+  const _SyncStatusButton({required this.pendingCount, required this.onPressed});
   final int pendingCount;
   final VoidCallback onPressed;
 
@@ -530,15 +425,10 @@ class _SyncStatusButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final synced = pendingCount == 0;
     return Tooltip(
-      message: synced
-          ? 'Open Sync Center'
-          : 'Open Sync Center · $pendingCount change${pendingCount == 1 ? '' : 's'} waiting',
+      message: synced ? 'Open Sync Center' : 'Open Sync Center · $pendingCount waiting',
       child: OutlinedButton.icon(
         onPressed: onPressed,
-        icon: Icon(
-          synced ? Icons.cloud_done_outlined : Icons.cloud_upload_outlined,
-          size: 18,
-        ),
+        icon: Icon(synced ? Icons.cloud_done_outlined : Icons.cloud_upload_outlined, size: 18),
         label: Text(synced ? 'Synced' : '$pendingCount pending'),
       ),
     );
@@ -546,13 +436,7 @@ class _SyncStatusButton extends StatelessWidget {
 }
 
 class _AppDestination {
-  const _AppDestination(
-    this.label,
-    this.icon,
-    this.selectedIcon,
-    this.capability,
-  );
-
+  const _AppDestination(this.label, this.icon, this.selectedIcon, this.capability);
   final String label;
   final IconData icon;
   final IconData selectedIcon;
