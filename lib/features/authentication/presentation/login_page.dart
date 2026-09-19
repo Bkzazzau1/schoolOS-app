@@ -115,14 +115,17 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     // Foundation-only flow. Real credentials and memberships will come from
     // the SchoolOS authentication API. Keeping this explicit prevents mock
     // authentication from leaking into the production data layer later.
+    await widget.services.schoolSession.setMemberships(_demoMemberships);
+    if (!mounted) return;
+
     if (_demoMemberships.length == 1) {
-      _openDashboard(_demoMemberships.single);
+      await _openDashboard(_demoMemberships.single);
       return;
     }
 
