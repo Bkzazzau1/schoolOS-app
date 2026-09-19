@@ -10,6 +10,7 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/administrator_admissions_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
 import '../data/administrator_registration_repository.dart';
+import '../data/administrator_staff_repository.dart';
 import '../data/administrator_students_repository.dart';
 import '../data/administrator_website_repository.dart';
 import '../domain/administrator_admissions_models.dart';
@@ -17,6 +18,7 @@ import '../domain/administrator_dashboard_models.dart';
 import 'administrator_admissions_page.dart';
 import 'administrator_dashboard_page.dart';
 import 'administrator_registration_page.dart';
+import 'administrator_staff_page.dart';
 import 'administrator_students_page.dart';
 import 'administrator_website_page.dart';
 
@@ -46,6 +48,7 @@ class _AdministratorWorkspacePageState
   AdmissionApplicant? _registrationApplicant;
   late final AdministratorAdmissionsRepository _admissionsRepository;
   late final AdministratorRegistrationRepository _registrationRepository;
+  late final AdministratorStaffRepository _staffRepository;
   late final AdministratorStudentsRepository _studentsRepository;
   late final AdministratorWebsiteRepository _websiteRepository;
 
@@ -57,6 +60,10 @@ class _AdministratorWorkspacePageState
       schoolSession: widget.schoolSession,
     );
     _registrationRepository = AdministratorRegistrationRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _staffRepository = AdministratorStaffRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -214,6 +221,13 @@ class _AdministratorWorkspacePageState
         schoolName: widget.membership.schoolName,
         repository: _studentsRepository,
         onRegisterStudent: () => _select('registration'),
+      );
+    }
+
+    if (_activeKey == 'staff') {
+      return AdministratorStaffPage(
+        schoolName: widget.membership.schoolName,
+        repository: _staffRepository,
       );
     }
 
