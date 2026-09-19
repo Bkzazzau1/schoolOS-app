@@ -21,6 +21,8 @@ import '../../gallery/data/gallery_repository.dart';
 import '../../gallery/presentation/gallery_page.dart';
 import '../../houses/data/house_repository.dart';
 import '../../houses/presentation/houses_page.dart';
+import '../../lost_found/data/lost_found_repository.dart';
+import '../../lost_found/presentation/lost_found_page.dart';
 import '../../meals/data/meal_repository.dart';
 import '../../meals/presentation/meals_page.dart';
 import '../../noticeboard/data/noticeboard_repository.dart';
@@ -326,6 +328,22 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           ),
           onBack: () => Navigator.of(context).pop(),
           onVisitorsChanged: _refreshPendingCount,
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'lost-found') {
+      await _pushSharedModule(
+        title: 'Lost & Found',
+        body: LostFoundPage(
+          schoolName: widget.membership.schoolName,
+          repository: LostFoundRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+          onLostFoundChanged: _refreshPendingCount,
         ),
       );
       return;
