@@ -116,7 +116,7 @@ class _Header extends StatelessWidget {
             SizedBox(
               width: 210,
               child: DropdownButtonFormField<String>(
-                value: term,
+                initialValue: term,
                 decoration: const InputDecoration(labelText: 'Term'),
                 items: [
                   for (final item in financeFeeTerms)
