@@ -2,6 +2,7 @@ import '../../shared/models/school_membership.dart';
 
 enum AppCapability {
   dashboard,
+  administration,
   students,
   attendance,
   academics,
@@ -14,6 +15,13 @@ abstract final class RolePermissions {
   static Set<AppCapability> forRole(SchoolRole role) {
     return switch (role) {
       SchoolRole.proprietor => AppCapability.values.toSet(),
+      SchoolRole.administrator => {
+          AppCapability.dashboard,
+          AppCapability.administration,
+          AppCapability.students,
+          AppCapability.attendance,
+          AppCapability.messaging,
+        },
       SchoolRole.principal => {
           AppCapability.dashboard,
           AppCapability.students,
