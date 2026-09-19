@@ -1,5 +1,6 @@
 enum SchoolRole {
   proprietor,
+  administrator,
   principal,
   teacher,
   accountant,
@@ -24,6 +25,7 @@ class SchoolMembership {
   String get roleLabel {
     return switch (role) {
       SchoolRole.proprietor => 'Proprietor',
+      SchoolRole.administrator => 'Administrator',
       SchoolRole.principal => 'Principal',
       SchoolRole.teacher => 'Teacher',
       SchoolRole.accountant => 'Accountant',
