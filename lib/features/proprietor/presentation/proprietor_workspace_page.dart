@@ -11,6 +11,8 @@ import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../events/data/event_repository.dart';
 import '../../events/presentation/events_page.dart';
+import '../../gallery/data/gallery_repository.dart';
+import '../../gallery/presentation/gallery_page.dart';
 import '../../houses/data/house_repository.dart';
 import '../../houses/presentation/houses_page.dart';
 import '../../noticeboard/data/noticeboard_repository.dart';
@@ -198,6 +200,21 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
         body: HousesPage(
           schoolName: widget.membership.schoolName,
           repository: HouseRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'gallery') {
+      await _pushSharedModule(
+        title: 'Media Gallery',
+        body: GalleryPage(
+          schoolName: widget.membership.schoolName,
+          repository: GalleryRepository(
             localDatabase: widget.localDatabase,
             schoolSession: widget.schoolSession,
           ),
