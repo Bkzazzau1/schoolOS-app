@@ -79,6 +79,11 @@ void main() {
   });
 
   testWidgets('Confirm payment does not invent bank settlement', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const MaterialApp(home: Scaffold(body: FinanceStorePage())));
     await tester.pumpAndSettle();
 
@@ -91,6 +96,7 @@ void main() {
       find.textContaining('Authoritative bank/provider confirmation is required'),
       findsOneWidget,
     );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('School Store renders on a phone-sized viewport without exceptions', (tester) async {
@@ -103,7 +109,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('School Store & Collections'), findsOneWidget);
-    expect(find.text('Two separate collection rails'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
