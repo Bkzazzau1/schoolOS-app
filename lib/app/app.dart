@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../features/authentication/presentation/login_page.dart';
+import '../features/dashboard/presentation/dashboard_page.dart';
+import 'app_services.dart';
 
 class SchoolOsApp extends StatelessWidget {
-  const SchoolOsApp({super.key});
+  const SchoolOsApp({
+    super.key,
+    required this.services,
+  });
+
+  final AppServices services;
 
   @override
   Widget build(BuildContext context) {
+    final restoredMembership = services.schoolSession.activeMembership;
+
     return MaterialApp(
       title: 'SchoolOS',
       debugShowCheckedModeBanner: false,
@@ -23,7 +32,13 @@ class SchoolOsApp extends StatelessWidget {
           fillColor: Colors.white,
         ),
       ),
-      home: const LoginPage(),
+      home: restoredMembership == null
+          ? LoginPage(services: services)
+          : DashboardPage(
+              membership: restoredMembership,
+              localDatabase: services.localDatabase,
+              schoolSession: services.schoolSession,
+            ),
     );
   }
 }
