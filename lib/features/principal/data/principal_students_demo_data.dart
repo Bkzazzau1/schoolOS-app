@@ -34,7 +34,7 @@ PrincipalStudentProfile principalStudentProfileFor(PrincipalStudentSummary summa
   return _generatedProfile(summary);
 }
 
-const _maryam = PrincipalStudentProfile(
+final _maryam = PrincipalStudentProfile(
   summary: principalStudentSummaries[0],
   admissionNo: 'BGA/2023/SEC/001',
   campus: 'Kaduna Campus',
@@ -53,37 +53,37 @@ const _maryam = PrincipalStudentProfile(
   boarding: 'Day student',
   feeVisibility: 'Finance team + authorized guardian only',
   previousSchool: 'Al-Hikmah Primary School, Kaduna',
-  activities: ['Chess Club', 'Debate & Public Speaking'],
-  awards: ['Excellent Attendance · Term 2', 'Debate Team Recognition'],
-  subjects: [
+  activities: const ['Chess Club', 'Debate & Public Speaking'],
+  awards: const ['Excellent Attendance · Term 2', 'Debate Team Recognition'],
+  subjects: const [
     PrincipalStudentSubject(name: 'Mathematics', score: 88, trend: '+3.0'),
     PrincipalStudentSubject(name: 'English', score: 84, trend: '+2.1'),
     PrincipalStudentSubject(name: 'Basic Science', score: 87, trend: '+5.2'),
     PrincipalStudentSubject(name: 'Social Studies', score: 85, trend: '+4.0'),
   ],
-  attendanceSummary: [
+  attendanceSummary: const [
     PrincipalStudentLabelValue(label: 'Present', value: '96%'),
     PrincipalStudentLabelValue(label: 'Late', value: '2'),
     PrincipalStudentLabelValue(label: 'Excused', value: '1'),
     PrincipalStudentLabelValue(label: 'Unexplained', value: '0'),
   ],
-  promotionHistory: [
+  promotionHistory: const [
     PrincipalStudentHistoryRow(session: '2025/2026', className: 'JSS 1A', outcome: 'Promoted to JSS 2', note: 'Normal progression'),
     PrincipalStudentHistoryRow(session: '2024/2025', className: 'Primary 6', outcome: 'Completed', note: 'Admission transition record'),
   ],
-  documents: [
+  documents: const [
     PrincipalStudentDocument(name: 'Admission form', status: 'Verified', visibility: 'Leadership + Records'),
     PrincipalStudentDocument(name: 'Birth record', status: 'Verified', visibility: 'Leadership + Records'),
     PrincipalStudentDocument(name: 'Guardian consent', status: 'Current', visibility: 'Leadership + Guardian'),
   ],
-  timeline: [
+  timeline: const [
     PrincipalStudentTimelineItem(date: '10 Sep', title: 'Debate recognition', detail: 'Recognized for contribution to inter-house debate preparation.', visibility: 'School + Guardian'),
     PrincipalStudentTimelineItem(date: '6 Sep', title: 'Assessment completed', detail: 'Basic Science assessment recorded at 87%.', visibility: 'Teacher + Leadership + Guardian'),
     PrincipalStudentTimelineItem(date: '2 Sep', title: 'Attendance review', detail: 'Attendance remained above section target.', visibility: 'Leadership + Teacher'),
   ],
 );
 
-const _yusuf = PrincipalStudentProfile(
+final _yusuf = PrincipalStudentProfile(
   summary: principalStudentSummaries[2],
   admissionNo: 'BGA/2023/SEC/003',
   campus: 'Kaduna Campus',
@@ -102,30 +102,30 @@ const _yusuf = PrincipalStudentProfile(
   boarding: 'Day student',
   feeVisibility: 'Finance team + authorized guardian only',
   previousSchool: 'Darul Ilm Academy, Kaduna',
-  activities: ['Football Academy'],
-  awards: ['House Participation · Term 1'],
-  subjects: [
+  activities: const ['Football Academy'],
+  awards: const ['House Participation · Term 1'],
+  subjects: const [
     PrincipalStudentSubject(name: 'Mathematics', score: 42, trend: '-11.0'),
     PrincipalStudentSubject(name: 'English', score: 51, trend: '-5.0'),
     PrincipalStudentSubject(name: 'Basic Science', score: 46, trend: '-9.0'),
     PrincipalStudentSubject(name: 'Social Studies', score: 53, trend: '-4.0'),
   ],
-  attendanceSummary: [
+  attendanceSummary: const [
     PrincipalStudentLabelValue(label: 'Present', value: '79%'),
     PrincipalStudentLabelValue(label: 'Late', value: '5'),
     PrincipalStudentLabelValue(label: 'Excused', value: '3'),
     PrincipalStudentLabelValue(label: 'Unexplained', value: '6'),
   ],
-  promotionHistory: [
+  promotionHistory: const [
     PrincipalStudentHistoryRow(session: '2025/2026', className: 'JSS 1B', outcome: 'Promoted to JSS 2', note: 'Support plan continued'),
     PrincipalStudentHistoryRow(session: '2024/2025', className: 'Primary 6', outcome: 'Completed', note: 'Admission transition record'),
   ],
-  documents: [
+  documents: const [
     PrincipalStudentDocument(name: 'Admission form', status: 'Verified', visibility: 'Leadership + Records'),
     PrincipalStudentDocument(name: 'Birth record', status: 'Verified', visibility: 'Leadership + Records'),
     PrincipalStudentDocument(name: 'Guardian contact record', status: 'Current', visibility: 'Leadership + Guardian'),
   ],
-  timeline: [
+  timeline: const [
     PrincipalStudentTimelineItem(date: '12 Sep', title: 'Guardian follow-up requested', detail: 'Leadership requested coordinated attendance and learning follow-up.', visibility: 'Leadership + Guardian'),
     PrincipalStudentTimelineItem(date: '8 Sep', title: 'Teacher intervention', detail: 'Short Mathematics revision support plan started.', visibility: 'Teacher + Leadership'),
     PrincipalStudentTimelineItem(date: '4 Sep', title: 'Attendance pattern reviewed', detail: 'Repeated absences flagged for human follow-up; no family cause inferred.', visibility: 'Leadership only'),
@@ -133,7 +133,7 @@ const _yusuf = PrincipalStudentProfile(
 );
 
 PrincipalStudentProfile _generatedProfile(PrincipalStudentSummary summary) {
-  final score = summary.average.clamp(35, 96);
+  final score = summary.average.clamp(35, 96).toInt();
   final digits = summary.id.replaceAll(RegExp(r'\D'), '').padLeft(3, '0');
   return PrincipalStudentProfile(
     summary: summary,
