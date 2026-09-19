@@ -41,39 +41,55 @@ class LessonPlanGenerationService {
     var usedCloud = false;
     String? fallbackMessage;
 
-    if (tryEdgeAi && edgeEngine != null) {
-      try {
-        if (await edgeEngine!.isAvailable()) {
-          draft = await edgeEngine!.improve(
-            request: request,
-            baseDraft: draft,
-          );
-          draft = draft.copyWith(mode: LessonPlanGenerationMode.edgeAi);
-          usedEdgeAi = true;
-        } else {
-          fallbackMessage = 'Local AI model is not installed yet. Offline draft used.';
+    if (tryEdgeAi) {
+      final engine = edgeEngine;
+      if (engine == null) {
+        fallbackMessage =
+            'Local AI runtime is not connected yet. Offline draft used.';
+      } else {
+        try {
+          if (await engine.isAvailable()) {
+            draft = await engine.improve(
+              request: request,
+              baseDraft: draft,
+            );
+            draft = draft.copyWith(mode: LessonPlanGenerationMode.edgeAi);
+            usedEdgeAi = true;
+          } else {
+            fallbackMessage =
+                'Local AI model is not installed yet. Offline draft used.';
+          }
+        } catch (_) {
+          fallbackMessage =
+              'Local AI could not run. Offline draft used safely.';
         }
-      } catch (_) {
-        fallbackMessage = 'Local AI could not run. Offline draft used safely.';
       }
     }
 
-    if (tryCloud && cloudClient != null) {
-      try {
-        if (await cloudClient!.isAvailable()) {
-          draft = await cloudClient!.enhance(
-            request: request,
-            baseDraft: draft,
-          );
-          draft = draft.copyWith(mode: LessonPlanGenerationMode.cloudEnhanced);
-          usedCloud = true;
-        } else {
-          fallbackMessage ??=
-              'Cloud AI is unavailable. The best local draft is still ready.';
-        }
-      } catch (_) {
+    if (tryCloud) {
+      final client = cloudClient;
+      if (client == null) {
         fallbackMessage ??=
-            'Cloud enhancement failed. The best local draft is still ready.';
+            'Cloud AI is not connected yet. The best local draft is ready.';
+      } else {
+        try {
+          if (await client.isAvailable()) {
+            draft = await client.enhance(
+              request: request,
+              baseDraft: draft,
+            );
+            draft = draft.copyWith(
+              mode: LessonPlanGenerationMode.cloudEnhanced,
+            );
+            usedCloud = true;
+          } else {
+            fallbackMessage ??=
+                'Cloud AI is unavailable. The best local draft is ready.';
+          }
+        } catch (_) {
+          fallbackMessage ??=
+              'Cloud enhancement failed. The best local draft is still ready.';
+        }
       }
     }
 
