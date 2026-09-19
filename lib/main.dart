@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'app/app.dart';
+import 'app/app_services.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const SchoolOsApp());
+  final services = await AppServices.bootstrap();
+  runApp(SchoolOsApp(services: services));
 }
