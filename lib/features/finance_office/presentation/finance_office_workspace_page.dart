@@ -15,6 +15,7 @@ import '../domain/finance_office_dashboard_models.dart';
 import 'finance_collections_page.dart';
 import 'finance_concessions_page.dart';
 import 'finance_fee_structure_page.dart';
+import 'finance_mandates_page.dart';
 import 'finance_office_dashboard_page.dart';
 import 'finance_reminders_page.dart';
 import 'finance_store_page.dart';
@@ -138,6 +139,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'collections' => const FinanceCollectionsPage(),
         'reminders' => const FinanceRemindersPage(),
         'store' => const FinanceStorePage(),
+        'mandates' => const FinanceMandatesPage(),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
