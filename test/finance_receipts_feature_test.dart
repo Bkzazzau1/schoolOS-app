@@ -7,7 +7,7 @@ import 'package:schoolos_app/features/finance_office/domain/finance_receipts_mod
 import 'package:schoolos_app/features/finance_office/presentation/finance_receipts_page.dart';
 
 void main() {
-  test('receipts register preserves exact three website receipts', () {
+  test('receipts register preserves three confirmed receipt records', () {
     expect(financeReceipts, hasLength(3));
     expect(financeReceipts.map((receipt) => receipt.number).toList(), [
       'BGA/RCPT/2026/004819',
@@ -26,12 +26,12 @@ void main() {
     ]);
   });
 
-  test('all website receipts are confirmed student term-account credits', () {
+  test('all receipts are confirmed family-account credits allocated to child ledgers', () {
     expect(
       financeReceipts.every(
         (receipt) =>
             receipt.status == FinanceReceiptStatus.confirmed &&
-            receipt.method == 'Student Term Account' &&
+            receipt.method == 'Family Term Account' &&
             receipt.date == '13 Sep 2026',
       ),
       isTrue,
@@ -48,7 +48,7 @@ void main() {
     expect(financeReceipts.last.newBalance, 50000);
   });
 
-  test('receipt references match confirmed Smart Collections events', () {
+  test('receipt references match confirmed Smart Collections child allocations', () {
     for (final receipt in financeReceipts) {
       final event = financeCollectionFeed.firstWhere(
         (item) => item.reference == receipt.transactionReference,
@@ -71,9 +71,11 @@ void main() {
     expect(copy.status, FinanceReceiptStatus.confirmed);
   });
 
-  test('receipt boundaries prevent duplicate or premature financial claims', () {
-    expect(financeReceiptIssuanceBoundary, contains('authoritative collection event'));
-    expect(financeReceiptIssuanceBoundary, contains('posted to the student fee ledger'));
+  test('receipt boundaries prevent duplicate, unallocated or premature claims', () {
+    expect(financeReceiptIssuanceBoundary, contains('family-account collection event'));
+    expect(financeReceiptIssuanceBoundary, contains('allocated to the intended child'));
+    expect(financeReceiptIssuanceBoundary, contains('posted to that child fee ledger'));
+    expect(financeReceiptIssuanceBoundary, contains('unallocated'));
     expect(financeReceiptIssuanceBoundary, contains('must not create a confirmed receipt'));
     expect(financeReceiptMutationBoundary, contains('must never post another payment'));
     expect(financeReceiptMutationBoundary, contains('duplicate receipt'));
@@ -81,7 +83,7 @@ void main() {
     expect(financeReceiptPrototypeBoundary, contains('non-financial'));
   });
 
-  test('receipt money formatter matches website Nigerian display', () {
+  test('receipt money formatter matches Nigerian display', () {
     expect(financeReceiptMoney(25000), '₦25,000');
     expect(financeReceiptMoney(150000), '₦150,000');
     expect(financeReceiptMoney(50000), '₦50,000');
