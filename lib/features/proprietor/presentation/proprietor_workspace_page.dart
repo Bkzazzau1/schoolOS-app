@@ -9,6 +9,7 @@ import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/concession_repository.dart';
+import '../data/proprietor_school_life_data.dart';
 import '../data/proprietor_structure_repository.dart';
 import 'proprietor_ai_page.dart';
 import 'proprietor_appearance_page.dart';
