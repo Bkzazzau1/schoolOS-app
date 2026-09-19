@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_services.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
@@ -31,6 +32,12 @@ class _LoginPageState extends State<LoginPage> {
       schoolId: 'school-brightgate',
       schoolName: 'BrightGate Academy',
       role: SchoolRole.proprietor,
+    ),
+    SchoolMembership(
+      id: 'membership-administrator-001',
+      schoolId: 'school-brightgate',
+      schoolName: 'BrightGate Academy',
+      role: SchoolRole.administrator,
     ),
     SchoolMembership(
       id: 'membership-teacher-001',
@@ -150,18 +157,29 @@ class _LoginPageState extends State<LoginPage> {
     await widget.services.schoolSession.selectSchool(membership);
     if (!mounted) return;
 
-    final page = membership.role == SchoolRole.proprietor
-        ? ProprietorWorkspacePage(
-            membership: membership,
-            localDatabase: widget.services.localDatabase,
-            schoolSession: widget.services.schoolSession,
-            schoolAppearance: widget.services.schoolAppearance,
-          )
-        : DashboardPage(
-            membership: membership,
-            localDatabase: widget.services.localDatabase,
-            schoolSession: widget.services.schoolSession,
-          );
+    final Widget page;
+    if (membership.role == SchoolRole.proprietor) {
+      page = ProprietorWorkspacePage(
+        membership: membership,
+        localDatabase: widget.services.localDatabase,
+        schoolSession: widget.services.schoolSession,
+        schoolAppearance: widget.services.schoolAppearance,
+      );
+    } else if (membership.role == SchoolRole.administrator) {
+      page = AdministratorWorkspacePage(
+        membership: membership,
+        localDatabase: widget.services.localDatabase,
+        schoolSession: widget.services.schoolSession,
+        schoolAppearance: widget.services.schoolAppearance,
+      );
+    } else {
+      page = DashboardPage(
+        membership: membership,
+        localDatabase: widget.services.localDatabase,
+        schoolSession: widget.services.schoolSession,
+        schoolAppearance: widget.services.schoolAppearance,
+      );
+    }
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (context) => page),
