@@ -51,7 +51,7 @@ class _FinanceCollectionsPageState extends State<FinanceCollectionsPage> {
     final amount = int.tryParse(_limitController.text) ?? 0;
     setState(() {
       _notice =
-          'Prototype limit updated for ${_selected.student}: ${financeCollectionMoney(amount)}. This does not claim a bank-side ceiling changed.';
+          'Prototype limit reviewed for ${_selected.guardian} family account (${_selected.student} ledger): ${financeCollectionMoney(amount)}. This does not claim a bank-side ceiling changed.';
     });
   }
 
@@ -169,7 +169,7 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Unique term accounts, flexible deposits, collection limits, live payment identification and automatic receipts.',
+                'Family collection accounts, separate child fee ledgers, flexible deposits, collection limits, live payment identification and automatic receipts.',
               ),
             ],
           ),
@@ -205,7 +205,7 @@ class _Kpis extends StatelessWidget {
       (
         label: 'Gross term fees',
         value: financeCollectionMoney(totals.gross),
-        hint: 'Selected prototype accounts',
+        hint: 'Selected child ledgers',
       ),
       (
         label: 'Scholarships & discounts',
@@ -215,17 +215,17 @@ class _Kpis extends StatelessWidget {
       (
         label: 'Collected',
         value: financeCollectionMoney(totals.collected),
-        hint: 'Across term accounts',
+        hint: 'Allocated across child ledgers',
       ),
       (
         label: 'Outstanding',
         value: financeCollectionMoney(totals.outstanding),
-        hint: 'Net parent obligation',
+        hint: 'Net family obligations',
       ),
       (
-        label: 'Active term accounts',
+        label: 'Family collection accounts',
         value: '${totals.activeAccounts}',
-        hint: 'One per child · per term',
+        hint: 'One per guardian · child ledgers linked',
       ),
     ];
 
@@ -282,15 +282,15 @@ class _TermAccountList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _CardShell(
-      title: 'Student term accounts',
-      subtitle: 'Static account number for the active term.',
+      title: 'Linked child fee ledgers',
+      subtitle: 'Each child keeps a ledger; siblings under the same payer can share one family collection account.',
       child: Column(
         children: [
           for (final account in financeTermAccounts)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Material(
-                color: selected.account == account.account
+                color: selected.id == account.id
                     ? Theme.of(context).colorScheme.primaryContainer
                     : Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(14),
@@ -307,20 +307,21 @@ class _TermAccountList extends StatelessWidget {
                           children: [
                             Text(account.student, style: const TextStyle(fontWeight: FontWeight.w900)),
                             Text('${account.className} · ${account.id}'),
+                            Text(account.guardian, style: Theme.of(context).textTheme.bodySmall),
                           ],
                         );
                         final bank = Column(
                           crossAxisAlignment: compact ? CrossAxisAlignment.start : CrossAxisAlignment.end,
                           children: [
                             Text(account.account, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w800)),
-                            Text(account.provider, style: Theme.of(context).textTheme.bodySmall),
+                            Text('Family account · ${account.provider}', style: Theme.of(context).textTheme.bodySmall),
                           ],
                         );
                         final amount = Column(
                           crossAxisAlignment: compact ? CrossAxisAlignment.start : CrossAxisAlignment.end,
                           children: [
                             Text(financeCollectionMoney(account.outstanding), style: const TextStyle(fontWeight: FontWeight.w900)),
-                            Text('outstanding', style: Theme.of(context).textTheme.bodySmall),
+                            Text('child ledger outstanding', style: Theme.of(context).textTheme.bodySmall),
                           ],
                         );
                         if (compact) {
@@ -364,7 +365,7 @@ class _TermAccountDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CardShell(
       title: account.student,
-      subtitle: '${account.className} · ${account.guardian}',
+      subtitle: '${account.className} · child ledger under ${account.guardian}',
       trailing: Chip(label: Text(financeTermAccountStatusLabel(account.status))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,14 +380,14 @@ class _TermAccountDetail extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('2026/2027 · TERM 1 COLLECTION ACCOUNT', style: TextStyle(fontWeight: FontWeight.w800)),
+                const Text('2026/2027 · TERM 1 FAMILY COLLECTION ACCOUNT', style: TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
                 SelectableText(
                   account.account,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 5),
-                Text('${account.provider} · Account name: BRIGHTGATE / ${account.student.toUpperCase()}'),
+                Text('${account.provider} · Account holder: ${account.guardian}'),
               ],
             ),
           ),
@@ -398,9 +399,9 @@ class _TermAccountDetail extends StatelessWidget {
               _MoneyCell(label: 'Gross fee', value: account.gross),
               _MoneyCell(label: 'Scholarship', value: account.scholarship),
               _MoneyCell(label: 'Discount', value: account.discount),
-              _MoneyCell(label: 'Paid', value: account.paid),
-              _MoneyCell(label: 'Outstanding', value: account.outstanding),
-              _MoneyCell(label: 'Collection ceiling', value: account.limit),
+              _MoneyCell(label: 'Paid to this ledger', value: account.paid),
+              _MoneyCell(label: 'Ledger outstanding', value: account.outstanding),
+              _MoneyCell(label: 'Ledger collection ceiling', value: account.limit),
             ],
           ),
           const SizedBox(height: 14),
@@ -411,7 +412,9 @@ class _TermAccountDetail extends StatelessWidget {
               color: Theme.of(context).colorScheme.secondaryContainer,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Text('$financeCollectionsDepositBoundary $financeCollectionsCeilingBoundary'),
+            child: const Text(
+              '$financeCollectionsFamilyAccountBoundary $financeCollectionsAllocationBoundary $financeCollectionsDepositBoundary $financeCollectionsCeilingBoundary',
+            ),
           ),
         ],
       ),
@@ -427,7 +430,7 @@ class _MoneyCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 145,
+      width: 155,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
@@ -470,20 +473,20 @@ class _LimitControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CardShell(
       title: 'Collection limit control',
-      subtitle: 'Temporary or permanent ceiling for unusually large incoming payments.',
+      subtitle: 'Prototype review for the selected child ledger within its family account.',
       trailing: const Chip(label: Text('Audited change')),
       child: Column(
         children: [
           TextFormField(
             initialValue: account.account,
             readOnly: true,
-            decoration: const InputDecoration(labelText: 'Current account'),
+            decoration: const InputDecoration(labelText: 'Family collection account'),
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: limitController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Authorized receivable'),
+            decoration: const InputDecoration(labelText: 'Authorized receivable for selected ledger'),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -562,7 +565,7 @@ class _LiveCollectionsFeed extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CardShell(
       title: 'Live collections feed',
-      subtitle: 'Credits arriving through unique student term accounts.',
+      subtitle: 'Confirmed credits arriving through family accounts and allocated to identified child ledgers.',
       trailing: const Chip(label: Text('● Live prototype')),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -592,8 +595,8 @@ class _LiveCollectionsFeed extends StatelessWidget {
             child: DataTable(
               columns: const [
                 DataColumn(label: Text('Time')),
-                DataColumn(label: Text('Student')),
-                DataColumn(label: Text('Account')),
+                DataColumn(label: Text('Child ledger')),
+                DataColumn(label: Text('Family account')),
                 DataColumn(label: Text('Reference')),
                 DataColumn(label: Text('Amount')),
                 DataColumn(label: Text('Status')),
@@ -631,7 +634,9 @@ class _PrototypeBoundary extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Text(financeCollectionsPrototypeBoundary),
+      child: const Text(
+        '$financeCollectionsFamilyAccountBoundary $financeCollectionsAllocationBoundary $financeCollectionsPrototypeBoundary',
+      ),
     );
   }
 }
