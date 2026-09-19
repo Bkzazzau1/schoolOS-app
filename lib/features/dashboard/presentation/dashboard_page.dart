@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/database/local_database.dart';
+import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
 
@@ -7,9 +9,13 @@ class DashboardPage extends StatefulWidget {
   const DashboardPage({
     super.key,
     required this.membership,
+    required this.localDatabase,
+    required this.schoolSession,
   });
 
   final SchoolMembership membership;
+  final LocalDatabase localDatabase;
+  final SchoolSessionController schoolSession;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -17,6 +23,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
+  int _pendingSyncCount = 0;
 
   static const _destinations = <_AppDestination>[
     _AppDestination('Dashboard', Icons.dashboard_outlined, Icons.dashboard_rounded),
@@ -25,6 +32,23 @@ class _DashboardPageState extends State<DashboardPage> {
     _AppDestination('Academics', Icons.menu_book_outlined, Icons.menu_book_rounded),
     _AppDestination('Messages', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPendingCount();
+  }
+
+  void _refreshPendingCount() {
+    final activeMembership = widget.schoolSession.requireActiveMembership();
+    if (activeMembership.id != widget.membership.id) return;
+
+    final count = widget.localDatabase.pendingCount(
+      tenantId: widget.membership.schoolId,
+    );
+    if (!mounted) return;
+    setState(() => _pendingSyncCount = count);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,14 +60,18 @@ class _DashboardPageState extends State<DashboardPage> {
           return Scaffold(
             appBar: AppBar(
               title: _SchoolTitle(membership: widget.membership),
-              actions: const [
-                _SyncStatusButton(),
-                SizedBox(width: 8),
+              actions: [
+                _SyncStatusButton(
+                  pendingCount: _pendingSyncCount,
+                  onPressed: _refreshPendingCount,
+                ),
+                const SizedBox(width: 8),
               ],
             ),
             body: _Workspace(
               destination: _destinations[_selectedIndex],
               membership: widget.membership,
+              pendingSyncCount: _pendingSyncCount,
             ),
             bottomNavigationBar: NavigationBar(
               selectedIndex: _selectedIndex,
@@ -98,7 +126,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             Expanded(
                               child: _SchoolTitle(membership: widget.membership),
                             ),
-                            const _SyncStatusButton(),
+                            _SyncStatusButton(
+                              pendingCount: _pendingSyncCount,
+                              onPressed: _refreshPendingCount,
+                            ),
                           ],
                         ),
                       ),
@@ -107,6 +138,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         child: _Workspace(
                           destination: _destinations[_selectedIndex],
                           membership: widget.membership,
+                          pendingSyncCount: _pendingSyncCount,
                         ),
                       ),
                     ],
@@ -125,10 +157,12 @@ class _Workspace extends StatelessWidget {
   const _Workspace({
     required this.destination,
     required this.membership,
+    required this.pendingSyncCount,
   });
 
   final _AppDestination destination;
   final SchoolMembership membership;
+  final int pendingSyncCount;
 
   @override
   Widget build(BuildContext context) {
@@ -154,18 +188,18 @@ class _Workspace extends StatelessWidget {
         Wrap(
           spacing: 16,
           runSpacing: 16,
-          children: const [
-            _SummaryCard(
-              label: 'Offline status',
-              value: 'Ready',
-              icon: Icons.cloud_done_outlined,
+          children: [
+            const _SummaryCard(
+              label: 'Offline storage',
+              value: 'Encrypted',
+              icon: Icons.enhanced_encryption_outlined,
             ),
             _SummaryCard(
               label: 'Pending sync',
-              value: '0',
+              value: '$pendingSyncCount',
               icon: Icons.sync_rounded,
             ),
-            _SummaryCard(
+            const _SummaryCard(
               label: 'Edge AI',
               value: 'Foundation',
               icon: Icons.auto_awesome_outlined,
@@ -181,14 +215,14 @@ class _Workspace extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Foundation workspace',
+                  'Offline foundation active',
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'This shell is ready for role-based modules. The next implementation step is authentication/session handling, local persistence, and the first offline attendance workflow.',
+                  'Local records are tenant-scoped, sensitive payloads are encrypted before storage, and offline changes are queued in a durable sync outbox. Attendance is the first workflow being connected to this foundation.',
                   style: theme.textTheme.bodyMedium,
                 ),
               ],
@@ -294,16 +328,28 @@ class _SchoolMark extends StatelessWidget {
 }
 
 class _SyncStatusButton extends StatelessWidget {
-  const _SyncStatusButton();
+  const _SyncStatusButton({
+    required this.pendingCount,
+    required this.onPressed,
+  });
+
+  final int pendingCount;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final synced = pendingCount == 0;
     return Tooltip(
-      message: 'No changes waiting to sync',
+      message: synced
+          ? 'No changes waiting to sync'
+          : '$pendingCount change${pendingCount == 1 ? '' : 's'} waiting to sync',
       child: OutlinedButton.icon(
-        onPressed: () {},
-        icon: const Icon(Icons.cloud_done_outlined, size: 18),
-        label: const Text('Synced'),
+        onPressed: onPressed,
+        icon: Icon(
+          synced ? Icons.cloud_done_outlined : Icons.cloud_upload_outlined,
+          size: 18,
+        ),
+        label: Text(synced ? 'Synced' : '$pendingCount pending'),
       ),
     );
   }
