@@ -7,6 +7,7 @@ import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/concession_repository.dart';
 import 'proprietor_concession_approvals_page.dart';
+import 'proprietor_enrollment_page.dart';
 import 'proprietor_finance_page.dart';
 import 'proprietor_overview_page.dart';
 
@@ -34,7 +35,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
   static const _navigation = <_OwnerNavItem>[
     _OwnerNavItem('overview', 'Executive Overview', Icons.dashboard_rounded, true),
     _OwnerNavItem('finance', 'Owner Finance', Icons.account_balance_wallet_rounded, true),
-    _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded, false),
+    _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded, true),
     _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded, false),
     _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded, false),
     _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, false),
@@ -102,7 +103,9 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     if (item == null) return;
     if (!item.implemented) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${item.label} is the next proprietor feature to be ported.')),
+        SnackBar(
+          content: Text('${item.label} is the next proprietor feature to be ported.'),
+        ),
       );
       return;
     }
@@ -110,10 +113,6 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
   }
 
   void _handleOverviewModuleRequest(String key) {
-    if (key == 'finance') {
-      _selectModule('finance');
-      return;
-    }
     _selectModule(key);
   }
 
@@ -134,7 +133,11 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           _ => 'Finance workflow',
         };
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label belongs to the Finance Office feature and will be ported with that role.')),
+          SnackBar(
+            content: Text(
+              '$label belongs to the Finance Office feature and will be ported with that role.',
+            ),
+          ),
         );
     }
   }
@@ -150,6 +153,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           onBack: () => setState(() => _activeModule = 'finance'),
           onDecisionSaved: _refreshPendingCount,
         ),
+      'enrollment' => ProprietorEnrollmentPage(
+          schoolName: widget.membership.schoolName,
+          onActionRequested: _selectModule,
+        ),
       _ => ProprietorOverviewPage(
           schoolName: widget.membership.schoolName,
           onModuleRequested: _handleOverviewModuleRequest,
@@ -159,7 +166,11 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
 
   String get _activeLabel {
     if (_activeModule == 'finance-approvals') return 'Concession Approvals';
-    return _navigation.where((item) => item.key == _activeModule).firstOrNull?.label ?? 'Executive Overview';
+    return _navigation
+            .where((item) => item.key == _activeModule)
+            .firstOrNull
+            ?.label ??
+        'Executive Overview';
   }
 
   @override
@@ -188,7 +199,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                             const SizedBox(width: 10),
                             Expanded(child: Text(item.label)),
                             if (!item.implemented)
-                              Text('Soon', style: Theme.of(context).textTheme.labelSmall),
+                              Text(
+                                'Soon',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
                           ],
                         ),
                       ),
@@ -226,7 +240,9 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                   color: Theme.of(context).colorScheme.surfaceContainerLow,
                   child: Text(
                     _activeLabel,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                   ),
                 ),
                 Expanded(child: _buildContent()),
@@ -243,7 +259,9 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                   width: extended ? 268 : 88,
                   decoration: BoxDecoration(
                     border: Border(
-                      right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                      right: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     ),
                   ),
                   child: Column(
@@ -262,7 +280,8 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                                 icon: item.icon,
                                 label: item.label,
                                 selected: _activeModule == item.key ||
-                                    (_activeModule == 'finance-approvals' && item.key == 'finance'),
+                                    (_activeModule == 'finance-approvals' &&
+                                        item.key == 'finance'),
                                 implemented: item.implemented,
                                 onTap: () => _selectModule(item.key),
                               ),
@@ -277,14 +296,28 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                                 children: [
                                   Text(
                                     'OWNER WORKSPACE',
-                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                           fontWeight: FontWeight.w800,
                                         ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                  Text('Whole-school authority', style: Theme.of(context).textTheme.bodySmall),
+                                  Text(
+                                    widget.membership.schoolName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Whole-school authority',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
                                 ],
                               )
                             : const Icon(Icons.admin_panel_settings_outlined),
@@ -301,10 +334,17 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                         padding: const EdgeInsets.fromLTRB(24, 14, 24, 12),
                         child: Row(
                           children: [
-                            Expanded(child: _SchoolTitle(membership: widget.membership)),
+                            Expanded(
+                              child: _SchoolTitle(
+                                membership: widget.membership,
+                              ),
+                            ),
                             Text(
                               _activeLabel,
-                              style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
+                                  ?.copyWith(fontWeight: FontWeight.w800),
                             ),
                             const SizedBox(width: 14),
                             if (widget.schoolSession.canSwitchSchool) ...[
@@ -318,10 +358,16 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                             OutlinedButton.icon(
                               onPressed: _openSyncCenter,
                               icon: Icon(
-                                _pendingSyncCount == 0 ? Icons.cloud_done_outlined : Icons.cloud_upload_outlined,
+                                _pendingSyncCount == 0
+                                    ? Icons.cloud_done_outlined
+                                    : Icons.cloud_upload_outlined,
                                 size: 18,
                               ),
-                              label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending'),
+                              label: Text(
+                                _pendingSyncCount == 0
+                                    ? 'Synced'
+                                    : '$_pendingSyncCount pending',
+                              ),
                             ),
                           ],
                         ),
@@ -367,7 +413,12 @@ class _OwnerBrand extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('SchoolOS', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+              Text(
+                'SchoolOS',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
               Text('Owner Command Center', style: theme.textTheme.bodySmall),
             ],
           ),
@@ -400,30 +451,50 @@ class _OwnerNavigationTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       child: Material(
-        color: selected ? theme.colorScheme.primaryContainer : Colors.transparent,
+        color: selected
+            ? theme.colorScheme.primaryContainer
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: extended ? 13 : 10, vertical: 11),
+            padding: EdgeInsets.symmetric(
+              horizontal: extended ? 13 : 10,
+              vertical: 11,
+            ),
             child: Row(
-              mainAxisAlignment: extended ? MainAxisAlignment.start : MainAxisAlignment.center,
+              mainAxisAlignment: extended
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
               children: [
-                Icon(icon, color: implemented ? null : theme.colorScheme.onSurfaceVariant),
+                Icon(
+                  icon,
+                  color: implemented
+                      ? null
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
                 if (extended) ...[
                   const SizedBox(width: 11),
                   Expanded(
                     child: Text(
                       label,
                       style: TextStyle(
-                        fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
-                        color: implemented ? null : theme.colorScheme.onSurfaceVariant,
+                        fontWeight:
+                            selected ? FontWeight.w900 : FontWeight.w700,
+                        color: implemented
+                            ? null
+                            : theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
                   if (!implemented)
-                    Text('Soon', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                    Text(
+                      'Soon',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                 ],
               ],
             ),
@@ -456,7 +527,11 @@ class _SchoolTitle extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(membership.schoolName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text(
+                membership.schoolName,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
               Text('Proprietor', style: theme.textTheme.bodySmall),
             ],
           ),
@@ -491,7 +566,9 @@ class _SchoolSwitcherButton extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 24,
-                  child: membership.id == activeMembership.id ? const Icon(Icons.check_rounded, size: 18) : null,
+                  child: membership.id == activeMembership.id
+                      ? const Icon(Icons.check_rounded, size: 18)
+                      : null,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -499,7 +576,10 @@ class _SchoolSwitcherButton extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(membership.schoolName),
-                      Text(membership.roleLabel, style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        membership.roleLabel,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 ),
