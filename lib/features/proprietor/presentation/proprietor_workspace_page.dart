@@ -28,6 +28,8 @@ import '../../noticeboard/presentation/noticeboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../../transport/data/transport_repository.dart';
 import '../../transport/presentation/transport_page.dart';
+import '../../visitors/data/visitor_repository.dart';
+import '../../visitors/presentation/visitors_page.dart';
 import '../data/concession_repository.dart';
 import '../data/proprietor_school_life_data.dart';
 import '../data/proprietor_structure_repository.dart';
@@ -308,6 +310,22 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
             schoolSession: widget.schoolSession,
           ),
           onBack: () => Navigator.of(context).pop(),
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'visitors') {
+      await _pushSharedModule(
+        title: 'Visitor Management',
+        body: VisitorsPage(
+          schoolName: widget.membership.schoolName,
+          repository: VisitorRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+          onVisitorsChanged: _refreshPendingCount,
         ),
       );
       return;
