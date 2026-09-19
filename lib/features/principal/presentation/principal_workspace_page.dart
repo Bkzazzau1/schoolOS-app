@@ -8,9 +8,11 @@ import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../data/principal_assignments_repository.dart';
 import '../data/principal_dashboard_demo_data.dart';
 import '../data/principal_teachers_repository.dart';
 import '../domain/principal_dashboard_models.dart';
+import 'principal_assignments_page.dart';
 import 'principal_dashboard_page.dart';
 import 'principal_teachers_page.dart';
 
@@ -36,11 +38,16 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   late final PrincipalTeachersRepository _teachersRepository;
+  late final PrincipalAssignmentsRepository _assignmentsRepository;
 
   @override
   void initState() {
     super.initState();
     _teachersRepository = PrincipalTeachersRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _assignmentsRepository = PrincipalAssignmentsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -125,6 +132,13 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
         repository: _teachersRepository,
         onActionRequested: _select,
         onQueuedForSync: _refreshPendingCount,
+      );
+    }
+    if (_activeKey == 'assignments') {
+      return PrincipalAssignmentsPage(
+        repository: _assignmentsRepository,
+        onNavigate: _select,
+        onMutationQueued: _refreshPendingCount,
       );
     }
     return _UpcomingPrincipalFeature(
