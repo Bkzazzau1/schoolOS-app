@@ -6,6 +6,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/concession_repository.dart';
+import '../data/proprietor_structure_repository.dart';
 import 'proprietor_ai_page.dart';
 import 'proprietor_campuses_page.dart';
 import 'proprietor_concession_approvals_page.dart';
@@ -14,6 +15,7 @@ import 'proprietor_finance_page.dart';
 import 'proprietor_overview_page.dart';
 import 'proprietor_reports_page.dart';
 import 'proprietor_staff_page.dart';
+import 'proprietor_structure_page.dart';
 
 class ProprietorWorkspacePage extends StatefulWidget {
   const ProprietorWorkspacePage({
@@ -35,6 +37,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
   int _pendingSyncCount = 0;
   String _activeModule = 'overview';
   late final ConcessionRepository _concessionRepository;
+  late final ProprietorStructureRepository _structureRepository;
 
   static const _navigation = <_OwnerNavItem>[
     _OwnerNavItem('overview', 'Executive Overview', Icons.dashboard_rounded, true),
@@ -44,7 +47,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded, true),
     _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, true),
     _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded, true),
-    _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded, false),
+    _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded, true),
     _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined, false),
     _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined, false),
   ];
@@ -53,6 +56,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
   void initState() {
     super.initState();
     _concessionRepository = ConcessionRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _structureRepository = ProprietorStructureRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -187,6 +194,12 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
       'ai' => ProprietorAiPage(
           schoolName: widget.membership.schoolName,
           onActionRequested: _selectModule,
+        ),
+      'structure' => ProprietorStructurePage(
+          schoolName: widget.membership.schoolName,
+          repository: _structureRepository,
+          onActionRequested: _selectModule,
+          onStructureChanged: _refreshPendingCount,
         ),
       _ => ProprietorOverviewPage(
           schoolName: widget.membership.schoolName,
