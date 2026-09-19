@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/administrator/presentation/administrator_workspace_page.dart';
 import '../features/authentication/presentation/login_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
+import '../features/principal/presentation/principal_workspace_page.dart';
 import '../features/proprietor/presentation/proprietor_workspace_page.dart';
 import '../shared/models/school_membership.dart';
 import 'app_services.dart';
@@ -48,6 +49,13 @@ class SchoolOsApp extends StatelessWidget {
           );
         } else if (restoredMembership.role == SchoolRole.administrator) {
           home = AdministratorWorkspacePage(
+            membership: restoredMembership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+          );
+        } else if (restoredMembership.role == SchoolRole.principal) {
+          home = PrincipalWorkspacePage(
             membership: restoredMembership,
             localDatabase: services.localDatabase,
             schoolSession: services.schoolSession,
