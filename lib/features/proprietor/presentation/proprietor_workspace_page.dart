@@ -6,6 +6,8 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../activities/data/activity_repository.dart';
 import '../../activities/presentation/activities_page.dart';
+import '../../assembly/data/assembly_repository.dart';
+import '../../assembly/presentation/assembly_page.dart';
 import '../../boarding/data/boarding_repository.dart';
 import '../../boarding/presentation/boarding_page.dart';
 import '../../community/data/community_repository.dart';
@@ -291,6 +293,21 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           ),
           onBack: () => Navigator.of(context).pop(),
           onBoardingChanged: _refreshPendingCount,
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'assembly') {
+      await _pushSharedModule(
+        title: 'Assembly & Faith Activities',
+        body: AssemblyPage(
+          schoolName: widget.membership.schoolName,
+          repository: AssemblyRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
         ),
       );
       return;
