@@ -4,6 +4,8 @@ import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../attendance/data/attendance_repository.dart';
+import '../../attendance/presentation/attendance_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({
@@ -24,6 +26,7 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
   int _pendingSyncCount = 0;
+  late final AttendanceRepository _attendanceRepository;
 
   static const _destinations = <_AppDestination>[
     _AppDestination('Dashboard', Icons.dashboard_outlined, Icons.dashboard_rounded),
@@ -36,6 +39,10 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    _attendanceRepository = AttendanceRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _refreshPendingCount();
   }
 
@@ -48,6 +55,21 @@ class _DashboardPageState extends State<DashboardPage> {
     );
     if (!mounted) return;
     setState(() => _pendingSyncCount = count);
+  }
+
+  Widget _buildWorkspace() {
+    if (_selectedIndex == 2) {
+      return AttendancePage(
+        repository: _attendanceRepository,
+        onSaved: _refreshPendingCount,
+      );
+    }
+
+    return _Workspace(
+      destination: _destinations[_selectedIndex],
+      membership: widget.membership,
+      pendingSyncCount: _pendingSyncCount,
+    );
   }
 
   @override
@@ -68,11 +90,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(width: 8),
               ],
             ),
-            body: _Workspace(
-              destination: _destinations[_selectedIndex],
-              membership: widget.membership,
-              pendingSyncCount: _pendingSyncCount,
-            ),
+            body: _buildWorkspace(),
             bottomNavigationBar: NavigationBar(
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) {
@@ -134,13 +152,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                       ),
                       const Divider(height: 1),
-                      Expanded(
-                        child: _Workspace(
-                          destination: _destinations[_selectedIndex],
-                          membership: widget.membership,
-                          pendingSyncCount: _pendingSyncCount,
-                        ),
-                      ),
+                      Expanded(child: _buildWorkspace()),
                     ],
                   ),
                 ),
@@ -222,7 +234,7 @@ class _Workspace extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Local records are tenant-scoped, sensitive payloads are encrypted before storage, and offline changes are queued in a durable sync outbox. Attendance is the first workflow being connected to this foundation.',
+                  'Local records are tenant-scoped, sensitive payloads are encrypted before storage, and offline changes are queued in a durable sync outbox. Attendance is now connected to this foundation.',
                   style: theme.textTheme.bodyMedium,
                 ),
               ],
