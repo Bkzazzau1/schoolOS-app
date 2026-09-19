@@ -20,6 +20,7 @@ import 'finance_fee_structure_page.dart';
 import 'finance_mandates_page.dart';
 import 'finance_office_dashboard_page.dart';
 import 'finance_receipts_page.dart';
+import 'finance_reconciliation_page.dart';
 import 'finance_reminders_page.dart';
 import 'finance_store_page.dart';
 
@@ -146,6 +147,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'debt-aging' => const FinanceDebtAgingPage(),
         'receipts' => const FinanceReceiptsPage(),
         'accounts' => const FinanceFamilyAccountsPage(),
+        'reconciliation' => const FinanceReconciliationPage(),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
