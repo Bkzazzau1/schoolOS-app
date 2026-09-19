@@ -155,6 +155,7 @@ class _LoginPageState extends State<LoginPage> {
             membership: membership,
             localDatabase: widget.services.localDatabase,
             schoolSession: widget.services.schoolSession,
+            schoolAppearance: widget.services.schoolAppearance,
           )
         : DashboardPage(
             membership: membership,
