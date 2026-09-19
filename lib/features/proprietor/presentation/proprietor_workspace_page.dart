@@ -10,6 +10,7 @@ import 'proprietor_concession_approvals_page.dart';
 import 'proprietor_enrollment_page.dart';
 import 'proprietor_finance_page.dart';
 import 'proprietor_overview_page.dart';
+import 'proprietor_reports_page.dart';
 import 'proprietor_staff_page.dart';
 
 class ProprietorWorkspacePage extends StatefulWidget {
@@ -35,28 +36,13 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
 
   static const _navigation = <_OwnerNavItem>[
     _OwnerNavItem('overview', 'Executive Overview', Icons.dashboard_rounded, true),
-    _OwnerNavItem(
-      'finance',
-      'Owner Finance',
-      Icons.account_balance_wallet_rounded,
-      true,
-    ),
-    _OwnerNavItem(
-      'enrollment',
-      'Enrollment & Admissions',
-      Icons.person_add_alt_1_rounded,
-      true,
-    ),
+    _OwnerNavItem('finance', 'Owner Finance', Icons.account_balance_wallet_rounded, true),
+    _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded, true),
     _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded, true),
-    _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded, false),
+    _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded, true),
     _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, false),
     _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded, false),
-    _OwnerNavItem(
-      'structure',
-      'Structure & Leadership',
-      Icons.account_tree_rounded,
-      false,
-    ),
+    _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded, false),
     _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined, false),
     _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined, false),
   ];
@@ -93,7 +79,6 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
 
   Future<void> _switchSchool(SchoolMembership membership) async {
     if (membership.id == widget.membership.id) return;
-
     await widget.schoolSession.selectSchool(membership);
     if (!mounted) return;
 
@@ -114,15 +99,20 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     );
   }
 
+  _OwnerNavItem? _navItem(String key) {
+    for (final item in _navigation) {
+      if (item.key == key) return item;
+    }
+    return null;
+  }
+
   void _selectModule(String key) {
-    final item = _navigation.where((item) => item.key == key).firstOrNull;
+    final item = _navItem(key);
     if (item == null) return;
     if (!item.implemented) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '${item.label} is the next proprietor feature to be ported.',
-          ),
+          content: Text('${item.label} is the next proprietor feature to be ported.'),
         ),
       );
       return;
@@ -130,45 +120,39 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     setState(() => _activeModule = key);
   }
 
-  void _handleOverviewModuleRequest(String key) {
-    _selectModule(key);
-  }
-
   void _handleFinanceAction(String key) {
-    switch (key) {
-      case 'overview':
-        setState(() => _activeModule = 'overview');
-      case 'approvals':
-      case 'concessions':
-        setState(() => _activeModule = 'finance-approvals');
-      default:
-        final label = switch (key) {
-          'collections' => 'Smart Collections',
-          'finance-office' => 'Finance Office',
-          'fee-structure' => 'Fee Structure',
-          'store' => 'School Store',
-          'aging' => 'Outstanding & Aging',
-          _ => 'Finance workflow',
-        };
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '$label belongs to the Finance Office feature and will be ported with that role.',
-            ),
-          ),
-        );
+    if (key == 'overview') {
+      setState(() => _activeModule = 'overview');
+      return;
     }
+    if (key == 'approvals' || key == 'concessions') {
+      setState(() => _activeModule = 'finance-approvals');
+      return;
+    }
+
+    final label = switch (key) {
+      'collections' => 'Smart Collections',
+      'finance-office' => 'Finance Office',
+      'fee-structure' => 'Fee Structure',
+      'store' => 'School Store',
+      'aging' => 'Outstanding & Aging',
+      _ => 'Finance workflow',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '$label belongs to the Finance Office feature and will be ported with that role.',
+        ),
+      ),
+    );
   }
 
   void _handleStaffAction(String key) {
-    switch (key) {
-      case 'overview':
-        setState(() => _activeModule = 'overview');
-      case 'structure':
-        _selectModule('structure');
-      default:
-        _selectModule(key);
+    if (key == 'overview') {
+      setState(() => _activeModule = 'overview');
+      return;
     }
+    _selectModule(key);
   }
 
   Widget _buildContent() {
@@ -190,20 +174,20 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           schoolName: widget.membership.schoolName,
           onActionRequested: _handleStaffAction,
         ),
+      'reports' => ProprietorReportsPage(
+          schoolName: widget.membership.schoolName,
+          onActionRequested: _selectModule,
+        ),
       _ => ProprietorOverviewPage(
           schoolName: widget.membership.schoolName,
-          onModuleRequested: _handleOverviewModuleRequest,
+          onModuleRequested: _selectModule,
         ),
     };
   }
 
   String get _activeLabel {
     if (_activeModule == 'finance-approvals') return 'Concession Approvals';
-    return _navigation
-            .where((item) => item.key == _activeModule)
-            .firstOrNull
-            ?.label ??
-        'Executive Overview';
+    return _navItem(_activeModule)?.label ?? 'Executive Overview';
   }
 
   @override
@@ -232,10 +216,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                             const SizedBox(width: 10),
                             Expanded(child: Text(item.label)),
                             if (!item.implemented)
-                              Text(
-                                'Soon',
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
+                              Text('Soon', style: Theme.of(context).textTheme.labelSmall),
                           ],
                         ),
                       ),
@@ -329,27 +310,19 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                                 children: [
                                   Text(
                                     'OWNER WORKSPACE',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
+                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                                           fontWeight: FontWeight.w800,
                                         ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     widget.membership.schoolName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                                    style: const TextStyle(fontWeight: FontWeight.w800),
                                   ),
                                   Text(
                                     'Whole-school authority',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(context).textTheme.bodySmall,
                                   ),
                                 ],
                               )
@@ -367,17 +340,12 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                         padding: const EdgeInsets.fromLTRB(24, 14, 24, 12),
                         child: Row(
                           children: [
-                            Expanded(
-                              child: _SchoolTitle(
-                                membership: widget.membership,
-                              ),
-                            ),
+                            Expanded(child: _SchoolTitle(membership: widget.membership)),
                             Text(
                               _activeLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelLarge
-                                  ?.copyWith(fontWeight: FontWeight.w800),
+                              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                             ),
                             const SizedBox(width: 14),
                             if (widget.schoolSession.canSwitchSchool) ...[
@@ -484,9 +452,7 @@ class _OwnerNavigationTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       child: Material(
-        color: selected
-            ? theme.colorScheme.primaryContainer
-            : Colors.transparent,
+        color: selected ? theme.colorScheme.primaryContainer : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
@@ -503,9 +469,7 @@ class _OwnerNavigationTile extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: implemented
-                      ? null
-                      : theme.colorScheme.onSurfaceVariant,
+                  color: implemented ? null : theme.colorScheme.onSurfaceVariant,
                 ),
                 if (extended) ...[
                   const SizedBox(width: 11),
@@ -513,8 +477,7 @@ class _OwnerNavigationTile extends StatelessWidget {
                     child: Text(
                       label,
                       style: TextStyle(
-                        fontWeight:
-                            selected ? FontWeight.w900 : FontWeight.w700,
+                        fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
                         color: implemented
                             ? null
                             : theme.colorScheme.onSurfaceVariant,
@@ -631,12 +594,4 @@ class _OwnerNavItem {
   final String label;
   final IconData icon;
   final bool implemented;
-}
-
-extension _FirstOrNullExtension<T> on Iterable<T> {
-  T? get firstOrNull {
-    final iterator = this.iterator;
-    if (!iterator.moveNext()) return null;
-    return iterator.current;
-  }
 }
