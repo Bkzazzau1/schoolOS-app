@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/administrator/presentation/administrator_workspace_page.dart';
 import '../features/authentication/presentation/login_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
 import '../features/proprietor/presentation/proprietor_workspace_page.dart';
@@ -16,6 +17,8 @@ class SchoolOsApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    DashboardPage.appSchoolAppearance = services.schoolAppearance;
+
     return AnimatedBuilder(
       animation: services.schoolAppearance,
       builder: (context, _) {
@@ -33,6 +36,32 @@ class SchoolOsApp extends StatelessWidget {
           onSecondary: primary,
         );
 
+        final Widget home;
+        if (restoredMembership == null) {
+          home = LoginPage(services: services);
+        } else if (restoredMembership.role == SchoolRole.proprietor) {
+          home = ProprietorWorkspacePage(
+            membership: restoredMembership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+          );
+        } else if (restoredMembership.role == SchoolRole.administrator) {
+          home = AdministratorWorkspacePage(
+            membership: restoredMembership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+          );
+        } else {
+          home = DashboardPage(
+            membership: restoredMembership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+          );
+        }
+
         return MaterialApp(
           title: 'SchoolOS',
           debugShowCheckedModeBanner: false,
@@ -46,20 +75,7 @@ class SchoolOsApp extends StatelessWidget {
               fillColor: Colors.white,
             ),
           ),
-          home: restoredMembership == null
-              ? LoginPage(services: services)
-              : restoredMembership.role == SchoolRole.proprietor
-                  ? ProprietorWorkspacePage(
-                      membership: restoredMembership,
-                      localDatabase: services.localDatabase,
-                      schoolSession: services.schoolSession,
-                      schoolAppearance: services.schoolAppearance,
-                    )
-                  : DashboardPage(
-                      membership: restoredMembership,
-                      localDatabase: services.localDatabase,
-                      schoolSession: services.schoolSession,
-                    ),
+          home: home,
         );
       },
     );
