@@ -9,22 +9,59 @@ class SchoolSessionController extends ChangeNotifier {
   final SchoolSessionStore _store;
 
   SchoolMembership? _activeMembership;
+  List<SchoolMembership> _memberships = const [];
   bool _restored = false;
 
   SchoolMembership? get activeMembership => _activeMembership;
+  List<SchoolMembership> get memberships => List.unmodifiable(_memberships);
   String? get activeTenantId => _activeMembership?.schoolId;
   String? get activeMembershipId => _activeMembership?.id;
   bool get isRestored => _restored;
   bool get hasActiveSchool => _activeMembership != null;
+  bool get canSwitchSchool => _memberships.length > 1;
 
   Future<void> restore() async {
     if (_restored) return;
-    _activeMembership = await _store.readActiveMembership();
+
+    final restoredMemberships = await _store.readMemberships();
+    final restoredActive = await _store.readActiveMembership();
+
+    if (restoredMemberships.isEmpty && restoredActive != null) {
+      _memberships = [restoredActive];
+    } else {
+      _memberships = restoredMemberships;
+    }
+
+    if (restoredActive != null &&
+        _memberships.any((membership) => membership.id == restoredActive.id)) {
+      _activeMembership = restoredActive;
+    }
+
     _restored = true;
     notifyListeners();
   }
 
+  Future<void> setMemberships(List<SchoolMembership> memberships) async {
+    final unique = <String, SchoolMembership>{
+      for (final membership in memberships) membership.id: membership,
+    }.values.toList(growable: false);
+
+    _memberships = unique;
+    await _store.saveMemberships(unique);
+
+    final active = _activeMembership;
+    if (active != null && !unique.any((item) => item.id == active.id)) {
+      _activeMembership = null;
+    }
+    notifyListeners();
+  }
+
   Future<void> selectSchool(SchoolMembership membership) async {
+    if (_memberships.isNotEmpty &&
+        !_memberships.any((item) => item.id == membership.id)) {
+      throw StateError('Cannot select a school outside this account session.');
+    }
+
     _activeMembership = membership;
     await _store.saveActiveMembership(membership);
     notifyListeners();
@@ -32,7 +69,8 @@ class SchoolSessionController extends ChangeNotifier {
 
   Future<void> clear() async {
     _activeMembership = null;
-    await _store.clearActiveMembership();
+    _memberships = const [];
+    await _store.clear();
     notifyListeners();
   }
 
