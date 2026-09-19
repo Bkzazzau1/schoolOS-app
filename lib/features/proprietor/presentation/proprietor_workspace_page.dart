@@ -27,6 +27,8 @@ import '../../meals/data/meal_repository.dart';
 import '../../meals/presentation/meals_page.dart';
 import '../../noticeboard/data/noticeboard_repository.dart';
 import '../../noticeboard/presentation/noticeboard_page.dart';
+import '../../service/data/service_repository.dart';
+import '../../service/presentation/service_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../../transport/data/transport_repository.dart';
 import '../../transport/presentation/transport_page.dart';
@@ -344,6 +346,22 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           ),
           onBack: () => Navigator.of(context).pop(),
           onLostFoundChanged: _refreshPendingCount,
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'service') {
+      await _pushSharedModule(
+        title: 'Service & Volunteering',
+        body: ServicePage(
+          schoolName: widget.membership.schoolName,
+          repository: ServiceRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+          onServiceChanged: _refreshPendingCount,
         ),
       );
       return;
