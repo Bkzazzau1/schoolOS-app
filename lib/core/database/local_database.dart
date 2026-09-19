@@ -177,10 +177,57 @@ class LocalDatabase {
       );
     }
 
-    final id = _newMutationId();
     final encryptedPayload = await _cipher.encryptJson(payload);
     final createdAt = DateTime.now().toUtc().toIso8601String();
+    final existing = _db.select(
+      '''
+      SELECT id, operation
+      FROM sync_outbox
+      WHERE tenant_id = ?
+        AND entity_type = ?
+        AND entity_id = ?
+        AND status IN ('pending', 'failed')
+      ORDER BY created_at DESC
+      LIMIT 1;
+      ''',
+      [tenantId, entityType, entityId],
+    );
 
+    if (existing.isNotEmpty) {
+      final existingId = existing.first['id'] as String;
+      final existingOperation = SyncOperation.values.byName(
+        existing.first['operation'] as String,
+      );
+      final effectiveOperation =
+          existingOperation == SyncOperation.create && operation != SyncOperation.delete
+              ? SyncOperation.create
+              : operation;
+
+      _db.execute(
+        '''
+        UPDATE sync_outbox
+        SET membership_id = ?,
+            operation = ?,
+            encrypted_payload = ?,
+            base_version = ?,
+            created_at = ?,
+            status = 'pending',
+            last_error = NULL
+        WHERE id = ?;
+        ''',
+        [
+          membershipId,
+          effectiveOperation.name,
+          encryptedPayload,
+          baseVersion,
+          createdAt,
+          existingId,
+        ],
+      );
+      return existingId;
+    }
+
+    final id = _newMutationId();
     _db.execute(
       '''
       INSERT INTO sync_outbox (
@@ -276,7 +323,38 @@ class LocalDatabase {
     );
   }
 
-  void markMutationSynced(String mutationId) {
+  void markMutationSynced(
+    String mutationId, {
+    int? serverVersion,
+  }) {
+    final mutation = _db.select(
+      '''
+      SELECT tenant_id, entity_type, entity_id
+      FROM sync_outbox
+      WHERE id = ?
+      LIMIT 1;
+      ''',
+      [mutationId],
+    );
+
+    if (mutation.isNotEmpty) {
+      final row = mutation.first;
+      _db.execute(
+        '''
+        UPDATE local_records
+        SET is_dirty = 0,
+            server_version = COALESCE(?, server_version)
+        WHERE tenant_id = ? AND entity_type = ? AND entity_id = ?;
+        ''',
+        [
+          serverVersion,
+          row['tenant_id'] as String,
+          row['entity_type'] as String,
+          row['entity_id'] as String,
+        ],
+      );
+    }
+
     _db.execute(
       'DELETE FROM sync_outbox WHERE id = ?;',
       [mutationId],
