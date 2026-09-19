@@ -13,6 +13,7 @@ import '../data/principal_approvals_repository.dart';
 import '../data/principal_assignments_repository.dart';
 import '../data/principal_attendance_repository.dart';
 import '../data/principal_dashboard_demo_data.dart';
+import '../data/principal_results_repository.dart';
 import '../data/principal_students_repository.dart';
 import '../data/principal_teachers_repository.dart';
 import '../domain/principal_dashboard_models.dart';
@@ -21,6 +22,7 @@ import 'principal_approvals_page.dart';
 import 'principal_assignments_page.dart';
 import 'principal_attendance_page.dart';
 import 'principal_dashboard_page.dart';
+import 'principal_results_page.dart';
 import 'principal_students_page.dart';
 import 'principal_teachers_page.dart';
 
@@ -51,6 +53,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   late final PrincipalStudentsRepository _studentsRepository;
   late final PrincipalAttendanceRepository _attendanceRepository;
   late final PrincipalApprovalsRepository _approvalsRepository;
+  late final PrincipalResultsRepository _resultsRepository;
 
   @override
   void initState() {
@@ -76,6 +79,10 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _approvalsRepository = PrincipalApprovalsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _resultsRepository = PrincipalResultsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -192,6 +199,13 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
     if (_activeKey == 'approvals') {
       return PrincipalApprovalsPage(
         repository: _approvalsRepository,
+        onNavigate: _select,
+        onMutationQueued: _refreshPendingCount,
+      );
+    }
+    if (_activeKey == 'results') {
+      return PrincipalResultsPage(
+        repository: _resultsRepository,
         onNavigate: _select,
         onMutationQueued: _refreshPendingCount,
       );
