@@ -110,7 +110,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Collections Control Room'), findsOneWidget);
-    expect(find.text('Maryam Abdullahi'), findsWidgets);
+    expect(find.text('Export collections'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
