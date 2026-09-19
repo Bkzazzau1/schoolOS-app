@@ -9,8 +9,10 @@ import '../../dashboard/presentation/dashboard_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/principal_dashboard_demo_data.dart';
+import '../data/principal_teachers_repository.dart';
 import '../domain/principal_dashboard_models.dart';
 import 'principal_dashboard_page.dart';
+import 'principal_teachers_page.dart';
 
 class PrincipalWorkspacePage extends StatefulWidget {
   const PrincipalWorkspacePage({
@@ -33,10 +35,15 @@ class PrincipalWorkspacePage extends StatefulWidget {
 class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+  late final PrincipalTeachersRepository _teachersRepository;
 
   @override
   void initState() {
     super.initState();
+    _teachersRepository = PrincipalTeachersRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _refreshPendingCount();
   }
 
@@ -111,6 +118,13 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
       return PrincipalDashboardPage(
         schoolName: widget.membership.schoolName,
         onActionRequested: _select,
+      );
+    }
+    if (_activeKey == 'teachers') {
+      return PrincipalTeachersPage(
+        repository: _teachersRepository,
+        onActionRequested: _select,
+        onQueuedForSync: _refreshPendingCount,
       );
     }
     return _UpcomingPrincipalFeature(
