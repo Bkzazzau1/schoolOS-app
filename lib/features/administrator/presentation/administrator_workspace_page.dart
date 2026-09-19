@@ -8,6 +8,7 @@ import '../../dashboard/presentation/dashboard_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/administrator_admissions_repository.dart';
+import '../data/administrator_attendance_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
 import '../data/administrator_lifecycle_repository.dart';
 import '../data/administrator_records_repository.dart';
@@ -19,6 +20,7 @@ import '../data/administrator_website_repository.dart';
 import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_dashboard_models.dart';
 import 'administrator_admissions_page.dart';
+import 'administrator_attendance_page.dart';
 import 'administrator_dashboard_page.dart';
 import 'administrator_lifecycle_page.dart';
 import 'administrator_records_page.dart';
@@ -53,6 +55,7 @@ class _AdministratorWorkspacePageState
   int _pendingSyncCount = 0;
   AdmissionApplicant? _registrationApplicant;
   late final AdministratorAdmissionsRepository _admissionsRepository;
+  late final AdministratorAttendanceRepository _attendanceRepository;
   late final AdministratorLifecycleRepository _lifecycleRepository;
   late final AdministratorRecordsRepository _recordsRepository;
   late final AdministratorRegistrationRepository _registrationRepository;
@@ -65,6 +68,10 @@ class _AdministratorWorkspacePageState
   void initState() {
     super.initState();
     _admissionsRepository = AdministratorAdmissionsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _attendanceRepository = AdministratorAttendanceRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -271,6 +278,13 @@ class _AdministratorWorkspacePageState
       return AdministratorLifecyclePage(
         schoolName: widget.membership.schoolName,
         repository: _lifecycleRepository,
+      );
+    }
+
+    if (_activeKey == 'attendance') {
+      return AdministratorAttendancePage(
+        schoolName: widget.membership.schoolName,
+        repository: _attendanceRepository,
       );
     }
 
