@@ -21,7 +21,7 @@ const financeTermAccounts = <FinanceTermAccount>[
     student: 'Hafsa Abdullahi',
     className: 'Primary 3',
     guardian: 'Alhaji Abdullahi Yusuf',
-    account: '1047263914',
+    account: '1047263815',
     provider: 'Partner Bank A',
     gross: 145000,
     scholarship: 0,
@@ -92,7 +92,7 @@ const financeCollectionFeed = <FinanceCollectionEvent>[
     time: '09:58 AM',
     student: 'Hafsa Abdullahi',
     amount: 20000,
-    account: '1047263914',
+    account: '1047263815',
     status: FinanceCollectionStatus.confirmed,
     reference: 'TRX-260913-94790',
   ),
@@ -120,6 +120,12 @@ const financeCollectionStatusItems = <({String title, String detail})>[
   (title: '1 over-limit attempt', detail: 'Awaiting special arrangement approval.'),
   (title: '11 accounts nearly cleared', detail: 'Outstanding balance below ₦20,000.'),
 ];
+
+const financeCollectionsFamilyAccountBoundary =
+    'The collection account belongs to the responsible parent or guardian, not to each child. Siblings under the same payer may share one family account while retaining separate child fee ledgers.';
+
+const financeCollectionsAllocationBoundary =
+    'A confirmed family-account credit must be allocated to the intended child ledger before that child balance or receipt changes. Shared account identity must never cause a sibling payment to be posted to the wrong child.';
 
 const financeCollectionsDepositBoundary =
     'Parents may deposit smaller amounts at any time. SchoolOS treats this as amount paid toward fees, not money stored in a wallet.';
