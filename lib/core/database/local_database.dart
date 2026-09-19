@@ -286,6 +286,62 @@ class LocalDatabase {
     return mutations;
   }
 
+  List<SyncQueueItem> syncQueueItems({
+    required String tenantId,
+    int limit = 200,
+  }) {
+    _requireTenant(tenantId);
+    if (limit < 1 || limit > 1000) {
+      throw ArgumentError.value(limit, 'limit', 'Use a limit from 1 to 1000.');
+    }
+
+    final rows = _db.select(
+      '''
+      SELECT
+        id,
+        tenant_id,
+        membership_id,
+        entity_type,
+        entity_id,
+        operation,
+        base_version,
+        created_at,
+        status,
+        attempt_count,
+        last_error
+      FROM sync_outbox
+      WHERE tenant_id = ?
+      ORDER BY
+        CASE status
+          WHEN 'failed' THEN 0
+          WHEN 'syncing' THEN 1
+          ELSE 2
+        END,
+        created_at ASC
+      LIMIT ?;
+      ''',
+      [tenantId, limit],
+    );
+
+    return rows
+        .map(
+          (row) => SyncQueueItem(
+            id: row['id'] as String,
+            tenantId: row['tenant_id'] as String,
+            membershipId: row['membership_id'] as String,
+            entityType: row['entity_type'] as String,
+            entityId: row['entity_id'] as String,
+            operation: SyncOperation.values.byName(row['operation'] as String),
+            baseVersion: row['base_version'] as int?,
+            createdAt: DateTime.parse(row['created_at'] as String),
+            status: SyncMutationStatus.values.byName(row['status'] as String),
+            attemptCount: row['attempt_count'] as int,
+            lastError: row['last_error'] as String?,
+          ),
+        )
+        .toList(growable: false);
+  }
+
   int pendingCount({required String tenantId}) {
     _requireTenant(tenantId);
 
@@ -299,6 +355,22 @@ class LocalDatabase {
     );
 
     return rows.first['count'] as int;
+  }
+
+  void queueMutationForRetry({
+    required String tenantId,
+    required String mutationId,
+  }) {
+    _requireTenant(tenantId);
+
+    _db.execute(
+      '''
+      UPDATE sync_outbox
+      SET status = 'pending', last_error = NULL
+      WHERE id = ? AND tenant_id = ? AND status = 'failed';
+      ''',
+      [mutationId, tenantId],
+    );
   }
 
   void markMutationSyncing(String mutationId) {
