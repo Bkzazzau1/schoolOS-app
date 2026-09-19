@@ -9,11 +9,13 @@ import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/administrator_admissions_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
+import '../data/administrator_registration_repository.dart';
 import '../data/administrator_website_repository.dart';
 import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_dashboard_models.dart';
 import 'administrator_admissions_page.dart';
 import 'administrator_dashboard_page.dart';
+import 'administrator_registration_page.dart';
 import 'administrator_website_page.dart';
 
 class AdministratorWorkspacePage extends StatefulWidget {
@@ -39,13 +41,19 @@ class _AdministratorWorkspacePageState
     extends State<AdministratorWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+  AdmissionApplicant? _registrationApplicant;
   late final AdministratorAdmissionsRepository _admissionsRepository;
+  late final AdministratorRegistrationRepository _registrationRepository;
   late final AdministratorWebsiteRepository _websiteRepository;
 
   @override
   void initState() {
     super.initState();
     _admissionsRepository = AdministratorAdmissionsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _registrationRepository = AdministratorRegistrationRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -124,7 +132,10 @@ class _AdministratorWorkspacePageState
 
     final exists = administratorNavigation.any((item) => item.key == key);
     if (!exists) return;
-    setState(() => _activeKey = key);
+    setState(() {
+      if (key == 'registration') _registrationApplicant = null;
+      _activeKey = key;
+    });
   }
 
   void _openPublicAdmissionsWebsite() {
@@ -138,11 +149,14 @@ class _AdministratorWorkspacePageState
   }
 
   void _handoffToRegistration(AdmissionApplicant applicant) {
-    setState(() => _activeKey = 'registration');
+    setState(() {
+      _registrationApplicant = applicant;
+      _activeKey = 'registration';
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${applicant.name} · ${applicant.reference} handed to Student Registration. No active student record has been created yet.',
+          '${applicant.name} · ${applicant.reference} handed to Student Registration. The registration remains in progress until completion.',
         ),
       ),
     );
@@ -176,6 +190,15 @@ class _AdministratorWorkspacePageState
         schoolName: widget.membership.schoolName,
         repository: _websiteRepository,
         onSettingsChanged: _refreshPendingCount,
+      );
+    }
+
+    if (_activeKey == 'registration') {
+      return AdministratorRegistrationPage(
+        schoolName: widget.membership.schoolName,
+        repository: _registrationRepository,
+        sourceApplicant: _registrationApplicant,
+        onRegistrationChanged: _refreshPendingCount,
       );
     }
 
