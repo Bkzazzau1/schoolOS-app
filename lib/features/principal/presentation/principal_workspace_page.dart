@@ -11,11 +11,13 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/principal_academics_repository.dart';
 import '../data/principal_assignments_repository.dart';
 import '../data/principal_dashboard_demo_data.dart';
+import '../data/principal_students_repository.dart';
 import '../data/principal_teachers_repository.dart';
 import '../domain/principal_dashboard_models.dart';
 import 'principal_academics_page.dart';
 import 'principal_assignments_page.dart';
 import 'principal_dashboard_page.dart';
+import 'principal_students_page.dart';
 import 'principal_teachers_page.dart';
 
 class PrincipalWorkspacePage extends StatefulWidget {
@@ -42,6 +44,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   late final PrincipalTeachersRepository _teachersRepository;
   late final PrincipalAssignmentsRepository _assignmentsRepository;
   late final PrincipalAcademicsRepository _academicsRepository;
+  late final PrincipalStudentsRepository _studentsRepository;
 
   @override
   void initState() {
@@ -55,6 +58,10 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _academicsRepository = PrincipalAcademicsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _studentsRepository = PrincipalStudentsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -152,6 +159,13 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
       return PrincipalAcademicsPage(
         repository: _academicsRepository,
         onNavigate: _select,
+      );
+    }
+    if (_activeKey == 'students') {
+      return PrincipalStudentsPage(
+        repository: _studentsRepository,
+        onNavigate: _select,
+        onMutationQueued: _refreshPendingCount,
       );
     }
     return _UpcomingPrincipalFeature(
