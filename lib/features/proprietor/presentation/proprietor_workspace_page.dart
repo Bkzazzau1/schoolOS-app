@@ -6,6 +6,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/concession_repository.dart';
+import 'proprietor_campuses_page.dart';
 import 'proprietor_concession_approvals_page.dart';
 import 'proprietor_enrollment_page.dart';
 import 'proprietor_finance_page.dart';
@@ -40,7 +41,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded, true),
     _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded, true),
     _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded, true),
-    _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, false),
+    _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, true),
     _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded, false),
     _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded, false),
     _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined, false),
@@ -178,6 +179,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           schoolName: widget.membership.schoolName,
           onActionRequested: _selectModule,
         ),
+      'campuses' => ProprietorCampusesPage(
+          schoolName: widget.membership.schoolName,
+          onActionRequested: _selectModule,
+        ),
       _ => ProprietorOverviewPage(
           schoolName: widget.membership.schoolName,
           onModuleRequested: _selectModule,
@@ -196,193 +201,196 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
       builder: (context, constraints) {
         final phone = constraints.maxWidth < 700;
         final extended = constraints.maxWidth >= 1180;
+        return phone ? _buildPhone(context) : _buildWide(context, extended);
+      },
+    );
+  }
 
-        if (phone) {
-          return Scaffold(
-            appBar: AppBar(
-              title: _SchoolTitle(membership: widget.membership),
-              actions: [
-                PopupMenuButton<String>(
-                  tooltip: 'Owner workspace',
-                  onSelected: _selectModule,
-                  icon: const Icon(Icons.menu_rounded),
-                  itemBuilder: (context) => [
-                    for (final item in _navigation)
-                      PopupMenuItem<String>(
-                        value: item.key,
-                        child: Row(
-                          children: [
-                            Icon(item.icon, size: 19),
-                            const SizedBox(width: 10),
-                            Expanded(child: Text(item.label)),
-                            if (!item.implemented)
-                              Text('Soon', style: Theme.of(context).textTheme.labelSmall),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-                if (widget.schoolSession.canSwitchSchool)
-                  _SchoolSwitcherButton(
-                    activeMembership: widget.membership,
-                    memberships: widget.schoolSession.memberships,
-                    onSelected: _switchSchool,
-                  ),
-                IconButton(
-                  tooltip: _pendingSyncCount == 0
-                      ? 'Sync Center'
-                      : 'Sync Center · $_pendingSyncCount pending',
-                  onPressed: _openSyncCenter,
-                  icon: Badge(
-                    isLabelVisible: _pendingSyncCount > 0,
-                    label: Text('$_pendingSyncCount'),
-                    child: Icon(
-                      _pendingSyncCount == 0
-                          ? Icons.cloud_done_outlined
-                          : Icons.cloud_upload_outlined,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-              ],
-            ),
-            body: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  child: Text(
-                    _activeLabel,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ),
-                Expanded(child: _buildContent()),
-              ],
-            ),
-          );
-        }
-
-        return Scaffold(
-          body: Row(
-            children: [
-              SafeArea(
-                child: Container(
-                  width: extended ? 268 : 88,
-                  decoration: BoxDecoration(
-                    border: Border(
-                      right: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                    ),
-                  ),
-                  child: Column(
+  Widget _buildPhone(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: _SchoolTitle(membership: widget.membership),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Owner workspace',
+            onSelected: _selectModule,
+            icon: const Icon(Icons.menu_rounded),
+            itemBuilder: (context) => [
+              for (final item in _navigation)
+                PopupMenuItem<String>(
+                  value: item.key,
+                  child: Row(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: _OwnerBrand(extended: extended),
-                      ),
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          children: [
-                            for (final item in _navigation)
-                              _OwnerNavigationTile(
-                                extended: extended,
-                                icon: item.icon,
-                                label: item.label,
-                                selected: _activeModule == item.key ||
-                                    (_activeModule == 'finance-approvals' &&
-                                        item.key == 'finance'),
-                                implemented: item.implemented,
-                                onTap: () => _selectModule(item.key),
-                              ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: extended
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'OWNER WORKSPACE',
-                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    widget.membership.schoolName,
-                                    style: const TextStyle(fontWeight: FontWeight.w800),
-                                  ),
-                                  Text(
-                                    'Whole-school authority',
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                ],
-                              )
-                            : const Icon(Icons.admin_panel_settings_outlined),
-                      ),
+                      Icon(item.icon, size: 19),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(item.label)),
+                      if (!item.implemented)
+                        Text('Soon', style: Theme.of(context).textTheme.labelSmall),
                     ],
                   ),
                 ),
-              ),
-              Expanded(
-                child: SafeArea(
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 14, 24, 12),
-                        child: Row(
-                          children: [
-                            Expanded(child: _SchoolTitle(membership: widget.membership)),
-                            Text(
-                              _activeLabel,
-                              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                            const SizedBox(width: 14),
-                            if (widget.schoolSession.canSwitchSchool) ...[
-                              _SchoolSwitcherButton(
-                                activeMembership: widget.membership,
-                                memberships: widget.schoolSession.memberships,
-                                onSelected: _switchSchool,
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                            OutlinedButton.icon(
-                              onPressed: _openSyncCenter,
-                              icon: Icon(
-                                _pendingSyncCount == 0
-                                    ? Icons.cloud_done_outlined
-                                    : Icons.cloud_upload_outlined,
-                                size: 18,
-                              ),
-                              label: Text(
-                                _pendingSyncCount == 0
-                                    ? 'Synced'
-                                    : '$_pendingSyncCount pending',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      Expanded(child: _buildContent()),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
-        );
-      },
+          if (widget.schoolSession.canSwitchSchool)
+            _SchoolSwitcherButton(
+              activeMembership: widget.membership,
+              memberships: widget.schoolSession.memberships,
+              onSelected: _switchSchool,
+            ),
+          IconButton(
+            tooltip: _pendingSyncCount == 0
+                ? 'Sync Center'
+                : 'Sync Center · $_pendingSyncCount pending',
+            onPressed: _openSyncCenter,
+            icon: Badge(
+              isLabelVisible: _pendingSyncCount > 0,
+              label: Text('$_pendingSyncCount'),
+              child: Icon(
+                _pendingSyncCount == 0
+                    ? Icons.cloud_done_outlined
+                    : Icons.cloud_upload_outlined,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            child: Text(
+              _activeLabel,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+          Expanded(child: _buildContent()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWide(BuildContext context, bool extended) {
+    return Scaffold(
+      body: Row(
+        children: [
+          SafeArea(
+            child: Container(
+              width: extended ? 268 : 88,
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: _OwnerBrand(extended: extended),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      children: [
+                        for (final item in _navigation)
+                          _OwnerNavigationTile(
+                            extended: extended,
+                            icon: item.icon,
+                            label: item.label,
+                            selected: _activeModule == item.key ||
+                                (_activeModule == 'finance-approvals' &&
+                                    item.key == 'finance'),
+                            implemented: item.implemented,
+                            onTap: () => _selectModule(item.key),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: extended
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'OWNER WORKSPACE',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                widget.membership.schoolName,
+                                style: const TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                              Text(
+                                'Whole-school authority',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          )
+                        : const Icon(Icons.admin_panel_settings_outlined),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 14, 24, 12),
+                    child: Row(
+                      children: [
+                        Expanded(child: _SchoolTitle(membership: widget.membership)),
+                        Text(
+                          _activeLabel,
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(width: 14),
+                        if (widget.schoolSession.canSwitchSchool) ...[
+                          _SchoolSwitcherButton(
+                            activeMembership: widget.membership,
+                            memberships: widget.schoolSession.memberships,
+                            onSelected: _switchSchool,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        OutlinedButton.icon(
+                          onPressed: _openSyncCenter,
+                          icon: Icon(
+                            _pendingSyncCount == 0
+                                ? Icons.cloud_done_outlined
+                                : Icons.cloud_upload_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _pendingSyncCount == 0
+                                ? 'Synced'
+                                : '$_pendingSyncCount pending',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(child: _buildContent()),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
