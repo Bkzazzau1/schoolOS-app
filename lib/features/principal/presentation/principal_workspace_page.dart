@@ -28,6 +28,7 @@ import 'principal_attendance_page.dart';
 import 'principal_communication_page.dart';
 import 'principal_dashboard_page.dart';
 import 'principal_incidents_page.dart';
+import 'principal_performance_page.dart';
 import 'principal_results_page.dart';
 import 'principal_students_page.dart';
 import 'principal_teachers_page.dart';
@@ -107,6 +108,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
         'communication' => PrincipalCommunicationPage(repository: _communication, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'incidents' => PrincipalIncidentsPage(repository: _incidents, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'ai' => PrincipalAIPage(membership: widget.membership, onNavigate: _select),
+        'performance' => PrincipalPerformancePage(membership: widget.membership, onNavigate: _select),
         _ => _UpcomingPrincipalFeature(item: _activeItem, onDashboard: () => _select('dashboard')),
       };
 
