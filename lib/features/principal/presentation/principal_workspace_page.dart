@@ -16,6 +16,7 @@ import '../data/principal_dashboard_demo_data.dart';
 import '../data/principal_results_repository.dart';
 import '../data/principal_students_repository.dart';
 import '../data/principal_teachers_repository.dart';
+import '../data/principal_timetable_repository.dart';
 import '../domain/principal_dashboard_models.dart';
 import 'principal_academics_page.dart';
 import 'principal_approvals_page.dart';
@@ -25,6 +26,7 @@ import 'principal_dashboard_page.dart';
 import 'principal_results_page.dart';
 import 'principal_students_page.dart';
 import 'principal_teachers_page.dart';
+import 'principal_timetable_page.dart';
 
 class PrincipalWorkspacePage extends StatefulWidget {
   const PrincipalWorkspacePage({
@@ -54,38 +56,19 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   late final PrincipalAttendanceRepository _attendanceRepository;
   late final PrincipalApprovalsRepository _approvalsRepository;
   late final PrincipalResultsRepository _resultsRepository;
+  late final PrincipalTimetableRepository _timetableRepository;
 
   @override
   void initState() {
     super.initState();
-    _teachersRepository = PrincipalTeachersRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _assignmentsRepository = PrincipalAssignmentsRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _academicsRepository = PrincipalAcademicsRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _studentsRepository = PrincipalStudentsRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _attendanceRepository = PrincipalAttendanceRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _approvalsRepository = PrincipalApprovalsRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _resultsRepository = PrincipalResultsRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
+    _teachersRepository = PrincipalTeachersRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _assignmentsRepository = PrincipalAssignmentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _academicsRepository = PrincipalAcademicsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _studentsRepository = PrincipalStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _attendanceRepository = PrincipalAttendanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _approvalsRepository = PrincipalApprovalsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _resultsRepository = PrincipalResultsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _timetableRepository = PrincipalTimetableRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _refreshPendingCount();
   }
 
@@ -102,10 +85,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   Future<void> _openSyncCenter() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SyncCenterPage(
-          localDatabase: widget.localDatabase,
-          membership: widget.membership,
-        ),
+        builder: (_) => SyncCenterPage(localDatabase: widget.localDatabase, membership: widget.membership),
       ),
     );
     _refreshPendingCount();
@@ -146,7 +126,6 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
         schoolAppearance: widget.schoolAppearance,
       );
     }
-
     Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => page));
   }
 
@@ -156,86 +135,44 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   }
 
   Widget _content() {
-    if (_activeKey == 'dashboard') {
-      return PrincipalDashboardPage(
-        schoolName: widget.membership.schoolName,
-        onActionRequested: _select,
-      );
+    switch (_activeKey) {
+      case 'dashboard':
+        return PrincipalDashboardPage(schoolName: widget.membership.schoolName, onActionRequested: _select);
+      case 'teachers':
+        return PrincipalTeachersPage(repository: _teachersRepository, onActionRequested: _select, onQueuedForSync: _refreshPendingCount);
+      case 'assignments':
+        return PrincipalAssignmentsPage(repository: _assignmentsRepository, onNavigate: _select, onMutationQueued: _refreshPendingCount);
+      case 'academics':
+        return PrincipalAcademicsPage(repository: _academicsRepository, onNavigate: _select);
+      case 'students':
+        return PrincipalStudentsPage(repository: _studentsRepository, onNavigate: _select, onMutationQueued: _refreshPendingCount);
+      case 'attendance':
+        return PrincipalAttendancePage(repository: _attendanceRepository, onNavigate: _select, onMutationQueued: _refreshPendingCount);
+      case 'approvals':
+        return PrincipalApprovalsPage(repository: _approvalsRepository, onNavigate: _select, onMutationQueued: _refreshPendingCount);
+      case 'results':
+        return PrincipalResultsPage(repository: _resultsRepository, onNavigate: _select, onMutationQueued: _refreshPendingCount);
+      case 'timetable':
+        return PrincipalTimetablePage(repository: _timetableRepository, onNavigate: _select, onMutationQueued: _refreshPendingCount);
+      default:
+        return _UpcomingPrincipalFeature(item: _activeItem, onDashboard: () => _select('dashboard'));
     }
-    if (_activeKey == 'teachers') {
-      return PrincipalTeachersPage(
-        repository: _teachersRepository,
-        onActionRequested: _select,
-        onQueuedForSync: _refreshPendingCount,
-      );
-    }
-    if (_activeKey == 'assignments') {
-      return PrincipalAssignmentsPage(
-        repository: _assignmentsRepository,
-        onNavigate: _select,
-        onMutationQueued: _refreshPendingCount,
-      );
-    }
-    if (_activeKey == 'academics') {
-      return PrincipalAcademicsPage(
-        repository: _academicsRepository,
-        onNavigate: _select,
-      );
-    }
-    if (_activeKey == 'students') {
-      return PrincipalStudentsPage(
-        repository: _studentsRepository,
-        onNavigate: _select,
-        onMutationQueued: _refreshPendingCount,
-      );
-    }
-    if (_activeKey == 'attendance') {
-      return PrincipalAttendancePage(
-        repository: _attendanceRepository,
-        onNavigate: _select,
-        onMutationQueued: _refreshPendingCount,
-      );
-    }
-    if (_activeKey == 'approvals') {
-      return PrincipalApprovalsPage(
-        repository: _approvalsRepository,
-        onNavigate: _select,
-        onMutationQueued: _refreshPendingCount,
-      );
-    }
-    if (_activeKey == 'results') {
-      return PrincipalResultsPage(
-        repository: _resultsRepository,
-        onNavigate: _select,
-        onMutationQueued: _refreshPendingCount,
-      );
-    }
-    return _UpcomingPrincipalFeature(
-      item: _activeItem,
-      onDashboard: () => _select('dashboard'),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final phone = constraints.maxWidth < 700;
-        return phone ? _phone(context) : _wide(context, constraints);
-      },
+      builder: (context, constraints) => constraints.maxWidth < 700 ? _phone(context) : _wide(context, constraints),
     );
   }
 
   Widget _phone(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.membership.schoolName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
-            const Text('Principal · Secondary', style: TextStyle(fontSize: 12)),
-          ],
-        ),
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(widget.membership.schoolName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+          const Text('Principal · Secondary', style: TextStyle(fontSize: 12)),
+        ]),
         actions: [
           if (widget.schoolSession.canSwitchSchool)
             _SchoolSwitcherButton(activeMembership: widget.membership, memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
@@ -249,157 +186,144 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
       ),
       endDrawer: Drawer(
         child: SafeArea(
-          child: ListView(
-            children: [
-              const ListTile(title: Text('Principal Portal', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: Text('Secondary School')),
-              const Divider(),
-              for (final item in principalNavigation)
-                ListTile(
-                  selected: item.key == _activeKey,
-                  leading: Icon(_iconFor(item.key)),
-                  title: Text(item.label),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _select(item.key);
-                  },
-                ),
-            ],
-          ),
+          child: ListView(children: [
+            const ListTile(title: Text('Principal Portal', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: Text('Secondary School')),
+            const Divider(),
+            for (final item in principalNavigation)
+              ListTile(
+                selected: item.key == _activeKey,
+                leading: Icon(_iconFor(item.key)),
+                title: Text(item.label),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _select(item.key);
+                },
+              ),
+          ]),
         ),
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: Text(_activeItem.label, style: const TextStyle(fontWeight: FontWeight.w800)),
-          ),
-          Expanded(child: _content()),
-        ],
-      ),
+      body: Column(children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          child: Text(_activeItem.label, style: const TextStyle(fontWeight: FontWeight.w800)),
+        ),
+        Expanded(child: _content()),
+      ]),
     );
   }
 
   Widget _wide(BuildContext context, BoxConstraints constraints) {
     final extended = constraints.maxWidth >= 1180;
     return Scaffold(
-      body: Row(
-        children: [
-          SafeArea(
-            child: Container(
-              width: extended ? 282 : 88,
-              decoration: BoxDecoration(border: Border(right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant))),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: extended
-                        ? const ListTile(contentPadding: EdgeInsets.zero, leading: CircleAvatar(child: Text('S')), title: Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: Text('Principal Portal'))
-                        : const CircleAvatar(child: Text('S')),
-                  ),
-                  if (extended)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                      child: Card(
-                        elevation: 0,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            const Text('ACTIVE LEADERSHIP SCOPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-                            const SizedBox(height: 4),
-                            Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)),
-                            const Text(principalCampusLabel, style: TextStyle(fontSize: 12)),
-                          ]),
-                        ),
-                      ),
-                    ),
-                  Expanded(
-                    child: ListView(
-                      children: [
-                        for (final item in principalNavigation)
-                          ListTile(
-                            selected: item.key == _activeKey,
-                            selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-                            leading: Icon(_iconFor(item.key)),
-                            title: extended ? Text(item.label) : null,
-                            trailing: extended && item.key == 'ai' ? const Chip(label: Text('AI')) : null,
-                            onTap: () => _select(item.key),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (extended)
-                    Padding(
-                      padding: const EdgeInsets.all(14),
+      body: Row(children: [
+        SafeArea(
+          child: Container(
+            width: extended ? 282 : 88,
+            decoration: BoxDecoration(border: Border(right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant))),
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: extended
+                    ? const ListTile(contentPadding: EdgeInsets.zero, leading: CircleAvatar(child: Text('S')), title: Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: Text('Principal Portal'))
+                    : const CircleAvatar(child: Text('S')),
+              ),
+              if (extended)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                  child: Card(
+                    elevation: 0,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Secondary section health', style: TextStyle(fontSize: 12)),
-                        const Text('86%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                        const LinearProgressIndicator(value: .86),
-                        const SizedBox(height: 6),
-                        Text('Academics, attendance, staff & compliance', style: Theme.of(context).textTheme.bodySmall),
+                        const Text('ACTIVE LEADERSHIP SCOPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 4),
+                        Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)),
+                        const Text(principalCampusLabel, style: TextStyle(fontSize: 12)),
                       ]),
                     ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 12, 22, 10),
-                    child: Row(children: [
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Principal · Secondary School', style: TextStyle(fontWeight: FontWeight.w900)), Text(_activeItem.label)])),
-                      if (widget.schoolSession.canSwitchSchool)
-                        _SchoolSwitcherButton(activeMembership: widget.membership, memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(onPressed: _openSyncCenter, icon: const Icon(Icons.cloud_sync_outlined, size: 18), label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending')),
-                      const SizedBox(width: 12),
-                      const CircleAvatar(child: Text('PD')),
-                      if (constraints.maxWidth >= 1080) ...[
-                        const SizedBox(width: 8),
-                        const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(principalLeaderName, style: TextStyle(fontWeight: FontWeight.w800)), Text('Principal · Secondary', style: TextStyle(fontSize: 12))]),
-                      ],
-                    ]),
                   ),
-                  const Divider(height: 1),
-                  Expanded(child: _content()),
-                ],
+                ),
+              Expanded(
+                child: ListView(children: [
+                  for (final item in principalNavigation)
+                    ListTile(
+                      selected: item.key == _activeKey,
+                      selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
+                      leading: Icon(_iconFor(item.key)),
+                      title: extended ? Text(item.label) : null,
+                      trailing: extended && item.key == 'ai' ? const Chip(label: Text('AI')) : null,
+                      onTap: () => _select(item.key),
+                    ),
+                ]),
               ),
-            ),
+              if (extended)
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Secondary section health', style: TextStyle(fontSize: 12)),
+                    const Text('86%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                    const LinearProgressIndicator(value: .86),
+                    const SizedBox(height: 6),
+                    Text('Academics, attendance, staff & compliance', style: Theme.of(context).textTheme.bodySmall),
+                  ]),
+                ),
+            ]),
           ),
-        ],
-      ),
+        ),
+        Expanded(
+          child: SafeArea(
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 10),
+                child: Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Principal · Secondary School', style: TextStyle(fontWeight: FontWeight.w900)), Text(_activeItem.label)])),
+                  if (widget.schoolSession.canSwitchSchool)
+                    _SchoolSwitcherButton(activeMembership: widget.membership, memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(onPressed: _openSyncCenter, icon: const Icon(Icons.cloud_sync_outlined, size: 18), label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending')),
+                  const SizedBox(width: 12),
+                  const CircleAvatar(child: Text('PD')),
+                  if (constraints.maxWidth >= 1080) ...[
+                    const SizedBox(width: 8),
+                    const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(principalLeaderName, style: TextStyle(fontWeight: FontWeight.w800)), Text('Principal · Secondary', style: TextStyle(fontSize: 12))]),
+                  ],
+                ]),
+              ),
+              const Divider(height: 1),
+              Expanded(child: _content()),
+            ]),
+          ),
+        ),
+      ]),
     );
   }
 
-  static IconData _iconFor(String key) {
-    return switch (key) {
-      'dashboard' => Icons.dashboard_rounded,
-      'teachers' => Icons.badge_outlined,
-      'assignments' => Icons.assignment_ind_outlined,
-      'academics' => Icons.menu_book_rounded,
-      'students' => Icons.groups_rounded,
-      'attendance' => Icons.fact_check_outlined,
-      'approvals' => Icons.approval_outlined,
-      'results' => Icons.assessment_outlined,
-      'timetable' => Icons.calendar_month_outlined,
-      'communication' => Icons.forum_outlined,
-      'incidents' => Icons.report_problem_outlined,
-      'ai' => Icons.auto_awesome_rounded,
-      'performance' => Icons.insights_rounded,
-      'profile' => Icons.person_outline_rounded,
-      _ => Icons.circle_outlined,
-    };
-  }
+  static IconData _iconFor(String key) => switch (key) {
+        'dashboard' => Icons.dashboard_rounded,
+        'teachers' => Icons.badge_outlined,
+        'assignments' => Icons.assignment_ind_outlined,
+        'academics' => Icons.menu_book_rounded,
+        'students' => Icons.groups_rounded,
+        'attendance' => Icons.fact_check_outlined,
+        'approvals' => Icons.approval_outlined,
+        'results' => Icons.assessment_outlined,
+        'timetable' => Icons.calendar_month_outlined,
+        'communication' => Icons.forum_outlined,
+        'incidents' => Icons.report_problem_outlined,
+        'ai' => Icons.auto_awesome_rounded,
+        'performance' => Icons.insights_rounded,
+        'profile' => Icons.person_outline_rounded,
+        _ => Icons.circle_outlined,
+      };
 }
 
 class _UpcomingPrincipalFeature extends StatelessWidget {
   const _UpcomingPrincipalFeature({required this.item, required this.onDashboard});
   final PrincipalNavItem item;
   final VoidCallback onDashboard;
+
   @override
   Widget build(BuildContext context) => Center(
         child: Padding(
@@ -431,11 +355,15 @@ class _SchoolSwitcherButton extends StatelessWidget {
   final SchoolMembership activeMembership;
   final List<SchoolMembership> memberships;
   final ValueChanged<SchoolMembership> onSelected;
+
   @override
   Widget build(BuildContext context) => PopupMenuButton<SchoolMembership>(
         tooltip: 'Switch school',
         onSelected: onSelected,
         icon: const Icon(Icons.swap_horiz_rounded),
-        itemBuilder: (_) => [for (final membership in memberships) PopupMenuItem(value: membership, child: Text('${membership.schoolName} · ${membership.roleLabel}'))],
+        itemBuilder: (_) => [
+          for (final membership in memberships)
+            PopupMenuItem(value: membership, child: Text('${membership.schoolName} · ${membership.roleLabel}')),
+        ],
       );
 }
