@@ -444,7 +444,6 @@ class _AttentionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Column(
       children: [
         for (var i = 0; i < proprietorPeopleAttention.length; i++) ...[
