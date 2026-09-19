@@ -1,4 +1,3 @@
-import 'proprietor_ai_demo_data.dart';
 import '../domain/proprietor_ai_models.dart';
 
 class ProprietorAiService {
