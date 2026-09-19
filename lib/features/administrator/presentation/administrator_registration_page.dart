@@ -113,9 +113,7 @@ class _AdministratorRegistrationPageState
     _guardianEmail.text = record.guardianEmail;
     _gender = record.gender;
     _section = record.academicSection;
-    _proposedClass = registrationClasses.contains(record.proposedClass)
-        ? record.proposedClass
-        : registrationClasses.first;
+    _proposedClass = record.proposedClass;
     _relationship = registrationRelationships.contains(record.relationship)
         ? record.relationship
         : registrationRelationships.first;
@@ -246,6 +244,9 @@ class _AdministratorRegistrationPageState
   }
 
   Widget _studentInformation() {
+    final classOptions = registrationClasses.contains(_proposedClass)
+        ? registrationClasses
+        : <String>[_proposedClass, ...registrationClasses];
     return _SectionCard(
       title: 'Student information',
       subtitle: 'Core identity and school placement.',
@@ -272,7 +273,7 @@ class _AdministratorRegistrationPageState
             _dropdown(
               'Proposed class',
               value: _proposedClass,
-              items: registrationClasses,
+              items: classOptions,
               onChanged: (value) => setState(() => _proposedClass = value),
             ),
             _field('Previous school', _previousSchool),
