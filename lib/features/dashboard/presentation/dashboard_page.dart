@@ -12,6 +12,7 @@ import '../../attendance/presentation/attendance_page.dart';
 import '../../lesson_plans/data/lesson_plan_generation_service.dart';
 import '../../lesson_plans/data/lesson_plan_repository.dart';
 import '../../lesson_plans/presentation/lesson_plan_page.dart';
+import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 
@@ -115,6 +116,13 @@ class _DashboardPageState extends State<DashboardPage> {
         schoolSession: widget.schoolSession,
         schoolAppearance: appearance,
       );
+    } else if (membership.role == SchoolRole.principal && appearance != null) {
+      page = PrincipalWorkspacePage(
+        membership: membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
     } else {
       page = DashboardPage(
         membership: membership,
@@ -163,6 +171,14 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     if (widget.membership.role == SchoolRole.proprietor && appearance != null) {
       return ProprietorWorkspacePage(
+        membership: widget.membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    }
+    if (widget.membership.role == SchoolRole.principal && appearance != null) {
+      return PrincipalWorkspacePage(
         membership: widget.membership,
         localDatabase: widget.localDatabase,
         schoolSession: widget.schoolSession,
