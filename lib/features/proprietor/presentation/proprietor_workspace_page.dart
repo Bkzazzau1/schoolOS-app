@@ -10,6 +10,7 @@ import 'proprietor_concession_approvals_page.dart';
 import 'proprietor_enrollment_page.dart';
 import 'proprietor_finance_page.dart';
 import 'proprietor_overview_page.dart';
+import 'proprietor_staff_page.dart';
 
 class ProprietorWorkspacePage extends StatefulWidget {
   const ProprietorWorkspacePage({
@@ -34,13 +35,28 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
 
   static const _navigation = <_OwnerNavItem>[
     _OwnerNavItem('overview', 'Executive Overview', Icons.dashboard_rounded, true),
-    _OwnerNavItem('finance', 'Owner Finance', Icons.account_balance_wallet_rounded, true),
-    _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded, true),
-    _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded, false),
+    _OwnerNavItem(
+      'finance',
+      'Owner Finance',
+      Icons.account_balance_wallet_rounded,
+      true,
+    ),
+    _OwnerNavItem(
+      'enrollment',
+      'Enrollment & Admissions',
+      Icons.person_add_alt_1_rounded,
+      true,
+    ),
+    _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded, true),
     _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded, false),
     _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, false),
     _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded, false),
-    _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded, false),
+    _OwnerNavItem(
+      'structure',
+      'Structure & Leadership',
+      Icons.account_tree_rounded,
+      false,
+    ),
     _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined, false),
     _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined, false),
   ];
@@ -104,7 +120,9 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     if (!item.implemented) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${item.label} is the next proprietor feature to be ported.'),
+          content: Text(
+            '${item.label} is the next proprietor feature to be ported.',
+          ),
         ),
       );
       return;
@@ -142,6 +160,17 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     }
   }
 
+  void _handleStaffAction(String key) {
+    switch (key) {
+      case 'overview':
+        setState(() => _activeModule = 'overview');
+      case 'structure':
+        _selectModule('structure');
+      default:
+        _selectModule(key);
+    }
+  }
+
   Widget _buildContent() {
     return switch (_activeModule) {
       'finance' => ProprietorFinancePage(
@@ -156,6 +185,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
       'enrollment' => ProprietorEnrollmentPage(
           schoolName: widget.membership.schoolName,
           onActionRequested: _selectModule,
+        ),
+      'staff' => ProprietorStaffPage(
+          schoolName: widget.membership.schoolName,
+          onActionRequested: _handleStaffAction,
         ),
       _ => ProprietorOverviewPage(
           schoolName: widget.membership.schoolName,
