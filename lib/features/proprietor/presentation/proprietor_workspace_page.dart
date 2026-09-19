@@ -4,6 +4,8 @@ import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/concession_repository.dart';
@@ -114,6 +116,94 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     );
   }
 
+  Future<void> _openSchoolLifeCapability(
+    ProprietorSchoolLifeCapability capability,
+  ) async {
+    if (capability.key == 'community') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => Scaffold(
+            appBar: AppBar(
+              title: Text('${widget.membership.schoolName} · Community'),
+              actions: [
+                IconButton(
+                  tooltip: _pendingSyncCount == 0
+                      ? 'Sync Center'
+                      : 'Sync Center · $_pendingSyncCount pending',
+                  onPressed: _openSyncCenter,
+                  icon: const Icon(Icons.cloud_sync_outlined),
+                ),
+              ],
+            ),
+            body: CommunityPage(
+              schoolName: widget.membership.schoolName,
+              repository: CommunityRepository(
+                localDatabase: widget.localDatabase,
+                schoolSession: widget.schoolSession,
+              ),
+              onBack: () => Navigator.of(context).pop(),
+              onCommunityChanged: _refreshPendingCount,
+            ),
+          ),
+        ),
+      );
+      _refreshPendingCount();
+      return;
+    }
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(capability.module),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                capability.level,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              Text(capability.detail),
+              const SizedBox(height: 12),
+              Text(
+                capability.description,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.5,
+                    ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'This shared School Life module will be ported feature-by-feature and will reuse this proprietor permission scope.',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   _OwnerNavItem? _navItem(String key) {
     for (final item in _navigation) {
       if (item.key == key) return item;
@@ -216,58 +306,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
       'school-life' => ProprietorSchoolLifePage(
           schoolName: widget.membership.schoolName,
           onDashboard: () => setState(() => _activeModule = 'overview'),
-          onCapabilityRequested: (capability) {
-            showDialog<void>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: Text(capability.module),
-                content: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        capability.level,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w900,
-                            ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(capability.detail),
-                      const SizedBox(height: 12),
-                      Text(
-                        capability.description,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              height: 1.5,
-                            ),
-                      ),
-                      const SizedBox(height: 14),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'This is a shared School Life module. Its native workflow will be ported feature-by-feature and will reuse this proprietor permission scope.',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-            );
-          },
+          onCapabilityRequested: _openSchoolLifeCapability,
         ),
       _ => ProprietorOverviewPage(
           schoolName: widget.membership.schoolName,
