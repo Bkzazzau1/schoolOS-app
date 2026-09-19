@@ -7,8 +7,11 @@ import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../data/administrator_admissions_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
+import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_dashboard_models.dart';
+import 'administrator_admissions_page.dart';
 import 'administrator_dashboard_page.dart';
 
 class AdministratorWorkspacePage extends StatefulWidget {
@@ -34,10 +37,15 @@ class _AdministratorWorkspacePageState
     extends State<AdministratorWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+  late final AdministratorAdmissionsRepository _admissionsRepository;
 
   @override
   void initState() {
     super.initState();
+    _admissionsRepository = AdministratorAdmissionsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _refreshPendingCount();
   }
 
@@ -112,6 +120,27 @@ class _AdministratorWorkspacePageState
     setState(() => _activeKey = key);
   }
 
+  void _openPublicAdmissionsWebsite() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'The public admissions website is an online web surface. Direct native launching will be connected with Website Manager; offline Administrator work remains available here.',
+        ),
+      ),
+    );
+  }
+
+  void _handoffToRegistration(AdmissionApplicant applicant) {
+    setState(() => _activeKey = 'registration');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${applicant.name} · ${applicant.reference} handed to Student Registration. No active student record has been created yet.',
+        ),
+      ),
+    );
+  }
+
   AdministratorNavItem get _activeItem => administratorNavigation.firstWhere(
         (item) => item.key == _activeKey,
         orElse: () => administratorNavigation.first,
@@ -122,6 +151,16 @@ class _AdministratorWorkspacePageState
       return AdministratorDashboardPage(
         schoolName: widget.membership.schoolName,
         onActionRequested: _select,
+      );
+    }
+
+    if (_activeKey == 'admissions') {
+      return AdministratorAdmissionsPage(
+        schoolName: widget.membership.schoolName,
+        repository: _admissionsRepository,
+        onRegistrationRequested: _handoffToRegistration,
+        onOpenPublicWebsite: _openPublicAdmissionsWebsite,
+        onAdmissionsChanged: _refreshPendingCount,
       );
     }
 
@@ -217,7 +256,10 @@ class _AdministratorWorkspacePageState
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
-                const Badge(label: Text('5'), child: Icon(Icons.notifications_outlined)),
+                const Badge(
+                  label: Text('5'),
+                  child: Icon(Icons.notifications_outlined),
+                ),
               ],
             ),
           ),
@@ -268,7 +310,9 @@ class _AdministratorWorkspacePageState
                               const SizedBox(height: 4),
                               Text(
                                 widget.membership.schoolName,
-                                style: const TextStyle(fontWeight: FontWeight.w900),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                               const SizedBox(height: 3),
                               const Text(
@@ -335,11 +379,13 @@ class _AdministratorWorkspacePageState
                               decoration: const InputDecoration(
                                 isDense: true,
                                 prefixIcon: Icon(Icons.search_rounded),
-                                hintText: 'Search student, guardian, staff, document...',
+                                hintText:
+                                    'Search student, guardian, staff, document...',
                               ),
                             ),
                           ),
-                        if (constraints.maxWidth >= 980) const SizedBox(width: 10),
+                        if (constraints.maxWidth >= 980)
+                          const SizedBox(width: 10),
                         Badge(
                           label: const Text('5'),
                           child: IconButton(
