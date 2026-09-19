@@ -112,12 +112,22 @@ void main() {
     expect(find.textContaining('Human review · BNK-260913-879'), findsOneWidget);
     expect(find.text('Still Review'), findsOneWidget);
 
-    await tester.tap(find.byType(DropdownButtonFormField).first);
+    var dropdowns = find.byWidgetPredicate(
+      (widget) => widget is DropdownButtonFormField,
+      description: 'generic DropdownButtonFormField',
+    );
+    expect(dropdowns, findsNWidgets(2));
+    await tester.tap(dropdowns.first);
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Alhaji Abdullahi Yusuf').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(DropdownButtonFormField).last);
+    dropdowns = find.byWidgetPredicate(
+      (widget) => widget is DropdownButtonFormField,
+      description: 'generic DropdownButtonFormField after family selection',
+    );
+    expect(dropdowns, findsNWidgets(2));
+    await tester.tap(dropdowns.last);
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Maryam Abdullahi').last);
     await tester.pumpAndSettle();
