@@ -17,6 +17,7 @@ import 'finance_concessions_page.dart';
 import 'finance_fee_structure_page.dart';
 import 'finance_office_dashboard_page.dart';
 import 'finance_reminders_page.dart';
+import 'finance_store_page.dart';
 
 class FinanceOfficeWorkspacePage extends StatefulWidget {
   const FinanceOfficeWorkspacePage({
@@ -136,6 +137,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
           ),
         'collections' => const FinanceCollectionsPage(),
         'reminders' => const FinanceRemindersPage(),
+        'store' => const FinanceStorePage(),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
