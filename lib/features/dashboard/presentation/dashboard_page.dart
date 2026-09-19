@@ -103,6 +103,23 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() => _pendingSyncCount = count);
   }
 
+  Future<void> _switchSchool(SchoolMembership membership) async {
+    if (membership.id == widget.membership.id) return;
+
+    await widget.schoolSession.selectSchool(membership);
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => DashboardPage(
+          membership: membership,
+          localDatabase: widget.localDatabase,
+          schoolSession: widget.schoolSession,
+        ),
+      ),
+    );
+  }
+
   Widget _buildWorkspace() {
     final destination = _destinations[_selectedIndex];
 
@@ -144,6 +161,12 @@ class _DashboardPageState extends State<DashboardPage> {
             appBar: AppBar(
               title: _SchoolTitle(membership: widget.membership),
               actions: [
+                if (widget.schoolSession.canSwitchSchool)
+                  _SchoolSwitcherButton(
+                    activeMembership: widget.membership,
+                    memberships: widget.schoolSession.memberships,
+                    onSelected: _switchSchool,
+                  ),
                 _SyncStatusButton(
                   pendingCount: _pendingSyncCount,
                   onPressed: _refreshPendingCount,
@@ -205,6 +228,14 @@ class _DashboardPageState extends State<DashboardPage> {
                             Expanded(
                               child: _SchoolTitle(membership: widget.membership),
                             ),
+                            if (widget.schoolSession.canSwitchSchool) ...[
+                              _SchoolSwitcherButton(
+                                activeMembership: widget.membership,
+                                memberships: widget.schoolSession.memberships,
+                                onSelected: _switchSchool,
+                              ),
+                              const SizedBox(width: 10),
+                            ],
                             _SyncStatusButton(
                               pendingCount: _pendingSyncCount,
                               onPressed: _refreshPendingCount,
@@ -396,6 +427,56 @@ class _SchoolMark extends StatelessWidget {
       backgroundColor: colorScheme.primaryContainer,
       foregroundColor: colorScheme.onPrimaryContainer,
       child: Text(membership.schoolName.characters.first.toUpperCase()),
+    );
+  }
+}
+
+class _SchoolSwitcherButton extends StatelessWidget {
+  const _SchoolSwitcherButton({
+    required this.activeMembership,
+    required this.memberships,
+    required this.onSelected,
+  });
+
+  final SchoolMembership activeMembership;
+  final List<SchoolMembership> memberships;
+  final ValueChanged<SchoolMembership> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<SchoolMembership>(
+      tooltip: 'Switch school',
+      onSelected: onSelected,
+      icon: const Icon(Icons.swap_horiz_rounded),
+      itemBuilder: (context) => [
+        for (final membership in memberships)
+          PopupMenuItem<SchoolMembership>(
+            value: membership,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  child: membership.id == activeMembership.id
+                      ? const Icon(Icons.check_rounded, size: 18)
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(membership.schoolName),
+                      Text(
+                        membership.roleLabel,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
