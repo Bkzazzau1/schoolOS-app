@@ -4,6 +4,7 @@ import '../../../app/app_services.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -25,6 +26,12 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
 
   static const _demoMemberships = <SchoolMembership>[
+    SchoolMembership(
+      id: 'membership-proprietor-001',
+      schoolId: 'school-brightgate',
+      schoolName: 'BrightGate Academy',
+      role: SchoolRole.proprietor,
+    ),
     SchoolMembership(
       id: 'membership-teacher-001',
       schoolId: 'school-al-hikma',
@@ -125,7 +132,7 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (_demoMemberships.length == 1) {
-      await _openDashboard(_demoMemberships.single);
+      await _openMembershipHome(_demoMemberships.single);
       return;
     }
 
@@ -133,24 +140,30 @@ class _LoginPageState extends State<LoginPage> {
       MaterialPageRoute<void>(
         builder: (context) => SchoolSelectionPage(
           memberships: _demoMemberships,
-          onSelected: _openDashboard,
+          onSelected: _openMembershipHome,
         ),
       ),
     );
   }
 
-  Future<void> _openDashboard(SchoolMembership membership) async {
+  Future<void> _openMembershipHome(SchoolMembership membership) async {
     await widget.services.schoolSession.selectSchool(membership);
     if (!mounted) return;
 
+    final page = membership.role == SchoolRole.proprietor
+        ? ProprietorWorkspacePage(
+            membership: membership,
+            localDatabase: widget.services.localDatabase,
+            schoolSession: widget.services.schoolSession,
+          )
+        : DashboardPage(
+            membership: membership,
+            localDatabase: widget.services.localDatabase,
+            schoolSession: widget.services.schoolSession,
+          );
+
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (context) => DashboardPage(
-          membership: membership,
-          localDatabase: widget.services.localDatabase,
-          schoolSession: widget.services.schoolSession,
-        ),
-      ),
+      MaterialPageRoute<void>(builder: (context) => page),
     );
   }
 }
@@ -351,9 +364,15 @@ class _DesktopBrandPanel extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _CapabilityChip(icon: Icons.cloud_off_rounded, label: 'Offline-first'),
+              _CapabilityChip(
+                icon: Icons.cloud_off_rounded,
+                label: 'Offline-first',
+              ),
               _CapabilityChip(icon: Icons.sync_rounded, label: 'Smart sync'),
-              _CapabilityChip(icon: Icons.auto_awesome_rounded, label: 'Edge AI ready'),
+              _CapabilityChip(
+                icon: Icons.auto_awesome_rounded,
+                label: 'Edge AI ready',
+              ),
             ],
           ),
           const Spacer(),
