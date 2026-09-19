@@ -126,12 +126,13 @@ FinanceCollectionsTotals financeCollectionsTotals(List<FinanceTermAccount> accou
   final gross = accounts.fold<int>(0, (sum, item) => sum + item.gross);
   final concessions = accounts.fold<int>(0, (sum, item) => sum + item.concessions);
   final collected = accounts.fold<int>(0, (sum, item) => sum + item.paid);
+  final uniqueFamilyAccounts = accounts.map((item) => item.account).toSet().length;
   return FinanceCollectionsTotals(
     gross: gross,
     concessions: concessions,
     collected: collected,
     outstanding: gross - concessions - collected,
-    activeAccounts: accounts.length,
+    activeAccounts: uniqueFamilyAccounts,
   );
 }
 
