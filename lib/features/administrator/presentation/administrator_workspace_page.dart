@@ -9,10 +9,12 @@ import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/administrator_admissions_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
+import '../data/administrator_website_repository.dart';
 import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_dashboard_models.dart';
 import 'administrator_admissions_page.dart';
 import 'administrator_dashboard_page.dart';
+import 'administrator_website_page.dart';
 
 class AdministratorWorkspacePage extends StatefulWidget {
   const AdministratorWorkspacePage({
@@ -38,11 +40,16 @@ class _AdministratorWorkspacePageState
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   late final AdministratorAdmissionsRepository _admissionsRepository;
+  late final AdministratorWebsiteRepository _websiteRepository;
 
   @override
   void initState() {
     super.initState();
     _admissionsRepository = AdministratorAdmissionsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _websiteRepository = AdministratorWebsiteRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -124,7 +131,7 @@ class _AdministratorWorkspacePageState
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'The public admissions website is an online web surface. Direct native launching will be connected with Website Manager; offline Administrator work remains available here.',
+          'The public admissions website is an online web surface. Website Manager controls its public content; offline Administrator work remains available here.',
         ),
       ),
     );
@@ -161,6 +168,14 @@ class _AdministratorWorkspacePageState
         onRegistrationRequested: _handoffToRegistration,
         onOpenPublicWebsite: _openPublicAdmissionsWebsite,
         onAdmissionsChanged: _refreshPendingCount,
+      );
+    }
+
+    if (_activeKey == 'website') {
+      return AdministratorWebsitePage(
+        schoolName: widget.membership.schoolName,
+        repository: _websiteRepository,
+        onSettingsChanged: _refreshPendingCount,
       );
     }
 
