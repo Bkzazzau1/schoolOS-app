@@ -19,7 +19,9 @@ class FinanceConcessionsRepository {
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession;
 
-  static const _entityType = 'finance_concession_request';
+  // Shared with the Proprietor concession approval queue. A Finance request
+  // must be visible to the Proprietor offline before any server sync occurs.
+  static const _entityType = 'concession_request';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
