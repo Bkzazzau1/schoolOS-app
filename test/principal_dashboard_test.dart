@@ -58,7 +58,7 @@ void main() {
     expect(principalAlerts.where((item) => item.warning).length, 2);
     expect(principalActivity.length, 5);
     expect(principalAiBrief, contains('JSS 2B'));
-    expect(principalAiBrief, contains('Secondary'));
+    expect(principalAiBrief, contains('Mathematics syllabus pace'));
   });
 
   test('teacher search follows website name subject and status behavior', () {
