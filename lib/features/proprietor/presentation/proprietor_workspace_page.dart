@@ -4,6 +4,8 @@ import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../activities/data/activity_repository.dart';
+import '../../activities/presentation/activities_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
@@ -178,6 +180,38 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
               ),
               onBack: () => Navigator.of(context).pop(),
               onNoticeboardChanged: _refreshPendingCount,
+            ),
+          ),
+        ),
+      );
+      _refreshPendingCount();
+      return;
+    }
+
+    if (capability.key == 'activities') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => Scaffold(
+            appBar: AppBar(
+              title: Text('${widget.membership.schoolName} · Activities & Clubs'),
+              actions: [
+                IconButton(
+                  tooltip: _pendingSyncCount == 0
+                      ? 'Sync Center'
+                      : 'Sync Center · $_pendingSyncCount pending',
+                  onPressed: _openSyncCenter,
+                  icon: const Icon(Icons.cloud_sync_outlined),
+                ),
+              ],
+            ),
+            body: ActivitiesPage(
+              schoolName: widget.membership.schoolName,
+              repository: ActivityRepository(
+                localDatabase: widget.localDatabase,
+                schoolSession: widget.schoolSession,
+              ),
+              onBack: () => Navigator.of(context).pop(),
+              onActivitiesChanged: _refreshPendingCount,
             ),
           ),
         ),
