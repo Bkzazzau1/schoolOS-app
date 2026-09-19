@@ -97,7 +97,7 @@ void main() {
   });
 
   testWidgets('manual review proposal does not turn ambiguous transfer into matched payment', (tester) async {
-    tester.view.physicalSize = const Size(1800, 1600);
+    tester.view.physicalSize = const Size(1800, 2800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
