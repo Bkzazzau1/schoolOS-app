@@ -28,7 +28,7 @@ class SchoolMembership {
       SchoolRole.administrator => 'Administrator',
       SchoolRole.principal => 'Principal',
       SchoolRole.teacher => 'Teacher',
-      SchoolRole.accountant => 'Accountant',
+      SchoolRole.accountant => 'Finance Officer',
       SchoolRole.parent => 'Parent',
       SchoolRole.student => 'Student',
       SchoolRole.staff => 'Staff',
