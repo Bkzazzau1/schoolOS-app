@@ -20,6 +20,7 @@ import 'finance_family_accounts_page.dart';
 import 'finance_fee_structure_page.dart';
 import 'finance_mandates_page.dart';
 import 'finance_office_dashboard_page.dart';
+import 'finance_payroll_page.dart';
 import 'finance_receipts_page.dart';
 import 'finance_reconciliation_page.dart';
 import 'finance_reminders_page.dart';
@@ -150,6 +151,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'accounts' => const FinanceFamilyAccountsPage(),
         'reconciliation' => const FinanceReconciliationPage(),
         'expenses' => const FinanceCashflowPage(),
+        'payroll' => const FinancePayrollPage(),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
