@@ -21,6 +21,7 @@ import '../data/principal_teachers_repository.dart';
 import '../data/principal_timetable_repository.dart';
 import '../domain/principal_dashboard_models.dart';
 import 'principal_academics_page.dart';
+import 'principal_ai_page.dart';
 import 'principal_approvals_page.dart';
 import 'principal_assignments_page.dart';
 import 'principal_attendance_page.dart';
@@ -105,6 +106,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
         'timetable' => PrincipalTimetablePage(repository: _timetable, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'communication' => PrincipalCommunicationPage(repository: _communication, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'incidents' => PrincipalIncidentsPage(repository: _incidents, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'ai' => PrincipalAIPage(membership: widget.membership, onNavigate: _select),
         _ => _UpcomingPrincipalFeature(item: _activeItem, onDashboard: () => _select('dashboard')),
       };
 
