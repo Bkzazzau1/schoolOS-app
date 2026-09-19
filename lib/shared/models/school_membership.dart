@@ -32,4 +32,22 @@ class SchoolMembership {
       SchoolRole.staff => 'Staff',
     };
   }
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'schoolId': schoolId,
+      'schoolName': schoolName,
+      'role': role.name,
+    };
+  }
+
+  factory SchoolMembership.fromJson(Map<String, dynamic> json) {
+    return SchoolMembership(
+      id: json['id'] as String,
+      schoolId: json['schoolId'] as String,
+      schoolName: json['schoolName'] as String,
+      role: SchoolRole.values.byName(json['role'] as String),
+    );
+  }
 }
