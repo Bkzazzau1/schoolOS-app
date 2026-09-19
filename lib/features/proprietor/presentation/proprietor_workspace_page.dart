@@ -8,6 +8,8 @@ import '../../activities/data/activity_repository.dart';
 import '../../activities/presentation/activities_page.dart';
 import '../../assembly/data/assembly_repository.dart';
 import '../../assembly/presentation/assembly_page.dart';
+import '../../awards/data/award_repository.dart';
+import '../../awards/presentation/awards_page.dart';
 import '../../boarding/data/boarding_repository.dart';
 import '../../boarding/presentation/boarding_page.dart';
 import '../../community/data/community_repository.dart';
@@ -362,6 +364,22 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           ),
           onBack: () => Navigator.of(context).pop(),
           onServiceChanged: _refreshPendingCount,
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'awards') {
+      await _pushSharedModule(
+        title: 'Awards & Recognition',
+        body: AwardsPage(
+          schoolName: widget.membership.schoolName,
+          repository: AwardRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+          onAwardsChanged: _refreshPendingCount,
         ),
       );
       return;
