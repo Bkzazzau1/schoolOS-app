@@ -9,6 +9,8 @@ import '../../activities/presentation/activities_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../events/data/event_repository.dart';
+import '../../events/presentation/events_page.dart';
 import '../../noticeboard/data/noticeboard_repository.dart';
 import '../../noticeboard/presentation/noticeboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
@@ -52,16 +54,16 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
   late final ProprietorStructureRepository _structureRepository;
 
   static const _navigation = <_OwnerNavItem>[
-    _OwnerNavItem('overview', 'Executive Overview', Icons.dashboard_rounded, true),
-    _OwnerNavItem('finance', 'Owner Finance', Icons.account_balance_wallet_rounded, true),
-    _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded, true),
-    _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded, true),
-    _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded, true),
-    _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, true),
-    _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded, true),
-    _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded, true),
-    _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined, true),
-    _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined, true),
+    _OwnerNavItem('overview', 'Executive Overview', Icons.dashboard_rounded),
+    _OwnerNavItem('finance', 'Owner Finance', Icons.account_balance_wallet_rounded),
+    _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded),
+    _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded),
+    _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded),
+    _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded),
+    _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded),
+    _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded),
+    _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined),
+    _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined),
   ];
 
   @override
@@ -125,98 +127,66 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     ProprietorSchoolLifeCapability capability,
   ) async {
     if (capability.key == 'community') {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => Scaffold(
-            appBar: AppBar(
-              title: Text('${widget.membership.schoolName} · Community'),
-              actions: [
-                IconButton(
-                  tooltip: _pendingSyncCount == 0
-                      ? 'Sync Center'
-                      : 'Sync Center · $_pendingSyncCount pending',
-                  onPressed: _openSyncCenter,
-                  icon: const Icon(Icons.cloud_sync_outlined),
-                ),
-              ],
-            ),
-            body: CommunityPage(
-              schoolName: widget.membership.schoolName,
-              repository: CommunityRepository(
-                localDatabase: widget.localDatabase,
-                schoolSession: widget.schoolSession,
-              ),
-              onBack: () => Navigator.of(context).pop(),
-              onCommunityChanged: _refreshPendingCount,
-            ),
+      await _pushSharedModule(
+        title: 'Community',
+        body: CommunityPage(
+          schoolName: widget.membership.schoolName,
+          repository: CommunityRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
           ),
+          onBack: () => Navigator.of(context).pop(),
+          onCommunityChanged: _refreshPendingCount,
         ),
       );
-      _refreshPendingCount();
       return;
     }
 
     if (capability.key == 'noticeboard') {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => Scaffold(
-            appBar: AppBar(
-              title: Text('${widget.membership.schoolName} · Noticeboard'),
-              actions: [
-                IconButton(
-                  tooltip: _pendingSyncCount == 0
-                      ? 'Sync Center'
-                      : 'Sync Center · $_pendingSyncCount pending',
-                  onPressed: _openSyncCenter,
-                  icon: const Icon(Icons.cloud_sync_outlined),
-                ),
-              ],
-            ),
-            body: NoticeboardPage(
-              schoolName: widget.membership.schoolName,
-              repository: NoticeboardRepository(
-                localDatabase: widget.localDatabase,
-                schoolSession: widget.schoolSession,
-              ),
-              onBack: () => Navigator.of(context).pop(),
-              onNoticeboardChanged: _refreshPendingCount,
-            ),
+      await _pushSharedModule(
+        title: 'Noticeboard',
+        body: NoticeboardPage(
+          schoolName: widget.membership.schoolName,
+          repository: NoticeboardRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
           ),
+          onBack: () => Navigator.of(context).pop(),
+          onNoticeboardChanged: _refreshPendingCount,
         ),
       );
-      _refreshPendingCount();
       return;
     }
 
     if (capability.key == 'activities') {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => Scaffold(
-            appBar: AppBar(
-              title: Text('${widget.membership.schoolName} · Activities & Clubs'),
-              actions: [
-                IconButton(
-                  tooltip: _pendingSyncCount == 0
-                      ? 'Sync Center'
-                      : 'Sync Center · $_pendingSyncCount pending',
-                  onPressed: _openSyncCenter,
-                  icon: const Icon(Icons.cloud_sync_outlined),
-                ),
-              ],
-            ),
-            body: ActivitiesPage(
-              schoolName: widget.membership.schoolName,
-              repository: ActivityRepository(
-                localDatabase: widget.localDatabase,
-                schoolSession: widget.schoolSession,
-              ),
-              onBack: () => Navigator.of(context).pop(),
-              onActivitiesChanged: _refreshPendingCount,
-            ),
+      await _pushSharedModule(
+        title: 'Activities & Clubs',
+        body: ActivitiesPage(
+          schoolName: widget.membership.schoolName,
+          repository: ActivityRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
           ),
+          onBack: () => Navigator.of(context).pop(),
+          onActivitiesChanged: _refreshPendingCount,
         ),
       );
-      _refreshPendingCount();
+      return;
+    }
+
+    if (capability.key == 'events') {
+      await _pushSharedModule(
+        title: 'Events & Calendar',
+        body: EventsPage(
+          schoolName: widget.membership.schoolName,
+          repository: EventRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+          onEventsChanged: _refreshPendingCount,
+        ),
+      );
       return;
     }
 
@@ -273,6 +243,32 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     );
   }
 
+  Future<void> _pushSharedModule({
+    required String title,
+    required Widget body,
+  }) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text('${widget.membership.schoolName} · $title'),
+            actions: [
+              IconButton(
+                tooltip: _pendingSyncCount == 0
+                    ? 'Sync Center'
+                    : 'Sync Center · $_pendingSyncCount pending',
+                onPressed: _openSyncCenter,
+                icon: const Icon(Icons.cloud_sync_outlined),
+              ),
+            ],
+          ),
+          body: body,
+        ),
+      ),
+    );
+    _refreshPendingCount();
+  }
+
   _OwnerNavItem? _navItem(String key) {
     for (final item in _navigation) {
       if (item.key == key) return item;
@@ -281,16 +277,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
   }
 
   void _selectModule(String key) {
-    final item = _navItem(key);
-    if (item == null) return;
-    if (!item.implemented) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${item.label} is the next proprietor feature to be ported.'),
-        ),
-      );
-      return;
-    }
+    if (_navItem(key) == null) return;
     setState(() => _activeModule = key);
   }
 
@@ -394,8 +381,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final phone = constraints.maxWidth < 700;
-        final extended = constraints.maxWidth >= 1180;
-        return phone ? _buildPhone(context) : _buildWide(context, extended);
+        return phone ? _buildPhone(context) : _buildWide(context);
       },
     );
   }
@@ -408,7 +394,6 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           PopupMenuButton<String>(
             tooltip: 'Owner workspace',
             onSelected: _selectModule,
-            icon: const Icon(Icons.menu_rounded),
             itemBuilder: (context) => [
               for (final item in _navigation)
                 PopupMenuItem<String>(
@@ -418,8 +403,6 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                       Icon(item.icon, size: 19),
                       const SizedBox(width: 10),
                       Expanded(child: Text(item.label)),
-                      if (!item.implemented)
-                        Text('Soon', style: Theme.of(context).textTheme.labelSmall),
                     ],
                   ),
                 ),
@@ -446,14 +429,13 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
               ),
             ),
           ),
-          const SizedBox(width: 4),
         ],
       ),
       body: Column(
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             color: Theme.of(context).colorScheme.surfaceContainerLow,
             child: Text(
               _activeLabel,
@@ -468,7 +450,8 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     );
   }
 
-  Widget _buildWide(BuildContext context, bool extended) {
+  Widget _buildWide(BuildContext context) {
+    final extended = MediaQuery.sizeOf(context).width >= 1180;
     return Scaffold(
       body: Row(
         children: [
@@ -495,42 +478,14 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                         for (final item in _navigation)
                           _OwnerNavigationTile(
                             extended: extended,
-                            icon: item.icon,
-                            label: item.label,
+                            item: item,
                             selected: _activeModule == item.key ||
                                 (_activeModule == 'finance-approvals' &&
                                     item.key == 'finance'),
-                            implemented: item.implemented,
                             onTap: () => _selectModule(item.key),
                           ),
                       ],
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: extended
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'OWNER WORKSPACE',
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                widget.membership.schoolName,
-                                style: const TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                              Text(
-                                'Whole-school authority',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          )
-                        : const Icon(Icons.admin_panel_settings_outlined),
                   ),
                 ],
               ),
@@ -544,7 +499,9 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                     padding: const EdgeInsets.fromLTRB(24, 14, 24, 12),
                     child: Row(
                       children: [
-                        Expanded(child: _SchoolTitle(membership: widget.membership)),
+                        Expanded(
+                          child: _SchoolTitle(membership: widget.membership),
+                        ),
                         Text(
                           _activeLabel,
                           style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -591,7 +548,6 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
 
 class _OwnerBrand extends StatelessWidget {
   const _OwnerBrand({required this.extended});
-
   final bool extended;
 
   @override
@@ -606,7 +562,6 @@ class _OwnerBrand extends StatelessWidget {
       ),
       child: Icon(Icons.school_rounded, color: theme.colorScheme.onPrimary),
     );
-
     if (!extended) return mark;
     return Row(
       children: [
@@ -634,18 +589,14 @@ class _OwnerBrand extends StatelessWidget {
 class _OwnerNavigationTile extends StatelessWidget {
   const _OwnerNavigationTile({
     required this.extended,
-    required this.icon,
-    required this.label,
+    required this.item,
     required this.selected,
-    required this.implemented,
     required this.onTap,
   });
 
   final bool extended;
-  final IconData icon;
-  final String label;
+  final _OwnerNavItem item;
   final bool selected;
-  final bool implemented;
   final VoidCallback onTap;
 
   @override
@@ -669,30 +620,17 @@ class _OwnerNavigationTile extends StatelessWidget {
                   ? MainAxisAlignment.start
                   : MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  color: implemented ? null : theme.colorScheme.onSurfaceVariant,
-                ),
+                Icon(item.icon),
                 if (extended) ...[
                   const SizedBox(width: 11),
                   Expanded(
                     child: Text(
-                      label,
+                      item.label,
                       style: TextStyle(
                         fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
-                        color: implemented
-                            ? null
-                            : theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
-                  if (!implemented)
-                    Text(
-                      'Soon',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
                 ],
               ],
             ),
@@ -705,7 +643,6 @@ class _OwnerNavigationTile extends StatelessWidget {
 
 class _SchoolTitle extends StatelessWidget {
   const _SchoolTitle({required this.membership});
-
   final SchoolMembership membership;
 
   @override
@@ -790,10 +727,8 @@ class _SchoolSwitcherButton extends StatelessWidget {
 }
 
 class _OwnerNavItem {
-  const _OwnerNavItem(this.key, this.label, this.icon, this.implemented);
-
+  const _OwnerNavItem(this.key, this.label, this.icon);
   final String key;
   final String label;
   final IconData icon;
-  final bool implemented;
 }
