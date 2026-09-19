@@ -11,6 +11,7 @@ import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/finance_office_dashboard_demo_data.dart';
 import '../domain/finance_office_dashboard_models.dart';
+import 'finance_fee_structure_page.dart';
 import 'finance_office_dashboard_page.dart';
 
 class FinanceOfficeWorkspacePage extends StatefulWidget {
@@ -119,6 +120,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
             schoolName: widget.membership.schoolName,
             onNavigate: _select,
           ),
+        'fee-structure' => const FinanceFeeStructurePage(),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
