@@ -49,4 +49,4 @@ const administratorNoticesAuthorityBoundary =
     'Community discussions are conversational; notices are authoritative school communication. Administrator publishing requires permission checks, approval rules and an audit trail.';
 
 const administratorNoticesDraftBoundary =
-    'Native offline Save notice creates a Draft only. It must not silently publish or schedule authoritative communication before the governed publishing workflow approves it.';
+    'Native offline Save notice creates a Draft only. It must not silently publish or schedule authoritative communication before the governed approval workflow completes.';
