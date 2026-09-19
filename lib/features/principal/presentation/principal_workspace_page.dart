@@ -12,6 +12,7 @@ import '../data/principal_academics_repository.dart';
 import '../data/principal_approvals_repository.dart';
 import '../data/principal_assignments_repository.dart';
 import '../data/principal_attendance_repository.dart';
+import '../data/principal_communication_repository.dart';
 import '../data/principal_dashboard_demo_data.dart';
 import '../data/principal_results_repository.dart';
 import '../data/principal_students_repository.dart';
@@ -22,6 +23,7 @@ import 'principal_academics_page.dart';
 import 'principal_approvals_page.dart';
 import 'principal_assignments_page.dart';
 import 'principal_attendance_page.dart';
+import 'principal_communication_page.dart';
 import 'principal_dashboard_page.dart';
 import 'principal_results_page.dart';
 import 'principal_students_page.dart';
@@ -57,6 +59,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   late final PrincipalApprovalsRepository _approvalsRepository;
   late final PrincipalResultsRepository _resultsRepository;
   late final PrincipalTimetableRepository _timetableRepository;
+  late final PrincipalCommunicationRepository _communicationRepository;
 
   @override
   void initState() {
@@ -69,6 +72,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
     _approvalsRepository = PrincipalApprovalsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _resultsRepository = PrincipalResultsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _timetableRepository = PrincipalTimetableRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _communicationRepository = PrincipalCommunicationRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _refreshPendingCount();
   }
 
@@ -154,6 +158,8 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
         return PrincipalResultsPage(repository: _resultsRepository, onNavigate: _select, onMutationQueued: _refreshPendingCount);
       case 'timetable':
         return PrincipalTimetablePage(repository: _timetableRepository, onNavigate: _select, onMutationQueued: _refreshPendingCount);
+      case 'communication':
+        return PrincipalCommunicationPage(repository: _communicationRepository, onNavigate: _select, onMutationQueued: _refreshPendingCount);
       default:
         return _UpcomingPrincipalFeature(item: _activeItem, onDashboard: () => _select('dashboard'));
     }
