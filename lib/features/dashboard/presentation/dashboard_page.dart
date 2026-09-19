@@ -6,6 +6,9 @@ import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../attendance/data/attendance_repository.dart';
 import '../../attendance/presentation/attendance_page.dart';
+import '../../lesson_plans/data/lesson_plan_generation_service.dart';
+import '../../lesson_plans/data/lesson_plan_repository.dart';
+import '../../lesson_plans/presentation/lesson_plan_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({
@@ -27,6 +30,8 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
   int _pendingSyncCount = 0;
   late final AttendanceRepository _attendanceRepository;
+  late final LessonPlanRepository _lessonPlanRepository;
+  late final LessonPlanGenerationService _lessonPlanGenerationService;
 
   static const _destinations = <_AppDestination>[
     _AppDestination('Dashboard', Icons.dashboard_outlined, Icons.dashboard_rounded),
@@ -43,6 +48,11 @@ class _DashboardPageState extends State<DashboardPage> {
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
+    _lessonPlanRepository = LessonPlanRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _lessonPlanGenerationService = const LessonPlanGenerationService();
     _refreshPendingCount();
   }
 
@@ -62,6 +72,15 @@ class _DashboardPageState extends State<DashboardPage> {
       return AttendancePage(
         repository: _attendanceRepository,
         onSaved: _refreshPendingCount,
+      );
+    }
+
+    if (_selectedIndex == 3) {
+      return LessonPlanPage(
+        membership: widget.membership,
+        generationService: _lessonPlanGenerationService,
+        repository: _lessonPlanRepository,
+        onQueuedForSync: _refreshPendingCount,
       );
     }
 
@@ -213,7 +232,7 @@ class _Workspace extends StatelessWidget {
             ),
             const _SummaryCard(
               label: 'Edge AI',
-              value: 'Foundation',
+              value: 'Boundary ready',
               icon: Icons.auto_awesome_outlined,
             ),
           ],
@@ -234,7 +253,7 @@ class _Workspace extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Local records are tenant-scoped, sensitive payloads are encrypted before storage, and offline changes are queued in a durable sync outbox. Attendance is now connected to this foundation.',
+                  'Attendance and lesson-plan drafts now use the tenant-scoped encrypted local data layer. Changes selected for cloud sync are placed in the durable outbox.',
                   style: theme.textTheme.bodyMedium,
                 ),
               ],
