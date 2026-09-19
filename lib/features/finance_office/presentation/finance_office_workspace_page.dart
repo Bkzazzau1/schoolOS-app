@@ -12,6 +12,7 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/finance_concessions_repository.dart';
 import '../data/finance_office_dashboard_demo_data.dart';
 import '../domain/finance_office_dashboard_models.dart';
+import 'finance_collections_page.dart';
 import 'finance_concessions_page.dart';
 import 'finance_fee_structure_page.dart';
 import 'finance_office_dashboard_page.dart';
@@ -132,6 +133,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
             repository: _concessions,
             onMutationQueued: _refreshPendingCount,
           ),
+        'collections' => const FinanceCollectionsPage(),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
