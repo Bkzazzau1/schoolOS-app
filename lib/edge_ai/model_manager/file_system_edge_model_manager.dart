@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cryptography/cryptography.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -11,7 +11,6 @@ import 'edge_model_manager.dart';
 class FileSystemEdgeModelManager implements EdgeModelManager {
   FileSystemEdgeModelManager();
 
-  final HashAlgorithm _sha256 = Sha256();
   Directory? _rootDirectory;
 
   Future<Directory> _root() async {
@@ -205,10 +204,8 @@ class FileSystemEdgeModelManager implements EdgeModelManager {
       );
     }
 
-    final hash = await _sha256.hashStream(file.openRead());
-    final actualHash = hash.bytes
-        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
-        .join();
+    final digest = await crypto.sha256.bind(file.openRead()).first;
+    final actualHash = digest.toString();
     final expectedHash = manifest.sha256.trim().toLowerCase();
 
     if (expectedHash.isEmpty || actualHash != expectedHash) {
