@@ -6,6 +6,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/concession_repository.dart';
+import 'proprietor_ai_page.dart';
 import 'proprietor_campuses_page.dart';
 import 'proprietor_concession_approvals_page.dart';
 import 'proprietor_enrollment_page.dart';
@@ -42,7 +43,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded, true),
     _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded, true),
     _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, true),
-    _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded, false),
+    _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded, true),
     _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded, false),
     _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined, false),
     _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined, false),
@@ -180,6 +181,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           onActionRequested: _selectModule,
         ),
       'campuses' => ProprietorCampusesPage(
+          schoolName: widget.membership.schoolName,
+          onActionRequested: _selectModule,
+        ),
+      'ai' => ProprietorAiPage(
           schoolName: widget.membership.schoolName,
           onActionRequested: _selectModule,
         ),
