@@ -7,6 +7,8 @@ import '../../../shared/models/school_membership.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../noticeboard/data/noticeboard_repository.dart';
+import '../../noticeboard/presentation/noticeboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/concession_repository.dart';
 import '../data/proprietor_school_life_data.dart';
@@ -144,6 +146,38 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
               ),
               onBack: () => Navigator.of(context).pop(),
               onCommunityChanged: _refreshPendingCount,
+            ),
+          ),
+        ),
+      );
+      _refreshPendingCount();
+      return;
+    }
+
+    if (capability.key == 'noticeboard') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => Scaffold(
+            appBar: AppBar(
+              title: Text('${widget.membership.schoolName} · Noticeboard'),
+              actions: [
+                IconButton(
+                  tooltip: _pendingSyncCount == 0
+                      ? 'Sync Center'
+                      : 'Sync Center · $_pendingSyncCount pending',
+                  onPressed: _openSyncCenter,
+                  icon: const Icon(Icons.cloud_sync_outlined),
+                ),
+              ],
+            ),
+            body: NoticeboardPage(
+              schoolName: widget.membership.schoolName,
+              repository: NoticeboardRepository(
+                localDatabase: widget.localDatabase,
+                schoolSession: widget.schoolSession,
+              ),
+              onBack: () => Navigator.of(context).pop(),
+              onNoticeboardChanged: _refreshPendingCount,
             ),
           ),
         ),
