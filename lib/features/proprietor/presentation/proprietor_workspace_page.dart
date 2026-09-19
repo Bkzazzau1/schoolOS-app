@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
@@ -8,6 +9,7 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/concession_repository.dart';
 import '../data/proprietor_structure_repository.dart';
 import 'proprietor_ai_page.dart';
+import 'proprietor_appearance_page.dart';
 import 'proprietor_campuses_page.dart';
 import 'proprietor_concession_approvals_page.dart';
 import 'proprietor_enrollment_page.dart';
@@ -23,11 +25,13 @@ class ProprietorWorkspacePage extends StatefulWidget {
     required this.membership,
     required this.localDatabase,
     required this.schoolSession,
+    required this.schoolAppearance,
   });
 
   final SchoolMembership membership;
   final LocalDatabase localDatabase;
   final SchoolSessionController schoolSession;
+  final SchoolAppearanceController schoolAppearance;
 
   @override
   State<ProprietorWorkspacePage> createState() => _ProprietorWorkspacePageState();
@@ -48,7 +52,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, true),
     _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded, true),
     _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded, true),
-    _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined, false),
+    _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined, true),
     _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined, false),
   ];
 
@@ -96,6 +100,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
             membership: membership,
             localDatabase: widget.localDatabase,
             schoolSession: widget.schoolSession,
+            schoolAppearance: widget.schoolAppearance,
           )
         : DashboardPage(
             membership: membership,
@@ -200,6 +205,12 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           repository: _structureRepository,
           onActionRequested: _selectModule,
           onStructureChanged: _refreshPendingCount,
+        ),
+      'appearance' => ProprietorAppearancePage(
+          schoolName: widget.membership.schoolName,
+          controller: widget.schoolAppearance,
+          onDashboard: () => setState(() => _activeModule = 'overview'),
+          onAppearanceChanged: _refreshPendingCount,
         ),
       _ => ProprietorOverviewPage(
           schoolName: widget.membership.schoolName,
