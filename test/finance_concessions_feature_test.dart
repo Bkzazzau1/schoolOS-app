@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_concessions_demo_data.dart';
+import 'package:schoolos_app/features/finance_office/data/finance_concessions_repository.dart';
 import 'package:schoolos_app/features/finance_office/domain/finance_concessions_models.dart';
+import 'package:schoolos_app/features/proprietor/data/concession_repository.dart';
 
 void main() {
   test('website concession seed preserves exact four records', () {
@@ -68,5 +70,10 @@ void main() {
     expect(financeMoney(185000), '₦185,000');
     expect(financeMoney(125000), '₦125,000');
     expect(financeMoney(0), '₦0');
+  });
+
+  test('finance requests and proprietor approvals share one offline entity type', () {
+    expect(FinanceConcessionsRepository.entityType, ConcessionRepository.entityType);
+    expect(FinanceConcessionsRepository.entityType, 'concession_request');
   });
 }
