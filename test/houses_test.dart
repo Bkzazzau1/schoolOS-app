@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:school_os_app/features/houses/data/house_demo_data.dart';
-import 'package:school_os_app/features/houses/domain/house_models.dart';
+import 'package:schoolos_app/features/houses/data/house_demo_data.dart';
+import 'package:schoolos_app/features/houses/domain/house_models.dart';
 
 void main() {
   test('website house seed has four houses and 683 members', () {
