@@ -194,6 +194,8 @@ class _PayrollRegister extends StatelessWidget {
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
+              dataRowMinHeight: 64,
+              dataRowMaxHeight: 72,
               columns: const [
                 DataColumn(label: Text('Staff')),
                 DataColumn(label: Text('Expected')),
