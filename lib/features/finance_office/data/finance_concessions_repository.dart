@@ -21,7 +21,7 @@ class FinanceConcessionsRepository {
 
   // Shared with the Proprietor concession approval queue. A Finance request
   // must be visible to the Proprietor offline before any server sync occurs.
-  static const _entityType = 'concession_request';
+  static const entityType = 'concession_request';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -30,21 +30,21 @@ class FinanceConcessionsRepository {
     final membership = _schoolSession.requireActiveMembership();
     var records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
-      entityType: _entityType,
+      entityType: entityType,
     );
 
     if (records.isEmpty) {
       for (final request in financeConcessionSeed) {
         await _localDatabase.upsertLocalRecord(
           tenantId: membership.schoolId,
-          entityType: _entityType,
+          entityType: entityType,
           entityId: request.id,
           payload: request.toJson(),
         );
       }
       records = await _localDatabase.getLocalRecords(
         tenantId: membership.schoolId,
-        entityType: _entityType,
+        entityType: entityType,
       );
     }
 
@@ -127,7 +127,7 @@ class FinanceConcessionsRepository {
 
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
-      entityType: _entityType,
+      entityType: entityType,
       entityId: request.id,
       payload: request.toJson(),
       isDirty: true,
@@ -135,7 +135,7 @@ class FinanceConcessionsRepository {
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
-      entityType: _entityType,
+      entityType: entityType,
       entityId: request.id,
       operation: SyncOperation.create,
       payload: request.toJson(),
