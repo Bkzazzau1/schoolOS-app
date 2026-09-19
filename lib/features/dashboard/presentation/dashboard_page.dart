@@ -24,6 +24,8 @@ class DashboardPage extends StatefulWidget {
     this.schoolAppearance,
   });
 
+  static SchoolAppearanceController? appSchoolAppearance;
+
   final SchoolMembership membership;
   final LocalDatabase localDatabase;
   final SchoolSessionController schoolSession;
@@ -39,6 +41,9 @@ class _DashboardPageState extends State<DashboardPage> {
   late final AttendanceRepository _attendanceRepository;
   late final LessonPlanRepository _lessonPlanRepository;
   late final List<_AppDestination> _destinations;
+
+  SchoolAppearanceController? get _appearance =>
+      widget.schoolAppearance ?? DashboardPage.appSchoolAppearance;
 
   static const _allDestinations = <_AppDestination>[
     _AppDestination('Dashboard', Icons.dashboard_outlined,
@@ -94,7 +99,7 @@ class _DashboardPageState extends State<DashboardPage> {
     await widget.schoolSession.selectSchool(membership);
     if (!mounted) return;
 
-    final appearance = widget.schoolAppearance;
+    final appearance = _appearance;
     final Widget page;
     if (membership.role == SchoolRole.proprietor && appearance != null) {
       page = ProprietorWorkspacePage(
@@ -147,6 +152,24 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final appearance = _appearance;
+    if (widget.membership.role == SchoolRole.administrator && appearance != null) {
+      return AdministratorWorkspacePage(
+        membership: widget.membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    }
+    if (widget.membership.role == SchoolRole.proprietor && appearance != null) {
+      return ProprietorWorkspacePage(
+        membership: widget.membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final phone = AppBreakpoints.isPhone(constraints.maxWidth);
