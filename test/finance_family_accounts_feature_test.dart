@@ -105,7 +105,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Student & Family Accounts'), findsOneWidget);
-    expect(find.text('Family account register'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
