@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/core/auth/app_capability.dart';
+import 'package:schoolos_app/edge_ai/models/edge_model_manifest.dart';
 import 'package:schoolos_app/features/attendance/domain/attendance_models.dart';
 import 'package:schoolos_app/features/lesson_plans/data/lesson_plan_generation_service.dart';
 import 'package:schoolos_app/features/lesson_plans/domain/lesson_plan_models.dart';
@@ -79,5 +80,26 @@ void main() {
     expect(result.usedEdgeAi, isFalse);
     expect(result.usedCloud, isFalse);
     expect(result.fallbackMessage, isNotNull);
+  });
+
+  test('edge model manifest preserves versioned capability metadata', () {
+    const manifest = EdgeModelManifest(
+      id: 'schoolos-lesson-plan-small',
+      version: '1.0.0',
+      capability: EdgeAiCapability.lessonPlanText,
+      format: EdgeModelFormat.onnx,
+      fileName: 'lesson-plan-small.onnx',
+      sha256: 'abc123',
+      sizeBytes: 1024,
+      minimumRamMb: 2048,
+    );
+
+    final restored = EdgeModelManifest.fromJson(manifest.toJson());
+
+    expect(restored.installationKey, 'schoolos-lesson-plan-small@1.0.0');
+    expect(restored.capability, EdgeAiCapability.lessonPlanText);
+    expect(restored.format, EdgeModelFormat.onnx);
+    expect(restored.windowsSupported, isTrue);
+    expect(restored.androidSupported, isTrue);
   });
 }
