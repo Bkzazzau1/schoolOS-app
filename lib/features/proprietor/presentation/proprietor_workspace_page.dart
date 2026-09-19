@@ -5,6 +5,9 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../data/concession_repository.dart';
+import 'proprietor_concession_approvals_page.dart';
+import 'proprietor_finance_page.dart';
 import 'proprietor_overview_page.dart';
 
 class ProprietorWorkspacePage extends StatefulWidget {
@@ -25,10 +28,29 @@ class ProprietorWorkspacePage extends StatefulWidget {
 
 class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
   int _pendingSyncCount = 0;
+  String _activeModule = 'overview';
+  late final ConcessionRepository _concessionRepository;
+
+  static const _navigation = <_OwnerNavItem>[
+    _OwnerNavItem('overview', 'Executive Overview', Icons.dashboard_rounded, true),
+    _OwnerNavItem('finance', 'Owner Finance', Icons.account_balance_wallet_rounded, true),
+    _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded, false),
+    _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded, false),
+    _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded, false),
+    _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded, false),
+    _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded, false),
+    _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded, false),
+    _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined, false),
+    _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined, false),
+  ];
 
   @override
   void initState() {
     super.initState();
+    _concessionRepository = ConcessionRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _refreshPendingCount();
   }
 
@@ -75,26 +97,69 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     );
   }
 
-  void _handleModuleRequest(String moduleKey) {
-    final title = switch (moduleKey) {
-      'finance' => 'Owner Finance',
-      'enrollment' => 'Enrollment & Admissions',
-      'staff' => 'Staff & HR',
-      'reports' => 'Executive Reports',
-      'campuses' => 'Campus Comparison',
-      'ai' => 'Proprietor AI',
-      'structure' => 'Structure & Leadership',
-      'appearance' => 'School Appearance',
-      _ => 'Proprietor module',
-    };
+  void _selectModule(String key) {
+    final item = _navigation.where((item) => item.key == key).firstOrNull;
+    if (item == null) return;
+    if (!item.implemented) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${item.label} is the next proprietor feature to be ported.')),
+      );
+      return;
+    }
+    setState(() => _activeModule = key);
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$title will be ported as the next dedicated proprietor feature.',
+  void _handleOverviewModuleRequest(String key) {
+    if (key == 'finance') {
+      _selectModule('finance');
+      return;
+    }
+    _selectModule(key);
+  }
+
+  void _handleFinanceAction(String key) {
+    switch (key) {
+      case 'overview':
+        setState(() => _activeModule = 'overview');
+      case 'approvals':
+      case 'concessions':
+        setState(() => _activeModule = 'finance-approvals');
+      default:
+        final label = switch (key) {
+          'collections' => 'Smart Collections',
+          'finance-office' => 'Finance Office',
+          'fee-structure' => 'Fee Structure',
+          'store' => 'School Store',
+          'aging' => 'Outstanding & Aging',
+          _ => 'Finance workflow',
+        };
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$label belongs to the Finance Office feature and will be ported with that role.')),
+        );
+    }
+  }
+
+  Widget _buildContent() {
+    return switch (_activeModule) {
+      'finance' => ProprietorFinancePage(
+          schoolName: widget.membership.schoolName,
+          onActionRequested: _handleFinanceAction,
         ),
-      ),
-    );
+      'finance-approvals' => ProprietorConcessionApprovalsPage(
+          repository: _concessionRepository,
+          onBack: () => setState(() => _activeModule = 'finance'),
+          onDecisionSaved: _refreshPendingCount,
+        ),
+      _ => ProprietorOverviewPage(
+          schoolName: widget.membership.schoolName,
+          onModuleRequested: _handleOverviewModuleRequest,
+        ),
+    };
+  }
+
+  String get _activeLabel {
+    if (_activeModule == 'finance-approvals') return 'Concession Approvals';
+    return _navigation.where((item) => item.key == _activeModule).firstOrNull?.label ?? 'Executive Overview';
   }
 
   @override
@@ -102,12 +167,33 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final phone = constraints.maxWidth < 700;
+        final extended = constraints.maxWidth >= 1180;
 
         if (phone) {
           return Scaffold(
             appBar: AppBar(
               title: _SchoolTitle(membership: widget.membership),
               actions: [
+                PopupMenuButton<String>(
+                  tooltip: 'Owner workspace',
+                  onSelected: _selectModule,
+                  icon: const Icon(Icons.menu_rounded),
+                  itemBuilder: (context) => [
+                    for (final item in _navigation)
+                      PopupMenuItem<String>(
+                        value: item.key,
+                        child: Row(
+                          children: [
+                            Icon(item.icon, size: 19),
+                            const SizedBox(width: 10),
+                            Expanded(child: Text(item.label)),
+                            if (!item.implemented)
+                              Text('Soon', style: Theme.of(context).textTheme.labelSmall),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
                 if (widget.schoolSession.canSwitchSchool)
                   _SchoolSwitcherButton(
                     activeMembership: widget.membership,
@@ -129,12 +215,22 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
               ],
             ),
-            body: ProprietorOverviewPage(
-              schoolName: widget.membership.schoolName,
-              onModuleRequested: _handleModuleRequest,
+            body: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  child: Text(
+                    _activeLabel,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Expanded(child: _buildContent()),
+              ],
             ),
           );
         }
@@ -144,61 +240,51 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
             children: [
               SafeArea(
                 child: Container(
-                  width: constraints.maxWidth >= 1180 ? 248 : 88,
+                  width: extended ? 268 : 88,
                   decoration: BoxDecoration(
                     border: Border(
-                      right: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
+                      right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                     ),
                   ),
                   child: Column(
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(18),
-                        child: _OwnerBrand(
-                          extended: constraints.maxWidth >= 1180,
+                        child: _OwnerBrand(extended: extended),
+                      ),
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          children: [
+                            for (final item in _navigation)
+                              _OwnerNavigationTile(
+                                extended: extended,
+                                icon: item.icon,
+                                label: item.label,
+                                selected: _activeModule == item.key ||
+                                    (_activeModule == 'finance-approvals' && item.key == 'finance'),
+                                implemented: item.implemented,
+                                onTap: () => _selectModule(item.key),
+                              ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      _OwnerNavigationTile(
-                        extended: constraints.maxWidth >= 1180,
-                        icon: Icons.dashboard_rounded,
-                        label: 'Executive Overview',
-                        selected: true,
-                        onTap: () {},
-                      ),
-                      const Spacer(),
                       Padding(
                         padding: const EdgeInsets.all(14),
-                        child: constraints.maxWidth >= 1180
+                        child: extended
                             ? Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     'OWNER WORKSPACE',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
+                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                                           fontWeight: FontWeight.w800,
                                         ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
-                                    widget.membership.schoolName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Whole-school authority',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
-                                  ),
+                                  Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                  Text('Whole-school authority', style: Theme.of(context).textTheme.bodySmall),
                                 ],
                               )
                             : const Icon(Icons.admin_panel_settings_outlined),
@@ -215,11 +301,12 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                         padding: const EdgeInsets.fromLTRB(24, 14, 24, 12),
                         child: Row(
                           children: [
-                            Expanded(
-                              child: _SchoolTitle(
-                                membership: widget.membership,
-                              ),
+                            Expanded(child: _SchoolTitle(membership: widget.membership)),
+                            Text(
+                              _activeLabel,
+                              style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
                             ),
+                            const SizedBox(width: 14),
                             if (widget.schoolSession.canSwitchSchool) ...[
                               _SchoolSwitcherButton(
                                 activeMembership: widget.membership,
@@ -231,27 +318,16 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
                             OutlinedButton.icon(
                               onPressed: _openSyncCenter,
                               icon: Icon(
-                                _pendingSyncCount == 0
-                                    ? Icons.cloud_done_outlined
-                                    : Icons.cloud_upload_outlined,
+                                _pendingSyncCount == 0 ? Icons.cloud_done_outlined : Icons.cloud_upload_outlined,
                                 size: 18,
                               ),
-                              label: Text(
-                                _pendingSyncCount == 0
-                                    ? 'Synced'
-                                    : '$_pendingSyncCount pending',
-                              ),
+                              label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending'),
                             ),
                           ],
                         ),
                       ),
                       const Divider(height: 1),
-                      Expanded(
-                        child: ProprietorOverviewPage(
-                          schoolName: widget.membership.schoolName,
-                          onModuleRequested: _handleModuleRequest,
-                        ),
-                      ),
+                      Expanded(child: _buildContent()),
                     ],
                   ),
                 ),
@@ -283,7 +359,6 @@ class _OwnerBrand extends StatelessWidget {
     );
 
     if (!extended) return mark;
-
     return Row(
       children: [
         mark,
@@ -292,16 +367,8 @@ class _OwnerBrand extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'SchoolOS',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Text(
-                'Owner Command Center',
-                style: theme.textTheme.bodySmall,
-              ),
+              Text('SchoolOS', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+              Text('Owner Command Center', style: theme.textTheme.bodySmall),
             ],
           ),
         ),
@@ -316,6 +383,7 @@ class _OwnerNavigationTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.selected,
+    required this.implemented,
     required this.onTap,
   });
 
@@ -323,40 +391,39 @@ class _OwnerNavigationTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
+  final bool implemented;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       child: Material(
-        color: selected
-            ? theme.colorScheme.primaryContainer
-            : Colors.transparent,
+        color: selected ? theme.colorScheme.primaryContainer : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: extended ? 14 : 10,
-              vertical: 12,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: extended ? 13 : 10, vertical: 11),
             child: Row(
-              mainAxisAlignment: extended
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
+              mainAxisAlignment: extended ? MainAxisAlignment.start : MainAxisAlignment.center,
               children: [
-                Icon(icon),
+                Icon(icon, color: implemented ? null : theme.colorScheme.onSurfaceVariant),
                 if (extended) ...[
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 11),
                   Expanded(
                     child: Text(
                       label,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                        color: implemented ? null : theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
+                  if (!implemented)
+                    Text('Soon', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 ],
               ],
             ),
@@ -389,11 +456,7 @@ class _SchoolTitle extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                membership.schoolName,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
+              Text(membership.schoolName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
               Text('Proprietor', style: theme.textTheme.bodySmall),
             ],
           ),
@@ -428,9 +491,7 @@ class _SchoolSwitcherButton extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 24,
-                  child: membership.id == activeMembership.id
-                      ? const Icon(Icons.check_rounded, size: 18)
-                      : null,
+                  child: membership.id == activeMembership.id ? const Icon(Icons.check_rounded, size: 18) : null,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -438,10 +499,7 @@ class _SchoolSwitcherButton extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(membership.schoolName),
-                      Text(
-                        membership.roleLabel,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                      Text(membership.roleLabel, style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
@@ -450,5 +508,22 @@ class _SchoolSwitcherButton extends StatelessWidget {
           ),
       ],
     );
+  }
+}
+
+class _OwnerNavItem {
+  const _OwnerNavItem(this.key, this.label, this.icon, this.implemented);
+
+  final String key;
+  final String label;
+  final IconData icon;
+  final bool implemented;
+}
+
+extension _FirstOrNullExtension<T> on Iterable<T> {
+  T? get firstOrNull {
+    final iterator = this.iterator;
+    if (!iterator.moveNext()) return null;
+    return iterator.current;
   }
 }
