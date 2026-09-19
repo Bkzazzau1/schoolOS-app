@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/auth/app_capability.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../attendance/data/attendance_repository.dart';
 import '../../attendance/presentation/attendance_page.dart';
 import '../../lesson_plans/data/lesson_plan_generation_service.dart';
 import '../../lesson_plans/data/lesson_plan_repository.dart';
 import '../../lesson_plans/presentation/lesson_plan_page.dart';
+import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -18,11 +21,13 @@ class DashboardPage extends StatefulWidget {
     required this.membership,
     required this.localDatabase,
     required this.schoolSession,
+    required this.schoolAppearance,
   });
 
   final SchoolMembership membership;
   final LocalDatabase localDatabase;
   final SchoolSessionController schoolSession;
+  final SchoolAppearanceController schoolAppearance;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -110,14 +115,32 @@ class _DashboardPageState extends State<DashboardPage> {
     await widget.schoolSession.selectSchool(membership);
     if (!mounted) return;
 
+    final Widget page;
+    if (membership.role == SchoolRole.proprietor) {
+      page = ProprietorWorkspacePage(
+        membership: membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: widget.schoolAppearance,
+      );
+    } else if (membership.role == SchoolRole.administrator) {
+      page = AdministratorWorkspacePage(
+        membership: membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: widget.schoolAppearance,
+      );
+    } else {
+      page = DashboardPage(
+        membership: membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: widget.schoolAppearance,
+      );
+    }
+
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (context) => DashboardPage(
-          membership: membership,
-          localDatabase: widget.localDatabase,
-          schoolSession: widget.schoolSession,
-        ),
-      ),
+      MaterialPageRoute<void>(builder: (context) => page),
     );
   }
 
