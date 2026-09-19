@@ -9,6 +9,7 @@ import '../../dashboard/presentation/dashboard_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/principal_academics_repository.dart';
+import '../data/principal_approvals_repository.dart';
 import '../data/principal_assignments_repository.dart';
 import '../data/principal_attendance_repository.dart';
 import '../data/principal_dashboard_demo_data.dart';
@@ -16,6 +17,7 @@ import '../data/principal_students_repository.dart';
 import '../data/principal_teachers_repository.dart';
 import '../domain/principal_dashboard_models.dart';
 import 'principal_academics_page.dart';
+import 'principal_approvals_page.dart';
 import 'principal_assignments_page.dart';
 import 'principal_attendance_page.dart';
 import 'principal_dashboard_page.dart';
@@ -48,6 +50,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   late final PrincipalAcademicsRepository _academicsRepository;
   late final PrincipalStudentsRepository _studentsRepository;
   late final PrincipalAttendanceRepository _attendanceRepository;
+  late final PrincipalApprovalsRepository _approvalsRepository;
 
   @override
   void initState() {
@@ -69,6 +72,10 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _attendanceRepository = PrincipalAttendanceRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _approvalsRepository = PrincipalApprovalsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -178,6 +185,13 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
     if (_activeKey == 'attendance') {
       return PrincipalAttendancePage(
         repository: _attendanceRepository,
+        onNavigate: _select,
+        onMutationQueued: _refreshPendingCount,
+      );
+    }
+    if (_activeKey == 'approvals') {
+      return PrincipalApprovalsPage(
+        repository: _approvalsRepository,
         onNavigate: _select,
         onMutationQueued: _refreshPendingCount,
       );
