@@ -148,6 +148,54 @@ class PrincipalAssignmentTransfer {
       );
 }
 
+class PrincipalTeachingRecordAccess {
+  const PrincipalTeachingRecordAccess({
+    required this.id,
+    required this.assignmentId,
+    required this.teacherId,
+    required this.className,
+    required this.subject,
+    required this.recordScope,
+    required this.grantedByMembershipId,
+    required this.grantedAt,
+    required this.provisionalTarget,
+  });
+
+  final String id;
+  final String assignmentId;
+  final String teacherId;
+  final String className;
+  final String subject;
+  final List<String> recordScope;
+  final String grantedByMembershipId;
+  final String grantedAt;
+  final bool provisionalTarget;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'assignmentId': assignmentId,
+        'teacherId': teacherId,
+        'className': className,
+        'subject': subject,
+        'recordScope': recordScope,
+        'grantedByMembershipId': grantedByMembershipId,
+        'grantedAt': grantedAt,
+        'provisionalTarget': provisionalTarget,
+      };
+
+  factory PrincipalTeachingRecordAccess.fromJson(Map<String, Object?> json) => PrincipalTeachingRecordAccess(
+        id: json['id']! as String,
+        assignmentId: json['assignmentId']! as String,
+        teacherId: json['teacherId']! as String,
+        className: json['className']! as String,
+        subject: json['subject']! as String,
+        recordScope: (json['recordScope']! as List).cast<String>(),
+        grantedByMembershipId: json['grantedByMembershipId']! as String,
+        grantedAt: json['grantedAt']! as String,
+        provisionalTarget: json['provisionalTarget'] as bool? ?? false,
+      );
+}
+
 class PrincipalAssignmentPermissions {
   const PrincipalAssignmentPermissions({
     required this.canManageSecondaryAssignments,
