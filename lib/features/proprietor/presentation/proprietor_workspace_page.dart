@@ -11,6 +11,8 @@ import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../events/data/event_repository.dart';
 import '../../events/presentation/events_page.dart';
+import '../../excursions/data/excursion_repository.dart';
+import '../../excursions/presentation/excursions_page.dart';
 import '../../gallery/data/gallery_repository.dart';
 import '../../gallery/presentation/gallery_page.dart';
 import '../../houses/data/house_repository.dart';
@@ -219,6 +221,22 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
             schoolSession: widget.schoolSession,
           ),
           onBack: () => Navigator.of(context).pop(),
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'excursions') {
+      await _pushSharedModule(
+        title: 'Excursions & Consent',
+        body: ExcursionsPage(
+          schoolName: widget.membership.schoolName,
+          repository: ExcursionRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+          onExcursionsChanged: _refreshPendingCount,
         ),
       );
       return;
