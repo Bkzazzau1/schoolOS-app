@@ -17,6 +17,8 @@ import '../../gallery/data/gallery_repository.dart';
 import '../../gallery/presentation/gallery_page.dart';
 import '../../houses/data/house_repository.dart';
 import '../../houses/presentation/houses_page.dart';
+import '../../meals/data/meal_repository.dart';
+import '../../meals/presentation/meals_page.dart';
 import '../../noticeboard/data/noticeboard_repository.dart';
 import '../../noticeboard/presentation/noticeboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
@@ -255,6 +257,22 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           ),
           onBack: () => Navigator.of(context).pop(),
           onTransportChanged: _refreshPendingCount,
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'meals') {
+      await _pushSharedModule(
+        title: 'Meals & Cafeteria',
+        body: MealsPage(
+          schoolName: widget.membership.schoolName,
+          repository: MealRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
+          onMealsChanged: _refreshPendingCount,
         ),
       );
       return;
