@@ -9,6 +9,7 @@ import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/administrator_admissions_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
+import '../data/administrator_lifecycle_repository.dart';
 import '../data/administrator_records_repository.dart';
 import '../data/administrator_registration_repository.dart';
 import '../data/administrator_staff_attendance_repository.dart';
@@ -19,6 +20,7 @@ import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_dashboard_models.dart';
 import 'administrator_admissions_page.dart';
 import 'administrator_dashboard_page.dart';
+import 'administrator_lifecycle_page.dart';
 import 'administrator_records_page.dart';
 import 'administrator_registration_page.dart';
 import 'administrator_staff_attendance_page.dart';
@@ -51,6 +53,7 @@ class _AdministratorWorkspacePageState
   int _pendingSyncCount = 0;
   AdmissionApplicant? _registrationApplicant;
   late final AdministratorAdmissionsRepository _admissionsRepository;
+  late final AdministratorLifecycleRepository _lifecycleRepository;
   late final AdministratorRecordsRepository _recordsRepository;
   late final AdministratorRegistrationRepository _registrationRepository;
   late final AdministratorStaffAttendanceRepository _staffAttendanceRepository;
@@ -62,6 +65,10 @@ class _AdministratorWorkspacePageState
   void initState() {
     super.initState();
     _admissionsRepository = AdministratorAdmissionsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _lifecycleRepository = AdministratorLifecycleRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -257,6 +264,13 @@ class _AdministratorWorkspacePageState
       return AdministratorRecordsPage(
         schoolName: widget.membership.schoolName,
         repository: _recordsRepository,
+      );
+    }
+
+    if (_activeKey == 'lifecycle') {
+      return AdministratorLifecyclePage(
+        schoolName: widget.membership.schoolName,
+        repository: _lifecycleRepository,
       );
     }
 
