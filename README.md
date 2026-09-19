@@ -18,9 +18,10 @@ Phone, tablet, and desktop share domain/business logic while using adaptive navi
 2. **Person-first accounts** — one account can belong to one or many schools.
 3. **Membership-scoped roles** — the same person may be a teacher in one school, a parent in another, and a proprietor in another.
 4. **Strict tenant isolation** — every cached record and sync mutation is scoped to a school tenant.
-5. **Offline-first daily operations** — supported workflows save locally first and synchronize later.
-6. **Edge AI is first-class** — lightweight on-device AI can work offline; cloud AI handles heavier tasks when connectivity is available.
-7. **Cloud remains authoritative** — the Django/DRF backend owns server permissions, canonical records, versioning, and conflict decisions.
+5. **Role isolation** — visible modules and actions are determined by the active school membership, not by a global user role.
+6. **Offline-first daily operations** — supported workflows save locally first and synchronize later.
+7. **Edge AI is first-class** — lightweight on-device AI can work offline; cloud AI handles heavier tasks when connectivity is available.
+8. **Cloud remains authoritative** — the Django/DRF backend owns server permissions, canonical records, versioning, and conflict decisions.
 
 ## Repository relationship
 
@@ -31,27 +32,86 @@ Phone, tablet, and desktop share domain/business logic while using adaptive navi
 
 Implemented:
 
+### App and tenancy
+
 - Flutter package foundation
 - adaptive phone/tablet/desktop layout
 - person-to-school membership model
-- multi-school selection foundation
-- secure active-school restoration
+- secure persistence of the full authorized school-membership list
+- secure active-school restoration after app restart
+- in-app school switching without signing out
+- validation that a user cannot switch into a membership outside the authenticated session
+- membership-scoped role/capability filtering
+- teacher and parent memberships can expose different modules for the same person
+
+### Offline storage and synchronization
+
 - platform secure key storage
 - AES-256-GCM encryption for sensitive cached payloads
 - SQLite local database for Android and Windows
-- tenant-scoped local record cache
+- explicit tenant columns on local records
+- tenant + membership scoping on sync mutations
 - durable sync outbox
 - mutation coalescing for repeated offline edits
 - retry/error/conflict state model
 - transport-independent sync engine
 - server-version persistence after successful sync
-- first real offline workflow: **teacher attendance**
-- cached attendance roster
-- saved attendance restoration
-- pending-sync dashboard counter
-- CI: `flutter analyze` + `flutter test`
+- real pending-sync counter in the app shell
 
-The authentication screen still uses an explicitly marked foundation/demo flow. Real credentials and memberships will come from the SchoolOS backend.
+### Offline attendance
+
+- first real offline workflow: **teacher attendance**
+- cached class roster
+- saved attendance restoration
+- Present / Absent / Late / Excused states
+- local-first encrypted save
+- automatic outbox mutation creation
+- pending-sync counter refresh after save
+
+The current class roster is clearly marked foundation/demo data until the authorized working-set download API is connected.
+
+### Lesson-plan assistant
+
+- adaptive lesson-plan UI for phone, tablet and Windows
+- class, subject, topic, term, week and lesson-duration context
+- optional learning objectives and available resources
+- guaranteed offline lesson-plan draft generation
+- Edge-AI enhancement boundary
+- cloud-AI enhancement boundary
+- explicit output mode: offline / Edge AI / cloud enhanced
+- safe fallback when Edge or cloud AI is unavailable
+- encrypted local lesson-plan persistence
+- separate **Save on device** and **Save & sync** flows
+- lesson plans selected for synchronization use the same tenant-safe outbox as attendance
+
+A teacher is never blocked from producing a basic lesson plan because internet or an AI model is unavailable.
+
+### Edge AI model lifecycle
+
+- versioned model manifest
+- capability metadata such as lesson-plan text, OCR, document quality and vision
+- ONNX/TFLite model-format metadata
+- Android/Windows compatibility metadata
+- minimum-RAM metadata
+- file-size verification
+- streaming SHA-256 integrity verification
+- safe `.part` installation before final model activation
+- sanitized model storage paths
+- re-verification before an installed model is reported as ready
+- model lifecycle separated from feature inference
+
+No Edge AI model is currently bundled or falsely reported as active. The app is ready for a verified runtime/model to be connected later.
+
+### Quality
+
+- GitHub Actions CI
+- `flutter pub get`
+- `flutter analyze`
+- `flutter test`
+- CI concurrency cancels superseded runs on the same branch
+- tests cover membership role isolation, attendance domain behavior, offline lesson-plan fallback and Edge model metadata
+
+Current validated head passed both analysis and tests before this documentation update.
 
 ## Main source structure
 
@@ -61,6 +121,8 @@ lib/
 │   ├── app.dart
 │   └── app_services.dart
 ├── core/
+│   ├── auth/
+│   │   └── app_capability.dart
 │   ├── database/
 │   │   └── local_database.dart
 │   ├── security/
@@ -76,20 +138,21 @@ lib/
 │   ├── authentication/
 │   ├── school_switcher/
 │   ├── dashboard/
-│   └── attendance/
-│       ├── data/
-│       ├── domain/
-│       └── presentation/
+│   ├── attendance/
+│   └── lesson_plans/
 ├── edge_ai/
+│   ├── inference/
+│   ├── model_manager/
+│   └── models/
 └── shared/
 ```
 
 ## Offline write path
 
 ```text
-Teacher action
+User action
     ↓
-Tenant + membership validation
+Active membership + tenant validation
     ↓
 Encrypted local SQLite record
     ↓
@@ -112,24 +175,29 @@ Repeated edits of the same unsynchronized entity are coalesced into the existing
 
 Sensitive cached JSON payloads are encrypted with AES-256-GCM before SQLite storage. A per-installation master key is generated and stored with `flutter_secure_storage`, not inside the database.
 
-The local database still uses explicit tenant columns for query isolation. Encryption complements tenant isolation; it does not replace authorization checks.
+The local database still uses explicit tenant columns for query isolation. Encryption complements tenant isolation; it does not replace backend authorization checks.
 
-## Attendance foundation
+## Lesson-plan generation path
 
-The current attendance workflow demonstrates the intended offline pattern:
+```text
+Lesson context
+    ↓
+Always-available offline generator
+    ↓
+Usable local draft
+    ↓
+Optional verified Edge AI enhancement
+    ↓
+Optional cloud enhancement
+    ↓
+Save locally OR save + sync
+```
 
-1. roster is loaded from local cache;
-2. teacher marks Present / Absent / Late / Excused;
-3. save updates the encrypted local attendance session;
-4. the same transaction is represented in the sync outbox;
-5. dashboard pending count updates immediately;
-6. later sync sends the mutation to the cloud transport.
-
-The current roster is clearly marked foundation/demo data until the backend download/bootstrap API is connected.
+Edge and cloud AI are enhancement layers, not availability dependencies.
 
 ## One-time native platform generation
 
-If Android and Windows runners are not yet in your local clone:
+The repository currently contains the Flutter/Dart application source. If Android and Windows runners are not yet in your local clone, generate them once with Flutter:
 
 ```powershell
 git clone https://github.com/Bkzazzau1/schoolOS-app.git
@@ -172,11 +240,13 @@ The offline/security dependencies use Dart `>=3.10.0`. Use a current stable Flut
 
 ## Next milestones
 
-1. connect real authentication and membership APIs;
-2. define the Django sync endpoint and implement `SyncTransport`;
-3. add connectivity-aware/background sync;
-4. download authorized school/class/student working sets for offline use;
-5. add conflict-review UI;
-6. establish edge-AI model manager/runtime;
-7. build hybrid lesson-plan generation: offline draft + cloud enhancement;
-8. expand offline workflows to scores, lesson records and messaging.
+1. build a user-visible Sync Center for pending, failed and conflicting changes;
+2. connect real SchoolOS authentication and membership APIs;
+3. define the Django sync endpoint and implement the app's concrete `SyncTransport`;
+4. add connectivity-aware/background synchronization;
+5. download authorized school/class/student working sets for offline use;
+6. add conflict-review and resolution actions;
+7. connect a verified Android/Windows Edge inference runtime;
+8. select and validate the first local lesson-plan model;
+9. connect cloud lesson-plan enhancement;
+10. expand offline workflows to scores, lesson records and messaging.
