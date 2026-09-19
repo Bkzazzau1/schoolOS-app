@@ -473,14 +473,16 @@ class _StructureWorkspace extends StatelessWidget {
       child: Column(
         children: [
           DropdownButtonFormField<String>(
-            value: selectedPerson,
+            key: ValueKey('person-$selectedPerson'),
+            initialValue: selectedPerson,
             decoration: const InputDecoration(labelText: 'Staff member'),
             items: [for (final person in people) DropdownMenuItem(value: person, child: Text(person))],
             onChanged: saving ? null : (value) { if (value != null) onPersonChanged(value); },
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<LeadershipLevel>(
-            value: level,
+            key: ValueKey('level-${level.name}'),
+            initialValue: level,
             decoration: const InputDecoration(labelText: 'Leadership level'),
             items: [for (final item in LeadershipLevel.values) DropdownMenuItem(value: item, child: Text(item.label))],
             onChanged: saving ? null : (value) { if (value != null) onLevelChanged(value); },
@@ -502,7 +504,8 @@ class _StructureWorkspace extends StatelessWidget {
           if (level != LeadershipLevel.sectionHead) ...[
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: possibleManagers.any((m) => m.id == reportsTo) ? reportsTo : null,
+              key: ValueKey('manager-${section.id}-${reportsTo ?? 'none'}'),
+              initialValue: possibleManagers.any((m) => m.id == reportsTo) ? reportsTo : null,
               decoration: const InputDecoration(labelText: 'Reports to'),
               items: [
                 for (final manager in possibleManagers)
@@ -571,7 +574,8 @@ class _HeadControl extends StatelessWidget {
           Text(section.leaderName),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: people.contains(section.leaderName) ? section.leaderName : null,
+            key: ValueKey('head-${section.id}-${section.leaderName}'),
+            initialValue: people.contains(section.leaderName) ? section.leaderName : null,
             decoration: const InputDecoration(labelText: 'Replace section head'),
             items: [for (final person in people) DropdownMenuItem(value: person, child: Text(person))],
             onChanged: saving ? null : (value) { if (value != null && value != section.leaderName) onChanged(value); },
