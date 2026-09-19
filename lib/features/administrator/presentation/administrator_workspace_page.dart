@@ -11,6 +11,7 @@ import '../data/administrator_admissions_repository.dart';
 import '../data/administrator_attendance_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
 import '../data/administrator_lifecycle_repository.dart';
+import '../data/administrator_notices_repository.dart';
 import '../data/administrator_operations_repository.dart';
 import '../data/administrator_records_repository.dart';
 import '../data/administrator_registration_repository.dart';
@@ -24,6 +25,7 @@ import 'administrator_admissions_page.dart';
 import 'administrator_attendance_page.dart';
 import 'administrator_dashboard_page.dart';
 import 'administrator_lifecycle_page.dart';
+import 'administrator_notices_page.dart';
 import 'administrator_operations_page.dart';
 import 'administrator_records_page.dart';
 import 'administrator_registration_page.dart';
@@ -59,6 +61,7 @@ class _AdministratorWorkspacePageState
   late final AdministratorAdmissionsRepository _admissionsRepository;
   late final AdministratorAttendanceRepository _attendanceRepository;
   late final AdministratorLifecycleRepository _lifecycleRepository;
+  late final AdministratorNoticesRepository _noticesRepository;
   late final AdministratorOperationsRepository _operationsRepository;
   late final AdministratorRecordsRepository _recordsRepository;
   late final AdministratorRegistrationRepository _registrationRepository;
@@ -79,6 +82,10 @@ class _AdministratorWorkspacePageState
       schoolSession: widget.schoolSession,
     );
     _lifecycleRepository = AdministratorLifecycleRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _noticesRepository = AdministratorNoticesRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -299,6 +306,14 @@ class _AdministratorWorkspacePageState
       return AdministratorOperationsPage(
         schoolName: widget.membership.schoolName,
         repository: _operationsRepository,
+      );
+    }
+
+    if (_activeKey == 'notices') {
+      return AdministratorNoticesPage(
+        schoolName: widget.membership.schoolName,
+        repository: _noticesRepository,
+        onNoticesChanged: _refreshPendingCount,
       );
     }
 
