@@ -40,13 +40,13 @@ class _FinanceDebtAgingPageState extends State<FinanceDebtAgingPage> {
             final aging = const _AgingCard();
             final quality = const _ArrangementQualityCard();
             if (constraints.maxWidth < 900) {
-              return const Column(children: [aging, SizedBox(height: 18), quality]);
+              return Column(children: [aging, const SizedBox(height: 18), quality]);
             }
-            return const Row(
+            return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: aging),
-                SizedBox(width: 18),
+                const SizedBox(width: 18),
                 Expanded(child: quality),
               ],
             );
