@@ -30,6 +30,22 @@ class LessonPlanRequest {
   final List<String> availableResources;
   final String? schemeOfWorkContext;
   final String? schoolTemplateName;
+
+  Map<String, Object?> toJson() {
+    return {
+      'schoolId': schoolId,
+      'className': className,
+      'subject': subject,
+      'topic': topic,
+      'durationMinutes': durationMinutes,
+      'term': term,
+      'week': week,
+      'learningObjectives': learningObjectives,
+      'availableResources': availableResources,
+      'schemeOfWorkContext': schemeOfWorkContext,
+      'schoolTemplateName': schoolTemplateName,
+    };
+  }
 }
 
 class LessonPlanDraft {
@@ -80,6 +96,44 @@ class LessonPlanDraft {
       assessment: assessment ?? this.assessment,
       homework: homework ?? this.homework,
       mode: mode ?? this.mode,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'title': title,
+      'objectives': objectives,
+      'priorKnowledge': priorKnowledge,
+      'materials': materials,
+      'introduction': introduction,
+      'teacherActivities': teacherActivities,
+      'studentActivities': studentActivities,
+      'assessment': assessment,
+      'homework': homework,
+      'mode': mode.name,
+    };
+  }
+
+  factory LessonPlanDraft.fromJson(Map<String, dynamic> json) {
+    List<String> stringList(String key) {
+      final value = json[key];
+      if (value is! List) return const [];
+      return value.whereType<String>().toList(growable: false);
+    }
+
+    return LessonPlanDraft(
+      title: json['title'] as String? ?? '',
+      objectives: stringList('objectives'),
+      priorKnowledge: json['priorKnowledge'] as String? ?? '',
+      materials: stringList('materials'),
+      introduction: stringList('introduction'),
+      teacherActivities: stringList('teacherActivities'),
+      studentActivities: stringList('studentActivities'),
+      assessment: stringList('assessment'),
+      homework: json['homework'] as String? ?? '',
+      mode: LessonPlanGenerationMode.values.byName(
+        json['mode'] as String? ?? LessonPlanGenerationMode.offlineTemplate.name,
+      ),
     );
   }
 }
