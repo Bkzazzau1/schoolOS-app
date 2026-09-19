@@ -11,6 +11,8 @@ import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../events/data/event_repository.dart';
 import '../../events/presentation/events_page.dart';
+import '../../houses/data/house_repository.dart';
+import '../../houses/presentation/houses_page.dart';
 import '../../noticeboard/data/noticeboard_repository.dart';
 import '../../noticeboard/presentation/noticeboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
@@ -185,6 +187,21 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
           ),
           onBack: () => Navigator.of(context).pop(),
           onEventsChanged: _refreshPendingCount,
+        ),
+      );
+      return;
+    }
+
+    if (capability.key == 'houses') {
+      await _pushSharedModule(
+        title: 'Houses & Teams',
+        body: HousesPage(
+          schoolName: widget.membership.schoolName,
+          repository: HouseRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => Navigator.of(context).pop(),
         ),
       );
       return;
