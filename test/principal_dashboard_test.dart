@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:school_os/features/principal/data/principal_dashboard_demo_data.dart';
-import 'package:school_os/shared/models/school_membership.dart';
+import 'package:schoolos_app/features/principal/data/principal_dashboard_demo_data.dart';
+import 'package:schoolos_app/shared/models/school_membership.dart';
 
 void main() {
   test('principal workspace preserves exact fourteen website destinations', () {
