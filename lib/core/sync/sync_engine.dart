@@ -71,7 +71,10 @@ class SyncEngine {
           final result = await _transport.pushMutation(mutation);
           switch (result.disposition) {
             case SyncPushDisposition.accepted:
-              _localDatabase.markMutationSynced(mutation.id);
+              _localDatabase.markMutationSynced(
+                mutation.id,
+                serverVersion: result.serverVersion,
+              );
               synced += 1;
             case SyncPushDisposition.conflict:
               _localDatabase.markMutationFailed(
