@@ -12,6 +12,7 @@ class TransportDriverRosterEntry {
     required this.vehicle,
     required this.assignmentActive,
     required this.isDemoMembership,
+    required this.routeConflict,
   });
 
   final String staffId;
@@ -26,6 +27,7 @@ class TransportDriverRosterEntry {
   final String vehicle;
   final bool assignmentActive;
   final bool isDemoMembership;
+  final bool routeConflict;
 
   bool get canReceiveOperationalAssignment =>
       accountLinked && membershipId.trim().isNotEmpty;
@@ -41,6 +43,7 @@ class TransportAssignableRoute {
     required this.available,
     required this.assignedMembershipId,
     required this.assignedDriverName,
+    required this.activeAssignmentCount,
   });
 
   final String routeId;
@@ -49,8 +52,10 @@ class TransportAssignableRoute {
   final bool available;
   final String assignedMembershipId;
   final String assignedDriverName;
+  final int activeAssignmentCount;
 
-  bool get alreadyAssigned => assignedMembershipId.trim().isNotEmpty;
+  bool get alreadyAssigned => activeAssignmentCount > 0;
+  bool get hasConflict => activeAssignmentCount > 1;
 }
 
 class TransportDriverAssignmentsSnapshot {
@@ -71,4 +76,5 @@ class TransportDriverAssignmentsSnapshot {
   int get unassignedLinkedDrivers => drivers
       .where((driver) => driver.accountLinked && !driver.assigned)
       .length;
+  int get conflictingRoutes => routes.where((route) => route.hasConflict).length;
 }
