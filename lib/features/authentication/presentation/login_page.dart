@@ -6,9 +6,11 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
+import '../../parent/presentation/parent_workspace_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
+import '../../teacher/presentation/teacher_workspace_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -61,8 +63,8 @@ class _LoginPageState extends State<LoginPage> {
     ),
     SchoolMembership(
       id: 'membership-parent-001',
-      schoolId: 'school-bright-future',
-      schoolName: 'Bright Future School',
+      schoolId: 'school-brightgate',
+      schoolName: 'BrightGate Academy',
       role: SchoolRole.parent,
     ),
   ];
@@ -171,43 +173,50 @@ class _LoginPageState extends State<LoginPage> {
     await widget.services.schoolSession.selectSchool(membership);
     if (!mounted) return;
 
-    final Widget page;
-    if (membership.role == SchoolRole.proprietor) {
-      page = ProprietorWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.administrator) {
-      page = AdministratorWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.accountant) {
-      page = FinanceOfficeWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.principal) {
-      page = PrincipalWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else {
-      page = DashboardPage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    }
+    final Widget page = switch (membership.role) {
+      SchoolRole.proprietor => ProprietorWorkspacePage(
+          membership: membership,
+          localDatabase: widget.services.localDatabase,
+          schoolSession: widget.services.schoolSession,
+          schoolAppearance: widget.services.schoolAppearance,
+        ),
+      SchoolRole.administrator => AdministratorWorkspacePage(
+          membership: membership,
+          localDatabase: widget.services.localDatabase,
+          schoolSession: widget.services.schoolSession,
+          schoolAppearance: widget.services.schoolAppearance,
+        ),
+      SchoolRole.accountant => FinanceOfficeWorkspacePage(
+          membership: membership,
+          localDatabase: widget.services.localDatabase,
+          schoolSession: widget.services.schoolSession,
+          schoolAppearance: widget.services.schoolAppearance,
+        ),
+      SchoolRole.principal => PrincipalWorkspacePage(
+          membership: membership,
+          localDatabase: widget.services.localDatabase,
+          schoolSession: widget.services.schoolSession,
+          schoolAppearance: widget.services.schoolAppearance,
+        ),
+      SchoolRole.teacher => TeacherWorkspacePage(
+          membership: membership,
+          localDatabase: widget.services.localDatabase,
+          schoolSession: widget.services.schoolSession,
+          schoolAppearance: widget.services.schoolAppearance,
+        ),
+      SchoolRole.parent => ParentWorkspacePage(
+          membership: membership,
+          localDatabase: widget.services.localDatabase,
+          schoolSession: widget.services.schoolSession,
+          schoolAppearance: widget.services.schoolAppearance,
+        ),
+      _ => DashboardPage(
+          membership: membership,
+          localDatabase: widget.services.localDatabase,
+          schoolSession: widget.services.schoolSession,
+          schoolAppearance: widget.services.schoolAppearance,
+        ),
+    };
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (context) => page),
