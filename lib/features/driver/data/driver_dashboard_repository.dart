@@ -44,8 +44,8 @@ class DriverDashboardRepository {
 
     final counts = _parseMorningCounts(assignedRoute.morning);
     final expected = counts.$2 > 0 ? counts.$2 : assignedRoute.riders;
-    final checked = counts.$1.clamp(0, expected);
-    final exceptions = (expected - checked).clamp(0, expected);
+    final checked = counts.$1.clamp(0, expected).toInt();
+    final exceptions = (expected - checked).clamp(0, expected).toInt();
 
     return DriverDashboardSnapshot(
       assignment: assignment,
