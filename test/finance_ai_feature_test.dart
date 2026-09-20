@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:school_os_app/features/finance_office/data/finance_ai_demo_data.dart';
-import 'package:school_os_app/features/finance_office/data/finance_cashflow_demo_data.dart';
-import 'package:school_os_app/features/finance_office/data/finance_debt_aging_demo_data.dart';
-import 'package:school_os_app/features/finance_office/data/finance_reconciliation_demo_data.dart';
-import 'package:school_os_app/features/finance_office/data/finance_reports_demo_data.dart';
-import 'package:school_os_app/features/finance_office/domain/finance_ai_models.dart';
-import 'package:school_os_app/features/finance_office/presentation/finance_ai_page.dart';
+import 'package:schoolos_app/features/finance_office/data/finance_ai_demo_data.dart';
+import 'package:schoolos_app/features/finance_office/data/finance_cashflow_demo_data.dart';
+import 'package:schoolos_app/features/finance_office/data/finance_debt_aging_demo_data.dart';
+import 'package:schoolos_app/features/finance_office/data/finance_reconciliation_demo_data.dart';
+import 'package:schoolos_app/features/finance_office/data/finance_reports_demo_data.dart';
+import 'package:schoolos_app/features/finance_office/domain/finance_ai_models.dart';
+import 'package:schoolos_app/features/finance_office/presentation/finance_ai_page.dart';
 
 void main() {
   test('Finance AI preserves exact five website suggested questions', () {
