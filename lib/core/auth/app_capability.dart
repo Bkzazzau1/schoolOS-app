@@ -50,6 +50,10 @@ abstract final class RolePermissions {
           AppCapability.academics,
           AppCapability.messaging,
         },
+      SchoolRole.driver => {
+          AppCapability.dashboard,
+          AppCapability.messaging,
+        },
       SchoolRole.student => {
           AppCapability.dashboard,
           AppCapability.academics,
