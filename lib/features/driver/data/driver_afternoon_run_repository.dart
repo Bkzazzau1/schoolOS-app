@@ -3,6 +3,7 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../transport/data/transport_repository.dart';
+import '../../transport/data/transport_route_management_repository.dart';
 import '../../transport/domain/transport_models.dart';
 import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
@@ -21,6 +22,10 @@ class DriverAfternoonRunRepository {
           localDatabase: localDatabase,
           schoolSession: schoolSession,
         ),
+        _routeManagementRepository = TransportRouteManagementRepository(
+          localDatabase: localDatabase,
+          schoolSession: schoolSession,
+        ),
         _vehicleCheckRepository = DriverVehicleCheckRepository(
           localDatabase: localDatabase,
           schoolSession: schoolSession,
@@ -32,6 +37,7 @@ class DriverAfternoonRunRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final TransportRepository _transportRepository;
+  final TransportRouteManagementRepository _routeManagementRepository;
   final DriverVehicleCheckRepository _vehicleCheckRepository;
 
   Future<DriverAfternoonRun> loadToday() async {
@@ -57,6 +63,34 @@ class DriverAfternoonRunRepository {
       );
     }
 
+    final plan = await _routeManagementRepository.loadPlanForRoute(route.id);
+    final configuredStops = plan.activeStops;
+    if (configuredStops.isEmpty) {
+      throw StateError(
+        'Transport Control has not configured any active stops for ${route.name}.',
+      );
+    }
+    if (route.stops != configuredStops.length) {
+      throw StateError(
+        'The route stop count does not match the Transport Control stop plan.',
+      );
+    }
+
+    final seeded = <String, DriverAfternoonStop>{
+      for (final stop in defaultBus02AfternoonStops()) stop.id: stop,
+    };
+    final reversed = configuredStops.reversed.toList(growable: false);
+    final stops = <DriverAfternoonStop>[
+      for (var index = 0; index < reversed.length; index++)
+        DriverAfternoonStop(
+          id: reversed[index].id,
+          sequence: index + 1,
+          name: reversed[index].name,
+          scheduledTime: reversed[index].afternoonTime,
+          riders: seeded[reversed[index].id]?.riders ?? const [],
+        ),
+    ];
+
     final run = DriverAfternoonRun(
       id: id,
       membershipId: member.id,
@@ -65,7 +99,7 @@ class DriverAfternoonRunRepository {
       vehicle: route.vehicle,
       driverName: assignment.driverDisplayName,
       assistantName: route.assistant,
-      stops: defaultBus02AfternoonStops(),
+      stops: stops,
     );
     await _localDatabase.upsertLocalRecord(
       tenantId: member.schoolId,
@@ -94,6 +128,11 @@ class DriverAfternoonRunRepository {
     );
     if (run.expectedRiders == 0) {
       throw StateError('The afternoon manifest is empty. Contact Transport Control.');
+    }
+    if (run.expectedRiders != route.riders) {
+      throw StateError(
+        'The downloaded rider manifest has ${run.expectedRiders} students but Transport Control expects ${route.riders}. Reconcile rider assignments before departure.',
+      );
     }
 
     final updated = run.copyWith(
@@ -442,7 +481,11 @@ class DriverAfternoonRunRepository {
       entityId: member.id,
     );
     if (record != null) {
-      return DriverTransportAssignment.fromJson(record.payload);
+      final assignment = DriverTransportAssignment.fromJson(record.payload);
+      if (!assignment.hasRoute) {
+        throw StateError('No active transport route is assigned to this Driver account.');
+      }
+      return assignment;
     }
 
     await DriverDashboardRepository(
@@ -455,7 +498,11 @@ class DriverAfternoonRunRepository {
       entityId: member.id,
     );
     if (seeded == null) throw StateError('No transport assignment is available.');
-    return DriverTransportAssignment.fromJson(seeded.payload);
+    final assignment = DriverTransportAssignment.fromJson(seeded.payload);
+    if (!assignment.hasRoute) {
+      throw StateError('No active transport route is assigned to this Driver account.');
+    }
+    return assignment;
   }
 
   Future<SchoolTransportRoute> _assignedRoute(
