@@ -171,11 +171,14 @@ class DriverDashboardRepository {
       entityId: membership.id,
     );
 
-    if (record == null) {
+    // Keep the website/demo Driver usable, but never auto-assign a real
+    // Driver account. Real accounts must be assigned by Transport Control.
+    if (record == null && membership.id == 'membership-driver-001') {
       final seeded = DriverTransportAssignment(
         membershipId: membership.id,
         routeId: defaultDriverAssignment.routeId,
         driverDisplayName: defaultDriverAssignment.driverDisplayName,
+        active: true,
       );
       await _localDatabase.upsertLocalRecord(
         tenantId: membership.schoolId,
@@ -191,13 +194,16 @@ class DriverDashboardRepository {
     }
 
     if (record == null) {
-      throw StateError('Driver assignment could not be loaded.');
+      throw StateError(
+        'No active transport route is assigned to this Driver account. Contact Transport Control.',
+      );
     }
 
     final assignment = DriverTransportAssignment.fromJson(record.payload);
-    if (assignment.membershipId != membership.id ||
-        assignment.routeId.trim().isEmpty) {
-      throw StateError('Driver assignment is not valid for this membership.');
+    if (assignment.membershipId != membership.id || !assignment.hasRoute) {
+      throw StateError(
+        'No active transport route is assigned to this Driver account. Contact Transport Control.',
+      );
     }
     return assignment;
   }
