@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/administrator/presentation/administrator_workspace_page.dart';
 import '../features/authentication/presentation/login_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
+import '../features/driver/presentation/driver_workspace_page.dart';
 import '../features/finance_office/presentation/finance_office_workspace_page.dart';
 import '../features/parent/presentation/parent_workspace_page.dart';
 import '../features/principal/presentation/principal_workspace_page.dart';
@@ -80,6 +81,13 @@ class SchoolOsApp extends StatelessWidget {
           );
         } else if (restoredMembership.role == SchoolRole.parent) {
           home = ParentWorkspacePage(
+            membership: restoredMembership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+          );
+        } else if (restoredMembership.role == SchoolRole.driver) {
+          home = DriverWorkspacePage(
             membership: restoredMembership,
             localDatabase: services.localDatabase,
             schoolSession: services.schoolSession,
