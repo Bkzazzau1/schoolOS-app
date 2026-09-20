@@ -84,7 +84,8 @@ class SchoolTransportRoute {
         'reviewed': reviewed,
       };
 
-  factory SchoolTransportRoute.fromJson(Map<String, dynamic> json) => SchoolTransportRoute(
+  factory SchoolTransportRoute.fromJson(Map<String, dynamic> json) =>
+      SchoolTransportRoute(
         id: json['id'] as String,
         name: json['name'] as String,
         vehicle: json['vehicle'] as String,
@@ -109,7 +110,11 @@ class TransportStat {
 }
 
 class TransportPermissions {
-  const TransportPermissions({required this.canReviewRoutes});
+  const TransportPermissions({
+    required this.canReviewRoutes,
+    required this.canViewOperationsControl,
+  });
 
   final bool canReviewRoutes;
+  final bool canViewOperationsControl;
 }
