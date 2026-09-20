@@ -399,7 +399,8 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
             ],
           ],
         ),
-      );
+      ),
+    );
   }
 
   Widget _evidenceGrid(double width) {
