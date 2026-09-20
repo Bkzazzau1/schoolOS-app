@@ -57,17 +57,19 @@ class DriverTransportAssignment {
         'assignedByMembershipId': assignedByMembershipId,
       };
 
-  factory DriverTransportAssignment.fromJson(Map<String, dynamic> json) =>
-      DriverTransportAssignment(
-        membershipId: json['membershipId'] as String? ?? '',
-        routeId: json['routeId'] as String? ?? '',
-        driverDisplayName: json['driverDisplayName'] as String? ?? '',
-        staffId: json['staffId'] as String? ?? '',
-        active: json['active'] as bool? ?? true,
-        assignedAt: json['assignedAt'] as String? ?? '',
-        assignedByMembershipId:
-            json['assignedByMembershipId'] as String? ?? '',
-      );
+  factory DriverTransportAssignment.fromJson(Map<String, dynamic> json) {
+    final active = json['active'] as bool? ?? true;
+    return DriverTransportAssignment(
+      membershipId: json['membershipId'] as String? ?? '',
+      routeId: active ? json['routeId'] as String? ?? '' : '',
+      driverDisplayName: json['driverDisplayName'] as String? ?? '',
+      staffId: json['staffId'] as String? ?? '',
+      active: active,
+      assignedAt: json['assignedAt'] as String? ?? '',
+      assignedByMembershipId:
+          json['assignedByMembershipId'] as String? ?? '',
+    );
+  }
 }
 
 class DriverDashboardSnapshot {
