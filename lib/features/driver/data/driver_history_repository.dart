@@ -49,8 +49,7 @@ class DriverHistoryRepository {
     final mornings = <String, DriverMorningRun>{};
     for (final record in morningRecords) {
       final run = DriverMorningRun.fromJson(record.payload);
-      if (run.membershipId == membership.id &&
-          run.routeId == dashboard.assignment.routeId) {
+      if (run.membershipId == membership.id) {
         mornings[run.serviceDate] = run;
       }
     }
@@ -58,8 +57,7 @@ class DriverHistoryRepository {
     final afternoons = <String, DriverAfternoonRun>{};
     for (final record in afternoonRecords) {
       final run = DriverAfternoonRun.fromJson(record.payload);
-      if (run.membershipId == membership.id &&
-          run.routeId == dashboard.assignment.routeId) {
+      if (run.membershipId == membership.id) {
         afternoons[run.serviceDate] = run;
       }
     }
@@ -67,10 +65,7 @@ class DriverHistoryRepository {
     final incidentCountByDate = <String, int>{};
     for (final record in incidentRecords) {
       final payload = record.payload;
-      if (payload['membershipId'] != membership.id ||
-          payload['routeId'] != dashboard.assignment.routeId) {
-        continue;
-      }
+      if (payload['membershipId'] != membership.id) continue;
       final date = payload['serviceDate'] as String? ?? '';
       if (date.isNotEmpty) {
         incidentCountByDate[date] = (incidentCountByDate[date] ?? 0) + 1;
@@ -80,10 +75,7 @@ class DriverHistoryRepository {
     final defectCountByDate = <String, int>{};
     for (final record in defectRecords) {
       final payload = record.payload;
-      if (payload['reportedByMembershipId'] != membership.id ||
-          payload['routeId'] != dashboard.assignment.routeId) {
-        continue;
-      }
+      if (payload['reportedByMembershipId'] != membership.id) continue;
       final date = payload['serviceDate'] as String? ?? '';
       if (date.isNotEmpty) {
         defectCountByDate[date] = (defectCountByDate[date] ?? 0) + 1;
@@ -108,7 +100,9 @@ class DriverHistoryRepository {
           routeId: morning?.routeId ??
               afternoon?.routeId ??
               dashboard.assignment.routeId,
-          vehicle: morning?.vehicle ?? afternoon?.vehicle ?? dashboard.route.vehicle,
+          vehicle: morning?.vehicle ??
+              afternoon?.vehicle ??
+              dashboard.route.vehicle,
           morningStatus: morning?.status.label ?? 'Not recorded',
           morningExpected: morning?.expectedRiders ?? 0,
           morningArrived: morning?.arrivedSchoolRiders ?? 0,
