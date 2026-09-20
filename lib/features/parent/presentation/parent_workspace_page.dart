@@ -11,6 +11,7 @@ import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../../teacher/presentation/teacher_workspace_page.dart';
+import '../data/parent_ai_repository.dart';
 import '../data/parent_attendance_repository.dart';
 import '../data/parent_children_repository.dart';
 import '../data/parent_dashboard_demo_data.dart';
@@ -23,6 +24,7 @@ import '../data/parent_messages_repository.dart';
 import '../data/parent_school_life_repository.dart';
 import '../data/parent_weekly_learning_repository.dart';
 import '../domain/parent_dashboard_models.dart';
+import 'parent_ai_page.dart';
 import 'parent_attendance_page.dart';
 import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
@@ -66,6 +68,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   late final ParentDiscussionsRepository _discussionsRepository;
   late final ParentSchoolLifeRepository _schoolLifeRepository;
   late final ParentDocumentsRepository _documentsRepository;
+  late final ParentAIRepository _aiRepository;
 
   ParentNavItem get _activeItem => parentNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -112,6 +115,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _documentsRepository = ParentDocumentsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _aiRepository = ParentAIRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -242,6 +249,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
         'documents' => ParentDocumentsPage(
             repository: _documentsRepository,
             onQueueChanged: _refreshPendingCount,
+            onNavigate: _select,
+          ),
+        'ai' => ParentAIPage(
+            repository: _aiRepository,
             onNavigate: _select,
           ),
         _ => _UpcomingParentFeature(
