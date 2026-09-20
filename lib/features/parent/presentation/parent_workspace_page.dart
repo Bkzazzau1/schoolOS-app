@@ -15,6 +15,7 @@ import '../data/parent_attendance_repository.dart';
 import '../data/parent_children_repository.dart';
 import '../data/parent_dashboard_demo_data.dart';
 import '../data/parent_dashboard_repository.dart';
+import '../data/parent_discussions_repository.dart';
 import '../data/parent_finance_repository.dart';
 import '../data/parent_learning_progress_repository.dart';
 import '../data/parent_messages_repository.dart';
@@ -23,6 +24,7 @@ import '../domain/parent_dashboard_models.dart';
 import 'parent_attendance_page.dart';
 import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
+import 'parent_discussions_page.dart';
 import 'parent_finance_page.dart';
 import 'parent_learning_progress_page.dart';
 import 'parent_messages_page.dart';
@@ -57,6 +59,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   late final ParentAttendanceRepository _attendanceRepository;
   late final ParentFinanceRepository _financeRepository;
   late final ParentMessagesRepository _messagesRepository;
+  late final ParentDiscussionsRepository _discussionsRepository;
 
   ParentNavItem get _activeItem => parentNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -91,6 +94,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _messagesRepository = ParentMessagesRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _discussionsRepository = ParentDiscussionsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -210,6 +217,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
             onQueueChanged: _refreshPendingCount,
             onNavigate: _select,
           ),
+        'discussions' => ParentDiscussionsPage(
+            repository: _discussionsRepository,
+            onQueueChanged: _refreshPendingCount,
+          ),
         _ => _UpcomingParentFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
@@ -220,13 +231,13 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 720) return _buildPhone(context);
-        return _buildWide(context, constraints);
+        if (constraints.maxWidth < 720) return _buildPhone();
+        return _buildWide(constraints);
       },
     );
   }
 
-  Widget _buildPhone(BuildContext context) {
+  Widget _buildPhone() {
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -320,7 +331,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
     );
   }
 
-  Widget _buildWide(BuildContext context, BoxConstraints constraints) {
+  Widget _buildWide(BoxConstraints constraints) {
     final extended = constraints.maxWidth >= 1180;
     return Scaffold(
       body: Row(
@@ -513,7 +524,9 @@ class _ParentNavigationTile extends StatelessWidget {
           dense: true,
           selected: selected,
           selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           leading: Icon(_ParentWorkspacePageState.iconFor(item.key)),
           title: showLabel ? Text(item.label) : null,
           trailing: showLabel && item.key == 'ai'
