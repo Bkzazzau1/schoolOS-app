@@ -62,7 +62,14 @@ class TeacherCbtRepository {
     final sets = records
         .map((record) => TeacherCbtPracticeSet.fromJson(record.payload))
         .toList(growable: false)
-      ..sort((a, b) => a.id.compareTo(b.id));
+      ..sort((a, b) {
+        final aIndex = teacherCbtSets.indexWhere((seed) => seed.id == a.id);
+        final bIndex = teacherCbtSets.indexWhere((seed) => seed.id == b.id);
+        final safeA = aIndex < 0 ? 999 : aIndex;
+        final safeB = bIndex < 0 ? 999 : bIndex;
+        final bySeed = safeA.compareTo(safeB);
+        return bySeed != 0 ? bySeed : a.id.compareTo(b.id);
+      });
     return TeacherCbtSnapshot(
       sets: sets,
       permissions: permissionsFor(membership),
