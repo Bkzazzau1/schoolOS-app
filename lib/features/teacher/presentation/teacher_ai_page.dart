@@ -196,7 +196,7 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<TeacherAiContext>(
-                value: _context,
+                initialValue: _context,
                 decoration: const InputDecoration(
                   labelText: 'Working context',
                   border: OutlineInputBorder(),
