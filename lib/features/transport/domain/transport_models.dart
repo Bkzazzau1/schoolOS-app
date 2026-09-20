@@ -48,7 +48,12 @@ class SchoolTransportRoute {
   }
 
   SchoolTransportRoute copyWith({
+    String? name,
+    String? vehicle,
     String? driver,
+    String? assistant,
+    int? riders,
+    int? stops,
     String? morning,
     String? afternoon,
     TransportRouteStatus? status,
@@ -57,12 +62,12 @@ class SchoolTransportRoute {
   }) =>
       SchoolTransportRoute(
         id: id,
-        name: name,
-        vehicle: vehicle,
+        name: name ?? this.name,
+        vehicle: vehicle ?? this.vehicle,
         driver: driver ?? this.driver,
-        assistant: assistant,
-        riders: riders,
-        stops: stops,
+        assistant: assistant ?? this.assistant,
+        riders: riders ?? this.riders,
+        stops: stops ?? this.stops,
         morning: morning ?? this.morning,
         afternoon: afternoon ?? this.afternoon,
         status: status ?? this.status,
@@ -115,9 +120,11 @@ class TransportPermissions {
     required this.canReviewRoutes,
     required this.canViewOperationsControl,
     required this.canManageDriverAssignments,
+    required this.canManageRoutesAndStops,
   });
 
   final bool canReviewRoutes;
   final bool canViewOperationsControl;
   final bool canManageDriverAssignments;
+  final bool canManageRoutesAndStops;
 }
