@@ -16,6 +16,7 @@ import '../data/teacher_attendance_repository.dart';
 import '../data/teacher_cbt_repository.dart';
 import '../data/teacher_classes_repository.dart';
 import '../data/teacher_dashboard_demo_data.dart';
+import '../data/teacher_learning_progress_repository.dart';
 import '../data/teacher_lesson_plan_repository.dart';
 import '../data/teacher_syllabus_repository.dart';
 import '../data/teacher_timetable_repository.dart';
@@ -27,6 +28,7 @@ import 'teacher_attendance_page.dart';
 import 'teacher_cbt_page.dart';
 import 'teacher_classes_page.dart';
 import 'teacher_dashboard_page.dart';
+import 'teacher_learning_progress_page.dart';
 import 'teacher_lesson_plans_page.dart';
 import 'teacher_syllabus_page.dart';
 import 'teacher_timetable_page.dart';
@@ -63,6 +65,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   late final TeacherAssignmentRepository _assignments;
   late final TeacherAssessmentRepository _assessments;
   late final TeacherCbtRepository _cbt;
+  late final TeacherLearningProgressRepository _learningProgress;
 
   TeacherNavItem get _activeItem => teacherNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -105,6 +108,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _cbt = TeacherCbtRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _learningProgress = TeacherLearningProgressRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -233,6 +240,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             repository: _cbt,
             onNavigate: _select,
             onMutationQueued: _refreshPendingCount,
+          ),
+        'learning-progress' => TeacherLearningProgressPage(
+            repository: _learningProgress,
+            onNavigate: _select,
           ),
         _ => _UpcomingTeacherFeature(
             item: _activeItem,
