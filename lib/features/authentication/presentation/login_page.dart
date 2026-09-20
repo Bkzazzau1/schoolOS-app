@@ -6,6 +6,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
+import '../../parent/presentation/parent_workspace_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
@@ -61,8 +62,8 @@ class _LoginPageState extends State<LoginPage> {
     ),
     SchoolMembership(
       id: 'membership-parent-001',
-      schoolId: 'school-bright-future',
-      schoolName: 'Bright Future School',
+      schoolId: 'school-brightgate',
+      schoolName: 'BrightGate Academy',
       role: SchoolRole.parent,
     ),
   ];
@@ -195,6 +196,13 @@ class _LoginPageState extends State<LoginPage> {
       );
     } else if (membership.role == SchoolRole.principal) {
       page = PrincipalWorkspacePage(
+        membership: membership,
+        localDatabase: widget.services.localDatabase,
+        schoolSession: widget.services.schoolSession,
+        schoolAppearance: widget.services.schoolAppearance,
+      );
+    } else if (membership.role == SchoolRole.parent) {
+      page = ParentWorkspacePage(
         membership: membership,
         localDatabase: widget.services.localDatabase,
         schoolSession: widget.services.schoolSession,
