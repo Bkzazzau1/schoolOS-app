@@ -270,7 +270,7 @@ class _FamilyBanner extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [scheme.primary, scheme.primary.withOpacity(.82)],
+          colors: [scheme.primary, scheme.primary.withValues(alpha: .82)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -284,7 +284,7 @@ class _FamilyBanner extends StatelessWidget {
               Text(
                 'FAMILY SUMMARY · ${data.familyAccountId}',
                 style: TextStyle(
-                  color: scheme.onPrimary.withOpacity(.78),
+                  color: scheme.onPrimary.withValues(alpha: .78),
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   letterSpacing: .8,
@@ -302,7 +302,7 @@ class _FamilyBanner extends StatelessWidget {
               const SizedBox(height: 7),
               Text(
                 'Track learning, attendance, school notices, transport, activities, fees and approved family records without switching between separate accounts.',
-                style: TextStyle(color: scheme.onPrimary.withOpacity(.84), height: 1.45),
+                style: TextStyle(color: scheme.onPrimary.withValues(alpha: .84), height: 1.45),
               ),
             ],
           );
@@ -321,7 +321,7 @@ class _FamilyBanner extends StatelessWidget {
               ),
               Text(
                 'Total current-term balance',
-                style: TextStyle(color: scheme.onPrimary.withOpacity(.75), fontSize: 12),
+                style: TextStyle(color: scheme.onPrimary.withValues(alpha: .75), fontSize: 12),
               ),
             ],
           );
@@ -827,7 +827,7 @@ class _AiCallout extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: scheme.secondaryContainer.withOpacity(.55),
+        color: scheme.secondaryContainer.withValues(alpha: .55),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
