@@ -23,8 +23,8 @@ void main() {
     expect(administratorWorkQueue.last.area, 'Staff records');
   });
 
-  test('administrator workspace exposes exact twelve website destinations', () {
-    expect(administratorNavigation, hasLength(12));
+  test('administrator workspace exposes the twelve website destinations plus Staff Profiles', () {
+    expect(administratorNavigation, hasLength(13));
     expect(
       administratorNavigation.map((item) => item.label).toList(),
       [
@@ -34,6 +34,7 @@ void main() {
         'Student Registration',
         'Students & Families',
         'Staff Records',
+        'Staff Profiles',
         'Staff Attendance',
         'Records & Documents',
         'Transfers & Promotion',

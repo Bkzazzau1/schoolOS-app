@@ -136,10 +136,25 @@ class _Header extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
+        OutlinedButton.icon(
+          onPressed: () => onActionRequested('staff-records'),
+          icon: const Icon(Icons.badge_outlined),
+          label: const Text('Staff records'),
+        ),
         FilledButton.icon(
           onPressed: () => onActionRequested('jobs'),
           icon: const Icon(Icons.assignment_ind_outlined),
           label: const Text('Assign a job'),
+        ),
+        FilledButton.icon(
+          onPressed: () => onActionRequested('staff-profiles'),
+          icon: const Icon(Icons.badge_outlined),
+          label: const Text('Staff profiles'),
+        ),
+        FilledButton.icon(
+          onPressed: () => onActionRequested('payroll'),
+          icon: const Icon(Icons.payments_outlined),
+          label: const Text('Payroll & salaries'),
         ),
         OutlinedButton(
           onPressed: () => onActionRequested('overview'),

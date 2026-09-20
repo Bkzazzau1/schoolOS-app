@@ -3,11 +3,12 @@ import 'package:schoolos_app/features/principal/data/principal_dashboard_demo_da
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 void main() {
-  test('principal workspace preserves exact fourteen website destinations', () {
-    expect(principalNavigation.length, 14);
+  test('principal workspace preserves the fourteen website destinations plus Staff Profiles', () {
+    expect(principalNavigation.length, 15);
     expect(principalNavigation.map((item) => item.label).toList(), [
       'Dashboard',
       'Teachers',
+      'Staff Profiles',
       'Teaching Assignments',
       'Academics',
       'Students',

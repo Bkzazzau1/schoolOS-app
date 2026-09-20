@@ -113,6 +113,7 @@ const administratorNavigation = <AdministratorNavItem>[
   AdministratorNavItem(key: 'registration', label: 'Student Registration'),
   AdministratorNavItem(key: 'students', label: 'Students & Families'),
   AdministratorNavItem(key: 'staff', label: 'Staff Records'),
+  AdministratorNavItem(key: 'staff-profiles', label: 'Staff Profiles'),
   AdministratorNavItem(key: 'staff-attendance', label: 'Staff Attendance'),
   AdministratorNavItem(key: 'records', label: 'Records & Documents'),
   AdministratorNavItem(key: 'lifecycle', label: 'Transfers & Promotion'),

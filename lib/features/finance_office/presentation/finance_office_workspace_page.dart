@@ -158,7 +158,10 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'accounts' => const FinanceFamilyAccountsPage(),
         'reconciliation' => const FinanceReconciliationPage(),
         'expenses' => const FinanceCashflowPage(),
-        'payroll' => const FinancePayrollPage(),
+        'payroll' => FinancePayrollPage(
+          localDatabase: widget.localDatabase,
+          schoolSession: widget.schoolSession,
+        ),
         'reports' => const FinanceReportsPage(),
         'ai' => const FinanceAiPage(),
         _ => _UpcomingFinanceFeature(

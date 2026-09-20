@@ -8,6 +8,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_staff_repository.dart';
 import '../../administrator/domain/administrator_staff_models.dart';
+import '../../administrator/domain/support_staff_roles.dart';
 import '../domain/proprietor_structure_models.dart';
 import 'proprietor_structure_repository.dart';
 
@@ -17,6 +18,7 @@ const jobRolePresets = <String, String>{
   'finance': 'Finance Officer',
   'administrator': 'Administrator',
   'teacher': 'Teacher',
+  ...supportStaffRoles,
 };
 
 Set<String> dutiesForJobRole(String role) => switch (role) {
@@ -33,11 +35,13 @@ Set<String> dutiesForJobRole(String role) => switch (role) {
     'academics.teaching',
   },
   'teacher' => {'academics.teaching'},
+  'driver' || 'cleaner' || 'security' || 'cook' || 'maintenance' || 'gardener' || 'support' => supportDutiesForRole(role),
   _ => <String>{},
 };
 
 /// Duties requested by an owner. These are not authenticated access grants.
 const assignableDuties = <String, String>{
+  ...supportStaffDuties,
   'finance.fees': 'Fee structure',
   'finance.collections': 'Collections and receipts',
   'finance.concessions': 'Scholarships and discounts',

@@ -21,6 +21,8 @@ import '../data/principal_students_repository.dart';
 import '../data/principal_teachers_repository.dart';
 import '../data/principal_timetable_repository.dart';
 import '../domain/principal_dashboard_models.dart';
+import '../../proprietor/data/owner_staff_profile_repository.dart';
+import '../../proprietor/presentation/owner_staff_profiles_page.dart';
 import 'principal_academics_page.dart';
 import 'principal_ai_page.dart';
 import 'principal_approvals_page.dart';
@@ -102,6 +104,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   Widget _content() => switch (_activeKey) {
         'dashboard' => PrincipalDashboardPage(schoolName: widget.membership.schoolName, onActionRequested: _select),
         'teachers' => PrincipalTeachersPage(repository: _teachers, onActionRequested: _select, onQueuedForSync: _refreshPendingCount),
+        'staff-profiles' => OwnerStaffProfilesPage(repository: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession), onChanged: _refreshPendingCount),
         'assignments' => PrincipalAssignmentsPage(repository: _assignments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'academics' => PrincipalAcademicsPage(repository: _academics, onNavigate: _select),
         'students' => PrincipalStudentsPage(repository: _students, onNavigate: _select, onMutationQueued: _refreshPendingCount),
@@ -159,6 +162,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
   static IconData _iconFor(String key) => switch (key) {
         'dashboard' => Icons.dashboard_rounded,
         'teachers' => Icons.badge_outlined,
+        'staff-profiles' => Icons.folder_shared_outlined,
         'assignments' => Icons.assignment_ind_outlined,
         'academics' => Icons.menu_book_rounded,
         'students' => Icons.groups_rounded,

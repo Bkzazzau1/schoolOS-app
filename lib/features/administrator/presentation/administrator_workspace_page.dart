@@ -1,3 +1,5 @@
+import '../../proprietor/data/owner_staff_profile_repository.dart';
+import '../../proprietor/presentation/owner_staff_profiles_page.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
@@ -270,6 +272,16 @@ class _AdministratorWorkspacePageState
       return AdministratorStaffPage(
         schoolName: widget.membership.schoolName,
         repository: _staffRepository,
+      );
+    }
+
+    if (_activeKey == 'staff-profiles') {
+      return OwnerStaffProfilesPage(
+        repository: OwnerStaffProfileRepository(
+          database: widget.localDatabase,
+          session: widget.schoolSession,
+        ),
+        onChanged: _refreshPendingCount,
       );
     }
 
@@ -593,6 +605,7 @@ class _AdministratorWorkspacePageState
       'students' => Icons.groups_rounded,
       'staff' => Icons.badge_outlined,
       'staff-attendance' => Icons.schedule_rounded,
+      'staff-profiles' => Icons.folder_shared_outlined,
       'records' => Icons.folder_copy_outlined,
       'lifecycle' => Icons.swap_horiz_rounded,
       'attendance' => Icons.fact_check_outlined,

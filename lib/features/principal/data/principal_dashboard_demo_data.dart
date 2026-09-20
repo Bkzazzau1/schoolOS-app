@@ -7,6 +7,7 @@ const principalLeaderName = 'Mr. Ibrahim Danladi';
 const principalNavigation = <PrincipalNavItem>[
   PrincipalNavItem(key: 'dashboard', label: 'Dashboard'),
   PrincipalNavItem(key: 'teachers', label: 'Teachers'),
+  PrincipalNavItem(key: 'staff-profiles', label: 'Staff Profiles'),
   PrincipalNavItem(key: 'assignments', label: 'Teaching Assignments'),
   PrincipalNavItem(key: 'academics', label: 'Academics'),
   PrincipalNavItem(key: 'students', label: 'Students'),

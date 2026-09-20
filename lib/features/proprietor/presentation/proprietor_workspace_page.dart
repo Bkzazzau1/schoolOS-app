@@ -53,6 +53,12 @@ import 'proprietor_reports_page.dart';
 import 'proprietor_school_life_page.dart';
 import 'proprietor_staff_page.dart';
 import 'owner_jobs_page.dart';
+import 'owner_payroll_page.dart';
+import 'owner_staff_profiles_page.dart';
+import '../data/owner_staff_profile_repository.dart';
+import '../data/owner_payroll_repository.dart';
+import '../../administrator/presentation/administrator_staff_page.dart';
+import '../../administrator/data/administrator_staff_repository.dart';
 import '../data/job_assignment_repository.dart';
 import 'proprietor_structure_page.dart';
 
@@ -86,6 +92,8 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded),
     _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded),
     _OwnerNavItem('jobs', 'Jobs & Delegation', Icons.assignment_ind_outlined),
+    _OwnerNavItem('staff-profiles', 'Staff Profiles', Icons.badge_outlined),
+    _OwnerNavItem('payroll', 'Payroll & Salaries', Icons.payments_outlined),
     _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded),
     _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded),
     _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded),
@@ -534,6 +542,13 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
   }
 
   void _handleStaffAction(String key) {
+    if (key == 'staff-records') {
+      _pushSharedModule(title: 'Staff Records', body: AdministratorStaffPage(
+        schoolName: widget.membership.schoolName,
+        repository: AdministratorStaffRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      ));
+      return;
+    }
     if (key == 'overview') {
       setState(() => _activeModule = 'overview');
       return;
@@ -543,6 +558,16 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
 
   Widget _buildContent() {
     return switch (_activeModule) {
+      'staff-profiles' => OwnerStaffProfilesPage(
+          repository: OwnerStaffProfileRepository(
+            database: widget.localDatabase, session: widget.schoolSession),
+          onChanged: _refreshPendingCount,
+        ),
+      'payroll' => OwnerPayrollPage(
+          repository: OwnerPayrollRepository(
+            database: widget.localDatabase, session: widget.schoolSession),
+          onChanged: _refreshPendingCount,
+        ),
       'jobs' => OwnerJobsPage(
           repository: JobAssignmentRepository(
             database: widget.localDatabase, session: widget.schoolSession),

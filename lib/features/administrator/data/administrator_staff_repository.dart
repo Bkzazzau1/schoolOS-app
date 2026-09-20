@@ -1,7 +1,12 @@
 import '../../../core/database/local_database.dart';
+import '../../../core/sync/sync_mutation.dart';
+import 'dart:math';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../proprietor/data/owner_staff_profile_repository.dart';
+import '../../proprietor/domain/owner_staff_profile_models.dart';
 import '../domain/administrator_staff_models.dart';
+import '../domain/support_staff_roles.dart';
 import 'administrator_staff_demo_data.dart';
 
 class AdministratorStaffSnapshot {
@@ -27,7 +32,7 @@ class AdministratorStaffRepository {
   final SchoolSessionController _schoolSession;
 
   AdministratorStaffPermissions permissionsFor(SchoolMembership membership) {
-    final allowed = membership.role == SchoolRole.administrator;
+    final allowed = membership.role == SchoolRole.administrator || membership.role == SchoolRole.proprietor;
     return AdministratorStaffPermissions(
       canViewDirectory: allowed,
       canReviewOperationalFile: allowed,
@@ -75,5 +80,52 @@ class AdministratorStaffRepository {
       staff: staff,
       permissions: permissionsFor(membership),
     );
+  }
+
+  /// With an [email], also queues an onboarding request asking the new staff
+  /// member to fill in their details and provide documents. The email itself
+  /// is sent by the school backend once connected.
+  Future<void> registerSupportStaff({required String name, required String role,
+    required String workArea, String email = ''}) async {
+    final member = _schoolSession.requireActiveMembership();
+    if (!permissionsFor(member).canReviewOperationalFile) {
+      throw StateError('Only the owner or administrator can register staff.');
+    }
+    if (name.trim().isEmpty || workArea.trim().isEmpty || !supportStaffRoles.containsKey(role)) {
+      throw ArgumentError('Enter a name, support role and assigned work area.');
+    }
+    final id = 'STAFF-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
+    final record = AdministratorStaffRecord(id: id, name: name.trim(),
+      role: supportStaffRoles[role]!, section: workArea.trim(),
+      fileStatus: AdministratorStaffFileStatus.missingDocument);
+    final payload = <String, Object?>{...record.toJson(),
+      'staffCategory': 'support', 'supportRole': role,
+      'createdByMembershipId': member.id,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+    };
+    final contact = email.trim().toLowerCase();
+    if (contact.isNotEmpty && !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(contact)) {
+      throw ArgumentError('Enter a valid email address.');
+    }
+    await _localDatabase.upsertLocalRecord(tenantId: member.schoolId,
+      entityType: _entityType, entityId: id, payload: payload, isDirty: true);
+    await _localDatabase.queueMutation(tenantId: member.schoolId, membershipId: member.id,
+      entityType: _entityType, entityId: id, operation: SyncOperation.create, payload: payload);
+    if (contact.isNotEmpty) {
+      final onboarding = <String, Object?>{
+        ...StaffProfile(
+          staffId: id,
+          onboardingEmail: contact,
+          onboardingStatus: StaffOnboardingStatus.invitePending,
+          documents: [for (final n in defaultRequiredDocuments) StaffRequiredDocument(name: n)],
+        ).toJson(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        'updatedByMembershipId': member.id,
+      };
+      await _localDatabase.upsertLocalRecord(tenantId: member.schoolId,
+        entityType: OwnerStaffProfileRepository.entityType, entityId: id, payload: onboarding, isDirty: true);
+      await _localDatabase.queueMutation(tenantId: member.schoolId, membershipId: member.id,
+        entityType: OwnerStaffProfileRepository.entityType, entityId: id, operation: SyncOperation.create, payload: onboarding);
+    }
   }
 }

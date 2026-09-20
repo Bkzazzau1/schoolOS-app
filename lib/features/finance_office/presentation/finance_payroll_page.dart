@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/database/local_database.dart';
+import '../../../core/tenancy/school_session_controller.dart';
+import '../../proprietor/data/owner_payroll_repository.dart';
+
 import '../data/finance_payroll_demo_data.dart';
 import '../domain/finance_payroll_models.dart';
 
 class FinancePayrollPage extends StatefulWidget {
-  const FinancePayrollPage({super.key});
+  const FinancePayrollPage({
+    super.key,
+    required this.localDatabase,
+    required this.schoolSession,
+  });
+
+  final LocalDatabase localDatabase;
+  final SchoolSessionController schoolSession;
 
   @override
   State<FinancePayrollPage> createState() => _FinancePayrollPageState();
@@ -12,31 +23,97 @@ class FinancePayrollPage extends StatefulWidget {
 
 class _FinancePayrollPageState extends State<FinancePayrollPage> {
   String? _notice;
+  PayrollView? _view;
+  List<FinancePayrollRow> _rows = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  /// Salaries come from the owner's payroll records. Attendance context is
+  /// only carried over where the sample attendance data matches by name;
+  /// anyone without verified attendance is held out of the batch.
+  Future<void> _load() async {
+    final view = await loadPayrollForMember(
+      widget.localDatabase,
+      widget.schoolSession,
+    );
+    final rows = <FinancePayrollRow>[];
+    for (final p in view.profiles) {
+      final match = financePayrollRows.where((r) => r.name == p.name).firstOrNull;
+      rows.add(FinancePayrollRow(
+        staffId: p.staffId,
+        name: p.name,
+        expectedDays: match?.expectedDays ?? 0,
+        presentDays: match?.presentDays ?? 0,
+        leaveDays: match?.leaveDays ?? 0,
+        unexplainedDays: match?.unexplainedDays ?? 0,
+        gross: p.gross,
+        deductions: p.deductions,
+        net: p.net,
+        status: match?.status ?? FinancePayrollStatus.attendanceReview,
+      ));
+    }
+    if (mounted) {
+      setState(() {
+        _view = view;
+        _rows = rows;
+      });
+    }
+  }
 
   void _prepareBatch() {
-    final ready = financePayrollRows.where((row) => row.isReady).toList();
-    final held = financePayrollRows.where((row) => row.needsAttendanceReview).toList();
+    if (!(_view?.can('prepare') ?? false)) {
+      setState(() => _notice = 'You have not been authorized by the owner to prepare payroll batches.');
+      return;
+    }
+    final ready = _rows.where((row) => row.isReady).toList();
+    final held = _rows.where((row) => row.needsAttendanceReview).toList();
     final readyValue = ready.fold<int>(0, (sum, row) => sum + row.net);
     setState(() {
       _notice =
-          'Payment batch preview prepared from ${ready.length} ready sample records (${financePayrollMoney(readyValue)}). ${held.length} attendance-review record remains held. No salary has been marked Paid and no money has been sent.';
+          'Payment batch preview prepared from ${ready.length} ready records (${financePayrollMoney(readyValue)}). ${held.length} attendance-review record remains held. No salary has been marked Paid and no money has been sent.';
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final view = _view;
+    if (view == null) return const Center(child: CircularProgressIndicator());
+    if (!view.can('view')) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Payroll is restricted. The school owner must authorize you before you can see or work on payroll.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final gross = _rows.fold<int>(0, (s, r) => s + r.gross);
+    final deductions = _rows.fold<int>(0, (s, r) => s + r.deductions);
+    final held = _rows.where((r) => r.needsAttendanceReview).length;
+    final kpis = [
+      FinancePayrollKpi('Payroll gross', financePayrollMoney(gross), 'Owner-set salaries'),
+      FinancePayrollKpi('Deductions', financePayrollMoney(deductions), 'Approved payroll deductions only'),
+      FinancePayrollKpi('Net payroll', financePayrollMoney(gross - deductions), 'Payment batch value'),
+      FinancePayrollKpi('Attendance verified', '${_rows.length - held} / ${_rows.length}', '$held held for review'),
+    ];
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _Header(onPrepare: _prepareBatch),
+        _Header(onPrepare: view.can('prepare') ? _prepareBatch : null),
         if (_notice != null) ...[
           const SizedBox(height: 12),
           _Notice(text: _notice!),
         ],
         const SizedBox(height: 16),
-        const _Kpis(),
+        _Kpis(items: kpis),
         const SizedBox(height: 16),
-        const _PayrollRegister(),
+        _PayrollRegister(rows: _rows),
         const SizedBox(height: 16),
         const _RulesGrid(),
         const SizedBox(height: 16),
@@ -49,7 +126,7 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
 class _Header extends StatelessWidget {
   const _Header({required this.onPrepare});
 
-  final VoidCallback onPrepare;
+  final VoidCallback? onPrepare;
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +197,9 @@ class _Notice extends StatelessWidget {
 }
 
 class _Kpis extends StatelessWidget {
-  const _Kpis();
+  const _Kpis({required this.items});
+
+  final List<FinancePayrollKpi> items;
 
   @override
   Widget build(BuildContext context) {
@@ -136,7 +215,7 @@ class _Kpis extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            for (final item in financePayrollKpis)
+            for (final item in items)
               SizedBox(
                 width: itemWidth,
                 child: Card(
@@ -170,7 +249,9 @@ class _Kpis extends StatelessWidget {
 }
 
 class _PayrollRegister extends StatelessWidget {
-  const _PayrollRegister();
+  const _PayrollRegister({required this.rows});
+
+  final List<FinancePayrollRow> rows;
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +264,7 @@ class _PayrollRegister extends StatelessWidget {
           if (constraints.maxWidth < 860) {
             return Column(
               children: [
-                for (final row in financePayrollRows)
+                for (final row in rows)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _MobilePayrollRow(row: row),
@@ -208,7 +289,7 @@ class _PayrollRegister extends StatelessWidget {
                 DataColumn(label: Text('Status')),
               ],
               rows: [
-                for (final row in financePayrollRows)
+                for (final row in rows)
                   DataRow(
                     cells: [
                       DataCell(

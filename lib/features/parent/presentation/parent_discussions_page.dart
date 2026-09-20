@@ -419,7 +419,7 @@ class _FeedView extends StatelessWidget {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<ParentDiscussionScope>(
-                      value: postScope,
+                      initialValue: postScope,
                       decoration: const InputDecoration(labelText: 'Community', border: OutlineInputBorder()),
                       items: [for (final scope in ParentDiscussionScope.values) DropdownMenuItem(value: scope, child: Text(scope.label))],
                       onChanged: busy ? null : (value) { if (value != null) onPostScopeChanged(value); },
@@ -441,7 +441,7 @@ class _FeedView extends StatelessWidget {
           trailing: SizedBox(
             width: 190,
             child: DropdownButtonFormField<ParentDiscussionScope?>(
-              value: filterScope,
+              initialValue: filterScope,
               decoration: const InputDecoration(labelText: 'Scope', border: OutlineInputBorder(), isDense: true),
               items: [
                 const DropdownMenuItem<ParentDiscussionScope?>(value: null, child: Text('All')),
