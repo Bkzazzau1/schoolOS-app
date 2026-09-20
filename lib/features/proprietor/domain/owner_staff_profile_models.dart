@@ -17,6 +17,7 @@ int studyLevelRank(String level) => studyLevels.indexOf(level);
 /// The owner, parent and student roles can never be assigned this way.
 const staffSystemRoles = <String, String>{
   'teacher': 'Teacher',
+  'driver': 'Driver',
   'staff': 'Support / other staff',
   'accountant': 'Finance officer',
   'administrator': 'Administrator',
@@ -24,7 +25,8 @@ const staffSystemRoles = <String, String>{
 };
 
 /// Roles someone the owner has assigned to approve staff may approve. The
-/// others reach money and student records, so only the owner approves them.
+/// others reach money, student records or protected transport data, so only
+/// the owner approves them.
 const delegateApprovableRoles = <String>{'teacher', 'staff'};
 
 String staffSystemRoleLabel(String role) => staffSystemRoles[role] ?? 'Not chosen';
