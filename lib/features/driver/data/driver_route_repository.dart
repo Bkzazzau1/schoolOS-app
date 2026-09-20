@@ -72,7 +72,8 @@ class DriverRouteRepository {
         for (final stop in morning.stops) _morningStop(stop),
       ],
       afternoonStops: [
-        for (final stop in afternoon.stops) _afternoonStop(stop),
+        for (final stop in afternoon.stops)
+          _afternoonStop(stop, afternoon.status),
       ],
     );
   }
@@ -97,15 +98,23 @@ class DriverRouteRepository {
     );
   }
 
-  DriverRouteStopView _afternoonStop(DriverAfternoonStop stop) {
+  DriverRouteStopView _afternoonStop(
+    DriverAfternoonStop stop,
+    DriverAfternoonRunStatus runStatus,
+  ) {
     final boardedToday = stop.riders.where((rider) => rider.status.enteredBus).length;
-    final state = boardedToday == 0
-        ? DriverRouteStopState.noService
-        : switch (stop.status) {
-            DriverAfternoonStopStatus.pending => DriverRouteStopState.pending,
-            DriverAfternoonStopStatus.active => DriverRouteStopState.active,
-            DriverAfternoonStopStatus.departed => DriverRouteStopState.completed,
-          };
+    final routeHasDeparted = runStatus == DriverAfternoonRunStatus.inProgress ||
+        runStatus == DriverAfternoonRunStatus.returnedSchool ||
+        runStatus == DriverAfternoonRunStatus.completed;
+
+    final state = stop.status == DriverAfternoonStopStatus.active
+        ? DriverRouteStopState.active
+        : stop.status == DriverAfternoonStopStatus.departed
+            ? DriverRouteStopState.completed
+            : routeHasDeparted && boardedToday == 0
+                ? DriverRouteStopState.noService
+                : DriverRouteStopState.pending;
+
     return DriverRouteStopView(
       id: stop.id,
       sequence: stop.sequence,
