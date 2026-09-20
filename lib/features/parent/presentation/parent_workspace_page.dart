@@ -11,9 +11,11 @@ import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../../teacher/presentation/teacher_workspace_page.dart';
+import '../data/parent_children_repository.dart';
 import '../data/parent_dashboard_demo_data.dart';
 import '../data/parent_dashboard_repository.dart';
 import '../domain/parent_dashboard_models.dart';
+import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
 
 class ParentWorkspacePage extends StatefulWidget {
@@ -37,7 +39,14 @@ class ParentWorkspacePage extends StatefulWidget {
 class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+
   late final ParentDashboardRepository _dashboardRepository;
+  late final ParentChildrenRepository _childrenRepository;
+
+  ParentNavItem get _activeItem => parentNavigation.firstWhere(
+        (item) => item.key == _activeKey,
+        orElse: () => parentNavigation.first,
+      );
 
   @override
   void initState() {
@@ -46,16 +55,16 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
+    _childrenRepository = ParentChildrenRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _refreshPendingCount();
   }
 
-  ParentNavItem get _activeItem => parentNavigation.firstWhere(
-        (item) => item.key == _activeKey,
-        orElse: () => parentNavigation.first,
-      );
-
   void _select(String key) {
     if (!parentNavigation.any((item) => item.key == key)) return;
+    if (_activeKey == key) return;
     setState(() => _activeKey = key);
   }
 
@@ -80,10 +89,11 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
 
   Future<void> _switchSchool(SchoolMembership membership) async {
     if (membership.id == widget.membership.id) return;
+
     await widget.schoolSession.selectSchool(membership);
     if (!mounted) return;
 
-    final Widget page = switch (membership.role) {
+    final Widget destination = switch (membership.role) {
       SchoolRole.proprietor => ProprietorWorkspacePage(
           membership: membership,
           localDatabase: widget.localDatabase,
@@ -129,13 +139,18 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
     };
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => page),
+      MaterialPageRoute<void>(builder: (_) => destination),
     );
   }
 
   Widget _content() => switch (_activeKey) {
         'dashboard' => ParentDashboardPage(
             repository: _dashboardRepository,
+            schoolName: widget.membership.schoolName,
+            onNavigate: _select,
+          ),
+        'children' => ParentChildrenPage(
+            repository: _childrenRepository,
             schoolName: widget.membership.schoolName,
             onNavigate: _select,
           ),
@@ -148,13 +163,14 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) => constraints.maxWidth < 720
-          ? _phone(context)
-          : _wide(context, constraints),
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 720) return _buildPhone(context);
+        return _buildWide(context, constraints);
+      },
     );
   }
 
-  Widget _phone(BuildContext context) {
+  Widget _buildPhone(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -203,24 +219,18 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: _FamilyIdentityCard(
                   schoolName: widget.membership.schoolName,
-                  compact: false,
                 ),
               ),
               const Divider(),
               Expanded(
                 child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   children: [
                     for (final item in parentNavigation)
-                      ListTile(
+                      _ParentNavigationTile(
+                        item: item,
                         selected: item.key == _activeKey,
-                        leading: Icon(_iconFor(item.key)),
-                        title: Text(item.label),
-                        trailing: item.key == 'ai'
-                            ? const Chip(
-                                visualDensity: VisualDensity.compact,
-                                label: Text('AI'),
-                              )
-                            : null,
+                        showLabel: true,
                         onTap: () {
                           Navigator.of(context).pop();
                           _select(item.key);
@@ -231,7 +241,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
               ),
               const Padding(
                 padding: EdgeInsets.all(14),
-                child: _PrivacyBoundaryCard(compact: true),
+                child: _PrivacyBoundaryCard(),
               ),
             ],
           ),
@@ -254,7 +264,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
     );
   }
 
-  Widget _wide(BuildContext context, BoxConstraints constraints) {
+  Widget _buildWide(BuildContext context, BoxConstraints constraints) {
     final extended = constraints.maxWidth >= 1180;
     return Scaffold(
       body: Row(
@@ -276,70 +286,24 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
                     child: extended
                         ? _FamilyIdentityCard(
                             schoolName: widget.membership.schoolName,
-                            compact: false,
                           )
                         : const _SchoolMark(),
                   ),
                   if (extended)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'FAMILY ACCOUNT',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .8,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'FAM-BGA-0042',
-                              style: TextStyle(fontWeight: FontWeight.w900),
-                            ),
-                            Text(
-                              '2 linked children',
-                              style: TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(14, 0, 14, 10),
+                      child: _FamilyAccountSummary(),
                     ),
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       children: [
                         for (final item in parentNavigation)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 3),
-                            child: ListTile(
-                              dense: true,
-                              selected: item.key == _activeKey,
-                              selectedTileColor: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              leading: Icon(_iconFor(item.key)),
-                              title: extended ? Text(item.label) : null,
-                              trailing: extended && item.key == 'ai'
-                                  ? const Chip(
-                                      visualDensity: VisualDensity.compact,
-                                      label: Text('AI'),
-                                    )
-                                  : null,
-                              onTap: () => _select(item.key),
-                            ),
+                          _ParentNavigationTile(
+                            item: item,
+                            selected: item.key == _activeKey,
+                            showLabel: extended,
+                            onTap: () => _select(item.key),
                           ),
                       ],
                     ),
@@ -347,7 +311,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
                   if (extended)
                     const Padding(
                       padding: EdgeInsets.all(14),
-                      child: _PrivacyBoundaryCard(compact: true),
+                      child: _PrivacyBoundaryCard(),
                     ),
                 ],
               ),
@@ -357,63 +321,15 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
             child: SafeArea(
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 12, 22, 10),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Parent / Guardian · Family Portal',
-                                style: TextStyle(fontWeight: FontWeight.w900),
-                              ),
-                              Text(_activeItem.label),
-                            ],
-                          ),
-                        ),
-                        if (widget.schoolSession.canSwitchSchool)
-                          _SchoolSwitcherButton(
-                            activeMembership: widget.membership,
-                            memberships: widget.schoolSession.memberships,
-                            onSelected: _switchSchool,
-                          ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          onPressed: _openSyncCenter,
-                          icon: const Icon(Icons.cloud_sync_outlined, size: 18),
-                          label: Text(
-                            _pendingSyncCount == 0
-                                ? 'Synced'
-                                : '$_pendingSyncCount pending',
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const CircleAvatar(
-                          child: Text(
-                            'AY',
-                            style: TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                        ),
-                        if (constraints.maxWidth >= 1080) ...[
-                          const SizedBox(width: 8),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Alhaji Abdullahi Yusuf',
-                                style: TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                              Text(
-                                'Parent / Guardian',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
+                  _DesktopTopBar(
+                    activeLabel: _activeItem.label,
+                    pendingSyncCount: _pendingSyncCount,
+                    canSwitchSchool: widget.schoolSession.canSwitchSchool,
+                    membership: widget.membership,
+                    memberships: widget.schoolSession.memberships,
+                    onSwitchSchool: _switchSchool,
+                    onOpenSyncCenter: _openSyncCenter,
+                    showGuardianName: constraints.maxWidth >= 1080,
                   ),
                   const Divider(height: 1),
                   Expanded(child: _content()),
@@ -426,7 +342,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
     );
   }
 
-  static IconData _iconFor(String key) => switch (key) {
+  static IconData iconFor(String key) => switch (key) {
         'dashboard' => Icons.home_rounded,
         'children' => Icons.family_restroom_rounded,
         'progress' => Icons.trending_up_rounded,
@@ -440,6 +356,123 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
         'ai' => Icons.auto_awesome_rounded,
         _ => Icons.circle_outlined,
       };
+}
+
+class _DesktopTopBar extends StatelessWidget {
+  const _DesktopTopBar({
+    required this.activeLabel,
+    required this.pendingSyncCount,
+    required this.canSwitchSchool,
+    required this.membership,
+    required this.memberships,
+    required this.onSwitchSchool,
+    required this.onOpenSyncCenter,
+    required this.showGuardianName,
+  });
+
+  final String activeLabel;
+  final int pendingSyncCount;
+  final bool canSwitchSchool;
+  final SchoolMembership membership;
+  final List<SchoolMembership> memberships;
+  final ValueChanged<SchoolMembership> onSwitchSchool;
+  final VoidCallback onOpenSyncCenter;
+  final bool showGuardianName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 12, 22, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Parent / Guardian · Family Portal',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                Text(activeLabel),
+              ],
+            ),
+          ),
+          if (canSwitchSchool)
+            _SchoolSwitcherButton(
+              activeMembership: membership,
+              memberships: memberships,
+              onSelected: onSwitchSchool,
+            ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: onOpenSyncCenter,
+            icon: const Icon(Icons.cloud_sync_outlined, size: 18),
+            label: Text(
+              pendingSyncCount == 0 ? 'Synced' : '$pendingSyncCount pending',
+            ),
+          ),
+          const SizedBox(width: 12),
+          const CircleAvatar(
+            child: Text('AY', style: TextStyle(fontWeight: FontWeight.w900)),
+          ),
+          if (showGuardianName) ...[
+            const SizedBox(width: 8),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Alhaji Abdullahi Yusuf',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text('Parent / Guardian', style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ParentNavigationTile extends StatelessWidget {
+  const _ParentNavigationTile({
+    required this.item,
+    required this.selected,
+    required this.showLabel,
+    required this.onTap,
+  });
+
+  final ParentNavItem item;
+  final bool selected;
+  final bool showLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Tooltip(
+        message: showLabel ? '' : item.label,
+        child: ListTile(
+          dense: true,
+          selected: selected,
+          selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          leading: Icon(_ParentWorkspacePageState.iconFor(item.key)),
+          title: showLabel ? Text(item.label) : null,
+          trailing: showLabel && item.key == 'ai'
+              ? const Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text('AI'),
+                )
+              : null,
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
 }
 
 class _UpcomingParentFeature extends StatelessWidget {
@@ -466,7 +499,7 @@ class _UpcomingParentFeature extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _ParentWorkspacePageState._iconFor(item.key),
+                    _ParentWorkspacePageState.iconFor(item.key),
                     size: 44,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -474,10 +507,9 @@ class _UpcomingParentFeature extends StatelessWidget {
                   Text(
                     item.label,
                     textAlign: TextAlign.center,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
@@ -501,39 +533,36 @@ class _UpcomingParentFeature extends StatelessWidget {
 }
 
 class _FamilyIdentityCard extends StatelessWidget {
-  const _FamilyIdentityCard({required this.schoolName, required this.compact});
+  const _FamilyIdentityCard({required this.schoolName});
 
   final String schoolName;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         const _SchoolMark(),
-        if (!compact) ...[
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'SchoolOS',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'SchoolOS',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+              ),
+              Text(
+                '$schoolName · Family Portal',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                Text(
-                  '$schoolName · Family Portal',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ],
     );
   }
@@ -552,15 +581,46 @@ class _SchoolMark extends StatelessWidget {
   }
 }
 
+class _FamilyAccountSummary extends StatelessWidget {
+  const _FamilyAccountSummary();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'FAMILY ACCOUNT',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .8,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text('FAM-BGA-0042', style: TextStyle(fontWeight: FontWeight.w900)),
+          Text('2 linked children', style: TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
 class _PrivacyBoundaryCard extends StatelessWidget {
-  const _PrivacyBoundaryCard({required this.compact});
-  final bool compact;
+  const _PrivacyBoundaryCard();
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: EdgeInsets.all(compact ? 11 : 14),
+      padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
@@ -588,7 +648,11 @@ class _PrivacyBoundaryCard extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             parentPrivacyBoundary,
-            style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, height: 1.35),
+            style: TextStyle(
+              fontSize: 10,
+              color: scheme.onSurfaceVariant,
+              height: 1.35,
+            ),
           ),
         ],
       ),
