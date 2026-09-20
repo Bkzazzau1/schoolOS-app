@@ -36,6 +36,7 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../../teaching_models/data/teaching_model_repository.dart';
 import '../../teaching_models/presentation/teaching_models_page.dart';
 import '../../transport/data/transport_repository.dart';
+import '../../transport/data/transport_route_management_repository.dart';
 import '../../transport/presentation/transport_page.dart';
 import '../../visitors/data/visitor_repository.dart';
 import '../../visitors/presentation/visitors_page.dart';
@@ -280,6 +281,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
         body: TransportPage(
           schoolName: widget.membership.schoolName,
           repository: TransportRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          routeManagementRepository: TransportRouteManagementRepository(
             localDatabase: widget.localDatabase,
             schoolSession: widget.schoolSession,
           ),
