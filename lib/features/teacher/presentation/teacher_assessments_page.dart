@@ -384,7 +384,7 @@ class _ScoreEntryCard extends StatelessWidget {
       );
 
   Widget _classSelect() => DropdownButtonFormField<String>(
-        value: sheet.className,
+        initialValue: sheet.className,
         decoration: const InputDecoration(labelText: 'Class'),
         items: [
           for (final item in teacherAssessmentClassOptions)
@@ -394,7 +394,7 @@ class _ScoreEntryCard extends StatelessWidget {
       );
 
   Widget _assessmentSelect() => DropdownButtonFormField<String>(
-        value: sheet.assessmentLabel,
+        initialValue: sheet.assessmentLabel,
         decoration: const InputDecoration(labelText: 'Assessment'),
         items: [
           for (final item in teacherAssessmentOptions)
