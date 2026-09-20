@@ -17,6 +17,7 @@ class DriverRiderOperationalView {
     required this.name,
     required this.className,
     required this.stopId,
+    required this.stopSequence,
     required this.stopName,
     required this.morningScheduledTime,
     required this.afternoonScheduledTime,
@@ -30,6 +31,7 @@ class DriverRiderOperationalView {
   final String name;
   final String className;
   final String stopId;
+  final int stopSequence;
   final String stopName;
   final String morningScheduledTime;
   final String afternoonScheduledTime;
