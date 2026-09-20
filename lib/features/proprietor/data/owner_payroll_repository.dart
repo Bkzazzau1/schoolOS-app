@@ -9,7 +9,8 @@ import '../../administrator/domain/administrator_staff_models.dart';
 const payrollAuthorityLabels = <String, String>{
   'prepare': 'Prepare payroll batch',
   'approve': 'Approve payroll batch',
-  'pay': 'Make payment',
+  'pay': 'Release payroll payment (disbursement)',
+  'approveStaff': 'Approve new staff proposals',
   'view': 'View payroll and invoice',
 };
 
@@ -275,11 +276,16 @@ Set<String> payrollAuthoritiesFor(
   if (member.role == SchoolRole.proprietor) {
     return payrollAuthorityLabels.keys.toSet();
   }
-  return {
+  final granted = {
     if (member.role == SchoolRole.accountant) ...{'view', 'prepare'},
     for (final a in authorizers)
       if (a.status == 'active' && a.membershipId == member.id) ...a.authorities,
   };
+  // Approving or releasing a payment means seeing what is being paid.
+  if (granted.contains('approve') || granted.contains('pay')) {
+    granted.add('view');
+  }
+  return granted;
 }
 
 class PayrollView {

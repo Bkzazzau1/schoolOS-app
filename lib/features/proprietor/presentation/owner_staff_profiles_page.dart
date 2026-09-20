@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/models/school_membership.dart';
 import '../../administrator/domain/administrator_staff_models.dart';
 import '../data/owner_staff_profile_repository.dart';
+import '../../finance_office/presentation/payroll_batch_panel.dart';
+import '../data/payroll_batch_repository.dart';
 import '../data/staff_identity.dart';
 import '../data/staff_proposal_repository.dart';
 import '../domain/owner_staff_profile_models.dart';
@@ -14,10 +17,15 @@ class OwnerStaffProfilesPage extends StatefulWidget {
     required this.repository,
     required this.onChanged,
     this.proposals,
+    this.payrollBatches,
   });
 
   final OwnerStaffProfileRepository repository;
   final VoidCallback onChanged;
+
+  /// When given, shows the payroll payment approval step to a non-owner the
+  /// owner has authorized to approve or release payroll payments.
+  final PayrollBatchRepository? payrollBatches;
 
   /// When given, shows staff proposals and lets people propose new staff.
   final StaffProposalRepository? proposals;
@@ -29,6 +37,7 @@ class OwnerStaffProfilesPage extends StatefulWidget {
 class _OwnerStaffProfilesPageState extends State<OwnerStaffProfilesPage> {
   List<AdministratorStaffRecord> _people = const [];
   List<StaffDuplicateGroup> _duplicates = const [];
+  bool _paymentAuthority = false;
   String? _error;
   bool _loading = true;
 
@@ -45,10 +54,18 @@ class _OwnerStaffProfilesPageState extends State<OwnerStaffProfilesPage> {
         widget.repository.database,
         widget.repository.session.requireActiveMembership().schoolId,
       );
+      var paymentAuthority = false;
+      final batches = widget.payrollBatches;
+      if (batches != null &&
+          batches.session.requireActiveMembership().role != SchoolRole.proprietor) {
+        final a = await batches.authorities();
+        paymentAuthority = a.contains('approve') || a.contains('pay');
+      }
       if (mounted) {
         setState(() {
           _people = people;
           _duplicates = duplicates;
+          _paymentAuthority = paymentAuthority;
         });
       }
     } catch (error) {
@@ -99,6 +116,14 @@ class _OwnerStaffProfilesPageState extends State<OwnerStaffProfilesPage> {
                     ),
                 ],
               ),
+            ),
+          ),
+        if (_paymentAuthority)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: PayrollBatchPanel(
+              repository: widget.payrollBatches!,
+              onChanged: widget.onChanged,
             ),
           ),
         if (widget.proposals != null)

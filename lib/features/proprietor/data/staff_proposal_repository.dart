@@ -8,6 +8,7 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_staff_repository.dart';
+import '../../administrator/domain/administrator_staff_models.dart';
 import '../../../core/identity/identity_normalizer.dart';
 import '../domain/owner_staff_profile_models.dart';
 import 'job_assignment_repository.dart';
@@ -83,6 +84,9 @@ class StaffProposal {
 /// not a staff record: the person is not on the staff list or payroll until
 /// the owner approves it. The owner adds staff directly, which is recorded as
 /// an immediate approval.
+///
+/// Approving queues the staff member's registration invitation, which the
+/// school backend emails to them. This app does not send email itself.
 class StaffProposalRepository {
   StaffProposalRepository({required this.database, required this.session});
 
@@ -117,11 +121,28 @@ class StaffProposalRepository {
     );
   }
 
-  /// The owner sees every proposal. Anyone else sees only their own.
+  String get memberId => _member.id;
+
+  Future<Set<String>> _authorities() async {
+    final member = _member;
+    final authorizers = (await database.getLocalRecords(
+      tenantId: member.schoolId,
+      entityType: OwnerPayrollRepository.authorizerType,
+    )).map(PayrollAuthorizer.fromRecord);
+    return payrollAuthoritiesFor(member, authorizers);
+  }
+
+  /// The owner, or someone the owner has assigned to approve new staff.
+  Future<bool> canApprove() async =>
+      isOwner || (await _authorities()).contains('approveStaff');
+
+  /// The owner and assigned approvers see every proposal. Anyone else who can
+  /// propose sees only their own.
   Future<List<StaffProposal>> load() async {
     final member = _member;
-    if (!await canPropose()) {
-      throw StateError('You are not allowed to propose staff.');
+    final approver = await canApprove();
+    if (!approver && !await canPropose()) {
+      throw StateError('You are not allowed to propose or approve staff.');
     }
     final records = await database.getLocalRecords(
       tenantId: member.schoolId,
@@ -129,7 +150,7 @@ class StaffProposalRepository {
     );
     return [
       for (final r in records)
-        if (isOwner || r.payload['proposedByMembershipId'] == member.id)
+        if (approver || r.payload['proposedByMembershipId'] == member.id)
           StaffProposal.fromPayload(r.entityId, r.payload),
     ]..sort((a, b) => b.id.compareTo(a.id));
   }
@@ -142,7 +163,7 @@ class StaffProposalRepository {
     required String nin,
     required int gross,
     required int deductions,
-    String email = '',
+    required String email,
   }) async {
     final member = _member;
     if (!await canPropose()) {
@@ -176,9 +197,9 @@ class StaffProposalRepository {
     if (matches.isNotEmpty) {
       throw DuplicateIdentityError(matches.map((m) => m.message).toSet().join(' '));
     }
-    if (contact.isNotEmpty &&
-        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(contact)) {
-      throw ArgumentError('Enter a valid email address.');
+    // The registration invitation is emailed here once the owner approves.
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(contact)) {
+      throw ArgumentError('Enter the staff member\'s email address. Their registration link is sent there once approved.');
     }
     final id =
         'PROP-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
@@ -200,24 +221,59 @@ class StaffProposalRepository {
     if (member.role == SchoolRole.proprietor) await approve(id);
   }
 
-  SchoolMembership _requireOwner() {
-    final member = _member;
-    if (member.role != SchoolRole.proprietor) {
-      throw StateError('Only the owner can approve or reject staff.');
+  Future<SchoolMembership> _requireApprover() async {
+    if (!await canApprove()) {
+      throw StateError(
+        'Only the owner, or someone the owner has authorized, can approve or reject staff.',
+      );
     }
-    return member;
+    return _member;
   }
 
-  /// Approves a proposal, optionally adjusting the salary. Only now does the
-  /// person become a staff member, with their salary on payroll and an
-  /// onboarding request queued if an email was given.
+  Future<void> _put(
+    SchoolMembership member,
+    String type,
+    String id,
+    Map<String, Object?> payload,
+  ) async {
+    final existing = await database.getLocalRecord(
+      tenantId: member.schoolId,
+      entityType: type,
+      entityId: id,
+    );
+    await database.upsertLocalRecord(
+      tenantId: member.schoolId,
+      entityType: type,
+      entityId: id,
+      payload: payload,
+      serverVersion: existing?.serverVersion,
+      isDirty: true,
+    );
+    await database.queueMutation(
+      tenantId: member.schoolId,
+      membershipId: member.id,
+      entityType: type,
+      entityId: id,
+      operation: existing == null ? SyncOperation.create : SyncOperation.update,
+      payload: payload,
+      baseVersion: existing?.serverVersion,
+    );
+  }
+
+  /// Approves a proposal. Only now does the person become a staff member, with
+  /// their salary on payroll and their registration invitation queued for the
+  /// email given.
+  ///
+  /// The owner may adjust the salary. Someone the owner has authorized can
+  /// approve only the salary as proposed, and cannot approve a proposal they
+  /// made themselves.
   ///
   /// The staff id is derived from the proposal id, so retrying after a partial
   /// failure fills in the same records instead of creating a duplicate.
   Future<void> approve(String id, {int? gross, int? deductions}) async {
-    final owner = _requireOwner();
+    final approver = await _requireApprover();
     final record = await database.getLocalRecord(
-      tenantId: owner.schoolId,
+      tenantId: approver.schoolId,
       entityType: entityType,
       entityId: id,
     );
@@ -226,6 +282,17 @@ class StaffProposalRepository {
     if (proposal.status == StaffProposalStatus.approved) return;
     if (proposal.status == StaffProposalStatus.rejected) {
       throw StateError('This proposal was rejected.');
+    }
+    if (!isOwner) {
+      if (proposal.proposedBy == approver.id) {
+        throw StateError(
+          'You proposed this staff member, so someone else must approve it.',
+        );
+      }
+      if ((gross != null && gross != proposal.gross) ||
+          (deductions != null && deductions != proposal.deductions)) {
+        throw StateError('Only the owner can change the proposed salary.');
+      }
     }
     final approvedGross = gross ?? proposal.gross;
     final approvedDeductions = deductions ?? proposal.deductions;
@@ -242,7 +309,7 @@ class StaffProposalRepository {
     // phone or NIN since it was proposed.
     final clashes = await findStaffIdentityMatches(
       database,
-      owner.schoolId,
+      approver.schoolId,
       phone: proposal.phone.isEmpty ? null : proposal.phone,
       nin: proposal.nin.isEmpty ? null : proposal.nin,
       excludeStaffId: staffId,
@@ -253,47 +320,89 @@ class StaffProposalRepository {
         '${clashes.map((m) => m.message).toSet().join(' ')} Reject this proposal or correct the details.',
       );
     }
-    final person = await AdministratorStaffRepository(
-      localDatabase: database,
-      schoolSession: session,
-    ).createStaffRecord(
-      id: staffId,
-      name: proposal.name,
-      role: proposal.roleTitle,
-      section: proposal.workArea,
-      proposalId: id,
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    // 1. The staff directory entry.
+    await _put(approver, AdministratorStaffRepository.directoryEntityType, staffId, {
+      ...AdministratorStaffRecord(
+        id: staffId,
+        name: proposal.name,
+        role: proposal.roleTitle,
+        section: proposal.workArea,
+        fileStatus: AdministratorStaffFileStatus.missingDocument,
+      ).toJson(),
+      'staffCategory': 'approved',
+      'approvedFromProposal': id,
+      'createdByMembershipId': approver.id,
+      'createdAt': now,
+    });
+    // 2. Their salary, on payroll.
+    final existingSalary = await database.getLocalRecord(
+      tenantId: approver.schoolId,
+      entityType: OwnerPayrollRepository.profileType,
+      entityId: staffId,
     );
-    await OwnerPayrollRepository(database: database, session: session)
-        .saveSalary(
-          person: person,
-          gross: approvedGross,
-          deductions: approvedDeductions,
-          onPayroll: true,
-        );
-    final profiles = OwnerStaffProfileRepository(database: database, session: session);
-    await profiles.savePersonal(
-      staffId,
-      StaffPersonalInfo(phone: proposal.phone, nin: proposal.nin, email: proposal.email),
-      excludeProposalId: id,
-    );
-    if (proposal.email.isNotEmpty) {
-      await profiles.requestOnboarding(staffId, proposal.email);
+    final history = [
+      ...((existingSalary?.payload['history'] as List?) ?? const []),
+    ];
+    final last = history.isEmpty ? null : history.last as Map;
+    if (last == null ||
+        last['gross'] != approvedGross ||
+        last['deductions'] != approvedDeductions) {
+      history.add({
+        'at': now,
+        'gross': approvedGross,
+        'deductions': approvedDeductions,
+        'onPayroll': true,
+        'byMembershipId': approver.id,
+      });
     }
-    await _save(owner, id, record, {
+    await _put(approver, OwnerPayrollRepository.profileType, staffId, {
+      'staffId': staffId,
+      'name': proposal.name,
+      'role': proposal.roleTitle,
+      'gross': approvedGross,
+      'deductions': approvedDeductions,
+      'onPayroll': true,
+      'history': history,
+      'updatedAt': now,
+    });
+    // 3. Their profile, with the registration invitation queued for the
+    // backend to email.
+    await _put(approver, OwnerStaffProfileRepository.entityType, staffId, {
+      ...StaffProfile(
+        staffId: staffId,
+        personal: StaffPersonalInfo(
+          phone: proposal.phone,
+          nin: proposal.nin,
+          email: proposal.email,
+        ),
+        documents: [
+          for (final name in defaultRequiredDocuments)
+            StaffRequiredDocument(name: name),
+        ],
+        onboardingStatus: StaffOnboardingStatus.invitePending,
+        onboardingEmail: proposal.email,
+      ).toJson(),
+      'updatedAt': now,
+      'updatedByMembershipId': approver.id,
+    });
+    await _save(approver, id, record, {
       ...record.payload,
       'status': StaffProposalStatus.approved.name,
       'createdStaffId': staffId,
       'approvedGross': approvedGross,
       'approvedDeductions': approvedDeductions,
-      'decidedByMembershipId': owner.id,
-      'decidedAt': DateTime.now().toUtc().toIso8601String(),
+      'decidedByMembershipId': approver.id,
+      'decidedByRole': approver.role.name,
+      'decidedAt': now,
     });
   }
 
   Future<void> reject(String id, String note) async {
-    final owner = _requireOwner();
+    final approver = await _requireApprover();
     final record = await database.getLocalRecord(
-      tenantId: owner.schoolId,
+      tenantId: approver.schoolId,
       entityType: entityType,
       entityId: id,
     );
@@ -302,11 +411,17 @@ class StaffProposalRepository {
     if (proposal.status != StaffProposalStatus.pending) {
       throw StateError('This proposal has already been decided.');
     }
-    await _save(owner, id, record, {
+    if (!isOwner && proposal.proposedBy == approver.id) {
+      throw StateError(
+        'You proposed this staff member, so someone else must decide it.',
+      );
+    }
+    await _save(approver, id, record, {
       ...record.payload,
       'status': StaffProposalStatus.rejected.name,
       'decisionNote': note.trim(),
-      'decidedByMembershipId': owner.id,
+      'decidedByMembershipId': approver.id,
+      'decidedByRole': approver.role.name,
       'decidedAt': DateTime.now().toUtc().toIso8601String(),
     });
   }

@@ -151,10 +151,11 @@ class _StaffProposalDialogState extends State<_StaffProposalDialog> {
                     enabled: !_saving,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      labelText: 'Email (optional)',
+                      labelText: 'Email address',
                       helperText:
-                          'Used for the onboarding request once approved.',
+                          'Their registration link is sent here once the owner approves.',
                     ),
+                    validator: (v) => _required(v, 'Enter the email address.'),
                   ),
                   TextFormField(
                     controller: _gross,
@@ -233,6 +234,8 @@ class StaffProposalsPanel extends StatefulWidget {
 class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
   List<StaffProposal> _proposals = const [];
   bool _allowed = false;
+  bool _approver = false;
+  bool _canPropose = false;
   bool _busy = true;
   String? _error;
 
@@ -244,10 +247,14 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
 
   Future<void> _load() async {
     try {
-      final allowed = await widget.repository.canPropose();
+      final canPropose = await widget.repository.canPropose();
+      final approver = await widget.repository.canApprove();
+      final allowed = canPropose || approver;
       final proposals = allowed ? await widget.repository.load() : const <StaffProposal>[];
       if (mounted) {
         setState(() {
+          _canPropose = canPropose;
+          _approver = approver;
           _allowed = allowed;
           _proposals = proposals;
         });
@@ -290,6 +297,7 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
   Future<void> _approve(StaffProposal p) async {
     final gross = TextEditingController(text: '${p.gross}');
     final deductions = TextEditingController(text: '${p.deductions}');
+    final owner = widget.repository.isOwner;
     final go = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -298,18 +306,22 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${p.roleTitle} · ${p.workArea}. Approving makes them a staff member and puts them on payroll at the salary below, which you may change.',
+              owner
+                  ? '${p.roleTitle} · ${p.workArea}. Approving makes them a staff member and puts them on payroll at the salary below, which you may change.'
+                  : '${p.roleTitle} · ${p.workArea}. Approving makes them a staff member and puts them on payroll at the proposed salary of ${financePayrollMoney(p.gross)} gross, ${financePayrollMoney(p.deductions)} deductions. Only the owner can change the salary.',
             ),
-            TextField(
-              controller: gross,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Gross salary (₦)'),
-            ),
-            TextField(
-              controller: deductions,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Deductions (₦)'),
-            ),
+            if (owner) ...[
+              TextField(
+                controller: gross,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Gross salary (₦)'),
+              ),
+              TextField(
+                controller: deductions,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Deductions (₦)'),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -324,8 +336,8 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
         ],
       ),
     );
-    final g = int.tryParse(gross.text.trim());
-    final d = int.tryParse(deductions.text.trim());
+    final g = owner ? int.tryParse(gross.text.trim()) : null;
+    final d = owner ? int.tryParse(deductions.text.trim()) : null;
     gross.dispose();
     deductions.dispose();
     if (go != true) return;
@@ -375,8 +387,9 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
       return _error == null ? const SizedBox.shrink() : Text(_error!);
     }
     final owner = widget.repository.isOwner;
+    final me = widget.repository.memberId;
     final theme = Theme.of(context);
-    final visible = owner
+    final visible = _approver
         ? _proposals.where((p) => p.status == StaffProposalStatus.pending).toList()
         : _proposals;
     return Card(
@@ -390,15 +403,20 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
               children: [
                 Expanded(
                   child: Text(
-                    owner ? 'Staff awaiting your approval' : 'Your staff proposals',
+                    owner
+                        ? 'Staff awaiting your approval'
+                        : _approver
+                        ? 'Staff awaiting approval'
+                        : 'Your staff proposals',
                     style: theme.textTheme.titleLarge,
                   ),
                 ),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _add,
-                  icon: const Icon(Icons.person_add_alt_1, size: 18),
-                  label: Text(owner ? 'Add staff' : 'Propose new staff'),
-                ),
+                if (_canPropose)
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _add,
+                    icon: const Icon(Icons.person_add_alt_1, size: 18),
+                    label: Text(owner ? 'Add staff' : 'Propose new staff'),
+                  ),
               ],
             ),
             if (_busy) const LinearProgressIndicator(),
@@ -408,7 +426,7 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  owner ? 'No proposals are waiting.' : 'You have not proposed anyone yet.',
+                  _approver ? 'No proposals are waiting.' : 'You have not proposed anyone yet.',
                 ),
               ),
             for (final p in visible)
@@ -418,9 +436,11 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
                 title: Text('${p.name} · ${p.roleTitle}'),
                 subtitle: Text(
                   '${p.workArea} · Proposed gross ${financePayrollMoney(p.gross)}, net ${financePayrollMoney(p.net)}\n'
-                  '${_status(p)}${owner ? ' · proposed by ${p.proposedByRole}' : ''}',
+                  '${_status(p)}${_approver ? ' · proposed by ${p.proposedByRole}' : ''}',
                 ),
-                trailing: owner && p.status == StaffProposalStatus.pending
+                trailing: _approver &&
+                        p.status == StaffProposalStatus.pending &&
+                        (owner || p.proposedBy != me)
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

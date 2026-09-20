@@ -333,9 +333,11 @@ class _OwnerPayrollPageState extends State<OwnerPayrollPage> {
             for (final person in snapshot.staff)
               _salaryTile(snapshot, person),
             const SizedBox(height: 24),
-            Text('Payroll authorizers', style: theme.textTheme.titleLarge),
+            Text('Approvers and payment authority', style: theme.textTheme.titleLarge),
             const SizedBox(height: 4),
-            const Text('Who may prepare, approve or make payroll payments.'),
+            const Text(
+              'Assign someone to approve new staff proposals, or to prepare, approve and release payroll payments. Nobody can approve what they proposed or prepared themselves.',
+            ),
             for (final a in snapshot.authorizers.where((a) => a.isActive))
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -372,7 +374,7 @@ class _OwnerPayrollPageState extends State<OwnerPayrollPage> {
               child: const IgnorePointer(
                 child: FilledButton(
                   onPressed: null,
-                  child: Text('Assign payroll authority'),
+                  child: Text('Assign approval authority'),
                 ),
               ),
             ),

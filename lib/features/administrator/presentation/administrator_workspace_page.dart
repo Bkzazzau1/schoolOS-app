@@ -1,4 +1,5 @@
 import '../../proprietor/data/owner_staff_profile_repository.dart';
+import '../../proprietor/data/payroll_batch_repository.dart';
 import '../../proprietor/data/staff_proposal_repository.dart';
 import '../../proprietor/presentation/owner_staff_profiles_page.dart';
 import 'package:flutter/material.dart';
@@ -287,6 +288,10 @@ class _AdministratorWorkspacePageState
           session: widget.schoolSession,
         ),
         proposals: StaffProposalRepository(
+          database: widget.localDatabase,
+          session: widget.schoolSession,
+        ),
+        payrollBatches: PayrollBatchRepository(
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),

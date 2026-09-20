@@ -8,10 +8,13 @@ import 'package:schoolos_app/core/tenancy/school_session_store.dart';
 import 'package:schoolos_app/core/identity/identity_normalizer.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_staff_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/staff_identity.dart';
+import 'package:schoolos_app/features/finance_office/domain/finance_payroll_models.dart';
 import 'package:schoolos_app/features/proprietor/data/job_assignment_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_payroll_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_staff_profile_repository.dart';
+import 'package:schoolos_app/features/proprietor/data/payroll_batch_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/staff_proposal_repository.dart';
+import 'package:schoolos_app/features/proprietor/presentation/owner_staff_profiles_page.dart';
 import 'package:schoolos_app/features/proprietor/domain/owner_staff_profile_models.dart';
 import 'package:schoolos_app/features/proprietor/presentation/staff_proposals_ui.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
@@ -101,7 +104,7 @@ void main() {
     ).load()).staff.length;
   }
 
-  Future<void> propose(StaffProposalRepository repo, {String email = ''}) =>
+  Future<void> propose(StaffProposalRepository repo, {String email = 'musa@school.ng'}) =>
       repo.propose(
         name: 'Musa Ibrahim',
         roleTitle: 'Mathematics Teacher',
@@ -283,7 +286,7 @@ void main() {
     await propose(principal);
     await finance.propose(
       name: 'Aisha', roleTitle: 'Bursar Assistant', workArea: 'Finance office',
-      phone: '08055550000', nin: '99999999999',
+      phone: '08055550000', nin: '99999999999', email: 'aisha@school.ng',
       gross: 100000, deductions: 0,
     );
     expect(await principal.load(), hasLength(1));
@@ -310,7 +313,7 @@ void main() {
     Future<void> go({
       String name = 'A', String role = 'R', String area = 'S',
       String phone = '08031234567', String nin = '12345678901',
-      int gross = 100, int ded = 0, String email = '',
+      int gross = 100, int ded = 0, String email = 'a@b.com',
     }) => repo.propose(
       name: name, roleTitle: role, workArea: area, phone: phone, nin: nin,
       gross: gross, deductions: ded, email: email,
@@ -322,6 +325,7 @@ void main() {
     expect(go(gross: 100, ded: 200), throwsArgumentError);
     expect(go(ded: -1), throwsArgumentError);
     expect(go(email: 'nope'), throwsArgumentError);
+    expect(go(email: ''), throwsArgumentError);
     expect(go(phone: ''), throwsArgumentError);
     expect(go(phone: '12345'), throwsArgumentError);
     expect(go(nin: '123'), throwsArgumentError);
@@ -341,10 +345,6 @@ void main() {
     final staffRepo = AdministratorStaffRepository(localDatabase: db, schoolSession: session);
     expect(
       staffRepo.registerSupportStaff(name: 'X', role: 'driver', workArea: 'Y'),
-      throwsStateError,
-    );
-    expect(
-      staffRepo.createStaffRecord(id: 'S', name: 'X', role: 'r', section: 's', proposalId: 'p'),
       throwsStateError,
     );
   });
@@ -437,7 +437,7 @@ void main() {
     Future<void> again({String phone = '08099990000', String nin = '55555555555'}) =>
         principal.propose(
           name: 'Other', roleTitle: 'Teacher', workArea: 'Primary',
-          phone: phone, nin: nin, gross: 100000, deductions: 0,
+          phone: phone, nin: nin, email: 'other@school.ng', gross: 100000, deductions: 0,
         );
     for (final phone in ['08031234567', '+234 803 123 4567', '234-803-123-4567', '(0803) 123 4567']) {
       expect(again(phone: phone), throwsA(isA<DuplicateIdentityError>()), reason: phone);
@@ -556,4 +556,275 @@ void main() {
     expect(normalizeNin('1234567890a'), isNull);
     expect(normalizeName('  Mrs.  Amina   YUSUF '), 'mrs amina yusuf');
   });
+
+  /// The owner's assignment, linked to a login when the person's account is
+  /// activated.
+  void assign(_Database db, SchoolMembership who, Set<String> authorities,
+      {String status = 'active', String? linkTo}) {
+    db.records['a/${OwnerPayrollRepository.authorizerType}/${who.id}'] = LocalRecord(
+      tenantId: 'a',
+      entityType: OwnerPayrollRepository.authorizerType,
+      entityId: who.id,
+      payload: {
+        'name': who.id,
+        'authorities': authorities.toList(),
+        'status': status,
+        'membershipId': linkTo ?? who.id,
+      },
+      updatedAt: DateTime.now(),
+      isDirty: false,
+    );
+  }
+
+  test('someone the owner assigned can approve staff; everyone else still cannot', () async {
+    final db = _Database();
+    final principal = await _repo(db, _principal, sessions);
+    await propose(principal);
+    final id = (await principal.load()).single.id;
+
+    final finance = await _repo(db, _finance, sessions);
+    // No assignment yet, or one that is not active and linked to them.
+    expect(finance.canApprove(), completion(isFalse));
+    expect(finance.approve(id), throwsStateError);
+    assign(db, _finance, {'approveStaff'}, status: 'pendingActivation');
+    expect(finance.canApprove(), completion(isFalse));
+    assign(db, _finance, {'approveStaff'}, linkTo: 'someone-else');
+    expect(finance.canApprove(), completion(isFalse));
+    assign(db, _finance, {'approveStaff'}, status: 'revoked');
+    expect(finance.canApprove(), completion(isFalse));
+    // Payroll authority alone does not let someone approve staff.
+    assign(db, _finance, {'approve', 'pay'});
+    expect(finance.canApprove(), completion(isFalse));
+    expect(finance.approve(id), throwsStateError);
+
+    assign(db, _finance, {'approveStaff'});
+    expect(finance.canApprove(), completion(isTrue));
+    final before = await directoryCount(db);
+    expect((await finance.load()).single.id, id); // sees others' proposals
+    await finance.approve(id);
+
+    final approved = (await finance.load(), ).$1.single;
+    expect(approved.status, StaffProposalStatus.approved);
+    expect(await directoryCount(db), before + 1);
+    final record = db.records['a/staff_proposal/$id']!;
+    expect(record.payload['decidedByMembershipId'], 'finance');
+    expect(record.payload['decidedByRole'], 'accountant');
+    // Same result as an owner approval: on payroll, invitation queued.
+    final staffId = approved.createdStaffId;
+    expect(db.records['a/${OwnerPayrollRepository.profileType}/$staffId']!.payload['onPayroll'], isTrue);
+    expect(db.records['a/${OwnerPayrollRepository.profileType}/$staffId']!.payload['gross'], 200000);
+    final profile = db.records['a/${OwnerStaffProfileRepository.entityType}/$staffId']!.payload;
+    expect(profile['onboardingStatus'], 'invitePending');
+    expect(profile['onboardingEmail'], 'musa@school.ng');
+  });
+
+  test('an assigned approver need not be a role that can propose staff', () async {
+    final db = _Database();
+    final principal = await _repo(db, _principal, sessions);
+    await propose(principal);
+    final id = (await principal.load()).single.id;
+    assign(db, _teacher, {'approveStaff'});
+    final teacher = await _repo(db, _teacher, sessions);
+    expect(teacher.canPropose(), completion(isFalse));
+    expect((await teacher.load()).single.id, id);
+    await teacher.approve(id);
+    expect((await teacher.load()).single.status, StaffProposalStatus.approved);
+  });
+
+  test('an assigned approver cannot change the salary or decide their own proposal', () async {
+    final db = _Database();
+    assign(db, _finance, {'approveStaff'});
+    assign(db, _principal, {'approveStaff'});
+    final principal = await _repo(db, _principal, sessions);
+    final finance = await _repo(db, _finance, sessions);
+    await propose(principal);
+    await finance.propose(
+      name: 'Aisha', roleTitle: 'Clerk', workArea: 'Office',
+      phone: '08055550000', nin: '99999999999', email: 'a@school.ng',
+      gross: 100000, deductions: 0,
+    );
+    final all = await finance.load();
+    final byPrincipal = all.firstWhere((p) => p.proposedBy == 'principal');
+    final byFinance = all.firstWhere((p) => p.proposedBy == 'finance');
+
+    // Own proposals are decided by someone else.
+    expect(finance.approve(byFinance.id), throwsStateError);
+    expect(finance.reject(byFinance.id, 'x'), throwsStateError);
+    // Salary changes are the owner's alone.
+    expect(finance.approve(byPrincipal.id, gross: 999999), throwsStateError);
+    expect(finance.approve(byPrincipal.id, deductions: 1), throwsStateError);
+    expect((await finance.load()).where((p) => p.status == StaffProposalStatus.pending), hasLength(2));
+
+    await principal.approve(byFinance.id); // the other assigned approver
+    await finance.approve(byPrincipal.id, gross: 200000, deductions: 20000); // unchanged amounts are fine
+    expect((await finance.load()).every((p) => p.status == StaffProposalStatus.approved), isTrue);
+
+    // The owner may still change a salary.
+    final another = await _repo(db, _admin, sessions);
+    await another.propose(
+      name: 'Bala', roleTitle: 'Guard', workArea: 'Gate',
+      phone: '08011112222', nin: '11122233344', email: 'b@school.ng',
+      gross: 50000, deductions: 0,
+    );
+    final owner = await _repo(db, _owner, sessions);
+    final bala = (await owner.load()).firstWhere((p) => p.name == 'Bala');
+    await owner.approve(bala.id, gross: 60000, deductions: 5000);
+    expect(
+      db.records['a/${OwnerPayrollRepository.profileType}/${(await owner.load()).firstWhere((p) => p.name == 'Bala').createdStaffId}']!.payload['gross'],
+      60000,
+    );
+  });
+
+  test('an assigned approver can reject a proposal', () async {
+    final db = _Database();
+    final principal = await _repo(db, _principal, sessions);
+    await propose(principal);
+    assign(db, _finance, {'approveStaff'});
+    final finance = await _repo(db, _finance, sessions);
+    final before = await directoryCount(db);
+    await finance.reject((await finance.load()).single.id, 'Budget');
+    expect((await principal.load()).single.status, StaffProposalStatus.rejected);
+    expect((await principal.load()).single.decisionNote, 'Budget');
+    expect(await directoryCount(db), before);
+  });
+
+  test('approving or releasing payroll implies seeing it', () {
+    PayrollAuthorizer a(Set<String> x) => PayrollAuthorizer(
+      id: 'p', name: 'P', authorities: x, status: 'active', membershipId: 'principal',
+    );
+    expect(payrollAuthoritiesFor(_principal, [a({'approve'})]), {'approve', 'view'});
+    expect(payrollAuthoritiesFor(_principal, [a({'pay'})]), {'pay', 'view'});
+    expect(payrollAuthoritiesFor(_principal, [a({'approveStaff'})]), {'approveStaff'});
+    expect(payrollAuthorityLabels.keys, containsAll(['approveStaff', 'approve', 'pay', 'prepare', 'view']));
+  });
+
+  test('people the owner assigned approve and release a payroll batch, one step each', () async {
+    final db = _Database();
+    final period = PayrollBatchRepository.periodFor(DateTime.now());
+    final finance = PayrollBatchRepository(database: db, session: await session0(_finance, sessions));
+    await finance.prepare(period, [
+      FinancePayrollRowHelper.ready('A', 100000, 10000),
+    ]);
+
+    final principalBatches = PayrollBatchRepository(database: db, session: await session0(_principal, sessions));
+    final adminBatches = PayrollBatchRepository(database: db, session: await session0(_admin, sessions));
+    // Before they are assigned nobody but the owner can act.
+    expect(principalBatches.approve(period), throwsStateError);
+    expect(adminBatches.instructDisbursement(period), throwsStateError);
+
+    assign(db, _principal, {'approve'});
+    assign(db, _admin, {'pay'});
+    // Paying is refused until the batch is approved.
+    expect(adminBatches.instructDisbursement(period), throwsStateError);
+    // The payer cannot approve, and the approver cannot pay.
+    expect(adminBatches.approve(period), throwsStateError);
+    await principalBatches.approve(period);
+    expect(principalBatches.instructDisbursement(period), throwsStateError);
+    await adminBatches.instructDisbursement(period);
+    expect((await adminBatches.load(period))!.status, PayrollBatchStatus.disbursementInstructed);
+  });
+
+  testWidgets('an assigned approver sees the payment approval step on Staff Profiles; others do not', (tester) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _Database();
+
+    Future<void> open(SchoolMembership who) async {
+      final session = await session0(who, sessions);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: OwnerStaffProfilesPage(
+            key: UniqueKey(),
+            repository: OwnerStaffProfileRepository(database: db, session: session),
+            proposals: StaffProposalRepository(database: db, session: session),
+            payrollBatches: PayrollBatchRepository(database: db, session: session),
+            onChanged: () {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    await open(_principal);
+    expect(find.textContaining('Payment approval'), findsNothing);
+    assign(db, _principal, {'approve'});
+    await open(_principal);
+    expect(find.textContaining('Payment approval'), findsOneWidget);
+    // The owner has their own payroll page, so it is not repeated here.
+    await open(_owner);
+    expect(find.textContaining('Payment approval'), findsNothing);
+  });
+
+  testWidgets('an assigned approver approves at the proposed salary from the panel', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _Database();
+    final principal = await _repo(db, _principal, sessions);
+    await propose(principal);
+    assign(db, _finance, {'approveStaff'});
+    final finance = await _repo(db, _finance, sessions);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: StaffProposalsPanel(repository: finance, onChanged: () {}),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Staff awaiting approval'), findsOneWidget);
+    // Finance can also propose, so the button is there too.
+    expect(find.text('Propose new staff'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Only the owner can change the salary'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Gross salary (₦)'), findsNothing);
+    await tester.tap(find.widgetWithText(FilledButton, 'Approve').last);
+    await tester.pumpAndSettle();
+    expect((await finance.load()).single.status, StaffProposalStatus.approved);
+  });
+
+  testWidgets('a proposer who is not an approver still sees only their own proposals and no decision buttons', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _Database();
+    final finance = await _repo(db, _finance, sessions);
+    await propose(finance);
+    assign(db, _principal, {'approve'}); // payroll only, not staff approval
+    final principal = await _repo(db, _principal, sessions);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: StaffProposalsPanel(repository: principal, onChanged: () {}),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Your staff proposals'), findsOneWidget);
+    expect(find.text('Approve'), findsNothing);
+    expect(find.textContaining('Musa Ibrahim'), findsNothing); // not theirs
+  });
+}
+
+Future<SchoolSessionController> session0(
+  SchoolMembership who,
+  List<SchoolSessionController> sessions,
+) async {
+  final s = await _session(who);
+  sessions.add(s);
+  return s;
+}
+
+class FinancePayrollRowHelper {
+  static FinancePayrollRow ready(String id, int gross, int deductions) =>
+      FinancePayrollRow(
+        staffId: id, name: id, expectedDays: 22, presentDays: 22, leaveDays: 0,
+        unexplainedDays: 0, gross: gross, deductions: deductions,
+        net: gross - deductions, status: FinancePayrollStatus.ready,
+      );
 }

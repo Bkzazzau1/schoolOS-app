@@ -1,3 +1,5 @@
+import '../../proprietor/data/staff_onboarding_repository.dart';
+import '../../proprietor/presentation/staff_onboarding_page.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
@@ -162,7 +164,15 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => StaffOnboardingBanner(
+    repository: StaffOnboardingRepository(
+      database: widget.localDatabase,
+      session: widget.schoolSession,
+    ),
+    child: _buildWorkspace(context),
+  );
+
+  Widget _buildWorkspace(BuildContext context) {
     final appearance = _appearance;
     if (widget.membership.role == SchoolRole.accountant && appearance != null) {
       return FinanceOfficeWorkspacePage(
