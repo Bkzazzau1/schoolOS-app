@@ -5,6 +5,7 @@ import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../driver/presentation/driver_workspace_page.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
 import '../../parent/presentation/parent_workspace_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
@@ -63,6 +64,12 @@ class _LoginPageState extends State<LoginPage> {
       schoolId: 'school-brightgate',
       schoolName: 'BrightGate Academy',
       role: SchoolRole.parent,
+    ),
+    SchoolMembership(
+      id: 'membership-driver-001',
+      schoolId: 'school-brightgate',
+      schoolName: 'BrightGate Academy',
+      role: SchoolRole.driver,
     ),
   ];
 
@@ -212,6 +219,13 @@ class _LoginPageState extends State<LoginPage> {
       );
     } else if (membership.role == SchoolRole.parent) {
       page = ParentWorkspacePage(
+        membership: membership,
+        localDatabase: widget.services.localDatabase,
+        schoolSession: widget.services.schoolSession,
+        schoolAppearance: widget.services.schoolAppearance,
+      );
+    } else if (membership.role == SchoolRole.driver) {
+      page = DriverWorkspacePage(
         membership: membership,
         localDatabase: widget.services.localDatabase,
         schoolSession: widget.services.schoolSession,
