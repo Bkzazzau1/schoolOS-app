@@ -16,6 +16,7 @@ import '../data/parent_children_repository.dart';
 import '../data/parent_dashboard_demo_data.dart';
 import '../data/parent_dashboard_repository.dart';
 import '../data/parent_discussions_repository.dart';
+import '../data/parent_documents_repository.dart';
 import '../data/parent_finance_repository.dart';
 import '../data/parent_learning_progress_repository.dart';
 import '../data/parent_messages_repository.dart';
@@ -26,6 +27,7 @@ import 'parent_attendance_page.dart';
 import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
 import 'parent_discussions_page.dart';
+import 'parent_documents_page.dart';
 import 'parent_finance_page.dart';
 import 'parent_learning_progress_page.dart';
 import 'parent_messages_page.dart';
@@ -63,6 +65,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   late final ParentMessagesRepository _messagesRepository;
   late final ParentDiscussionsRepository _discussionsRepository;
   late final ParentSchoolLifeRepository _schoolLifeRepository;
+  late final ParentDocumentsRepository _documentsRepository;
 
   ParentNavItem get _activeItem => parentNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -105,6 +108,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _schoolLifeRepository = ParentSchoolLifeRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _documentsRepository = ParentDocumentsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -230,6 +237,11 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
           ),
         'school-life' => ParentSchoolLifePage(
             repository: _schoolLifeRepository,
+            onNavigate: _select,
+          ),
+        'documents' => ParentDocumentsPage(
+            repository: _documentsRepository,
+            onQueueChanged: _refreshPendingCount,
             onNavigate: _select,
           ),
         _ => _UpcomingParentFeature(
