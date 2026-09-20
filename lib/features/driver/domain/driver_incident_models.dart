@@ -154,14 +154,30 @@ class DriverIncidentContext {
   final DriverIncidentTripPhase phase;
 }
 
+class DriverIncidentStudentOption {
+  const DriverIncidentStudentOption({
+    required this.studentId,
+    required this.name,
+    required this.className,
+    required this.stopName,
+  });
+
+  final String studentId;
+  final String name;
+  final String className;
+  final String stopName;
+}
+
 class DriverIncidentSnapshot {
   const DriverIncidentSnapshot({
     required this.context,
     required this.incidents,
+    required this.assignedStudents,
   });
 
   final DriverIncidentContext context;
   final List<DriverTransportIncident> incidents;
+  final List<DriverIncidentStudentOption> assignedStudents;
 
   int get openCount => incidents.where((incident) => incident.isOpen).length;
   int get criticalCount => incidents
