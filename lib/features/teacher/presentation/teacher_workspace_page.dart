@@ -11,8 +11,10 @@ import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/teacher_dashboard_demo_data.dart';
+import '../data/teacher_timetable_repository.dart';
 import '../domain/teacher_dashboard_models.dart';
 import 'teacher_dashboard_page.dart';
+import 'teacher_timetable_page.dart';
 
 class TeacherWorkspacePage extends StatefulWidget {
   const TeacherWorkspacePage({
@@ -35,6 +37,7 @@ class TeacherWorkspacePage extends StatefulWidget {
 class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+  late final TeacherTimetableRepository _timetable;
 
   TeacherNavItem get _activeItem => teacherNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -44,6 +47,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   @override
   void initState() {
     super.initState();
+    _timetable = TeacherTimetableRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _refreshPendingCount();
   }
 
@@ -120,6 +127,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         'dashboard' => TeacherDashboardPage(
             schoolName: widget.membership.schoolName,
             onNavigate: _select,
+          ),
+        'timetable' => TeacherTimetablePage(
+            repository: _timetable,
+            onNavigate: _select,
+            onMutationQueued: _refreshPendingCount,
           ),
         _ => _UpcomingTeacherFeature(
             item: _activeItem,
