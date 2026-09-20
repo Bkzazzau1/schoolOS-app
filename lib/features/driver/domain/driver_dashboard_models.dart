@@ -39,6 +39,7 @@ class DriverDashboardSnapshot {
     required this.afternoonStillOnBus,
     required this.afternoonSummary,
     required this.vehicleCheckRequired,
+    required this.vehicleCheckSummary,
     required this.nextAction,
   });
 
@@ -54,6 +55,7 @@ class DriverDashboardSnapshot {
   final int afternoonStillOnBus;
   final String afternoonSummary;
   final bool vehicleCheckRequired;
+  final String vehicleCheckSummary;
   final String nextAction;
 
   bool get routeAvailable => route.isAvailable;
