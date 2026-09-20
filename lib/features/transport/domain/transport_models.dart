@@ -48,6 +48,7 @@ class SchoolTransportRoute {
   }
 
   SchoolTransportRoute copyWith({
+    String? driver,
     String? morning,
     String? afternoon,
     TransportRouteStatus? status,
@@ -58,7 +59,7 @@ class SchoolTransportRoute {
         id: id,
         name: name,
         vehicle: vehicle,
-        driver: driver,
+        driver: driver ?? this.driver,
         assistant: assistant,
         riders: riders,
         stops: stops,
