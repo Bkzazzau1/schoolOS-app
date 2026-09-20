@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../data/transport_demo_data.dart';
 import '../data/transport_repository.dart';
+import '../domain/transport_control_models.dart';
 import '../domain/transport_models.dart';
+import 'transport_control_overview.dart';
 
 class TransportPage extends StatefulWidget {
   const TransportPage({
@@ -25,9 +27,11 @@ class TransportPage extends StatefulWidget {
 class _TransportPageState extends State<TransportPage> {
   final _searchController = TextEditingController();
   TransportSnapshot? _snapshot;
+  TransportControlSnapshot? _controlSnapshot;
   TransportRouteStatus? _statusFilter;
   bool _loading = true;
   String? _error;
+  String? _controlError;
 
   @override
   void initState() {
@@ -45,12 +49,24 @@ class _TransportPageState extends State<TransportPage> {
     setState(() {
       _loading = true;
       _error = null;
+      _controlError = null;
     });
     try {
       final snapshot = await widget.repository.load();
+      TransportControlSnapshot? controlSnapshot;
+      String? controlError;
+      if (snapshot.permissions.canViewOperationsControl) {
+        try {
+          controlSnapshot = await widget.repository.loadControlOverview();
+        } catch (error) {
+          controlError = '$error';
+        }
+      }
       if (!mounted) return;
       setState(() {
         _snapshot = snapshot;
+        _controlSnapshot = controlSnapshot;
+        _controlError = controlError;
         _loading = false;
       });
     } catch (error) {
@@ -111,96 +127,158 @@ class _TransportPageState extends State<TransportPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 850;
-        return ListView(
-          padding: EdgeInsets.fromLTRB(
-            compact ? 16 : 28,
-            22,
-            compact ? 16 : 28,
-            40,
-          ),
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  tooltip: 'Back to School Life',
-                  onPressed: widget.onBack,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'School Transport',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        '${widget.schoolName} · Routes, vehicles and rider accountability',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+        return RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              compact ? 16 : 28,
+              22,
+              compact ? 16 : 28,
+              40,
             ),
-            const SizedBox(height: 14),
-            Text(
-              'Coordinate school buses, routes, drivers, assistants, stops and daily rider checks. $transportGpsBoundary',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (final stat in stats)
-                  SizedBox(
-                    width: compact ? 160 : 205,
-                    child: _StatCard(stat: stat),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            if (compact) ...[
-              _RouteRegister(
-                routes: _visibleRoutes,
-                permissions: snapshot.permissions,
-                searchController: _searchController,
-                statusFilter: _statusFilter,
-                onQueryChanged: (_) => setState(() {}),
-                onStatusChanged: (value) => setState(() => _statusFilter = value),
-                onToggleReview: _toggleReview,
-              ),
-              const SizedBox(height: 16),
-              const _SafetySidebar(),
-            ] else
+            children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  IconButton(
+                    tooltip: 'Back to School Life',
+                    onPressed: widget.onBack,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
+                  const SizedBox(width: 6),
                   Expanded(
-                    flex: 7,
-                    child: _RouteRegister(
-                      routes: _visibleRoutes,
-                      permissions: snapshot.permissions,
-                      searchController: _searchController,
-                      statusFilter: _statusFilter,
-                      onQueryChanged: (_) => setState(() {}),
-                      onStatusChanged: (value) => setState(() => _statusFilter = value),
-                      onToggleReview: _toggleReview,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'School Transport',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        Text(
+                          '${widget.schoolName} · Routes, vehicles and rider accountability',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 18),
-                  const Expanded(flex: 3, child: _SafetySidebar()),
                 ],
               ),
-          ],
+              const SizedBox(height: 14),
+              Text(
+                'Coordinate school buses, routes, drivers, assistants, stops and daily rider checks. $transportGpsBoundary',
+                style: theme.textTheme.bodyMedium,
+              ),
+              if (snapshot.permissions.canViewOperationsControl) ...[
+                const SizedBox(height: 20),
+                if (_controlSnapshot != null)
+                  TransportControlOverview(snapshot: _controlSnapshot!)
+                else
+                  _ControlFailureCard(
+                    message: _controlError ??
+                        'Transport Operations Control could not be loaded.',
+                    onRetry: _load,
+                  ),
+              ],
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final stat in stats)
+                    SizedBox(
+                      width: compact ? 160 : 205,
+                      child: _StatCard(stat: stat),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              if (compact) ...[
+                _RouteRegister(
+                  routes: _visibleRoutes,
+                  permissions: snapshot.permissions,
+                  searchController: _searchController,
+                  statusFilter: _statusFilter,
+                  onQueryChanged: (_) => setState(() {}),
+                  onStatusChanged: (value) =>
+                      setState(() => _statusFilter = value),
+                  onToggleReview: _toggleReview,
+                ),
+                const SizedBox(height: 16),
+                const _SafetySidebar(),
+              ] else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 7,
+                      child: _RouteRegister(
+                        routes: _visibleRoutes,
+                        permissions: snapshot.permissions,
+                        searchController: _searchController,
+                        statusFilter: _statusFilter,
+                        onQueryChanged: (_) => setState(() {}),
+                        onStatusChanged: (value) =>
+                            setState(() => _statusFilter = value),
+                        onToggleReview: _toggleReview,
+                      ),
+                    ),
+                    const SizedBox(width: 18),
+                    const Expanded(flex: 3, child: _SafetySidebar()),
+                  ],
+                ),
+            ],
+          ),
         );
       },
+    );
+  }
+}
+
+class _ControlFailureCard extends StatelessWidget {
+  const _ControlFailureCard({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.warning_amber_rounded),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Transport Operations Control unavailable',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(message),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Reload transport control'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -391,7 +469,9 @@ class _RouteCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text('${route.vehicle} · Driver ${route.driver} · Assistant ${route.assistant}'),
+          Text(
+            '${route.vehicle} · Driver ${route.driver} · Assistant ${route.assistant}',
+          ),
           const SizedBox(height: 7),
           Text(
             route.note,
@@ -410,10 +490,14 @@ class _RouteCard extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onToggleReview,
               icon: Icon(
-                route.reviewed ? Icons.restart_alt_rounded : Icons.fact_check_outlined,
+                route.reviewed
+                    ? Icons.restart_alt_rounded
+                    : Icons.fact_check_outlined,
                 size: 18,
               ),
-              label: Text(route.reviewed ? 'Reopen check' : 'Mark route reviewed'),
+              label: Text(
+                route.reviewed ? 'Reopen check' : 'Mark route reviewed',
+              ),
             ),
           ],
         ],
@@ -463,7 +547,10 @@ class _SafetySidebar extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 for (final entry in transportSafetyRules.entries) ...[
-                  Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    entry.key,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   Text(entry.value, style: theme.textTheme.bodySmall),
                   const SizedBox(height: 10),
                 ],
