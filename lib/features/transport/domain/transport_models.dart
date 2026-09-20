@@ -120,7 +120,7 @@ class TransportPermissions {
     required this.canReviewRoutes,
     required this.canViewOperationsControl,
     required this.canManageDriverAssignments,
-    required this.canManageRoutesAndStops,
+    this.canManageRoutesAndStops = false,
   });
 
   final bool canReviewRoutes;
