@@ -11,11 +11,13 @@ import '../data/driver_dashboard_repository.dart';
 import '../data/driver_morning_run_repository.dart';
 import '../data/driver_riders_repository.dart';
 import '../data/driver_route_repository.dart';
+import '../data/driver_vehicle_check_repository.dart';
 import 'driver_afternoon_run_page.dart';
 import 'driver_dashboard_page.dart';
 import 'driver_morning_run_page.dart';
 import 'driver_riders_page.dart';
 import 'driver_route_page.dart';
+import 'driver_vehicle_check_page.dart';
 
 class DriverWorkspacePage extends StatefulWidget {
   const DriverWorkspacePage({
@@ -43,6 +45,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
   late final DriverAfternoonRunRepository _afternoonRunRepository;
   late final DriverRidersRepository _ridersRepository;
   late final DriverRouteRepository _routeRepository;
+  late final DriverVehicleCheckRepository _vehicleCheckRepository;
 
   static const _navigation = <_DriverNavItem>[
     _DriverNavItem('dashboard', 'Dashboard', Icons.dashboard_rounded),
@@ -85,6 +88,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _routeRepository = DriverRouteRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _vehicleCheckRepository = DriverVehicleCheckRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -156,6 +163,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
         'route' => DriverRoutePage(
             repository: _routeRepository,
             onNavigate: _select,
+          ),
+        'vehicle-check' => DriverVehicleCheckPage(
+            repository: _vehicleCheckRepository,
+            onCheckChanged: _refreshPendingCount,
           ),
         _ => _UpcomingDriverFeature(
             item: _activeItem,
