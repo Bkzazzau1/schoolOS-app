@@ -41,6 +41,7 @@ class TransportRepository {
   static const _assignmentEventEntityType = 'transport_assignment_event';
   static const _morningRunEntityType = 'driver_morning_run';
   static const _afternoonRunEntityType = 'driver_afternoon_run';
+  static const _vehicleCheckEntityType = 'driver_vehicle_check';
   static const _incidentEntityType = 'driver_transport_incident';
   static const _vehicleDefectEntityType = 'driver_vehicle_defect';
 
@@ -87,11 +88,38 @@ class TransportRepository {
 
     final routes = records
         .map((record) => SchoolTransportRoute.fromJson(record.payload))
-        .toList(growable: false)
+        .toList(growable: true)
       ..sort((a, b) => a.id.compareTo(b.id));
 
+    // The website seed stores a driver label on each route, but once native
+    // Transport Control has assignment records those become the authoritative
+    // operational driver names. This is a display overlay only; route records
+    // are not rewritten when an assignment changes.
+    final assignmentRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _assignmentEntityType,
+    );
+    final byRoute = <String, List<DriverTransportAssignment>>{};
+    for (final record in assignmentRecords) {
+      final assignment = DriverTransportAssignment.fromJson(record.payload);
+      if (!assignment.hasRoute) continue;
+      byRoute
+          .putIfAbsent(assignment.routeId, () => <DriverTransportAssignment>[])
+          .add(assignment);
+    }
+    for (var index = 0; index < routes.length; index++) {
+      final active = byRoute[routes[index].id] ?? const <DriverTransportAssignment>[];
+      if (active.length == 1) {
+        routes[index] = routes[index].copyWith(
+          driver: active.single.driverDisplayName,
+        );
+      } else if (active.length > 1) {
+        routes[index] = routes[index].copyWith(driver: 'Assignment conflict');
+      }
+    }
+
     return TransportSnapshot(
-      routes: routes,
+      routes: List.unmodifiable(routes),
       permissions: permissionsFor(membership),
     );
   }
@@ -397,7 +425,7 @@ class TransportRepository {
 
     final routes = <TransportAssignableRoute>[];
     for (final route in transport.routes) {
-      final active = activeAssignmentsByRoute[route.id] ?? const [];
+      final active = activeAssignmentsByRoute[route.id] ?? const <DriverTransportAssignment>[];
       routes.add(
         TransportAssignableRoute(
           routeId: route.id,
@@ -491,20 +519,20 @@ class TransportRepository {
       );
     }
 
-    if (await _driverHasActiveCustodyRun(manager.schoolId, normalizedMembershipId)) {
+    if (await _driverHasServiceState(manager.schoolId, normalizedMembershipId)) {
       return const TransportActionResult(
         success: false,
-        message: 'This Driver has an active transport run. Finish the run before changing the route assignment.',
+        message: 'Today’s transport manifest or vehicle check already exists for this Driver. Route assignments are locked for the service day.',
       );
     }
-    if (await _routeHasActiveCustodyRun(
+    if (await _routeHasServiceState(
       manager.schoolId,
       normalizedRouteId,
       exceptMembershipId: normalizedMembershipId,
     )) {
       return const TransportActionResult(
         success: false,
-        message: 'This route has an active transport run under another Driver.',
+        message: 'This route already has transport preparation or activity today under another Driver.',
       );
     }
 
@@ -579,10 +607,10 @@ class TransportRepository {
         message: 'This Driver has no active route assignment.',
       );
     }
-    if (await _driverHasActiveCustodyRun(manager.schoolId, normalizedMembershipId)) {
+    if (await _driverHasServiceState(manager.schoolId, normalizedMembershipId)) {
       return const TransportActionResult(
         success: false,
-        message: 'This Driver has an active transport run. Finish the run before unassigning the Driver.',
+        message: 'Today’s transport manifest or vehicle check already exists for this Driver. The assignment is locked for the service day.',
       );
     }
 
@@ -715,7 +743,7 @@ class TransportRepository {
     );
   }
 
-  Future<bool> _driverHasActiveCustodyRun(
+  Future<bool> _driverHasServiceState(
     String tenantId,
     String membershipId,
   ) async {
@@ -725,30 +753,27 @@ class TransportRepository {
       entityType: _morningRunEntityType,
       entityId: '$membershipId:morning:$today',
     );
-    if (morning != null) {
-      final run = DriverMorningRun.fromJson(morning.payload);
-      if (run.status == DriverMorningRunStatus.inProgress ||
-          run.status == DriverMorningRunStatus.arrivedSchool) {
-        return true;
-      }
-    }
+    if (morning != null) return true;
+
     final afternoon = await _localDatabase.getLocalRecord(
       tenantId: tenantId,
       entityType: _afternoonRunEntityType,
       entityId: '$membershipId:afternoon:$today',
     );
-    if (afternoon != null) {
-      final run = DriverAfternoonRun.fromJson(afternoon.payload);
-      if (run.status == DriverAfternoonRunStatus.boarding ||
-          run.status == DriverAfternoonRunStatus.inProgress ||
-          run.status == DriverAfternoonRunStatus.returnedSchool) {
-        return true;
-      }
+    if (afternoon != null) return true;
+
+    for (final period in const ['morning', 'afternoon']) {
+      final check = await _localDatabase.getLocalRecord(
+        tenantId: tenantId,
+        entityType: _vehicleCheckEntityType,
+        entityId: '$membershipId:vehicle-check:$today:$period',
+      );
+      if (check != null) return true;
     }
     return false;
   }
 
-  Future<bool> _routeHasActiveCustodyRun(
+  Future<bool> _routeHasServiceState(
     String tenantId,
     String routeId, {
     required String exceptMembershipId,
@@ -760,30 +785,35 @@ class TransportRepository {
     );
     for (final record in morningRecords) {
       final run = DriverMorningRun.fromJson(record.payload);
-      if (run.serviceDate != today ||
-          run.routeId != routeId ||
-          run.membershipId == exceptMembershipId) {
-        continue;
-      }
-      if (run.status == DriverMorningRunStatus.inProgress ||
-          run.status == DriverMorningRunStatus.arrivedSchool) {
+      if (run.serviceDate == today &&
+          run.routeId == routeId &&
+          run.membershipId != exceptMembershipId) {
         return true;
       }
     }
+
     final afternoonRecords = await _localDatabase.getLocalRecords(
       tenantId: tenantId,
       entityType: _afternoonRunEntityType,
     );
     for (final record in afternoonRecords) {
       final run = DriverAfternoonRun.fromJson(record.payload);
-      if (run.serviceDate != today ||
-          run.routeId != routeId ||
-          run.membershipId == exceptMembershipId) {
-        continue;
+      if (run.serviceDate == today &&
+          run.routeId == routeId &&
+          run.membershipId != exceptMembershipId) {
+        return true;
       }
-      if (run.status == DriverAfternoonRunStatus.boarding ||
-          run.status == DriverAfternoonRunStatus.inProgress ||
-          run.status == DriverAfternoonRunStatus.returnedSchool) {
+    }
+
+    final checkRecords = await _localDatabase.getLocalRecords(
+      tenantId: tenantId,
+      entityType: _vehicleCheckEntityType,
+    );
+    for (final record in checkRecords) {
+      final payload = record.payload;
+      if ((payload['serviceDate'] as String? ?? '') == today &&
+          (payload['routeId'] as String? ?? '') == routeId &&
+          (payload['membershipId'] as String? ?? '') != exceptMembershipId) {
         return true;
       }
     }
