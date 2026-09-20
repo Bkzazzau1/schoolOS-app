@@ -14,9 +14,11 @@ import '../../teacher/presentation/teacher_workspace_page.dart';
 import '../data/parent_children_repository.dart';
 import '../data/parent_dashboard_demo_data.dart';
 import '../data/parent_dashboard_repository.dart';
+import '../data/parent_learning_progress_repository.dart';
 import '../domain/parent_dashboard_models.dart';
 import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
+import 'parent_learning_progress_page.dart';
 
 class ParentWorkspacePage extends StatefulWidget {
   const ParentWorkspacePage({
@@ -42,6 +44,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
 
   late final ParentDashboardRepository _dashboardRepository;
   late final ParentChildrenRepository _childrenRepository;
+  late final ParentLearningProgressRepository _learningProgressRepository;
 
   ParentNavItem get _activeItem => parentNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -56,6 +59,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _childrenRepository = ParentChildrenRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _learningProgressRepository = ParentLearningProgressRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -152,6 +159,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
         'children' => ParentChildrenPage(
             repository: _childrenRepository,
             schoolName: widget.membership.schoolName,
+            onNavigate: _select,
+          ),
+        'progress' => ParentLearningProgressPage(
+            repository: _learningProgressRepository,
             onNavigate: _select,
           ),
         _ => _UpcomingParentFeature(
