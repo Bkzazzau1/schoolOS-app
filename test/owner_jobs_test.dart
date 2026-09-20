@@ -15,13 +15,19 @@ class _Database implements LocalDatabase {
   @override
   dynamic noSuchMethod(Invocation invocation) {
     final a = invocation.namedArguments;
-    final key = '${a[#tenantId]}/${a[#entityId]}';
+    final key = '${a[#tenantId]}/${a[#entityType]}/${a[#entityId]}';
     switch (invocation.memberName) {
       case #getLocalRecord:
         return Future<LocalRecord?>.value(records[key]);
       case #getLocalRecords:
         return Future<List<LocalRecord>>.value(
-          records.values.where((r) => r.tenantId == a[#tenantId]).toList(),
+          records.values
+              .where(
+                (r) =>
+                    r.tenantId == a[#tenantId] &&
+                    r.entityType == a[#entityType],
+              )
+              .toList(),
         );
       case #upsertLocalRecord:
         records[key] = LocalRecord(
@@ -30,7 +36,7 @@ class _Database implements LocalDatabase {
           entityId: a[#entityId],
           payload: Map<String, Object?>.from(a[#payload]),
           updatedAt: DateTime.now(),
-          isDirty: a[#isDirty],
+          isDirty: a[#isDirty] ?? false,
         );
         return Future<void>.value();
       case #queueMutation:
@@ -73,6 +79,83 @@ void main() {
     repository = JobAssignmentRepository(database: database, session: session);
   });
   tearDown(() => session.dispose());
+  test(
+    'registered section head stores exact duties and stable identity on edit',
+    () async {
+      final person = (await repository.people()).first;
+      final section = (await repository.sections()).first;
+      await repository.assign(
+        name: 'not trusted',
+        email: '',
+        title: 'Head of section',
+        duties: {'academics.teaching'},
+        registeredStaffId: person.id,
+        role: 'sectionHead',
+        sectionId: section.id,
+      );
+      final job = (await repository.load()).single;
+      expect(job.payload['name'], person.name);
+      expect(job.payload['registeredStaffId'], person.id);
+      expect(job.payload['sectionId'], section.id);
+      expect(job.payload['duties'], ['academics.teaching']);
+      expect(job.payload['status'], 'pendingActivation');
+      await repository.assign(
+        name: person.name,
+        email: '',
+        title: 'Section coordinator',
+        duties: {'administration.attendance'},
+        registeredStaffId: person.id,
+        role: 'custom',
+        sectionId: section.id,
+        assignmentId: job.entityId,
+      );
+      expect(await repository.load(), hasLength(1));
+      expect((await repository.load()).single.payload['duties'], [
+        'administration.attendance',
+      ]);
+    },
+  );
+  test(
+    'section heads require valid scope and directory recipients must exist',
+    () async {
+      await expectLater(
+        repository.assign(
+          name: 'Head',
+          email: 'head@example.com',
+          title: 'Head',
+          duties: {'academics.teaching'},
+          role: 'sectionHead',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        repository.assign(
+          name: 'Head',
+          email: 'head@example.com',
+          title: 'Head',
+          duties: {'academics.teaching'},
+          role: 'sectionHead',
+          sectionId: 'foreign',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        repository.assign(
+          name: 'Head',
+          email: '',
+          title: 'Head',
+          duties: {'academics.teaching'},
+          registeredStaffId: 'foreign',
+        ),
+        throwsArgumentError,
+      );
+      expect(await repository.load(), isEmpty);
+      expect(
+        dutiesForJobRole('sectionHead').any((d) => d.startsWith('finance.')),
+        isFalse,
+      );
+    },
+  );
   Future<void> assign() => repository.assign(
     name: 'New person',
     email: ' NEW@example.com ',
@@ -132,6 +215,53 @@ void main() {
     );
     expect(database.records, isEmpty);
   });
+  testWidgets('registered picker and section-head preset save selected scope', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OwnerJobsPage(repository: repository, onChanged: () {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Registered person'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mrs. Amina Yusuf (Secondary)').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Head of section').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save assignment'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Choose the section this person will head.'),
+      findsOneWidget,
+    );
+    expect(await repository.load(), isEmpty);
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Primary School · Kaduna Campus').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save assignment'));
+    await tester.pumpAndSettle();
+    final job = (await repository.load()).single;
+    expect(job.payload['registeredStaffId'], 'STAFF-001');
+    expect(job.payload['sectionId'], 'primary');
+    expect(
+      job.payload['duties'],
+      unorderedEquals(dutiesForJobRole('sectionHead')),
+    );
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('owner can prepare an assignment on a phone', (tester) async {
     tester.view.physicalSize = const Size(390, 900);
     tester.view.devicePixelRatio = 1;
@@ -148,11 +278,17 @@ void main() {
     await tester.enterText(find.byType(TextField).at(0), 'New person');
     await tester.enterText(find.byType(TextField).at(1), 'new@example.com');
     await tester.enterText(find.byType(TextField).at(2), 'Bursar');
-    await tester.scrollUntilVisible(find.text('All finance duties'), 250,
-      scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.text('All finance duties'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('All finance duties'));
-    await tester.scrollUntilVisible(find.text('Save assignment'), 250,
-      scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.text('Save assignment'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Save assignment'));
     await tester.pumpAndSettle();
     expect(

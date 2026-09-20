@@ -6,6 +6,35 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/data/administrator_staff_repository.dart';
+import '../../administrator/domain/administrator_staff_models.dart';
+import '../domain/proprietor_structure_models.dart';
+import 'proprietor_structure_repository.dart';
+
+const jobRolePresets = <String, String>{
+  'custom': 'Custom role',
+  'sectionHead': 'Head of section',
+  'finance': 'Finance Officer',
+  'administrator': 'Administrator',
+  'teacher': 'Teacher',
+};
+
+Set<String> dutiesForJobRole(String role) => switch (role) {
+  'finance' =>
+    assignableDuties.keys.where((key) => key.startsWith('finance.')).toSet(),
+  'administrator' =>
+    assignableDuties.keys
+        .where((key) => key.startsWith('administration.'))
+        .toSet(),
+  'sectionHead' => {
+    'administration.students',
+    'administration.attendance',
+    'administration.communications',
+    'academics.teaching',
+  },
+  'teacher' => {'academics.teaching'},
+  _ => <String>{},
+};
 
 /// Duties requested by an owner. These are not authenticated access grants.
 const assignableDuties = <String, String>{
@@ -35,6 +64,22 @@ class JobAssignmentRepository {
   final SchoolSessionController session;
   static const entityType = 'owner_job_assignment';
 
+  Future<List<AdministratorStaffRecord>> people() async {
+    _owner();
+    return (await AdministratorStaffRepository(
+      localDatabase: database,
+      schoolSession: session,
+    ).load()).staff;
+  }
+
+  Future<List<AcademicSection>> sections() async {
+    _owner();
+    return (await ProprietorStructureRepository(
+      localDatabase: database,
+      schoolSession: session,
+    ).load()).sections;
+  }
+
   SchoolMembership _owner() {
     final member = session.requireActiveMembership();
     if (member.role != SchoolRole.proprietor) {
@@ -56,12 +101,38 @@ class JobAssignmentRepository {
     required String email,
     required String title,
     required Set<String> duties,
+    String? registeredStaffId,
+    String role = 'custom',
+    String? sectionId,
+    String? assignmentId,
   }) async {
     final owner = _owner();
+    if (!jobRolePresets.containsKey(role)) {
+      throw ArgumentError('Choose a valid role.');
+    }
+    if (role == 'sectionHead' && sectionId == null) {
+      throw ArgumentError('Choose a section for its head.');
+    }
+    String? sectionName;
+    if (sectionId != null) {
+      final matches = (await sections()).where((s) => s.id == sectionId);
+      if (matches.isEmpty) {
+        throw ArgumentError('Choose a section in this school.');
+      }
+      sectionName = matches.first.name;
+    }
+    if (registeredStaffId != null) {
+      final matches = (await people()).where((p) => p.id == registeredStaffId);
+      if (matches.isEmpty) {
+        throw ArgumentError('Choose a person in this school directory.');
+      }
+      name = matches.first.name;
+    }
     final contact = email.trim().toLowerCase();
     if (name.trim().isEmpty ||
         title.trim().isEmpty ||
-        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(contact) ||
+        ((registeredStaffId == null || contact.isNotEmpty) &&
+            !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(contact)) ||
         duties.isEmpty ||
         duties.any((duty) => !assignableDuties.containsKey(duty))) {
       throw ArgumentError(
@@ -69,18 +140,38 @@ class JobAssignmentRepository {
       );
     }
     // Re-saving the same person's job updates it instead of making duplicates.
-    final id = sha256
-        .convert(utf8.encode('$contact|${title.trim().toLowerCase()}'))
-        .toString();
+    final id =
+        assignmentId ??
+        sha256
+            .convert(
+              utf8.encode(
+                '${registeredStaffId ?? contact}|${title.trim().toLowerCase()}|${sectionId ?? 'school'}',
+              ),
+            )
+            .toString();
     final existing = await database.getLocalRecord(
       tenantId: owner.schoolId,
       entityType: entityType,
       entityId: id,
     );
+    if (assignmentId != null && existing == null) {
+      throw StateError('Assignment not found in this school.');
+    }
+    if (_owner().id != owner.id) {
+      throw StateError('School changed. Please try again.');
+    }
     await _save(owner, id, {
       'name': name.trim(),
       'email': contact,
       'title': title.trim(),
+      'recipientType': registeredStaffId == null
+          ? 'unregistered'
+          : 'registered',
+      'registeredStaffId': registeredStaffId,
+      'role': role,
+      'sectionId': sectionId,
+      'sectionName': sectionName,
+      'scope': sectionId == null ? 'school' : 'section',
       'duties': duties.toList()..sort(),
       'status': 'pendingActivation',
       'createdAt':
