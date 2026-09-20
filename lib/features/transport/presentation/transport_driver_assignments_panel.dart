@@ -122,7 +122,7 @@ class _TransportDriverAssignmentsPanelState
                 Chip(
                   avatar: Icon(
                     snapshot.canManageAssignments
-                        ? Icons.edit_road_outlined
+                        ? Icons.alt_route_rounded
                         : Icons.visibility_outlined,
                     size: 18,
                   ),
@@ -171,7 +171,6 @@ class _TransportDriverAssignmentsPanelState
                         for (final driver in snapshot.drivers) ...[
                           _DriverCard(
                             driver: driver,
-                            snapshot: snapshot,
                             busy: _saving,
                             canManage: snapshot.canManageAssignments,
                             onAssign: () => _assign(driver, snapshot),
@@ -192,7 +191,6 @@ class _TransportDriverAssignmentsPanelState
                           width: width,
                           child: _DriverCard(
                             driver: driver,
-                            snapshot: snapshot,
                             busy: _saving,
                             canManage: snapshot.canManageAssignments,
                             onAssign: () => _assign(driver, snapshot),
@@ -241,11 +239,11 @@ class _TransportDriverAssignmentsPanelState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message)),
       );
-      if (result.success) widget.onChanged?.call();
       setState(() {
         _saving = false;
         _future = widget.repository.loadDriverAssignments();
       });
+      if (result.success) widget.onChanged?.call();
     } catch (error) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -285,11 +283,11 @@ class _TransportDriverAssignmentsPanelState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message)),
       );
-      if (result.success) widget.onChanged?.call();
       setState(() {
         _saving = false;
         _future = widget.repository.loadDriverAssignments();
       });
+      if (result.success) widget.onChanged?.call();
     } catch (error) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -317,7 +315,7 @@ class _Metrics extends StatelessWidget {
       ('Driver staff', '${snapshot.drivers.length}', Icons.badge_outlined),
       ('Accounts linked', '${snapshot.linkedDrivers}', Icons.link_rounded),
       ('Assigned', '${snapshot.assignedDrivers}', Icons.route_outlined),
-      ('Awaiting activation', '${snapshot.pendingActivation}', Icons.person_clock_outlined),
+      ('Awaiting activation', '${snapshot.pendingActivation}', Icons.schedule_outlined),
       ('Unassigned linked', '${snapshot.unassignedLinkedDrivers}', Icons.person_off_outlined),
     ];
     return LayoutBuilder(
@@ -382,7 +380,6 @@ class _Metrics extends StatelessWidget {
 class _DriverCard extends StatelessWidget {
   const _DriverCard({
     required this.driver,
-    required this.snapshot,
     required this.busy,
     required this.canManage,
     required this.onAssign,
@@ -390,7 +387,6 @@ class _DriverCard extends StatelessWidget {
   });
 
   final TransportDriverRosterEntry driver;
-  final TransportDriverAssignmentsSnapshot snapshot;
   final bool busy;
   final bool canManage;
   final VoidCallback onAssign;
@@ -421,7 +417,7 @@ class _DriverCard extends StatelessWidget {
                 child: Icon(
                   driver.accountLinked
                       ? Icons.directions_bus_outlined
-                      : Icons.person_clock_outlined,
+                      : Icons.schedule_outlined,
                 ),
               ),
               const SizedBox(width: 11),
