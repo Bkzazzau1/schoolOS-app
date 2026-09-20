@@ -13,11 +13,13 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/teacher_attendance_repository.dart';
 import '../data/teacher_classes_repository.dart';
 import '../data/teacher_dashboard_demo_data.dart';
+import '../data/teacher_lesson_plan_repository.dart';
 import '../data/teacher_timetable_repository.dart';
 import '../domain/teacher_dashboard_models.dart';
 import 'teacher_attendance_page.dart';
 import 'teacher_classes_page.dart';
 import 'teacher_dashboard_page.dart';
+import 'teacher_lesson_plans_page.dart';
 import 'teacher_timetable_page.dart';
 
 class TeacherWorkspacePage extends StatefulWidget {
@@ -41,9 +43,11 @@ class TeacherWorkspacePage extends StatefulWidget {
 class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+
   late final TeacherTimetableRepository _timetable;
   late final TeacherClassesRepository _classes;
   late final TeacherAttendanceRepository _attendance;
+  late final TeacherLessonPlanRepository _lessonPlans;
 
   TeacherNavItem get _activeItem => teacherNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -62,6 +66,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _attendance = TeacherAttendanceRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _lessonPlans = TeacherLessonPlanRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -161,6 +169,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             onNavigate: _select,
             onMutationQueued: _refreshPendingCount,
           ),
+        'lesson-plans' => TeacherLessonPlansPage(
+            repository: _lessonPlans,
+            onNavigate: _select,
+            onMutationQueued: _refreshPendingCount,
+          ),
         _ => _UpcomingTeacherFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
@@ -177,91 +190,81 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     );
   }
 
-  Widget _phone(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.membership.schoolName,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const Text('Teacher Portal', style: TextStyle(fontSize: 12)),
-          ],
-        ),
-        actions: [
-          if (widget.schoolSession.canSwitchSchool)
-            _SchoolSwitcherButton(
-              memberships: widget.schoolSession.memberships,
-              onSelected: _switchSchool,
-            ),
-          IconButton(
-            tooltip: _pendingSyncCount == 0
-                ? 'Sync Center'
-                : 'Sync Center · $_pendingSyncCount pending',
-            onPressed: _openSyncCenter,
-            icon: Badge(
-              isLabelVisible: _pendingSyncCount > 0,
-              label: Text('$_pendingSyncCount'),
-              child: const Icon(Icons.cloud_sync_outlined),
-            ),
-          ),
-          Builder(
-            builder: (context) => IconButton(
-              onPressed: () => Scaffold.of(context).openEndDrawer(),
-              icon: const Icon(Icons.menu_rounded),
-              tooltip: 'Teacher menu',
-            ),
-          ),
-        ],
-      ),
-      endDrawer: Drawer(
-        child: SafeArea(
-          child: ListView(
+  Widget _phone(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const ListTile(
-                title: Text(
-                  'Teacher Portal',
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-                subtitle: Text('Teaching workspace'),
+              Text(
+                widget.membership.schoolName,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-              const Divider(),
-              for (final item in teacherNavigation)
-                ListTile(
-                  selected: item.key == _activeKey,
-                  leading: Icon(_iconFor(item.key)),
-                  title: Text(item.label),
-                  trailing: item.key == 'ai'
-                      ? const Chip(label: Text('AI'))
-                      : null,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _select(item.key);
-                  },
-                ),
+              const Text('Teacher Portal', style: TextStyle(fontSize: 12)),
             ],
           ),
+          actions: [
+            if (widget.schoolSession.canSwitchSchool)
+              _SchoolSwitcherButton(
+                memberships: widget.schoolSession.memberships,
+                onSelected: _switchSchool,
+              ),
+            IconButton(
+              tooltip: _pendingSyncCount == 0
+                  ? 'Sync Center'
+                  : 'Sync Center · $_pendingSyncCount pending',
+              onPressed: _openSyncCenter,
+              icon: Badge(
+                isLabelVisible: _pendingSyncCount > 0,
+                label: Text('$_pendingSyncCount'),
+                child: const Icon(Icons.cloud_sync_outlined),
+              ),
+            ),
+            Builder(
+              builder: (context) => IconButton(
+                onPressed: () => Scaffold.of(context).openEndDrawer(),
+                icon: const Icon(Icons.menu_rounded),
+                tooltip: 'Teacher menu',
+              ),
+            ),
+          ],
         ),
-      ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: Text(
-              _activeItem.label,
-              style: const TextStyle(fontWeight: FontWeight.w800),
+        endDrawer: Drawer(
+          child: SafeArea(
+            child: ListView(
+              children: [
+                const ListTile(
+                  title: Text('Teacher Portal', style: TextStyle(fontWeight: FontWeight.w900)),
+                  subtitle: Text('Teaching workspace'),
+                ),
+                const Divider(),
+                for (final item in teacherNavigation)
+                  ListTile(
+                    selected: item.key == _activeKey,
+                    leading: Icon(_iconFor(item.key)),
+                    title: Text(item.label),
+                    trailing: item.key == 'ai' ? const Chip(label: Text('AI')) : null,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _select(item.key);
+                    },
+                  ),
+              ],
             ),
           ),
-          Expanded(child: _content()),
-        ],
-      ),
-    );
-  }
+        ),
+        body: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              child: Text(_activeItem.label, style: const TextStyle(fontWeight: FontWeight.w800)),
+            ),
+            Expanded(child: _content()),
+          ],
+        ),
+      );
 
   Widget _wide(BuildContext context, BoxConstraints constraints) {
     final extended = constraints.maxWidth >= 1180;
@@ -273,9 +276,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               width: extended ? 290 : 88,
               decoration: BoxDecoration(
                 border: Border(
-                  right: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                  right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
                 ),
               ),
               child: Column(
@@ -286,10 +287,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                         ? const ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: CircleAvatar(child: Text('S')),
-                            title: Text(
-                              'SchoolOS',
-                              style: TextStyle(fontWeight: FontWeight.w900),
-                            ),
+                            title: Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)),
                             subtitle: Text('Teacher Portal'),
                           )
                         : const CircleAvatar(child: Text('S')),
@@ -304,24 +302,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'ACTIVE WORKSPACE',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
+                              const Text('ACTIVE WORKSPACE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                               const SizedBox(height: 4),
-                              Text(
-                                widget.membership.schoolName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const Text(
-                                teacherCampusLabel,
-                                style: TextStyle(fontSize: 12),
-                              ),
+                              Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)),
+                              const Text(teacherCampusLabel, style: TextStyle(fontSize: 12)),
                             ],
                           ),
                         ),
@@ -333,13 +317,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                         for (final item in teacherNavigation)
                           ListTile(
                             selected: item.key == _activeKey,
-                            selectedTileColor:
-                                Theme.of(context).colorScheme.primaryContainer,
+                            selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
                             leading: Icon(_iconFor(item.key)),
                             title: extended ? Text(item.label) : null,
-                            trailing: extended && item.key == 'ai'
-                                ? const Chip(label: Text('AI'))
-                                : null,
+                            trailing: extended && item.key == 'ai' ? const Chip(label: Text('AI')) : null,
                             onTap: () => _select(item.key),
                           ),
                       ],
@@ -351,23 +332,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Weekly compliance',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          Text(
-                            '92%',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
-                            ),
-                          ),
+                          Text('Weekly compliance', style: TextStyle(fontSize: 12)),
+                          Text('92%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
                           LinearProgressIndicator(value: .92),
                           SizedBox(height: 6),
-                          Text(
-                            'Lesson plans, attendance & scores',
-                            style: TextStyle(fontSize: 12),
-                          ),
+                          Text('Lesson plans, attendance & scores', style: TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),
@@ -387,10 +356,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Teacher Workspace',
-                                style: TextStyle(fontWeight: FontWeight.w900),
-                              ),
+                              const Text('Teacher Workspace', style: TextStyle(fontWeight: FontWeight.w900)),
                               Text(_activeItem.label),
                             ],
                           ),
@@ -404,11 +370,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                         OutlinedButton.icon(
                           onPressed: _openSyncCenter,
                           icon: const Icon(Icons.cloud_sync_outlined, size: 18),
-                          label: Text(
-                            _pendingSyncCount == 0
-                                ? 'Synced'
-                                : '$_pendingSyncCount pending',
-                          ),
+                          label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending'),
                         ),
                         const SizedBox(width: 12),
                         const CircleAvatar(child: Text('AY')),
@@ -417,14 +379,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                           const Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                teacherName,
-                                style: TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                              Text(
-                                teacherTitle,
-                                style: TextStyle(fontSize: 12),
-                              ),
+                              Text(teacherName, style: TextStyle(fontWeight: FontWeight.w800)),
+                              Text(teacherTitle, style: TextStyle(fontSize: 12)),
                             ],
                           ),
                         ],
@@ -464,64 +420,53 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
 }
 
 class _UpcomingTeacherFeature extends StatelessWidget {
-  const _UpcomingTeacherFeature({
-    required this.item,
-    required this.onDashboard,
-  });
+  const _UpcomingTeacherFeature({required this.item, required this.onDashboard});
 
   final TeacherNavItem item;
   final VoidCallback onDashboard;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Card(
-            elevation: 0,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(_TeacherWorkspacePageState._iconFor(item.key), size: 42),
-                  const SizedBox(height: 12),
-                  Text(
-                    item.label,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w900),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'This Teacher destination exists on the SchoolOS website and will be ported in sequence. It is intentionally not simulated yet.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: onDashboard,
-                    icon: const Icon(Icons.dashboard_rounded),
-                    label: const Text('Back to dashboard'),
-                  ),
-                ],
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Card(
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_TeacherWorkspacePageState._iconFor(item.key), size: 42),
+                    const SizedBox(height: 12),
+                    Text(
+                      item.label,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'This Teacher destination exists on the SchoolOS website and will be ported in sequence. It is intentionally not simulated yet.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: onDashboard,
+                      icon: const Icon(Icons.dashboard_rounded),
+                      label: const Text('Back to dashboard'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 class _SchoolSwitcherButton extends StatelessWidget {
-  const _SchoolSwitcherButton({
-    required this.memberships,
-    required this.onSelected,
-  });
+  const _SchoolSwitcherButton({required this.memberships, required this.onSelected});
 
   final List<SchoolMembership> memberships;
   final ValueChanged<SchoolMembership> onSelected;
@@ -535,9 +480,7 @@ class _SchoolSwitcherButton extends StatelessWidget {
           for (final membership in memberships)
             PopupMenuItem(
               value: membership,
-              child: Text(
-                '${membership.schoolName} · ${membership.roleLabel}',
-              ),
+              child: Text('${membership.schoolName} · ${membership.roleLabel}'),
             ),
         ],
       );
