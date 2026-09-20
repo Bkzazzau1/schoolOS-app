@@ -19,6 +19,7 @@ import '../data/parent_discussions_repository.dart';
 import '../data/parent_finance_repository.dart';
 import '../data/parent_learning_progress_repository.dart';
 import '../data/parent_messages_repository.dart';
+import '../data/parent_school_life_repository.dart';
 import '../data/parent_weekly_learning_repository.dart';
 import '../domain/parent_dashboard_models.dart';
 import 'parent_attendance_page.dart';
@@ -28,6 +29,7 @@ import 'parent_discussions_page.dart';
 import 'parent_finance_page.dart';
 import 'parent_learning_progress_page.dart';
 import 'parent_messages_page.dart';
+import 'parent_school_life_page.dart';
 import 'parent_weekly_learning_page.dart';
 
 class ParentWorkspacePage extends StatefulWidget {
@@ -60,6 +62,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   late final ParentFinanceRepository _financeRepository;
   late final ParentMessagesRepository _messagesRepository;
   late final ParentDiscussionsRepository _discussionsRepository;
+  late final ParentSchoolLifeRepository _schoolLifeRepository;
 
   ParentNavItem get _activeItem => parentNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -98,6 +101,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _discussionsRepository = ParentDiscussionsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _schoolLifeRepository = ParentSchoolLifeRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -220,6 +227,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
         'discussions' => ParentDiscussionsPage(
             repository: _discussionsRepository,
             onQueueChanged: _refreshPendingCount,
+          ),
+        'school-life' => ParentSchoolLifePage(
+            repository: _schoolLifeRepository,
+            onNavigate: _select,
           ),
         _ => _UpcomingParentFeature(
             item: _activeItem,
