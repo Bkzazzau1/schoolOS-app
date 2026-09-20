@@ -83,7 +83,7 @@ void main() {
     );
     await principal.propose(
       name: 'Musa Ibrahim',
-      roleTitle: 'Driver',
+      roleTitle: 'Driver', systemRole: 'teacher',
       workArea: 'Bus 1',
       phone: '08031234567',
       nin: '12345678901',

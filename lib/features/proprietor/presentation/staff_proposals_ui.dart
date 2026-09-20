@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../finance_office/domain/finance_payroll_models.dart';
 import '../data/staff_proposal_repository.dart';
+import '../domain/owner_staff_profile_models.dart';
 
 String _message(Object error) => error is StateError
     ? error.message
@@ -32,6 +33,7 @@ class _StaffProposalDialogState extends State<_StaffProposalDialog> {
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _role = TextEditingController();
+  String? _systemRole;
   final _area = TextEditingController();
   final _email = TextEditingController();
   final _phone = TextEditingController();
@@ -59,6 +61,7 @@ class _StaffProposalDialogState extends State<_StaffProposalDialog> {
       await widget.repository.propose(
         name: _name.text,
         roleTitle: _role.text,
+        systemRole: _systemRole ?? '',
         workArea: _area.text,
         email: _email.text,
         phone: _phone.text,
@@ -110,13 +113,31 @@ class _StaffProposalDialogState extends State<_StaffProposalDialog> {
                     decoration: const InputDecoration(labelText: 'Full name'),
                     validator: (v) => _required(v, 'Enter the full name.'),
                   ),
+                  DropdownButtonFormField<String>(
+                    initialValue: _systemRole,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Role in the system',
+                      helperText:
+                          'What this person can see and do. They cannot change it themselves.',
+                    ),
+                    items: [
+                      for (final e in staffSystemRoles.entries)
+                        DropdownMenuItem(value: e.key, child: Text(e.value)),
+                    ],
+                    onChanged: _saving
+                        ? null
+                        : (v) => setState(() => _systemRole = v),
+                    validator: (v) => v == null ? 'Choose a role.' : null,
+                  ),
                   TextFormField(
                     controller: _role,
                     enabled: !_saving,
                     decoration: const InputDecoration(
-                      labelText: 'Role / job title',
+                      labelText: 'Job title',
+                      hintText: 'For example: Mathematics Teacher',
                     ),
-                    validator: (v) => _required(v, 'Enter the role.'),
+                    validator: (v) => _required(v, 'Enter the job title.'),
                   ),
                   TextFormField(
                     controller: _area,
@@ -298,51 +319,75 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
     final gross = TextEditingController(text: '${p.gross}');
     final deductions = TextEditingController(text: '${p.deductions}');
     final owner = widget.repository.isOwner;
+    String? role = staffSystemRoles.containsKey(p.systemRole) ? p.systemRole : null;
     final go = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Approve ${p.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              owner
-                  ? '${p.roleTitle} · ${p.workArea}. Approving makes them a staff member and puts them on payroll at the salary below, which you may change.'
-                  : '${p.roleTitle} · ${p.workArea}. Approving makes them a staff member and puts them on payroll at the proposed salary of ${financePayrollMoney(p.gross)} gross, ${financePayrollMoney(p.deductions)} deductions. Only the owner can change the salary.',
-            ),
-            if (owner) ...[
-              TextField(
-                controller: gross,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Gross salary (₦)'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: Text('Approve ${p.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                owner
+                    ? '${p.roleTitle} · ${p.workArea}. Approving makes them a staff member and puts them on payroll at the salary below. You may change the role and the salary.'
+                    : '${p.roleTitle} · ${p.workArea}. Approving makes them a ${staffSystemRoleLabel(p.systemRole)} and puts them on payroll at the proposed salary of ${financePayrollMoney(p.gross)} gross, ${financePayrollMoney(p.deductions)} deductions. Only the owner can change the role or the salary.',
               ),
-              TextField(
-                controller: deductions,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Deductions (₦)'),
-              ),
+              if (owner) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: role,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Role in the system',
+                    helperText: 'Proposed by the person who added them.',
+                  ),
+                  items: [
+                    for (final e in staffSystemRoles.entries)
+                      DropdownMenuItem(value: e.key, child: Text(e.value)),
+                  ],
+                  onChanged: (v) => setLocal(() => role = v),
+                ),
+                TextField(
+                  controller: gross,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Gross salary (₦)'),
+                ),
+                TextField(
+                  controller: deductions,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Deductions (₦)'),
+                ),
+              ],
             ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: owner && role == null
+                  ? null
+                  : () => Navigator.pop(context, true),
+              child: const Text('Approve'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Approve'),
-          ),
-        ],
       ),
     );
     final g = owner ? int.tryParse(gross.text.trim()) : null;
     final d = owner ? int.tryParse(deductions.text.trim()) : null;
+    final chosen = owner ? role : null;
     gross.dispose();
     deductions.dispose();
     if (go != true) return;
     await _run(() async {
-      await widget.repository.approve(p.id, gross: g, deductions: d);
+      await widget.repository.approve(
+        p.id,
+        gross: g,
+        deductions: d,
+        systemRole: chosen,
+      );
       widget.onStaffAdded?.call();
     });
   }
@@ -433,7 +478,9 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 isThreeLine: true,
-                title: Text('${p.name} · ${p.roleTitle}'),
+                title: Text(
+                  '${p.name} · ${p.roleTitle} (${staffSystemRoleLabel(p.systemRole)})',
+                ),
                 subtitle: Text(
                   '${p.workArea} · Proposed gross ${financePayrollMoney(p.gross)}, net ${financePayrollMoney(p.net)}\n'
                   '${_status(p)}${_approver ? ' · proposed by ${p.proposedByRole}' : ''}',

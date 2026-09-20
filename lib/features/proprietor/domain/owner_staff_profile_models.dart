@@ -12,6 +12,23 @@ const studyLevels = <String>[
 
 int studyLevelRank(String level) => studyLevels.indexOf(level);
 
+/// The access role a new staff member is appointed to. It is chosen when they
+/// are proposed and approved by the owner; the staff member never picks it.
+/// The owner, parent and student roles can never be assigned this way.
+const staffSystemRoles = <String, String>{
+  'teacher': 'Teacher',
+  'staff': 'Support / other staff',
+  'accountant': 'Finance officer',
+  'administrator': 'Administrator',
+  'principal': 'Principal',
+};
+
+/// Roles someone the owner has assigned to approve staff may approve. The
+/// others reach money and student records, so only the owner approves them.
+const delegateApprovableRoles = <String>{'teacher', 'staff'};
+
+String staffSystemRoleLabel(String role) => staffSystemRoles[role] ?? 'Not chosen';
+
 class StaffPersonalInfo {
   const StaffPersonalInfo({
     this.phone = '',
@@ -316,7 +333,11 @@ class StaffProfile {
     this.onboardingStatus = StaffOnboardingStatus.none,
     this.onboardingEmail = '',
     this.linkedMembershipId = '',
+    this.systemRole = '',
   });
+
+  /// The role the person was appointed to (a key of [staffSystemRoles]).
+  final String systemRole;
 
   /// The login of the staff member this record belongs to. It is set when
   /// their account is activated and is the only login allowed to change their
@@ -354,6 +375,7 @@ class StaffProfile {
     onboardingStatus: onboardingStatus ?? this.onboardingStatus,
     onboardingEmail: onboardingEmail ?? this.onboardingEmail,
     linkedMembershipId: linkedMembershipId,
+    systemRole: systemRole,
   );
 
   String? get highestLevel {
@@ -384,6 +406,7 @@ class StaffProfile {
     'onboardingStatus': onboardingStatus.name,
     'onboardingEmail': onboardingEmail,
     'linkedMembershipId': linkedMembershipId,
+    'systemRole': systemRole,
   };
 
   static List<T> _list<T>(
@@ -412,5 +435,6 @@ class StaffProfile {
     ),
     onboardingEmail: json['onboardingEmail'] as String? ?? '',
     linkedMembershipId: json['linkedMembershipId'] as String? ?? '',
+    systemRole: json['systemRole'] as String? ?? '',
   );
 }

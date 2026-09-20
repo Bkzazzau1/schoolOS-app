@@ -23,6 +23,7 @@ class StaffProposal {
     required this.id,
     required this.name,
     required this.roleTitle,
+    required this.systemRole,
     required this.workArea,
     required this.email,
     required this.phone,
@@ -39,6 +40,9 @@ class StaffProposal {
   final String id;
   final String name;
   final String roleTitle;
+
+  /// The access role proposed for them (a key of [staffSystemRoles]).
+  final String systemRole;
   final String workArea;
   final String email;
   final String phone;
@@ -60,6 +64,7 @@ class StaffProposal {
         id: id,
         name: json['name'] as String? ?? '',
         roleTitle: json['roleTitle'] as String? ?? '',
+        systemRole: json['systemRole'] as String? ?? '',
         workArea: json['workArea'] as String? ?? '',
         email: json['email'] as String? ?? '',
         phone: json['phone'] as String? ?? '',
@@ -158,6 +163,7 @@ class StaffProposalRepository {
   Future<void> propose({
     required String name,
     required String roleTitle,
+    required String systemRole,
     required String workArea,
     required String phone,
     required String nin,
@@ -173,7 +179,10 @@ class StaffProposalRepository {
     if (name.trim().isEmpty ||
         roleTitle.trim().isEmpty ||
         workArea.trim().isEmpty) {
-      throw ArgumentError('Enter the name, role and campus or work area.');
+      throw ArgumentError('Enter the name, job title and campus or work area.');
+    }
+    if (!staffSystemRoles.containsKey(systemRole)) {
+      throw ArgumentError('Choose the role this person is proposed for.');
     }
     if (gross <= 0 || deductions < 0 || deductions > gross) {
       throw ArgumentError(
@@ -206,6 +215,7 @@ class StaffProposalRepository {
     await _save(member, id, null, {
       'name': name.trim(),
       'roleTitle': roleTitle.trim(),
+      'systemRole': systemRole,
       'workArea': workArea.trim(),
       'email': contact,
       'phone': cleanPhone,
@@ -270,7 +280,12 @@ class StaffProposalRepository {
   ///
   /// The staff id is derived from the proposal id, so retrying after a partial
   /// failure fills in the same records instead of creating a duplicate.
-  Future<void> approve(String id, {int? gross, int? deductions}) async {
+  Future<void> approve(
+    String id, {
+    int? gross,
+    int? deductions,
+    String? systemRole,
+  }) async {
     final approver = await _requireApprover();
     final record = await database.getLocalRecord(
       tenantId: approver.schoolId,
@@ -292,6 +307,23 @@ class StaffProposalRepository {
       if ((gross != null && gross != proposal.gross) ||
           (deductions != null && deductions != proposal.deductions)) {
         throw StateError('Only the owner can change the proposed salary.');
+      }
+    }
+    // The role is the one proposed. Only the owner may change it, and an
+    // assigned approver may approve only the roles that do not reach money or
+    // student records.
+    final role = systemRole ?? proposal.systemRole;
+    if (!staffSystemRoles.containsKey(role)) {
+      throw ArgumentError('Choose the role for this staff member first.');
+    }
+    if (!isOwner) {
+      if (role != proposal.systemRole) {
+        throw StateError('Only the owner can change the proposed role.');
+      }
+      if (!delegateApprovableRoles.contains(role)) {
+        throw StateError(
+          'Only the owner can approve a ${staffSystemRoleLabel(role)}.',
+        );
       }
     }
     final approvedGross = gross ?? proposal.gross;
@@ -332,6 +364,7 @@ class StaffProposalRepository {
         fileStatus: AdministratorStaffFileStatus.missingDocument,
       ).toJson(),
       'staffCategory': 'approved',
+      'systemRole': role,
       'approvedFromProposal': id,
       'createdByMembershipId': approver.id,
       'createdAt': now,
@@ -383,6 +416,7 @@ class StaffProposalRepository {
         ],
         onboardingStatus: StaffOnboardingStatus.invitePending,
         onboardingEmail: proposal.email,
+        systemRole: role,
       ).toJson(),
       'updatedAt': now,
       'updatedByMembershipId': approver.id,
@@ -391,6 +425,7 @@ class StaffProposalRepository {
       ...record.payload,
       'status': StaffProposalStatus.approved.name,
       'createdStaffId': staffId,
+      'approvedSystemRole': role,
       'approvedGross': approvedGross,
       'approvedDeductions': approvedDeductions,
       'decidedByMembershipId': approver.id,

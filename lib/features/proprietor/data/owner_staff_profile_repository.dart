@@ -181,6 +181,7 @@ class OwnerStaffProfileRepository {
         documents: access.credentials ? full.documents : const [],
         onboardingStatus: full.onboardingStatus,
         onboardingEmail: access.personal ? full.onboardingEmail : '',
+        systemRole: full.systemRole,
       ),
     );
   }

@@ -660,6 +660,11 @@ class _OwnerStaffProfileDetailPageState
                 Text(
                   '${widget.person.role} · ${widget.person.section} · ${widget.person.id}',
                 ),
+                if (view.profile.systemRole.isNotEmpty)
+                  Text(
+                    'Role in the system: ${staffSystemRoleLabel(view.profile.systemRole)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 const SizedBox(height: 12),
                 _summary(view),
                 const SizedBox(height: 16),

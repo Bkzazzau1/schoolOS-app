@@ -107,7 +107,7 @@ void main() {
   Future<void> propose(StaffProposalRepository repo, {String email = 'musa@school.ng'}) =>
       repo.propose(
         name: 'Musa Ibrahim',
-        roleTitle: 'Mathematics Teacher',
+        roleTitle: 'Mathematics Teacher', systemRole: 'teacher',
         workArea: 'Secondary',
         phone: '0803 123 4567',
         nin: '12345678901',
@@ -285,7 +285,7 @@ void main() {
     final finance = await _repo(db, _finance, sessions);
     await propose(principal);
     await finance.propose(
-      name: 'Aisha', roleTitle: 'Bursar Assistant', workArea: 'Finance office',
+      name: 'Aisha', roleTitle: 'Bursar Assistant', systemRole: 'teacher', workArea: 'Finance office',
       phone: '08055550000', nin: '99999999999', email: 'aisha@school.ng',
       gross: 100000, deductions: 0,
     );
@@ -311,11 +311,11 @@ void main() {
     final db = _Database();
     final repo = await _repo(db, _principal, sessions);
     Future<void> go({
-      String name = 'A', String role = 'R', String area = 'S',
+      String name = 'A', String role = 'R', String area = 'S', String systemRole = 'teacher',
       String phone = '08031234567', String nin = '12345678901',
       int gross = 100, int ded = 0, String email = 'a@b.com',
     }) => repo.propose(
-      name: name, roleTitle: role, workArea: area, phone: phone, nin: nin,
+      name: name, roleTitle: role, systemRole: systemRole, workArea: area, phone: phone, nin: nin,
       gross: gross, deductions: ded, email: email,
     );
     expect(go(name: ' '), throwsArgumentError);
@@ -436,7 +436,7 @@ void main() {
     final principal = await _repo(db, _principal, sessions);
     Future<void> again({String phone = '08099990000', String nin = '55555555555'}) =>
         principal.propose(
-          name: 'Other', roleTitle: 'Teacher', workArea: 'Primary',
+          name: 'Other', roleTitle: 'Teacher', systemRole: 'teacher', workArea: 'Primary',
           phone: phone, nin: nin, email: 'other@school.ng', gross: 100000, deductions: 0,
         );
     for (final phone in ['08031234567', '+234 803 123 4567', '234-803-123-4567', '(0803) 123 4567']) {
@@ -639,7 +639,7 @@ void main() {
     final finance = await _repo(db, _finance, sessions);
     await propose(principal);
     await finance.propose(
-      name: 'Aisha', roleTitle: 'Clerk', workArea: 'Office',
+      name: 'Aisha', roleTitle: 'Clerk', systemRole: 'teacher', workArea: 'Office',
       phone: '08055550000', nin: '99999999999', email: 'a@school.ng',
       gross: 100000, deductions: 0,
     );
@@ -662,7 +662,7 @@ void main() {
     // The owner may still change a salary.
     final another = await _repo(db, _admin, sessions);
     await another.propose(
-      name: 'Bala', roleTitle: 'Guard', workArea: 'Gate',
+      name: 'Bala', roleTitle: 'Guard', systemRole: 'teacher', workArea: 'Gate',
       phone: '08011112222', nin: '11122233344', email: 'b@school.ng',
       gross: 50000, deductions: 0,
     );
@@ -780,7 +780,7 @@ void main() {
     expect(find.text('Propose new staff'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Only the owner can change the salary'), findsOneWidget);
+    expect(find.textContaining('Only the owner can change the role or the salary'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Gross salary (₦)'), findsNothing);
     await tester.tap(find.widgetWithText(FilledButton, 'Approve').last);
     await tester.pumpAndSettle();
@@ -808,6 +808,238 @@ void main() {
     expect(find.text('Your staff proposals'), findsOneWidget);
     expect(find.text('Approve'), findsNothing);
     expect(find.textContaining('Musa Ibrahim'), findsNothing); // not theirs
+  });
+
+  Future<void> proposeAs(StaffProposalRepository repo, String role,
+      {String phone = '08031234567', String nin = '12345678901'}) =>
+      repo.propose(
+        name: 'Musa Ibrahim', roleTitle: 'Appointee', systemRole: role,
+        workArea: 'Secondary', phone: phone, nin: nin, email: 'musa@school.ng',
+        gross: 200000, deductions: 20000,
+      );
+
+  test('a proposal must name a valid role the person can be appointed to', () async {
+    final db = _Database();
+    final repo = await _repo(db, _principal, sessions);
+    for (final bad in ['', 'proprietor', 'parent', 'student', 'emperor', 'Teacher']) {
+      expect(proposeAs(repo, bad), throwsArgumentError, reason: bad);
+    }
+    expect(await repo.load(), isEmpty);
+    for (final good in staffSystemRoles.keys) {
+      final other = _Database();
+      await proposeAs(await _repo(other, _principal, sessions), good);
+    }
+    expect(staffSystemRoles.keys, ['teacher', 'staff', 'accountant', 'administrator', 'principal']);
+  });
+
+  test('the proposed role becomes the staff member role on approval', () async {
+    final db = _Database();
+    final principal = await _repo(db, _principal, sessions);
+    await proposeAs(principal, 'accountant');
+    final proposal = (await principal.load()).single;
+    expect(proposal.systemRole, 'accountant');
+
+    final owner = await _repo(db, _owner, sessions);
+    await owner.approve(proposal.id);
+    final staffId = (await owner.load()).single.createdStaffId;
+    expect(db.records['a/${OwnerStaffProfileRepository.entityType}/$staffId']!.payload['systemRole'], 'accountant');
+    expect(db.records['a/administrator_staff_directory/$staffId']!.payload['systemRole'], 'accountant');
+    expect(db.records['a/staff_proposal/${proposal.id}']!.payload['approvedSystemRole'], 'accountant');
+
+    final session = await _session(_owner);
+    sessions.add(session);
+    final profiles = OwnerStaffProfileRepository(database: db, session: session);
+    final person = (await profiles.people()).firstWhere((p) => p.id == staffId);
+    expect((await profiles.view(person)).profile.systemRole, 'accountant');
+  });
+
+  test('the owner can change the role while approving, and only the owner', () async {
+    final db = _Database();
+    final principal = await _repo(db, _principal, sessions);
+    await proposeAs(principal, 'staff');
+    final id = (await principal.load()).single.id;
+
+    assign(db, _finance, {'approveStaff'});
+    final finance = await _repo(db, _finance, sessions);
+    expect(finance.approve(id, systemRole: 'administrator'), throwsStateError);
+    expect((await finance.load()).single.status, StaffProposalStatus.pending);
+
+    final owner = await _repo(db, _owner, sessions);
+    expect(owner.approve(id, systemRole: 'proprietor'), throwsArgumentError);
+    await owner.approve(id, systemRole: 'teacher');
+    final staffId = (await owner.load()).single.createdStaffId;
+    expect(db.records['a/${OwnerStaffProfileRepository.entityType}/$staffId']!.payload['systemRole'], 'teacher');
+    // The original proposal still shows what was asked for.
+    expect((await owner.load()).single.systemRole, 'staff');
+  });
+
+  test('an assigned approver may approve teachers and staff but not the roles that reach money or records', () async {
+    assignAndTry(String role, {required bool allowed}) async {
+      final db = _Database();
+      final principal = await _repo(db, _principal, sessions);
+      await proposeAs(principal, role);
+      final id = (await principal.load()).single.id;
+      assign(db, _finance, {'approveStaff'});
+      final finance = await _repo(db, _finance, sessions);
+      final before = await directoryCount(db);
+      if (allowed) {
+        await finance.approve(id);
+        expect(await directoryCount(db), before + 1, reason: role);
+      } else {
+        expect(finance.approve(id), throwsStateError, reason: role);
+        // Nothing was created and the proposal is still waiting for the owner.
+        expect(await directoryCount(db), before, reason: role);
+        expect((await finance.load()).single.status, StaffProposalStatus.pending, reason: role);
+        expect(
+          db.records.values.where((r) => r.entityType == OwnerPayrollRepository.profileType),
+          isEmpty,
+          reason: role,
+        );
+        final owner = await _repo(db, _owner, sessions);
+        await owner.approve(id);
+        expect(await directoryCount(db), before + 1, reason: role);
+      }
+    }
+
+    for (final role in delegateApprovableRoles) {
+      await assignAndTry(role, allowed: true);
+    }
+    for (final role in staffSystemRoles.keys.where((r) => !delegateApprovableRoles.contains(r))) {
+      await assignAndTry(role, allowed: false);
+    }
+    expect(delegateApprovableRoles, {'teacher', 'staff'});
+  });
+
+  test('a proposal with no role cannot be approved until the owner chooses one', () async {
+    final db = _Database();
+    // A proposal saved before roles existed.
+    db.records['a/staff_proposal/PROP-OLD'] = LocalRecord(
+      tenantId: 'a',
+      entityType: 'staff_proposal',
+      entityId: 'PROP-OLD',
+      payload: {
+        'name': 'Old Proposal', 'roleTitle': 'Clerk', 'workArea': 'Office',
+        'email': 'old@school.ng', 'phone': '08099990000', 'nin': '99999999998',
+        'gross': 100000, 'deductions': 0, 'status': 'pending',
+        'proposedByMembershipId': 'principal', 'proposedByRole': 'principal',
+      },
+      updatedAt: DateTime.now(),
+      isDirty: false,
+    );
+    final owner = await _repo(db, _owner, sessions);
+    final before = await directoryCount(db);
+    expect((await owner.load()).single.systemRole, '');
+    expect(owner.approve('PROP-OLD'), throwsArgumentError);
+    expect(await directoryCount(db), before);
+    await owner.approve('PROP-OLD', systemRole: 'staff');
+    expect(await directoryCount(db), before + 1);
+  });
+
+  testWidgets('the proposal form makes the person choose a role, then saves it', (tester) async {
+    tester.view.physicalSize = const Size(1000, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _Database();
+    final principal = await _repo(db, _principal, sessions);
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => showStaffProposalDialog(context, principal),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Role in the system'), findsOneWidget);
+
+    Future<void> fill(String label, String value) async =>
+        tester.enterText(find.widgetWithText(TextFormField, label), value);
+    await fill('Full name', 'Musa Ibrahim');
+    await fill('Job title', 'Mathematics Teacher');
+    await fill('Section or work area', 'Secondary');
+    await fill('Phone number', '0803 123 4567');
+    await fill('NIN (11 digits)', '12345678901');
+    await fill('Email address', 'musa@school.ng');
+    await fill('Proposed monthly gross salary (₦)', '200000');
+
+    // Without a role nothing is submitted.
+    await tester.tap(find.text('Submit for owner approval'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose a role.'), findsOneWidget);
+    expect(await principal.load(), isEmpty);
+
+    // Every role the school can appoint is offered, and the owner is not one of them.
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    for (final label in staffSystemRoles.values) {
+      expect(find.text(label), findsWidgets);
+    }
+    expect(find.text('Proprietor'), findsNothing);
+    await tester.tap(find.text('Finance officer').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Submit for owner approval'));
+    await tester.pumpAndSettle();
+    final saved = (await principal.load()).single;
+    expect((saved.systemRole, saved.roleTitle), ('accountant', 'Mathematics Teacher'));
+  });
+
+  testWidgets('the owner sees the proposed role when approving and can change it', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _Database();
+    await proposeAs(await _repo(db, _principal, sessions), 'staff');
+    final owner = await _repo(db, _owner, sessions);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: StaffProposalsPanel(repository: owner, onChanged: () {}),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Appointee (Support / other staff)'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
+    await tester.pumpAndSettle();
+    expect(find.text('Role in the system'), findsOneWidget);
+    // Change the role, then approve.
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Teacher').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Approve').last);
+    await tester.pumpAndSettle();
+    final staffId = (await owner.load()).single.createdStaffId;
+    expect(db.records['a/${OwnerStaffProfileRepository.entityType}/$staffId']!.payload['systemRole'], 'teacher');
+  });
+
+  testWidgets('an assigned approver sees the role but cannot change it', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = _Database();
+    await proposeAs(await _repo(db, _principal, sessions), 'teacher');
+    assign(db, _finance, {'approveStaff'});
+    final finance = await _repo(db, _finance, sessions);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: StaffProposalsPanel(repository: finance, onChanged: () {}),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Approving makes them a Teacher'), findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
   });
 }
 
