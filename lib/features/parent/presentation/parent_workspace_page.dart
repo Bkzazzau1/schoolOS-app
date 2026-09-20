@@ -15,10 +15,12 @@ import '../data/parent_children_repository.dart';
 import '../data/parent_dashboard_demo_data.dart';
 import '../data/parent_dashboard_repository.dart';
 import '../data/parent_learning_progress_repository.dart';
+import '../data/parent_weekly_learning_repository.dart';
 import '../domain/parent_dashboard_models.dart';
 import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
 import 'parent_learning_progress_page.dart';
+import 'parent_weekly_learning_page.dart';
 
 class ParentWorkspacePage extends StatefulWidget {
   const ParentWorkspacePage({
@@ -45,6 +47,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   late final ParentDashboardRepository _dashboardRepository;
   late final ParentChildrenRepository _childrenRepository;
   late final ParentLearningProgressRepository _learningProgressRepository;
+  late final ParentWeeklyLearningRepository _weeklyLearningRepository;
 
   ParentNavItem get _activeItem => parentNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -66,12 +69,17 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
+    _weeklyLearningRepository = ParentWeeklyLearningRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _refreshPendingCount();
   }
 
   void _select(String key) {
-    if (!parentNavigation.any((item) => item.key == key)) return;
-    if (_activeKey == key) return;
+    if (key == _activeKey || !parentNavigation.any((item) => item.key == key)) {
+      return;
+    }
     setState(() => _activeKey = key);
   }
 
@@ -164,6 +172,9 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
         'progress' => ParentLearningProgressPage(
             repository: _learningProgressRepository,
             onNavigate: _select,
+          ),
+        'weekly-learning' => ParentWeeklyLearningPage(
+            repository: _weeklyLearningRepository,
           ),
         _ => _UpcomingParentFeature(
             item: _activeItem,
