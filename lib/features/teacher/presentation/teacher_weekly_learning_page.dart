@@ -77,7 +77,12 @@ class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
   void _syncControllers() {
     final update = _working;
     if (update == null || update.subjects.isEmpty) return;
-    final subject = update.subjects[_selected.clamp(0, update.subjects.length - 1)];
+    final safeIndex = _selected < 0
+        ? 0
+        : (_selected >= update.subjects.length
+            ? update.subjects.length - 1
+            : _selected);
+    final subject = update.subjects[safeIndex];
     _planned.text = subject.planned;
     _covered.text = subject.covered;
     _evidence.text = subject.evidence;
@@ -134,7 +139,9 @@ class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
     if (!mounted) return;
     setState(() {
       if (result.update != null) _working = result.update;
-      _displayStatus = result.success ? 'Draft saved · sync pending' : _displayStatus;
+      _displayStatus = result.success
+          ? 'Draft saved · sync pending'
+          : _displayStatus;
     });
     if (result.success) widget.onMutationQueued();
     _show(result.message, success: result.success);
@@ -158,7 +165,7 @@ class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
   void _show(String message, {required bool success}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(success ? message : 'Unable to continue: $message'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -327,7 +334,13 @@ class _Stats extends StatelessWidget {
                   children: [
                     Text(item.$1),
                     const SizedBox(height: 5),
-                    Text(item.$2, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                    Text(
+                      item.$2,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                      ),
+                    ),
                     Text(item.$3),
                   ],
                 ),
@@ -350,7 +363,10 @@ class _FlowCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Teacher does the work once', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+              const Text(
+                'Teacher does the work once',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 12,
@@ -362,7 +378,10 @@ class _FlowCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(item.$1, style: const TextStyle(fontWeight: FontWeight.w900)),
+                          Text(
+                            item.$1,
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
                           Text(item.$2),
                         ],
                       ),
@@ -489,7 +508,10 @@ class _SubjectList extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Subjects this week', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+              const Text(
+                'Subjects this week',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+              ),
               const Text('Select a subject and confirm what was actually taught.'),
               const SizedBox(height: 12),
               Wrap(
@@ -505,7 +527,11 @@ class _SubjectList extends StatelessWidget {
                         for (final item in teacherWeeklyClassOptions)
                           DropdownMenuItem(value: item, child: Text(item)),
                       ],
-                      onChanged: editable ? (value) { if (value != null) onClassChanged(value); } : null,
+                      onChanged: editable
+                          ? (value) {
+                              if (value != null) onClassChanged(value);
+                            }
+                          : null,
                     ),
                   ),
                   SizedBox(
@@ -517,7 +543,11 @@ class _SubjectList extends StatelessWidget {
                         for (final item in teacherWeeklyWeekOptions)
                           DropdownMenuItem(value: item, child: Text(item)),
                       ],
-                      onChanged: editable ? (value) { if (value != null) onWeekChanged(value); } : null,
+                      onChanged: editable
+                          ? (value) {
+                              if (value != null) onWeekChanged(value);
+                            }
+                          : null,
                     ),
                   ),
                 ],
@@ -528,11 +558,23 @@ class _SubjectList extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
                     selected: selected == i,
-                    selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    title: Text(update.subjects[i].subject, style: const TextStyle(fontWeight: FontWeight.w900)),
-                    subtitle: Text('${update.subjects[i].covered}\nNext: ${update.subjects[i].next}'),
-                    trailing: Text(update.subjects[i].linkedPlanId == 'LP-206' ? 'From LP-206' : 'Linked plan'),
+                    selectedTileColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    title: Text(
+                      update.subjects[i].subject,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    subtitle: Text(
+                      '${update.subjects[i].covered}\nNext: ${update.subjects[i].next}',
+                    ),
+                    trailing: Text(
+                      update.subjects[i].linkedPlanId == 'LP-206'
+                          ? 'From LP-206'
+                          : 'Linked plan',
+                    ),
                     onTap: () => onSelectSubject(i),
                   ),
                 ),
@@ -583,21 +625,55 @@ class _SubjectEditor extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(subject.subject, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
+              Text(
+                subject.subject,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19),
+              ),
               const SizedBox(height: 12),
-              _Field(label: 'Planned from lesson plan', controller: planned, enabled: editable, onChanged: onPlannedChanged),
-              _Field(label: 'Actually covered', controller: covered, enabled: editable, onChanged: onCoveredChanged),
-              _Field(label: 'Classwork / assignment evidence', controller: evidence, enabled: editable, onChanged: onEvidenceChanged),
-              _Field(label: 'Topic or support area to continue', controller: support, enabled: editable, onChanged: onSupportChanged),
-              _Field(label: 'What comes next', controller: next, enabled: editable, onChanged: onNextChanged),
+              _Field(
+                label: 'Planned from lesson plan',
+                controller: planned,
+                enabled: editable,
+                onChanged: onPlannedChanged,
+              ),
+              _Field(
+                label: 'Actually covered',
+                controller: covered,
+                enabled: editable,
+                onChanged: onCoveredChanged,
+              ),
+              _Field(
+                label: 'Classwork / assignment evidence',
+                controller: evidence,
+                enabled: editable,
+                onChanged: onEvidenceChanged,
+              ),
+              _Field(
+                label: 'Topic or support area to continue',
+                controller: support,
+                enabled: editable,
+                onChanged: onSupportChanged,
+              ),
+              _Field(
+                label: 'What comes next',
+                controller: next,
+                enabled: editable,
+                onChanged: onNextChanged,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 10,
                 runSpacing: 8,
                 alignment: WrapAlignment.end,
                 children: [
-                  OutlinedButton(onPressed: editable ? onSave : null, child: const Text('Save draft')),
-                  FilledButton(onPressed: editable ? onPublish : null, child: const Text('Publish weekly update')),
+                  OutlinedButton(
+                    onPressed: editable ? onSave : null,
+                    child: const Text('Save draft'),
+                  ),
+                  FilledButton(
+                    onPressed: editable ? onPublish : null,
+                    child: const Text('Publish weekly update'),
+                  ),
                 ],
               ),
             ],
@@ -613,6 +689,7 @@ class _Field extends StatelessWidget {
     required this.enabled,
     required this.onChanged,
   });
+
   final String label;
   final TextEditingController controller;
   final bool enabled;
@@ -627,7 +704,10 @@ class _Field extends StatelessWidget {
           minLines: 2,
           maxLines: 4,
           onChanged: onChanged,
-          decoration: InputDecoration(labelText: label, alignLabelWithHint: true),
+          decoration: InputDecoration(
+            labelText: label,
+            alignLabelWithHint: true,
+          ),
         ),
       );
 }
@@ -662,7 +742,13 @@ class _ParentPreview extends StatelessWidget {
                   const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Parent preview', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      Text(
+                        'Parent preview',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
                       Text('Family-safe version generated from the classroom record.'),
                     ],
                   ),
@@ -670,8 +756,17 @@ class _ParentPreview extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Text('WEEKLY LEARNING UPDATE', style: Theme.of(context).textTheme.labelMedium),
-              Text('${update.className} · ${update.week}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+              Text(
+                'WEEKLY LEARNING UPDATE',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              Text(
+                '${update.className} · ${update.week}',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              ),
               const Text('Teacher: Mrs. Amina Yusuf'),
               const Text('BrightGate Academy'),
               const SizedBox(height: 14),
@@ -681,11 +776,17 @@ class _ParentPreview extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(subject.subject, style: const TextStyle(fontWeight: FontWeight.w900)),
+                      Text(
+                        subject.subject,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
                       Text('This week: ${subject.covered}'),
                       Text('Evidence: ${subject.evidence}'),
                       Text('Next: ${subject.next}'),
-                      Text(subject.support, style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        subject.support,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 ),
@@ -695,7 +796,10 @@ class _ParentPreview extends StatelessWidget {
                 minLines: 2,
                 maxLines: 4,
                 onChanged: onNoteChanged,
-                decoration: const InputDecoration(labelText: 'Whole-class note', alignLabelWithHint: true),
+                decoration: const InputDecoration(
+                  labelText: 'Whole-class note',
+                  alignLabelWithHint: true,
+                ),
               ),
               const SizedBox(height: 10),
               Text(update.note),
@@ -716,11 +820,17 @@ class _Rules extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Publication rule', style: TextStyle(fontWeight: FontWeight.w900)),
+              const Text(
+                'Publication rule',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
               const SizedBox(height: 4),
               const Text(teacherWeeklyPublicationBoundary),
               const SizedBox(height: 12),
-              const Text('Delivery & evidence boundary', style: TextStyle(fontWeight: FontWeight.w900)),
+              const Text(
+                'Delivery & evidence boundary',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
               const SizedBox(height: 4),
               const Text(teacherWeeklyDeliveryBoundary),
               const SizedBox(height: 8),
