@@ -2,13 +2,16 @@ import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../transport/data/transport_repository.dart';
+import '../../transport/data/transport_route_management_repository.dart';
 import '../../transport/domain/transport_models.dart';
 import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
 import '../domain/driver_morning_run_models.dart';
 import '../domain/driver_route_models.dart';
+import 'driver_afternoon_run_demo_data.dart';
 import 'driver_afternoon_run_repository.dart';
 import 'driver_dashboard_repository.dart';
+import 'driver_morning_run_demo_data.dart';
 import 'driver_morning_run_repository.dart';
 
 class DriverRouteRepository {
@@ -21,11 +24,7 @@ class DriverRouteRepository {
           localDatabase: localDatabase,
           schoolSession: schoolSession,
         ),
-        _morningRepository = DriverMorningRunRepository(
-          localDatabase: localDatabase,
-          schoolSession: schoolSession,
-        ),
-        _afternoonRepository = DriverAfternoonRunRepository(
+        _routeManagementRepository = TransportRouteManagementRepository(
           localDatabase: localDatabase,
           schoolSession: schoolSession,
         );
@@ -33,32 +32,66 @@ class DriverRouteRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final TransportRepository _transportRepository;
-  final DriverMorningRunRepository _morningRepository;
-  final DriverAfternoonRunRepository _afternoonRepository;
+  final TransportRouteManagementRepository _routeManagementRepository;
 
   Future<DriverRouteSnapshot> loadToday() async {
     final member = _requireDriver();
     final assignment = await _loadAssignment(member);
     final route = await _loadAssignedRoute(assignment);
-    final morning = await _morningRepository.loadToday();
-    final afternoon = await _afternoonRepository.loadToday();
+    final today = _todayKey();
 
-    if (morning.membershipId != member.id ||
-        afternoon.membershipId != member.id ||
-        morning.routeId != assignment.routeId ||
-        afternoon.routeId != assignment.routeId) {
+    final morningRecord = await _localDatabase.getLocalRecord(
+      tenantId: member.schoolId,
+      entityType: DriverMorningRunRepository.entityType,
+      entityId: '${member.id}:morning:$today',
+    );
+    final afternoonRecord = await _localDatabase.getLocalRecord(
+      tenantId: member.schoolId,
+      entityType: DriverAfternoonRunRepository.entityType,
+      entityId: '${member.id}:afternoon:$today',
+    );
+
+    DriverMorningRun? morning;
+    if (morningRecord != null) {
+      morning = DriverMorningRun.fromJson(morningRecord.payload);
+      if (morning.membershipId != member.id ||
+          morning.routeId != assignment.routeId ||
+          morning.serviceDate != today) {
+        throw StateError(
+          'Today\'s morning route record does not belong to the active Driver assignment.',
+        );
+      }
+    }
+
+    DriverAfternoonRun? afternoon;
+    if (afternoonRecord != null) {
+      afternoon = DriverAfternoonRun.fromJson(afternoonRecord.payload);
+      if (afternoon.membershipId != member.id ||
+          afternoon.routeId != assignment.routeId ||
+          afternoon.serviceDate != today) {
+        throw StateError(
+          'Today\'s afternoon route record does not belong to the active Driver assignment.',
+        );
+      }
+    }
+
+    final plan = await _routeManagementRepository.loadPlanForRoute(route.id);
+    final configuredStops = plan.activeStops;
+    if (configuredStops.length != route.stops) {
       throw StateError(
-        'Today\'s route manifests do not belong to the active Driver assignment.',
+        'The configured stop count does not match Transport Control.',
       );
     }
-    if (morning.serviceDate != afternoon.serviceDate) {
-      throw StateError('Morning and afternoon route manifests are for different days.');
-    }
-    if (morning.stops.length != route.stops || afternoon.stops.length != route.stops) {
-      throw StateError(
-        'The downloaded route stop count does not match Transport Control.',
-      );
-    }
+
+    final morningViews = morning == null
+        ? _plannedMorningStops(route.id, configuredStops)
+        : [for (final stop in morning.stops) _morningStop(stop)];
+    final afternoonViews = afternoon == null
+        ? _plannedAfternoonStops(route.id, configuredStops)
+        : [
+            for (final stop in afternoon.stops)
+              _afternoonStop(stop, afternoon.status),
+          ];
 
     return DriverRouteSnapshot(
       routeId: route.id,
@@ -66,16 +99,66 @@ class DriverRouteRepository {
       vehicle: route.vehicle,
       driverName: assignment.driverDisplayName,
       assistantName: route.assistant,
-      serviceDate: morning.serviceDate,
+      serviceDate: today,
       totalAssignedRiders: route.riders,
-      morningStops: [
-        for (final stop in morning.stops) _morningStop(stop),
-      ],
-      afternoonStops: [
-        for (final stop in afternoon.stops)
-          _afternoonStop(stop, afternoon.status),
-      ],
+      morningStops: List.unmodifiable(morningViews),
+      afternoonStops: List.unmodifiable(afternoonViews),
     );
+  }
+
+  List<DriverRouteStopView> _plannedMorningStops(
+    String routeId,
+    List<dynamic> configuredStops,
+  ) {
+    final riderCounts = routeId == 'BUS-02'
+        ? <String, int>{
+            for (final stop in defaultBus02MorningStops())
+              stop.id: stop.riders.length,
+          }
+        : const <String, int>{};
+    return [
+      for (final stop in configuredStops)
+        DriverRouteStopView(
+          id: stop.id as String,
+          sequence: stop.sequence as int,
+          name: stop.name as String,
+          scheduledTime: stop.morningTime as String,
+          assignedRiders: riderCounts[stop.id] ?? 0,
+          state: DriverRouteStopState.pending,
+          primaryCount: 0,
+          secondaryCount: 0,
+          primaryLabel: 'Boarded',
+          secondaryLabel: 'Exceptions',
+        ),
+    ];
+  }
+
+  List<DriverRouteStopView> _plannedAfternoonStops(
+    String routeId,
+    List<dynamic> configuredStops,
+  ) {
+    final riderCounts = routeId == 'BUS-02'
+        ? <String, int>{
+            for (final stop in defaultBus02AfternoonStops())
+              stop.id: stop.riders.length,
+          }
+        : const <String, int>{};
+    final reversed = configuredStops.reversed.toList(growable: false);
+    return [
+      for (var index = 0; index < reversed.length; index++)
+        DriverRouteStopView(
+          id: reversed[index].id as String,
+          sequence: index + 1,
+          name: reversed[index].name as String,
+          scheduledTime: reversed[index].afternoonTime as String,
+          assignedRiders: riderCounts[reversed[index].id] ?? 0,
+          state: DriverRouteStopState.pending,
+          primaryCount: 0,
+          secondaryCount: 0,
+          primaryLabel: 'Released safely',
+          secondaryLabel: 'Exceptions',
+        ),
+    ];
   }
 
   DriverRouteStopView _morningStop(DriverMorningStop stop) {
@@ -160,7 +243,7 @@ class DriverRouteRepository {
       throw StateError('No transport route is assigned to this Driver membership.');
     }
     final assignment = DriverTransportAssignment.fromJson(record.payload);
-    if (assignment.membershipId != member.id || assignment.routeId.isEmpty) {
+    if (assignment.membershipId != member.id || !assignment.hasRoute) {
       throw StateError('The Driver route assignment is invalid.');
     }
     return assignment;
@@ -174,5 +257,10 @@ class DriverRouteRepository {
       if (route.id == assignment.routeId) return route;
     }
     throw StateError('Assigned route ${assignment.routeId} is unavailable.');
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 }
