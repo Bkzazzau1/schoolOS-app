@@ -55,7 +55,8 @@ class FinanceConcessionsRepository {
 
     return FinanceConcessionsSnapshot(
       requests: requests,
-      canSubmit: membership.role == SchoolRole.accountant,
+      canSubmit: membership.role == SchoolRole.accountant ||
+          membership.role == SchoolRole.proprietor,
       canApprove: membership.role == SchoolRole.proprietor,
     );
   }
@@ -70,10 +71,11 @@ class FinanceConcessionsRepository {
     required String requestedBy,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
-    if (membership.role != SchoolRole.accountant) {
+    if (membership.role != SchoolRole.accountant &&
+        membership.role != SchoolRole.proprietor) {
       return const FinanceConcessionActionResult(
         success: false,
-        message: 'Only an active Finance Officer membership can submit from this workspace.',
+        message: 'Only an active owner or Finance Officer can submit from this workspace.',
       );
     }
 
@@ -120,7 +122,9 @@ class FinanceConcessionsRepository {
           ? '${financeConcessionTypeLabel(type)} request'
           : reason.trim(),
       requestedBy: normalizedRequester,
-      requestedByRole: 'Finance Office',
+      requestedByRole: membership.role == SchoolRole.proprietor
+          ? 'Proprietor'
+          : 'Finance Office',
       requestedAt: requestedAt,
       status: FinanceConcessionStatus.pendingApproval,
     );

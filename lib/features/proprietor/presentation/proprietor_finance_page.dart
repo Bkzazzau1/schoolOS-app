@@ -425,6 +425,7 @@ class _SectionCollectionCard extends StatelessWidget {
                 child: DataTable(
                   headingRowHeight: 46,
                   dataRowMinHeight: 54,
+                  dataRowMaxHeight: 64,
                   columns: const [
                     DataColumn(label: Text('Section')),
                     DataColumn(label: Text('Gross fees')),

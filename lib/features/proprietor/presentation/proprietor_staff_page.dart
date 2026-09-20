@@ -136,6 +136,11 @@ class _Header extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
+        FilledButton.icon(
+          onPressed: () => onActionRequested('jobs'),
+          icon: const Icon(Icons.assignment_ind_outlined),
+          label: const Text('Assign a job'),
+        ),
         OutlinedButton(
           onPressed: () => onActionRequested('overview'),
           child: const Text('Executive Overview'),

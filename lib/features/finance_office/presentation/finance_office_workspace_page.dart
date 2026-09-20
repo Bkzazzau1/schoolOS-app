@@ -35,12 +35,14 @@ class FinanceOfficeWorkspacePage extends StatefulWidget {
     required this.localDatabase,
     required this.schoolSession,
     required this.schoolAppearance,
+    this.initialPage = 'dashboard',
   });
 
   final SchoolMembership membership;
   final LocalDatabase localDatabase;
   final SchoolSessionController schoolSession;
   final SchoolAppearanceController schoolAppearance;
+  final String initialPage;
 
   @override
   State<FinanceOfficeWorkspacePage> createState() =>
@@ -60,6 +62,9 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
   @override
   void initState() {
     super.initState();
+    if (financeOfficeNavigation.any((item) => item.key == widget.initialPage)) {
+      _activeKey = widget.initialPage;
+    }
     _concessions = FinanceConcessionsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,

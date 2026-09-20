@@ -74,6 +74,19 @@ void main() {
         findsOneWidget,
       );
       expect(services.schoolSession.activeMembership?.roleLabel, entry.key);
+      if (entry.key == 'Proprietor') {
+        await tester.tap(find.text('Owner Finance').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Open Finance Office'));
+        await tester.pumpAndSettle();
+        expect(find.text('Term billed'), findsOneWidget);
+        expect(
+          services.schoolSession.activeMembership?.role,
+          SchoolRole.proprietor,
+        );
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+      }
       if (entry.key != 'Finance Officer') {
         await tester.tap(find.byTooltip('Switch school'));
         await tester.pumpAndSettle();

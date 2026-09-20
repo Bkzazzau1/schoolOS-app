@@ -4,6 +4,7 @@ import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../finance_office/presentation/finance_office_workspace_page.dart';
 import '../../activities/data/activity_repository.dart';
 import '../../activities/presentation/activities_page.dart';
 import '../../assembly/data/assembly_repository.dart';
@@ -51,6 +52,8 @@ import 'proprietor_overview_page.dart';
 import 'proprietor_reports_page.dart';
 import 'proprietor_school_life_page.dart';
 import 'proprietor_staff_page.dart';
+import 'owner_jobs_page.dart';
+import '../data/job_assignment_repository.dart';
 import 'proprietor_structure_page.dart';
 
 class ProprietorWorkspacePage extends StatefulWidget {
@@ -82,6 +85,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     _OwnerNavItem('finance', 'Owner Finance', Icons.account_balance_wallet_rounded),
     _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded),
     _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded),
+    _OwnerNavItem('jobs', 'Jobs & Delegation', Icons.assignment_ind_outlined),
     _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded),
     _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded),
     _OwnerNavItem('ai', 'Proprietor AI', Icons.auto_awesome_rounded),
@@ -513,11 +517,18 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
       'aging' => 'Outstanding & Aging',
       _ => 'Finance workflow',
     };
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$label belongs to the Finance Office feature and will be ported with that role.',
-        ),
+    _pushSharedModule(
+      title: label,
+      body: FinanceOfficeWorkspacePage(
+        membership: widget.membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: widget.schoolAppearance,
+        initialPage: switch (key) {
+          'finance-office' => 'dashboard',
+          'aging' => 'debt-aging',
+          _ => key,
+        },
       ),
     );
   }
@@ -532,6 +543,11 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
 
   Widget _buildContent() {
     return switch (_activeModule) {
+      'jobs' => OwnerJobsPage(
+          repository: JobAssignmentRepository(
+            database: widget.localDatabase, session: widget.schoolSession),
+          onChanged: _refreshPendingCount,
+        ),
       'finance' => ProprietorFinancePage(
           schoolName: widget.membership.schoolName,
           onActionRequested: _handleFinanceAction,
