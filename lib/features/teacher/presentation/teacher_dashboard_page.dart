@@ -159,8 +159,8 @@ class _Header extends StatelessWidget {
             Text('$schoolName · Kaduna Campus'),
           ],
         ),
-        SizedBox(
-          width: 360,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
           child: TextField(
             controller: controller,
             onChanged: onChanged,
@@ -292,19 +292,29 @@ class _Panel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final heading = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                      Text(subtitle),
+                    ],
+                  );
+                  if (onAction == null) return heading;
+                  final action = TextButton(onPressed: onAction, child: Text('${actionLabel ?? 'Open'} →'));
+                  if (constraints.maxWidth < 420) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                        Text(subtitle),
+                        heading,
+                        const SizedBox(height: 4),
+                        action,
                       ],
-                    ),
-                  ),
-                  if (onAction != null) TextButton(onPressed: onAction, child: Text('${actionLabel ?? 'Open'} →')),
-                ],
+                    );
+                  }
+                  return Row(children: [Expanded(child: heading), action]);
+                },
               ),
               const SizedBox(height: 10),
               child,
