@@ -33,6 +33,11 @@ class DriverDashboardSnapshot {
     required this.morningExpected,
     required this.morningExceptions,
     required this.morningSummary,
+    required this.afternoonExpected,
+    required this.afternoonBoarded,
+    required this.afternoonSafeReleased,
+    required this.afternoonStillOnBus,
+    required this.afternoonSummary,
     required this.vehicleCheckRequired,
     required this.nextAction,
   });
@@ -43,6 +48,11 @@ class DriverDashboardSnapshot {
   final int morningExpected;
   final int morningExceptions;
   final String morningSummary;
+  final int afternoonExpected;
+  final int afternoonBoarded;
+  final int afternoonSafeReleased;
+  final int afternoonStillOnBus;
+  final String afternoonSummary;
   final bool vehicleCheckRequired;
   final String nextAction;
 
