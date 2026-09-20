@@ -53,9 +53,21 @@ class DriverIncidentRepository {
     }
     incidents.sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
 
+    final riderSnapshot = await _ridersRepository.loadToday();
+    final students = [
+      for (final rider in riderSnapshot.riders)
+        DriverIncidentStudentOption(
+          studentId: rider.studentId,
+          name: rider.name,
+          className: rider.className,
+          stopName: rider.stopName,
+        ),
+    ]..sort((a, b) => a.name.compareTo(b.name));
+
     return DriverIncidentSnapshot(
       context: context,
       incidents: List.unmodifiable(incidents),
+      assignedStudents: List.unmodifiable(students),
     );
   }
 
@@ -204,31 +216,25 @@ class DriverIncidentRepository {
     DriverMorningRun? morning,
     DriverAfternoonRun? afternoon,
   ) {
-    if (afternoon != null) {
-      return switch (afternoon.status) {
-        DriverAfternoonRunStatus.notStarted ||
-        DriverAfternoonRunStatus.boarding =>
-          DriverIncidentTripPhase.beforeAfternoonRun,
-        DriverAfternoonRunStatus.inProgress =>
-          DriverIncidentTripPhase.afternoonRoute,
-        DriverAfternoonRunStatus.returnedSchool ||
-        DriverAfternoonRunStatus.completed =>
-          DriverIncidentTripPhase.afterService,
-      };
+    if (afternoon?.status == DriverAfternoonRunStatus.inProgress) {
+      return DriverIncidentTripPhase.afternoonRoute;
     }
-
-    if (morning != null) {
-      return switch (morning.status) {
-        DriverMorningRunStatus.notStarted =>
-          DriverIncidentTripPhase.beforeMorningRun,
-        DriverMorningRunStatus.inProgress =>
-          DriverIncidentTripPhase.morningRoute,
-        DriverMorningRunStatus.arrivedSchool ||
-        DriverMorningRunStatus.completed =>
-          DriverIncidentTripPhase.atSchool,
-      };
+    if (morning?.status == DriverMorningRunStatus.inProgress) {
+      return DriverIncidentTripPhase.morningRoute;
     }
-
+    if (afternoon?.status == DriverAfternoonRunStatus.returnedSchool ||
+        afternoon?.status == DriverAfternoonRunStatus.completed) {
+      return DriverIncidentTripPhase.afterService;
+    }
+    if (afternoon?.status == DriverAfternoonRunStatus.boarding) {
+      return DriverIncidentTripPhase.beforeAfternoonRun;
+    }
+    if (morning?.status == DriverMorningRunStatus.arrivedSchool) {
+      return DriverIncidentTripPhase.atSchool;
+    }
+    if (morning?.status == DriverMorningRunStatus.completed) {
+      return DriverIncidentTripPhase.beforeAfternoonRun;
+    }
     return DriverIncidentTripPhase.beforeMorningRun;
   }
 
