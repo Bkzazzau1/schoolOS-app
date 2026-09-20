@@ -1,5 +1,15 @@
 import 'transport_models.dart';
 
+class TransportActionResult {
+  const TransportActionResult({
+    required this.success,
+    required this.message,
+  });
+
+  final bool success;
+  final String message;
+}
+
 class TransportStopDefinition {
   const TransportStopDefinition({
     required this.id,
@@ -135,7 +145,8 @@ class TransportRouteManagementSnapshot {
   final List<TransportRouteManagementEntry> routes;
   final bool canManage;
 
-  int get configuredRoutes => routes.where((entry) => entry.activeStopCount > 0).length;
+  int get configuredRoutes =>
+      routes.where((entry) => entry.activeStopCount > 0).length;
   int get totalStops =>
       routes.fold(0, (sum, entry) => sum + entry.activeStopCount);
   int get lockedToday => routes.where((entry) => entry.lockedForToday).length;
