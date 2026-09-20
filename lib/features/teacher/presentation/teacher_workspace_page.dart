@@ -20,6 +20,7 @@ import '../data/teacher_dashboard_demo_data.dart';
 import '../data/teacher_learning_progress_repository.dart';
 import '../data/teacher_lesson_plan_repository.dart';
 import '../data/teacher_messages_repository.dart';
+import '../data/teacher_performance_repository.dart';
 import '../data/teacher_students_repository.dart';
 import '../data/teacher_syllabus_repository.dart';
 import '../data/teacher_timetable_repository.dart';
@@ -35,6 +36,7 @@ import 'teacher_dashboard_page.dart';
 import 'teacher_learning_progress_page.dart';
 import 'teacher_lesson_plans_page.dart';
 import 'teacher_messages_page.dart';
+import 'teacher_performance_page.dart';
 import 'teacher_students_page.dart';
 import 'teacher_syllabus_page.dart';
 import 'teacher_timetable_page.dart';
@@ -75,6 +77,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   late final TeacherStudentsRepository _students;
   late final TeacherMessagesRepository _messages;
   late final TeacherAiRepository _teacherAi;
+  late final TeacherPerformanceRepository _performance;
 
   TeacherNavItem get _activeItem => teacherNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -133,6 +136,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _teacherAi = TeacherAiRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _performance = TeacherPerformanceRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -278,6 +285,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           ),
         'ai' => TeacherAiPage(
             repository: _teacherAi,
+            onNavigate: _select,
+          ),
+        'performance' => TeacherPerformancePage(
+            repository: _performance,
             onNavigate: _select,
           ),
         _ => _UpcomingTeacherFeature(
@@ -426,14 +437,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                               const SizedBox(height: 4),
                               Text(
                                 widget.membership.schoolName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                ),
+                                style: const TextStyle(fontWeight: FontWeight.w900),
                               ),
-                              const Text(
-                                teacherCampusLabel,
-                                style: TextStyle(fontSize: 12),
-                              ),
+                              const Text(teacherCampusLabel, style: TextStyle(fontSize: 12)),
                             ],
                           ),
                         ),
@@ -463,16 +469,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Weekly compliance',
-                            style: TextStyle(fontSize: 12),
-                          ),
+                          Text('Weekly compliance', style: TextStyle(fontSize: 12)),
                           Text(
                             '92%',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                           ),
                           LinearProgressIndicator(value: .92),
                           SizedBox(height: 6),
@@ -533,10 +533,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                                 teacherName,
                                 style: TextStyle(fontWeight: FontWeight.w800),
                               ),
-                              Text(
-                                teacherTitle,
-                                style: TextStyle(fontSize: 12),
-                              ),
+                              Text(teacherTitle, style: TextStyle(fontSize: 12)),
                             ],
                           ),
                         ],
