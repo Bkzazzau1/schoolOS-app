@@ -76,6 +76,7 @@ class DriverRidersRepository {
             name: morningRider.name,
             className: morningRider.className,
             stopId: morningStop.id,
+            stopSequence: morningStop.sequence,
             stopName: morningStop.name,
             morningScheduledTime: morningStop.scheduledTime,
             afternoonScheduledTime: afternoonEntry.stop.scheduledTime,
@@ -93,7 +94,7 @@ class DriverRidersRepository {
     }
 
     riders.sort((a, b) {
-      final stopCompare = a.stopName.compareTo(b.stopName);
+      final stopCompare = a.stopSequence.compareTo(b.stopSequence);
       if (stopCompare != 0) return stopCompare;
       return a.name.compareTo(b.name);
     });
