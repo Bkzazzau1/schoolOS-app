@@ -285,7 +285,7 @@ class _TeacherLearningProgressPageState
                   SizedBox(
                     width: 150,
                     child: DropdownButtonFormField<String>(
-                      value: _classFilter,
+                      initialValue: _classFilter,
                       isExpanded: true,
                       items: const [
                         'All classes',
@@ -386,7 +386,7 @@ class _TeacherLearningProgressPageState
                 SizedBox(
                   width: 170,
                   child: DropdownButtonFormField<String>(
-                    value: _evidence,
+                    initialValue: _evidence,
                     isExpanded: true,
                     items: const [
                       'All evidence',
