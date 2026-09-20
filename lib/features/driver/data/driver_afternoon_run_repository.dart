@@ -6,8 +6,10 @@ import '../../transport/data/transport_repository.dart';
 import '../../transport/domain/transport_models.dart';
 import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
+import '../domain/driver_vehicle_check_models.dart';
 import 'driver_afternoon_run_demo_data.dart';
 import 'driver_dashboard_repository.dart';
+import 'driver_vehicle_check_repository.dart';
 
 class DriverAfternoonRunRepository {
   DriverAfternoonRunRepository({
@@ -18,6 +20,10 @@ class DriverAfternoonRunRepository {
         _transportRepository = TransportRepository(
           localDatabase: localDatabase,
           schoolSession: schoolSession,
+        ),
+        _vehicleCheckRepository = DriverVehicleCheckRepository(
+          localDatabase: localDatabase,
+          schoolSession: schoolSession,
         );
 
   static const entityType = 'driver_afternoon_run';
@@ -26,6 +32,7 @@ class DriverAfternoonRunRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final TransportRepository _transportRepository;
+  final DriverVehicleCheckRepository _vehicleCheckRepository;
 
   Future<DriverAfternoonRun> loadToday() async {
     final member = _requireDriver();
@@ -82,6 +89,9 @@ class DriverAfternoonRunRepository {
         'This vehicle is not cleared for transport. Wait for Transport Control to release it.',
       );
     }
+    await _vehicleCheckRepository.requireReadyFor(
+      DriverVehicleCheckPeriod.afternoon,
+    );
     if (run.expectedRiders == 0) {
       throw StateError('The afternoon manifest is empty. Contact Transport Control.');
     }
