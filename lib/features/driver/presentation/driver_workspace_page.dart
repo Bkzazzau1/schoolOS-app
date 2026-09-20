@@ -8,6 +8,7 @@ import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/driver_afternoon_run_repository.dart';
 import '../data/driver_dashboard_repository.dart';
+import '../data/driver_history_repository.dart';
 import '../data/driver_incident_repository.dart';
 import '../data/driver_messages_repository.dart';
 import '../data/driver_morning_run_repository.dart';
@@ -16,6 +17,7 @@ import '../data/driver_route_repository.dart';
 import '../data/driver_vehicle_check_repository.dart';
 import 'driver_afternoon_run_page.dart';
 import 'driver_dashboard_page.dart';
+import 'driver_history_page.dart';
 import 'driver_incidents_page.dart';
 import 'driver_messages_page.dart';
 import 'driver_morning_run_page.dart';
@@ -44,6 +46,7 @@ class DriverWorkspacePage extends StatefulWidget {
 class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+
   late final DriverDashboardRepository _dashboardRepository;
   late final DriverMorningRunRepository _morningRunRepository;
   late final DriverAfternoonRunRepository _afternoonRunRepository;
@@ -52,6 +55,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
   late final DriverVehicleCheckRepository _vehicleCheckRepository;
   late final DriverIncidentRepository _incidentRepository;
   late final DriverMessagesRepository _messagesRepository;
+  late final DriverHistoryRepository _historyRepository;
 
   static const _navigation = <_DriverNavItem>[
     _DriverNavItem('dashboard', 'Dashboard', Icons.dashboard_rounded),
@@ -106,6 +110,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _messagesRepository = DriverMessagesRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _historyRepository = DriverHistoryRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -190,9 +198,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
             repository: _messagesRepository,
             onMessagesChanged: _refreshPendingCount,
           ),
-        _ => _UpcomingDriverFeature(
-            item: _activeItem,
-            onDashboard: () => _select('dashboard'),
+        'history' => DriverHistoryPage(repository: _historyRepository),
+        _ => DriverDashboardPage(
+            repository: _dashboardRepository,
+            onNavigate: _select,
           ),
       };
 
@@ -413,63 +422,6 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _UpcomingDriverFeature extends StatelessWidget {
-  const _UpcomingDriverFeature({
-    required this.item,
-    required this.onDashboard,
-  });
-
-  final _DriverNavItem item;
-  final VoidCallback onDashboard;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Card(
-            elevation: 0,
-            child: Padding(
-              padding: const EdgeInsets.all(26),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    item.icon,
-                    size: 44,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    item.label,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'This Driver Portal destination is reserved for the next transport feature. It is not simulated as completed yet.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 18),
-                  FilledButton.icon(
-                    onPressed: onDashboard,
-                    icon: const Icon(Icons.dashboard_rounded),
-                    label: const Text('Back to dashboard'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
