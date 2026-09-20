@@ -17,6 +17,7 @@ import '../data/parent_dashboard_demo_data.dart';
 import '../data/parent_dashboard_repository.dart';
 import '../data/parent_finance_repository.dart';
 import '../data/parent_learning_progress_repository.dart';
+import '../data/parent_messages_repository.dart';
 import '../data/parent_weekly_learning_repository.dart';
 import '../domain/parent_dashboard_models.dart';
 import 'parent_attendance_page.dart';
@@ -24,6 +25,7 @@ import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
 import 'parent_finance_page.dart';
 import 'parent_learning_progress_page.dart';
+import 'parent_messages_page.dart';
 import 'parent_weekly_learning_page.dart';
 
 class ParentWorkspacePage extends StatefulWidget {
@@ -54,6 +56,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   late final ParentWeeklyLearningRepository _weeklyLearningRepository;
   late final ParentAttendanceRepository _attendanceRepository;
   late final ParentFinanceRepository _financeRepository;
+  late final ParentMessagesRepository _messagesRepository;
 
   ParentNavItem get _activeItem => parentNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -84,6 +87,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _financeRepository = ParentFinanceRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _messagesRepository = ParentMessagesRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -197,6 +204,11 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
         'finance' => ParentFinancePage(
             repository: _financeRepository,
             onQueueChanged: _refreshPendingCount,
+          ),
+        'messages' => ParentMessagesPage(
+            repository: _messagesRepository,
+            onQueueChanged: _refreshPendingCount,
+            onNavigate: _select,
           ),
         _ => _UpcomingParentFeature(
             item: _activeItem,
@@ -501,9 +513,7 @@ class _ParentNavigationTile extends StatelessWidget {
           dense: true,
           selected: selected,
           selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           leading: Icon(_ParentWorkspacePageState.iconFor(item.key)),
           title: showLabel ? Text(item.label) : null,
           trailing: showLabel && item.key == 'ai'
