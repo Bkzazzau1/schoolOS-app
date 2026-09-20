@@ -79,20 +79,22 @@ class DriverDashboardRepository {
       );
     }
 
-    final counts = _parseMorningCounts(assignedRoute.morning);
-    final expected = counts.$2 > 0 ? counts.$2 : assignedRoute.riders;
-    final checked = counts.$1.clamp(0, expected).toInt();
-    final exceptions = (expected - checked).clamp(0, expected).toInt();
-
+    final summary = 'Not started · 0/${assignedRoute.riders} checked';
+    final displayRoute = assignedRoute.copyWith(
+      morning: summary,
+      status: assignedRoute.isAvailable
+          ? TransportRouteStatus.preparing
+          : TransportRouteStatus.maintenance,
+    );
     return DriverDashboardSnapshot(
       assignment: assignment,
-      route: assignedRoute,
-      morningChecked: checked,
-      morningExpected: expected,
-      morningExceptions: exceptions,
-      morningSummary: assignedRoute.morning,
+      route: displayRoute,
+      morningChecked: 0,
+      morningExpected: assignedRoute.riders,
+      morningExceptions: 0,
+      morningSummary: summary,
       vehicleCheckRequired: true,
-      nextAction: _nextActionFor(assignedRoute),
+      nextAction: _nextActionFor(displayRoute),
     );
   }
 
@@ -144,15 +146,6 @@ class DriverDashboardRepository {
     return assignment;
   }
 
-  (int, int) _parseMorningCounts(String value) {
-    final match = RegExp(r'(\d+)\s*/\s*(\d+)').firstMatch(value);
-    if (match == null) return (0, 0);
-    return (
-      int.tryParse(match.group(1) ?? '') ?? 0,
-      int.tryParse(match.group(2) ?? '') ?? 0,
-    );
-  }
-
   String _nextActionForRun(
     DriverMorningRun run,
     SchoolTransportRoute route,
@@ -180,9 +173,9 @@ class DriverDashboardRepository {
       return 'Vehicle unavailable — wait for transport clearance.';
     }
     return switch (route.status) {
-      TransportRouteStatus.preparing => 'Complete the vehicle check before departure.',
+      TransportRouteStatus.preparing => 'Open Morning Run to begin today\'s pickup workflow.',
       TransportRouteStatus.onRoute => 'Continue the active route and reconcile riders.',
-      TransportRouteStatus.arrived => 'Open Morning Run to begin today\'s pickup workflow.',
+      TransportRouteStatus.arrived => 'Prepare the afternoon rider manifest before dismissal.',
       TransportRouteStatus.maintenance =>
         'Vehicle unavailable — wait for transport clearance.',
     };
