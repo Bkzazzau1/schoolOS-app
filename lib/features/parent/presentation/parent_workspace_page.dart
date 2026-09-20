@@ -11,12 +11,14 @@ import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../../teacher/presentation/teacher_workspace_page.dart';
+import '../data/parent_attendance_repository.dart';
 import '../data/parent_children_repository.dart';
 import '../data/parent_dashboard_demo_data.dart';
 import '../data/parent_dashboard_repository.dart';
 import '../data/parent_learning_progress_repository.dart';
 import '../data/parent_weekly_learning_repository.dart';
 import '../domain/parent_dashboard_models.dart';
+import 'parent_attendance_page.dart';
 import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
 import 'parent_learning_progress_page.dart';
@@ -48,6 +50,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
   late final ParentChildrenRepository _childrenRepository;
   late final ParentLearningProgressRepository _learningProgressRepository;
   late final ParentWeeklyLearningRepository _weeklyLearningRepository;
+  late final ParentAttendanceRepository _attendanceRepository;
 
   ParentNavItem get _activeItem => parentNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -70,6 +73,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _weeklyLearningRepository = ParentWeeklyLearningRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _attendanceRepository = ParentAttendanceRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -175,6 +182,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
           ),
         'weekly-learning' => ParentWeeklyLearningPage(
             repository: _weeklyLearningRepository,
+          ),
+        'attendance' => ParentAttendancePage(
+            repository: _attendanceRepository,
+            onNavigate: _select,
           ),
         _ => _UpcomingParentFeature(
             item: _activeItem,
