@@ -12,6 +12,7 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/finance_concessions_repository.dart';
 import '../data/finance_office_dashboard_demo_data.dart';
 import '../domain/finance_office_dashboard_models.dart';
+import 'finance_ai_page.dart';
 import 'finance_cashflow_page.dart';
 import 'finance_collections_page.dart';
 import 'finance_concessions_page.dart';
@@ -154,6 +155,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'expenses' => const FinanceCashflowPage(),
         'payroll' => const FinancePayrollPage(),
         'reports' => const FinanceReportsPage(),
+        'ai' => const FinanceAiPage(),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
