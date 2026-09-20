@@ -5,6 +5,7 @@ import '../data/transport_repository.dart';
 import '../domain/transport_control_models.dart';
 import '../domain/transport_models.dart';
 import 'transport_control_overview.dart';
+import 'transport_driver_assignments_panel.dart';
 
 class TransportPage extends StatefulWidget {
   const TransportPage({
@@ -88,6 +89,11 @@ class _TransportPageState extends State<TransportPage> {
       widget.onTransportChanged?.call();
       await _load();
     }
+  }
+
+  void _assignmentChanged() {
+    widget.onTransportChanged?.call();
+    _load();
   }
 
   List<SchoolTransportRoute> get _visibleRoutes {
@@ -182,6 +188,11 @@ class _TransportPageState extends State<TransportPage> {
                         'Transport Operations Control could not be loaded.',
                     onRetry: _load,
                   ),
+                const SizedBox(height: 18),
+                TransportDriverAssignmentsPanel(
+                  repository: widget.repository,
+                  onChanged: _assignmentChanged,
+                ),
               ],
               const SizedBox(height: 20),
               Wrap(
