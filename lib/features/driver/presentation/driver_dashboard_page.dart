@@ -190,7 +190,7 @@ class _Header extends StatelessWidget {
           ),
         ),
         Chip(
-          avatar: const Icon(Icons.directions_bus_filled_outlined, size: 18),
+          avatar: const Icon(Icons.directions_bus_outlined, size: 18),
           label: const Text('Assigned transport only'),
         ),
       ],
