@@ -180,7 +180,10 @@ void main() {
     expect(find.text('Maryam Abdullahi'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Yusuf Bello');
     await tester.pump();
-    expect(find.text('Yusuf Bello'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(ListTile), matching: find.text('Yusuf Bello')),
+      findsOneWidget,
+    );
     expect(find.text('Maryam Abdullahi'), findsNothing);
     expect(tester.takeException(), isNull);
   });
