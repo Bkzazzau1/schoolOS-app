@@ -4,6 +4,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../transport/data/transport_repository.dart';
 import '../../transport/domain/transport_models.dart';
 import '../domain/driver_dashboard_models.dart';
+import '../domain/driver_morning_run_models.dart';
 import 'driver_dashboard_demo_data.dart';
 
 class DriverDashboardRepository {
@@ -18,6 +19,7 @@ class DriverDashboardRepository {
         );
 
   static const assignmentEntityType = 'driver_transport_assignment';
+  static const morningRunEntityType = 'driver_morning_run';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -42,6 +44,31 @@ class DriverDashboardRepository {
       );
     }
 
+    final morningRecord = await _localDatabase.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: morningRunEntityType,
+      entityId: '${membership.id}:morning:${_todayKey()}',
+    );
+
+    if (morningRecord != null) {
+      final run = DriverMorningRun.fromJson(morningRecord.payload);
+      if (run.membershipId != membership.id || run.routeId != assignment.routeId) {
+        throw StateError('Today\'s morning run is not valid for this Driver assignment.');
+      }
+      final checked = run.expectedRiders - run.pendingRiders;
+      return DriverDashboardSnapshot(
+        assignment: assignment,
+        route: assignedRoute,
+        morningChecked: checked,
+        morningExpected: run.expectedRiders,
+        morningExceptions: run.exceptions,
+        morningSummary:
+            '${run.status.label} · ${run.boardedRiders} boarded · ${run.arrivedSchoolRiders} arrived',
+        vehicleCheckRequired: true,
+        nextAction: _nextActionForRun(run, assignedRoute),
+      );
+    }
+
     final counts = _parseMorningCounts(assignedRoute.morning);
     final expected = counts.$2 > 0 ? counts.$2 : assignedRoute.riders;
     final checked = counts.$1.clamp(0, expected).toInt();
@@ -53,6 +80,7 @@ class DriverDashboardRepository {
       morningChecked: checked,
       morningExpected: expected,
       morningExceptions: exceptions,
+      morningSummary: assignedRoute.morning,
       vehicleCheckRequired: true,
       nextAction: _nextActionFor(assignedRoute),
     );
@@ -115,6 +143,28 @@ class DriverDashboardRepository {
     );
   }
 
+  String _nextActionForRun(
+    DriverMorningRun run,
+    SchoolTransportRoute route,
+  ) {
+    if (!route.isAvailable && run.status == DriverMorningRunStatus.notStarted) {
+      return 'Vehicle unavailable — wait for transport clearance.';
+    }
+    return switch (run.status) {
+      DriverMorningRunStatus.notStarted =>
+        'Start the morning run when the vehicle and manifest are ready.',
+      DriverMorningRunStatus.inProgress => run.activeStop != null
+          ? 'Resolve riders at ${run.activeStop!.name} before departure.'
+          : run.nextPendingStop != null
+              ? 'Proceed to ${run.nextPendingStop!.name} and open the stop on arrival.'
+              : 'All pickup stops are closed. Confirm arrival at school.',
+      DriverMorningRunStatus.arrivedSchool =>
+        'School arrival recorded. Complete the morning run after reconciliation.',
+      DriverMorningRunStatus.completed =>
+        'Morning service complete. Prepare the afternoon rider manifest.',
+    };
+  }
+
   String _nextActionFor(SchoolTransportRoute route) {
     if (!route.isAvailable) {
       return 'Vehicle unavailable — wait for transport clearance.';
@@ -122,9 +172,14 @@ class DriverDashboardRepository {
     return switch (route.status) {
       TransportRouteStatus.preparing => 'Complete the vehicle check before departure.',
       TransportRouteStatus.onRoute => 'Continue the active route and reconcile riders.',
-      TransportRouteStatus.arrived => 'Prepare the afternoon rider manifest before dismissal.',
+      TransportRouteStatus.arrived => 'Open Morning Run to begin today\'s pickup workflow.',
       TransportRouteStatus.maintenance =>
         'Vehicle unavailable — wait for transport clearance.',
     };
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 }
