@@ -18,6 +18,7 @@ import '../data/teacher_classes_repository.dart';
 import '../data/teacher_dashboard_demo_data.dart';
 import '../data/teacher_learning_progress_repository.dart';
 import '../data/teacher_lesson_plan_repository.dart';
+import '../data/teacher_students_repository.dart';
 import '../data/teacher_syllabus_repository.dart';
 import '../data/teacher_timetable_repository.dart';
 import '../data/teacher_weekly_learning_repository.dart';
@@ -30,6 +31,7 @@ import 'teacher_classes_page.dart';
 import 'teacher_dashboard_page.dart';
 import 'teacher_learning_progress_page.dart';
 import 'teacher_lesson_plans_page.dart';
+import 'teacher_students_page.dart';
 import 'teacher_syllabus_page.dart';
 import 'teacher_timetable_page.dart';
 import 'teacher_weekly_learning_page.dart';
@@ -66,6 +68,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   late final TeacherAssessmentRepository _assessments;
   late final TeacherCbtRepository _cbt;
   late final TeacherLearningProgressRepository _learningProgress;
+  late final TeacherStudentsRepository _students;
 
   TeacherNavItem get _activeItem => teacherNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -112,6 +115,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _learningProgress = TeacherLearningProgressRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _students = TeacherStudentsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -244,6 +251,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         'learning-progress' => TeacherLearningProgressPage(
             repository: _learningProgress,
             onNavigate: _select,
+          ),
+        'students' => TeacherStudentsPage(
+            repository: _students,
+            onNavigate: _select,
+            onMutationQueued: _refreshPendingCount,
           ),
         _ => _UpcomingTeacherFeature(
             item: _activeItem,
