@@ -56,14 +56,24 @@ class DriverDashboardRepository {
         throw StateError('Today\'s morning run is not valid for this Driver assignment.');
       }
       final checked = run.expectedRiders - run.pendingRiders;
+      final summary =
+          '${run.status.label} · ${run.boardedRiders} boarded · ${run.arrivedSchoolRiders} arrived';
+      final displayRoute = assignedRoute.copyWith(
+        morning: summary,
+        status: switch (run.status) {
+          DriverMorningRunStatus.notStarted => TransportRouteStatus.preparing,
+          DriverMorningRunStatus.inProgress => TransportRouteStatus.onRoute,
+          DriverMorningRunStatus.arrivedSchool => TransportRouteStatus.arrived,
+          DriverMorningRunStatus.completed => TransportRouteStatus.arrived,
+        },
+      );
       return DriverDashboardSnapshot(
         assignment: assignment,
-        route: assignedRoute,
+        route: displayRoute,
         morningChecked: checked,
         morningExpected: run.expectedRiders,
         morningExceptions: run.exceptions,
-        morningSummary:
-            '${run.status.label} · ${run.boardedRiders} boarded · ${run.arrivedSchoolRiders} arrived',
+        morningSummary: summary,
         vehicleCheckRequired: true,
         nextAction: _nextActionForRun(run, assignedRoute),
       );
