@@ -10,12 +10,10 @@ import '../../parent/presentation/parent_workspace_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
+import '../../teacher/presentation/teacher_workspace_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({
-    super.key,
-    required this.services,
-  });
+  const LoginPage({super.key, required this.services});
 
   final AppServices services;
 
@@ -93,6 +91,7 @@ class _LoginPageState extends State<LoginPage> {
                     const _BrandHeader(compact: true),
                     const SizedBox(height: 40),
                     _LoginCard(
+                      demoMemberships: _demoMemberships,
                       formKey: _formKey,
                       identityController: _identityController,
                       passwordController: _passwordController,
@@ -109,10 +108,7 @@ class _LoginPageState extends State<LoginPage> {
 
             return Row(
               children: [
-                const Expanded(
-                  flex: 5,
-                  child: _DesktopBrandPanel(),
-                ),
+                const Expanded(flex: 5, child: _DesktopBrandPanel()),
                 Expanded(
                   flex: 4,
                   child: Center(
@@ -121,6 +117,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 460),
                         child: _LoginCard(
+                          demoMemberships: _demoMemberships,
                           formKey: _formKey,
                           identityController: _identityController,
                           passwordController: _passwordController,
@@ -154,7 +151,7 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (_demoMemberships.length == 1) {
-      await _openMembershipHome(_demoMemberships.single);
+      await _openMembershipHome(context, _demoMemberships.single);
       return;
     }
 
@@ -162,15 +159,20 @@ class _LoginPageState extends State<LoginPage> {
       MaterialPageRoute<void>(
         builder: (context) => SchoolSelectionPage(
           memberships: _demoMemberships,
-          onSelected: _openMembershipHome,
+          onSelected: (membership) => _openMembershipHome(context, membership),
         ),
       ),
     );
   }
 
-  Future<void> _openMembershipHome(SchoolMembership membership) async {
+  Future<void> _openMembershipHome(
+    BuildContext context,
+    SchoolMembership membership,
+  ) async {
     await widget.services.schoolSession.selectSchool(membership);
-    if (!mounted) return;
+    // The login route has been replaced by the school picker. Navigation must
+    // use the picker context, which remains mounted after the session is saved.
+    if (!context.mounted) return;
 
     final Widget page;
     if (membership.role == SchoolRole.proprietor) {
@@ -201,6 +203,13 @@ class _LoginPageState extends State<LoginPage> {
         schoolSession: widget.services.schoolSession,
         schoolAppearance: widget.services.schoolAppearance,
       );
+    } else if (membership.role == SchoolRole.teacher) {
+      page = TeacherWorkspacePage(
+        membership: membership,
+        localDatabase: widget.services.localDatabase,
+        schoolSession: widget.services.schoolSession,
+        schoolAppearance: widget.services.schoolAppearance,
+      );
     } else if (membership.role == SchoolRole.parent) {
       page = ParentWorkspacePage(
         membership: membership,
@@ -217,14 +226,15 @@ class _LoginPageState extends State<LoginPage> {
       );
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (context) => page),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (context) => page));
   }
 }
 
 class _LoginCard extends StatelessWidget {
   const _LoginCard({
+    required this.demoMemberships,
     required this.formKey,
     required this.identityController,
     required this.passwordController,
@@ -234,6 +244,9 @@ class _LoginCard extends StatelessWidget {
   });
 
   final GlobalKey<FormState> formKey;
+  final List<SchoolMembership> demoMemberships;
+  static const _demoUsername = 'demo';
+  static const _demoPassword = 'SchoolOS123!';
   final TextEditingController identityController;
   final TextEditingController passwordController;
   final bool obscurePassword;
@@ -297,7 +310,9 @@ class _LoginCard extends StatelessWidget {
                   labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   suffixIcon: IconButton(
-                    tooltip: obscurePassword ? 'Show password' : 'Hide password',
+                    tooltip: obscurePassword
+                        ? 'Show password'
+                        : 'Hide password',
                     onPressed: onTogglePassword,
                     icon: Icon(
                       obscurePassword
@@ -324,10 +339,71 @@ class _LoginCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Foundation mode: any non-empty credentials open demo school memberships. Real API authentication comes next.',
+                'Demo mode: use the sample details below, or any non-empty username and password.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Try the demo',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const SelectableText('Username: $_demoUsername'),
+                    const SelectableText('Password: $_demoPassword'),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        identityController.text = _demoUsername;
+                        passwordController.text = _demoPassword;
+                      },
+                      icon: const Icon(Icons.edit_note_rounded),
+                      label: const Text('Use demo details'),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Available demo roles',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Sign in, then choose a school and role. These details work for all roles below.',
+                    ),
+                    const SizedBox(height: 8),
+                    for (final membership in demoMemberships)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              membership.roleLabel,
+                              style: theme.textTheme.labelLarge,
+                            ),
+                            Text(
+                              membership.schoolName,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -356,10 +432,7 @@ class _BrandHeader extends StatelessWidget {
             color: theme.colorScheme.primary,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(
-            Icons.school_rounded,
-            color: theme.colorScheme.onPrimary,
-          ),
+          child: Icon(Icons.school_rounded, color: theme.colorScheme.onPrimary),
         ),
         const SizedBox(width: 14),
         Column(
@@ -411,7 +484,9 @@ class _DesktopBrandPanel extends StatelessWidget {
             'SchoolOS is designed for Android phones, tablets and Windows PCs, with offline-first daily operations and intelligent synchronization.',
             style: theme.textTheme.titleMedium?.copyWith(
               height: 1.5,
-              color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.78),
+              color: theme.colorScheme.onPrimaryContainer.withValues(
+                alpha: 0.78,
+              ),
             ),
           ),
           const SizedBox(height: 36),
@@ -449,9 +524,6 @@ class _CapabilityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
-    );
+    return Chip(avatar: Icon(icon, size: 18), label: Text(label));
   }
 }

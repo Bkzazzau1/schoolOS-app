@@ -9,6 +9,9 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../attendance/data/attendance_repository.dart';
 import '../../attendance/presentation/attendance_page.dart';
+import '../../finance_office/presentation/finance_office_workspace_page.dart';
+import '../../parent/presentation/parent_workspace_page.dart';
+import '../../teacher/presentation/teacher_workspace_page.dart';
 import '../../lesson_plans/data/lesson_plan_generation_service.dart';
 import '../../lesson_plans/data/lesson_plan_repository.dart';
 import '../../lesson_plans/presentation/lesson_plan_page.dart';
@@ -161,6 +164,30 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final appearance = _appearance;
+    if (widget.membership.role == SchoolRole.accountant && appearance != null) {
+      return FinanceOfficeWorkspacePage(
+        membership: widget.membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    }
+    if (widget.membership.role == SchoolRole.teacher && appearance != null) {
+      return TeacherWorkspacePage(
+        membership: widget.membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    }
+    if (widget.membership.role == SchoolRole.parent && appearance != null) {
+      return ParentWorkspacePage(
+        membership: widget.membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    }
     if (widget.membership.role == SchoolRole.administrator && appearance != null) {
       return AdministratorWorkspacePage(
         membership: widget.membership,

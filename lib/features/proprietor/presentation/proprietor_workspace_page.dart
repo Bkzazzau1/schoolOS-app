@@ -140,6 +140,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
             membership: membership,
             localDatabase: widget.localDatabase,
             schoolSession: widget.schoolSession,
+            schoolAppearance: widget.schoolAppearance,
           );
 
     Navigator.of(context).pushReplacement(
