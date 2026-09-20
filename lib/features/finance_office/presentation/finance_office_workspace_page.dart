@@ -24,6 +24,7 @@ import 'finance_payroll_page.dart';
 import 'finance_receipts_page.dart';
 import 'finance_reconciliation_page.dart';
 import 'finance_reminders_page.dart';
+import 'finance_reports_page.dart';
 import 'finance_store_page.dart';
 
 class FinanceOfficeWorkspacePage extends StatefulWidget {
@@ -152,6 +153,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'reconciliation' => const FinanceReconciliationPage(),
         'expenses' => const FinanceCashflowPage(),
         'payroll' => const FinancePayrollPage(),
+        'reports' => const FinanceReportsPage(),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
