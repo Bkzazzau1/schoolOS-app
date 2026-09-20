@@ -79,8 +79,12 @@ void main() {
   });
 
   test('score normalization remains integer and inside the selected maximum', () {
-    final high = teacherAssessmentInitialScores.first.copyWith(score: 99.clamp(0, 20));
-    final low = teacherAssessmentInitialScores.first.copyWith(score: (-4).clamp(0, 20));
+    final high = teacherAssessmentInitialScores.first.copyWith(
+      score: 99.clamp(0, 20),
+    );
+    final low = teacherAssessmentInitialScores.first.copyWith(
+      score: (-4).clamp(0, 20),
+    );
     expect(high.score, 20);
     expect(low.score, 0);
   });
@@ -162,13 +166,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('score input clamps above maximum before save', (tester) async {
-    final fake = _FakeAssessmentRepository();
+  testWidgets('score input clamps above maximum and updates live average', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: TeacherAssessmentsPage(
-            repository: fake,
+            repository: _FakeAssessmentRepository(),
             onNavigate: (_) {},
             onMutationQueued: () {},
           ),
@@ -180,7 +185,7 @@ void main() {
     final firstScore = find.byType(TextFormField).first;
     await tester.enterText(firstScore, '99');
     await tester.pump();
-    expect(find.widgetWithText(TextFormField, '20'), findsOneWidget);
+    expect(find.text('14.6 / 20'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
