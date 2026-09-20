@@ -15,12 +15,14 @@ import '../data/teacher_classes_repository.dart';
 import '../data/teacher_dashboard_demo_data.dart';
 import '../data/teacher_lesson_plan_repository.dart';
 import '../data/teacher_timetable_repository.dart';
+import '../data/teacher_weekly_learning_repository.dart';
 import '../domain/teacher_dashboard_models.dart';
 import 'teacher_attendance_page.dart';
 import 'teacher_classes_page.dart';
 import 'teacher_dashboard_page.dart';
 import 'teacher_lesson_plans_page.dart';
 import 'teacher_timetable_page.dart';
+import 'teacher_weekly_learning_page.dart';
 
 class TeacherWorkspacePage extends StatefulWidget {
   const TeacherWorkspacePage({
@@ -48,6 +50,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   late final TeacherClassesRepository _classes;
   late final TeacherAttendanceRepository _attendance;
   late final TeacherLessonPlanRepository _lessonPlans;
+  late final TeacherWeeklyLearningRepository _weeklyLearning;
 
   TeacherNavItem get _activeItem => teacherNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -70,6 +73,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _lessonPlans = TeacherLessonPlanRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _weeklyLearning = TeacherWeeklyLearningRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -171,6 +178,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           ),
         'lesson-plans' => TeacherLessonPlansPage(
             repository: _lessonPlans,
+            onNavigate: _select,
+            onMutationQueued: _refreshPendingCount,
+          ),
+        'weekly-progress' => TeacherWeeklyLearningPage(
+            repository: _weeklyLearning,
             onNavigate: _select,
             onMutationQueued: _refreshPendingCount,
           ),
