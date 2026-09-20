@@ -21,6 +21,7 @@ import '../data/teacher_learning_progress_repository.dart';
 import '../data/teacher_lesson_plan_repository.dart';
 import '../data/teacher_messages_repository.dart';
 import '../data/teacher_performance_repository.dart';
+import '../data/teacher_profile_repository.dart';
 import '../data/teacher_students_repository.dart';
 import '../data/teacher_syllabus_repository.dart';
 import '../data/teacher_timetable_repository.dart';
@@ -37,6 +38,7 @@ import 'teacher_learning_progress_page.dart';
 import 'teacher_lesson_plans_page.dart';
 import 'teacher_messages_page.dart';
 import 'teacher_performance_page.dart';
+import 'teacher_profile_page.dart';
 import 'teacher_students_page.dart';
 import 'teacher_syllabus_page.dart';
 import 'teacher_timetable_page.dart';
@@ -78,6 +80,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   late final TeacherMessagesRepository _messages;
   late final TeacherAiRepository _teacherAi;
   late final TeacherPerformanceRepository _performance;
+  late final TeacherProfileRepository _profile;
 
   TeacherNavItem get _activeItem => teacherNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -87,62 +90,21 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   @override
   void initState() {
     super.initState();
-    _timetable = TeacherTimetableRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _classes = TeacherClassesRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _attendance = TeacherAttendanceRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _lessonPlans = TeacherLessonPlanRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _weeklyLearning = TeacherWeeklyLearningRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _syllabus = TeacherSyllabusRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _assignments = TeacherAssignmentRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _assessments = TeacherAssessmentRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _cbt = TeacherCbtRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _learningProgress = TeacherLearningProgressRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _students = TeacherStudentsRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _messages = TeacherMessagesRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _teacherAi = TeacherAiRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
-    _performance = TeacherPerformanceRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
+    _timetable = TeacherTimetableRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _classes = TeacherClassesRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _attendance = TeacherAttendanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _lessonPlans = TeacherLessonPlanRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _weeklyLearning = TeacherWeeklyLearningRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _syllabus = TeacherSyllabusRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _assignments = TeacherAssignmentRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _assessments = TeacherAssessmentRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _cbt = TeacherCbtRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _learningProgress = TeacherLearningProgressRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _students = TeacherStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _messages = TeacherMessagesRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _teacherAi = TeacherAiRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _performance = TeacherPerformanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _profile = TeacherProfileRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _refreshPendingCount();
   }
 
@@ -152,19 +114,14 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   }
 
   void _refreshPendingCount() {
-    final count = widget.localDatabase.pendingCount(
-      tenantId: widget.membership.schoolId,
-    );
+    final count = widget.localDatabase.pendingCount(tenantId: widget.membership.schoolId);
     if (mounted) setState(() => _pendingSyncCount = count);
   }
 
   Future<void> _openSyncCenter() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SyncCenterPage(
-          localDatabase: widget.localDatabase,
-          membership: widget.membership,
-        ),
+        builder: (_) => SyncCenterPage(localDatabase: widget.localDatabase, membership: widget.membership),
       ),
     );
     _refreshPendingCount();
@@ -174,7 +131,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     if (membership.id == widget.membership.id) return;
     await widget.schoolSession.selectSchool(membership);
     if (!mounted) return;
-
     final Widget page = switch (membership.role) {
       SchoolRole.proprietor => ProprietorWorkspacePage(
           membership: membership,
@@ -213,94 +169,32 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           schoolAppearance: widget.schoolAppearance,
         ),
     };
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => page),
-    );
+    Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   Widget _content() => switch (_activeKey) {
-        'dashboard' => TeacherDashboardPage(
-            schoolName: widget.membership.schoolName,
-            onNavigate: _select,
-          ),
-        'timetable' => TeacherTimetablePage(
-            repository: _timetable,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'classes' => TeacherClassesPage(
-            schoolName: widget.membership.schoolName,
-            repository: _classes,
-            onNavigate: _select,
-          ),
-        'attendance' => TeacherAttendancePage(
-            repository: _attendance,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'lesson-plans' => TeacherLessonPlansPage(
-            repository: _lessonPlans,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'weekly-progress' => TeacherWeeklyLearningPage(
-            repository: _weeklyLearning,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'syllabus' => TeacherSyllabusPage(
-            repository: _syllabus,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'assignments' => TeacherAssignmentsPage(
-            repository: _assignments,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'assessments' => TeacherAssessmentsPage(
-            repository: _assessments,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'cbt' => TeacherCbtPage(
-            repository: _cbt,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'learning-progress' => TeacherLearningProgressPage(
-            repository: _learningProgress,
-            onNavigate: _select,
-          ),
-        'students' => TeacherStudentsPage(
-            repository: _students,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'messages' => TeacherMessagesPage(
-            repository: _messages,
-            onNavigate: _select,
-            onMutationQueued: _refreshPendingCount,
-          ),
-        'ai' => TeacherAiPage(
-            repository: _teacherAi,
-            onNavigate: _select,
-          ),
-        'performance' => TeacherPerformancePage(
-            repository: _performance,
-            onNavigate: _select,
-          ),
-        _ => _UpcomingTeacherFeature(
-            item: _activeItem,
-            onDashboard: () => _select('dashboard'),
-          ),
+        'dashboard' => TeacherDashboardPage(schoolName: widget.membership.schoolName, onNavigate: _select),
+        'timetable' => TeacherTimetablePage(repository: _timetable, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'classes' => TeacherClassesPage(schoolName: widget.membership.schoolName, repository: _classes, onNavigate: _select),
+        'attendance' => TeacherAttendancePage(repository: _attendance, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'lesson-plans' => TeacherLessonPlansPage(repository: _lessonPlans, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'weekly-progress' => TeacherWeeklyLearningPage(repository: _weeklyLearning, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'syllabus' => TeacherSyllabusPage(repository: _syllabus, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'assignments' => TeacherAssignmentsPage(repository: _assignments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'assessments' => TeacherAssessmentsPage(repository: _assessments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'cbt' => TeacherCbtPage(repository: _cbt, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'learning-progress' => TeacherLearningProgressPage(repository: _learningProgress, onNavigate: _select),
+        'students' => TeacherStudentsPage(repository: _students, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'messages' => TeacherMessagesPage(repository: _messages, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'ai' => TeacherAiPage(repository: _teacherAi, onNavigate: _select),
+        'performance' => TeacherPerformancePage(repository: _performance, onNavigate: _select),
+        'profile' => TeacherProfilePage(repository: _profile, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        _ => TeacherDashboardPage(schoolName: widget.membership.schoolName, onNavigate: _select),
       };
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-        builder: (context, constraints) =>
-            constraints.maxWidth < 700 ? _phone() : _wide(constraints),
+        builder: (context, constraints) => constraints.maxWidth < 700 ? _phone() : _wide(constraints),
       );
 
   Widget _phone() => Scaffold(
@@ -308,24 +202,15 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                widget.membership.schoolName,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
+              Text(widget.membership.schoolName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
               const Text('Teacher Portal', style: TextStyle(fontSize: 12)),
             ],
           ),
           actions: [
             if (widget.schoolSession.canSwitchSchool)
-              _SchoolSwitcherButton(
-                memberships: widget.schoolSession.memberships,
-                onSelected: _switchSchool,
-              ),
+              _SchoolSwitcherButton(memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
             IconButton(
-              tooltip: _pendingSyncCount == 0
-                  ? 'Sync Center'
-                  : 'Sync Center · $_pendingSyncCount pending',
+              tooltip: _pendingSyncCount == 0 ? 'Sync Center' : 'Sync Center · $_pendingSyncCount pending',
               onPressed: _openSyncCenter,
               icon: Badge(
                 isLabelVisible: _pendingSyncCount > 0,
@@ -346,21 +231,14 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           child: SafeArea(
             child: ListView(
               children: [
-                const ListTile(
-                  title: Text(
-                    'Teacher Portal',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  subtitle: Text('Teaching workspace'),
-                ),
+                const ListTile(title: Text('Teacher Portal', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: Text('Teaching workspace')),
                 const Divider(),
                 for (final item in teacherNavigation)
                   ListTile(
                     selected: item.key == _activeKey,
                     leading: Icon(_iconFor(item.key)),
                     title: Text(item.label),
-                    trailing:
-                        item.key == 'ai' ? const Chip(label: Text('AI')) : null,
+                    trailing: item.key == 'ai' ? const Chip(label: Text('AI')) : null,
                     onTap: () {
                       Navigator.of(context).pop();
                       _select(item.key);
@@ -376,10 +254,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               color: Theme.of(context).colorScheme.surfaceContainerLow,
-              child: Text(
-                _activeItem.label,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
+              child: Text(_activeItem.label, style: const TextStyle(fontWeight: FontWeight.w800)),
             ),
             Expanded(child: _content()),
           ],
@@ -394,13 +269,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           SafeArea(
             child: Container(
               width: extended ? 290 : 88,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-              ),
+              decoration: BoxDecoration(border: Border(right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant))),
               child: Column(
                 children: [
                   Padding(
@@ -409,10 +278,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                         ? const ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: CircleAvatar(child: Text('S')),
-                            title: Text(
-                              'SchoolOS',
-                              style: TextStyle(fontWeight: FontWeight.w900),
-                            ),
+                            title: Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)),
                             subtitle: Text('Teacher Portal'),
                           )
                         : const CircleAvatar(child: Text('S')),
@@ -427,18 +293,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'ACTIVE WORKSPACE',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
+                              const Text('ACTIVE WORKSPACE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                               const SizedBox(height: 4),
-                              Text(
-                                widget.membership.schoolName,
-                                style: const TextStyle(fontWeight: FontWeight.w900),
-                              ),
+                              Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)),
                               const Text(teacherCampusLabel, style: TextStyle(fontSize: 12)),
                             ],
                           ),
@@ -451,13 +308,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                         for (final item in teacherNavigation)
                           ListTile(
                             selected: item.key == _activeKey,
-                            selectedTileColor:
-                                Theme.of(context).colorScheme.primaryContainer,
+                            selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
                             leading: Icon(_iconFor(item.key)),
                             title: extended ? Text(item.label) : null,
-                            trailing: extended && item.key == 'ai'
-                                ? const Chip(label: Text('AI'))
-                                : null,
+                            trailing: extended && item.key == 'ai' ? const Chip(label: Text('AI')) : null,
                             onTap: () => _select(item.key),
                           ),
                       ],
@@ -470,16 +324,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Weekly compliance', style: TextStyle(fontSize: 12)),
-                          Text(
-                            '92%',
-                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-                          ),
+                          Text('92%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
                           LinearProgressIndicator(value: .92),
                           SizedBox(height: 6),
-                          Text(
-                            'Lesson plans, attendance & scores',
-                            style: TextStyle(fontSize: 12),
-                          ),
+                          Text('Lesson plans, attendance & scores', style: TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),
@@ -499,28 +347,18 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Teacher Workspace',
-                                style: TextStyle(fontWeight: FontWeight.w900),
-                              ),
+                              const Text('Teacher Workspace', style: TextStyle(fontWeight: FontWeight.w900)),
                               Text(_activeItem.label),
                             ],
                           ),
                         ),
                         if (widget.schoolSession.canSwitchSchool)
-                          _SchoolSwitcherButton(
-                            memberships: widget.schoolSession.memberships,
-                            onSelected: _switchSchool,
-                          ),
+                          _SchoolSwitcherButton(memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
                           onPressed: _openSyncCenter,
                           icon: const Icon(Icons.cloud_sync_outlined, size: 18),
-                          label: Text(
-                            _pendingSyncCount == 0
-                                ? 'Synced'
-                                : '$_pendingSyncCount pending',
-                          ),
+                          label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending'),
                         ),
                         const SizedBox(width: 12),
                         const CircleAvatar(child: Text('AY')),
@@ -529,10 +367,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                           const Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                teacherName,
-                                style: TextStyle(fontWeight: FontWeight.w800),
-                              ),
+                              Text(teacherName, style: TextStyle(fontWeight: FontWeight.w800)),
                               Text(teacherTitle, style: TextStyle(fontSize: 12)),
                             ],
                           ),
@@ -572,63 +407,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       };
 }
 
-class _UpcomingTeacherFeature extends StatelessWidget {
-  const _UpcomingTeacherFeature({
-    required this.item,
-    required this.onDashboard,
-  });
-
-  final TeacherNavItem item;
-  final VoidCallback onDashboard;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Card(
-              elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_TeacherWorkspacePageState._iconFor(item.key), size: 42),
-                    const SizedBox(height: 12),
-                    Text(
-                      item.label,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'This Teacher destination exists on the SchoolOS website and will be ported in sequence. It is intentionally not simulated yet.',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: onDashboard,
-                      icon: const Icon(Icons.dashboard_rounded),
-                      label: const Text('Back to dashboard'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-}
-
 class _SchoolSwitcherButton extends StatelessWidget {
-  const _SchoolSwitcherButton({
-    required this.memberships,
-    required this.onSelected,
-  });
+  const _SchoolSwitcherButton({required this.memberships, required this.onSelected});
 
   final List<SchoolMembership> memberships;
   final ValueChanged<SchoolMembership> onSelected;
