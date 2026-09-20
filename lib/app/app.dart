@@ -6,6 +6,7 @@ import '../features/dashboard/presentation/dashboard_page.dart';
 import '../features/finance_office/presentation/finance_office_workspace_page.dart';
 import '../features/principal/presentation/principal_workspace_page.dart';
 import '../features/proprietor/presentation/proprietor_workspace_page.dart';
+import '../features/teacher/presentation/teacher_workspace_page.dart';
 import '../shared/models/school_membership.dart';
 import 'app_services.dart';
 
@@ -64,6 +65,13 @@ class SchoolOsApp extends StatelessWidget {
           );
         } else if (restoredMembership.role == SchoolRole.accountant) {
           home = FinanceOfficeWorkspacePage(
+            membership: restoredMembership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+          );
+        } else if (restoredMembership.role == SchoolRole.teacher) {
+          home = TeacherWorkspacePage(
             membership: restoredMembership,
             localDatabase: services.localDatabase,
             schoolSession: services.schoolSession,
