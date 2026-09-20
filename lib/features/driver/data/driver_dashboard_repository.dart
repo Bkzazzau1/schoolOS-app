@@ -6,6 +6,7 @@ import '../../transport/domain/transport_models.dart';
 import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
 import '../domain/driver_morning_run_models.dart';
+import '../domain/driver_vehicle_check_models.dart';
 import 'driver_dashboard_demo_data.dart';
 
 class DriverDashboardRepository {
@@ -22,6 +23,7 @@ class DriverDashboardRepository {
   static const assignmentEntityType = 'driver_transport_assignment';
   static const morningRunEntityType = 'driver_morning_run';
   static const afternoonRunEntityType = 'driver_afternoon_run';
+  static const vehicleCheckEntityType = 'driver_vehicle_check';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -97,6 +99,43 @@ class DriverDashboardRepository {
       status: routeStatus,
     );
 
+    final nextCheckPeriod = _nextVehicleCheckPeriod(morningRun, afternoonRun);
+    DriverVehicleCheck? nextCheck;
+    if (nextCheckPeriod != null) {
+      final checkRecord = await _localDatabase.getLocalRecord(
+        tenantId: membership.schoolId,
+        entityType: vehicleCheckEntityType,
+        entityId:
+            '${membership.id}:vehicle-check:$today:${nextCheckPeriod.name}',
+      );
+      if (checkRecord != null) {
+        nextCheck = DriverVehicleCheck.fromJson(checkRecord.payload);
+        if (nextCheck.membershipId != membership.id ||
+            nextCheck.routeId != assignment.routeId ||
+            nextCheck.period != nextCheckPeriod ||
+            nextCheck.serviceDate != today) {
+          throw StateError(
+            'Today\'s vehicle check is not valid for this Driver assignment.',
+          );
+        }
+      }
+    }
+
+    final vehicleCheckRequired = nextCheckPeriod != null &&
+        nextCheck?.status != DriverVehicleCheckStatus.ready;
+    final vehicleCheckSummary = nextCheckPeriod == null
+        ? 'No pre-trip check currently pending'
+        : '${nextCheckPeriod.label} · ${nextCheck?.status.label ?? DriverVehicleCheckStatus.notStarted.label}';
+
+    final operationalNextAction = _nextAction(
+      displayRoute,
+      morningRun,
+      afternoonRun,
+    );
+    final nextAction = vehicleCheckRequired && nextCheckPeriod != null
+        ? _vehicleCheckAction(nextCheckPeriod, nextCheck)
+        : operationalNextAction;
+
     return DriverDashboardSnapshot(
       assignment: assignment,
       route: displayRoute,
@@ -109,12 +148,9 @@ class DriverDashboardRepository {
       afternoonSafeReleased: afternoonSafeReleased,
       afternoonStillOnBus: afternoonStillOnBus,
       afternoonSummary: afternoonSummary,
-      vehicleCheckRequired: true,
-      nextAction: _nextAction(
-        displayRoute,
-        morningRun,
-        afternoonRun,
-      ),
+      vehicleCheckRequired: vehicleCheckRequired,
+      vehicleCheckSummary: vehicleCheckSummary,
+      nextAction: nextAction,
     );
   }
 
@@ -188,6 +224,36 @@ class DriverDashboardRepository {
         'Today\'s afternoon run is not valid for this Driver assignment.',
       );
     }
+  }
+
+  DriverVehicleCheckPeriod? _nextVehicleCheckPeriod(
+    DriverMorningRun? morning,
+    DriverAfternoonRun? afternoon,
+  ) {
+    if (morning == null || morning.status == DriverMorningRunStatus.notStarted) {
+      return DriverVehicleCheckPeriod.morning;
+    }
+    if (morning.status != DriverMorningRunStatus.completed) {
+      return null;
+    }
+    if (afternoon == null ||
+        afternoon.status == DriverAfternoonRunStatus.notStarted) {
+      return DriverVehicleCheckPeriod.afternoon;
+    }
+    return null;
+  }
+
+  String _vehicleCheckAction(
+    DriverVehicleCheckPeriod period,
+    DriverVehicleCheck? check,
+  ) {
+    if (check?.status == DriverVehicleCheckStatus.blocked) {
+      return '${period.label} vehicle check is blocked by ${check!.blockingFailureCount} safety defect${check.blockingFailureCount == 1 ? '' : 's'}.';
+    }
+    if (check?.status == DriverVehicleCheckStatus.inProgress) {
+      return 'Finish and submit the ${period.label.toLowerCase()} vehicle check before departure.';
+    }
+    return 'Complete the ${period.label.toLowerCase()} vehicle check before starting this transport run.';
   }
 
   TransportRouteStatus _displayRouteStatus(
