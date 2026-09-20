@@ -13,6 +13,7 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/teacher_assignment_repository.dart';
 import '../data/teacher_assessment_repository.dart';
 import '../data/teacher_attendance_repository.dart';
+import '../data/teacher_cbt_repository.dart';
 import '../data/teacher_classes_repository.dart';
 import '../data/teacher_dashboard_demo_data.dart';
 import '../data/teacher_lesson_plan_repository.dart';
@@ -23,6 +24,7 @@ import '../domain/teacher_dashboard_models.dart';
 import 'teacher_assignments_page.dart';
 import 'teacher_assessments_page.dart';
 import 'teacher_attendance_page.dart';
+import 'teacher_cbt_page.dart';
 import 'teacher_classes_page.dart';
 import 'teacher_dashboard_page.dart';
 import 'teacher_lesson_plans_page.dart';
@@ -60,6 +62,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   late final TeacherSyllabusRepository _syllabus;
   late final TeacherAssignmentRepository _assignments;
   late final TeacherAssessmentRepository _assessments;
+  late final TeacherCbtRepository _cbt;
 
   TeacherNavItem get _activeItem => teacherNavigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -98,6 +101,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _assessments = TeacherAssessmentRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _cbt = TeacherCbtRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -219,6 +226,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           ),
         'assessments' => TeacherAssessmentsPage(
             repository: _assessments,
+            onNavigate: _select,
+            onMutationQueued: _refreshPendingCount,
+          ),
+        'cbt' => TeacherCbtPage(
+            repository: _cbt,
             onNavigate: _select,
             onMutationQueued: _refreshPendingCount,
           ),
