@@ -11,6 +11,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../attendance/data/attendance_repository.dart';
 import '../../attendance/presentation/attendance_page.dart';
+import '../../driver/presentation/driver_workspace_page.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
 import '../../parent/presentation/parent_workspace_page.dart';
 import '../../teacher/presentation/teacher_workspace_page.dart';
@@ -128,6 +129,13 @@ class _DashboardPageState extends State<DashboardPage> {
         schoolSession: widget.schoolSession,
         schoolAppearance: appearance,
       );
+    } else if (membership.role == SchoolRole.driver && appearance != null) {
+      page = DriverWorkspacePage(
+        membership: membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
     } else {
       page = DashboardPage(
         membership: membership,
@@ -216,6 +224,14 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     if (widget.membership.role == SchoolRole.principal && appearance != null) {
       return PrincipalWorkspacePage(
+        membership: widget.membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    }
+    if (widget.membership.role == SchoolRole.driver && appearance != null) {
+      return DriverWorkspacePage(
         membership: widget.membership,
         localDatabase: widget.localDatabase,
         schoolSession: widget.schoolSession,
