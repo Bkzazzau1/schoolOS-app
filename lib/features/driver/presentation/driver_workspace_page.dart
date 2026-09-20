@@ -8,12 +8,14 @@ import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/driver_afternoon_run_repository.dart';
 import '../data/driver_dashboard_repository.dart';
+import '../data/driver_incident_repository.dart';
 import '../data/driver_morning_run_repository.dart';
 import '../data/driver_riders_repository.dart';
 import '../data/driver_route_repository.dart';
 import '../data/driver_vehicle_check_repository.dart';
 import 'driver_afternoon_run_page.dart';
 import 'driver_dashboard_page.dart';
+import 'driver_incidents_page.dart';
 import 'driver_morning_run_page.dart';
 import 'driver_riders_page.dart';
 import 'driver_route_page.dart';
@@ -46,6 +48,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
   late final DriverRidersRepository _ridersRepository;
   late final DriverRouteRepository _routeRepository;
   late final DriverVehicleCheckRepository _vehicleCheckRepository;
+  late final DriverIncidentRepository _incidentRepository;
 
   static const _navigation = <_DriverNavItem>[
     _DriverNavItem('dashboard', 'Dashboard', Icons.dashboard_rounded),
@@ -92,6 +95,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _vehicleCheckRepository = DriverVehicleCheckRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _incidentRepository = DriverIncidentRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -167,6 +174,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
         'vehicle-check' => DriverVehicleCheckPage(
             repository: _vehicleCheckRepository,
             onCheckChanged: _refreshPendingCount,
+          ),
+        'incidents' => DriverIncidentsPage(
+            repository: _incidentRepository,
+            onIncidentChanged: _refreshPendingCount,
           ),
         _ => _UpcomingDriverFeature(
             item: _activeItem,
