@@ -6,8 +6,10 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../data/driver_afternoon_run_repository.dart';
 import '../data/driver_dashboard_repository.dart';
 import '../data/driver_morning_run_repository.dart';
+import 'driver_afternoon_run_page.dart';
 import 'driver_dashboard_page.dart';
 import 'driver_morning_run_page.dart';
 
@@ -34,6 +36,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
   int _pendingSyncCount = 0;
   late final DriverDashboardRepository _dashboardRepository;
   late final DriverMorningRunRepository _morningRunRepository;
+  late final DriverAfternoonRunRepository _afternoonRunRepository;
 
   static const _navigation = <_DriverNavItem>[
     _DriverNavItem('dashboard', 'Dashboard', Icons.dashboard_rounded),
@@ -41,7 +44,11 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
     _DriverNavItem('afternoon', 'Afternoon Run', Icons.nights_stay_outlined),
     _DriverNavItem('riders', 'Riders', Icons.groups_2_outlined),
     _DriverNavItem('route', 'Route & Stops', Icons.route_outlined),
-    _DriverNavItem('vehicle-check', 'Vehicle Check', Icons.health_and_safety_outlined),
+    _DriverNavItem(
+      'vehicle-check',
+      'Vehicle Check',
+      Icons.health_and_safety_outlined,
+    ),
     _DriverNavItem('incidents', 'Incidents', Icons.report_problem_outlined),
     _DriverNavItem('messages', 'Messages & Alerts', Icons.mail_outline_rounded),
     _DriverNavItem('history', 'Trip History & Profile', Icons.history_rounded),
@@ -60,6 +67,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
       schoolSession: widget.schoolSession,
     );
     _morningRunRepository = DriverMorningRunRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _afternoonRunRepository = DriverAfternoonRunRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -121,6 +132,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
           ),
         'morning' => DriverMorningRunPage(
             repository: _morningRunRepository,
+            onRunChanged: _refreshPendingCount,
+          ),
+        'afternoon' => DriverAfternoonRunPage(
+            repository: _afternoonRunRepository,
             onRunChanged: _refreshPendingCount,
           ),
         _ => _UpcomingDriverFeature(
@@ -185,8 +200,13 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
           child: Column(
             children: [
               const ListTile(
-                leading: CircleAvatar(child: Icon(Icons.directions_bus_outlined)),
-                title: Text('Driver Portal', style: TextStyle(fontWeight: FontWeight.w900)),
+                leading: CircleAvatar(
+                  child: Icon(Icons.directions_bus_outlined),
+                ),
+                title: Text(
+                  'Driver Portal',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
                 subtitle: Text('Assigned transport duties only'),
               ),
               const Divider(),
@@ -197,7 +217,8 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
                     for (final item in _navigation)
                       ListTile(
                         selected: item.key == _activeKey,
-                        selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
+                        selectedTileColor:
+                            Theme.of(context).colorScheme.primaryContainer,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -252,8 +273,12 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
                   Padding(
                     padding: const EdgeInsets.all(14),
                     child: extended
-                        ? _DriverIdentityCard(schoolName: widget.membership.schoolName)
-                        : const CircleAvatar(child: Icon(Icons.directions_bus_outlined)),
+                        ? _DriverIdentityCard(
+                            schoolName: widget.membership.schoolName,
+                          )
+                        : const CircleAvatar(
+                            child: Icon(Icons.directions_bus_outlined),
+                          ),
                   ),
                   Expanded(
                     child: ListView(
@@ -267,7 +292,8 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
                               child: ListTile(
                                 dense: true,
                                 selected: item.key == _activeKey,
-                                selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
+                                selectedTileColor:
+                                    Theme.of(context).colorScheme.primaryContainer,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -341,7 +367,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
 }
 
 class _UpcomingDriverFeature extends StatelessWidget {
-  const _UpcomingDriverFeature({required this.item, required this.onDashboard});
+  const _UpcomingDriverFeature({
+    required this.item,
+    required this.onDashboard,
+  });
 
   final _DriverNavItem item;
   final VoidCallback onDashboard;
@@ -360,7 +389,11 @@ class _UpcomingDriverFeature extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(item.icon, size: 44, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    item.icon,
+                    size: 44,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     item.label,
@@ -405,7 +438,10 @@ class _DriverIdentityCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)),
+              const Text(
+                'SchoolOS',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
               Text(
                 '$schoolName · Driver Portal',
                 maxLines: 2,
@@ -470,7 +506,9 @@ class _SchoolSwitcherButton extends StatelessWidget {
                   const SizedBox(width: 7),
                 ],
                 Expanded(
-                  child: Text('${membership.schoolName} · ${membership.roleLabel}'),
+                  child: Text(
+                    '${membership.schoolName} · ${membership.roleLabel}',
+                  ),
                 ),
               ],
             ),
