@@ -466,6 +466,8 @@ class _ConversationDialogState extends State<_ConversationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final dialogHeight = screenHeight < 700 ? screenHeight * .62 : 520.0;
     return AlertDialog(
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -479,49 +481,45 @@ class _ConversationDialogState extends State<_ConversationDialog> {
       ),
       content: SizedBox(
         width: 620,
+        height: dialogHeight,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Flexible(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 360),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: widget.thread.messages.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final message = widget.thread.messages[index];
-                    final outgoing = message.isDriverMessage;
-                    return Align(
-                      alignment: outgoing
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 440),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: outgoing
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : Theme.of(context).colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(message.body),
-                              const SizedBox(height: 5),
-                              Text(
-                                '${message.timeLabel} · ${message.state.label}',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
+            Expanded(
+              child: ListView.separated(
+                itemCount: widget.thread.messages.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final message = widget.thread.messages[index];
+                  final outgoing = message.isDriverMessage;
+                  return Align(
+                    alignment: outgoing
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: outgoing
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Theme.of(context).colorScheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(message.body),
+                            const SizedBox(height: 5),
+                            Text(
+                              '${message.timeLabel} · ${message.state.label}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 14),
