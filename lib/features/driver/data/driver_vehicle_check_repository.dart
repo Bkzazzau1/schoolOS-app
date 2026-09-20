@@ -4,7 +4,9 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../transport/data/transport_repository.dart';
 import '../../transport/domain/transport_models.dart';
+import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
+import '../domain/driver_morning_run_models.dart';
 import '../domain/driver_vehicle_check_models.dart';
 import 'driver_dashboard_repository.dart';
 import 'driver_vehicle_check_demo_data.dart';
@@ -84,6 +86,7 @@ class DriverVehicleCheckRepository {
     }
 
     final check = await loadToday(period);
+    await _ensureEditable(member, check);
     final index = check.items.indexWhere((item) => item.id == itemId);
     if (index < 0) throw ArgumentError('Vehicle check item was not found.');
 
@@ -115,6 +118,7 @@ class DriverVehicleCheckRepository {
   Future<DriverVehicleCheck> submit(DriverVehicleCheckPeriod period) async {
     final member = _requireDriver();
     final check = await loadToday(period);
+    await _ensureEditable(member, check);
     if (!check.allChecked) {
       final remaining = check.items.where((item) => !item.isChecked).length;
       throw StateError(
@@ -162,6 +166,40 @@ class DriverVehicleCheckRepository {
     throw StateError(
       'Complete and submit the ${period.label.toLowerCase()} vehicle check before starting this transport run.',
     );
+  }
+
+  Future<void> _ensureEditable(
+    SchoolMembership member,
+    DriverVehicleCheck check,
+  ) async {
+    if (check.period == DriverVehicleCheckPeriod.morning) {
+      final record = await _localDatabase.getLocalRecord(
+        tenantId: member.schoolId,
+        entityType: 'driver_morning_run',
+        entityId: '${member.id}:morning:${check.serviceDate}',
+      );
+      if (record == null) return;
+      final run = DriverMorningRun.fromJson(record.payload);
+      if (run.status != DriverMorningRunStatus.notStarted) {
+        throw StateError(
+          'The morning vehicle check is locked because the morning run has already started.',
+        );
+      }
+      return;
+    }
+
+    final record = await _localDatabase.getLocalRecord(
+      tenantId: member.schoolId,
+      entityType: 'driver_afternoon_run',
+      entityId: '${member.id}:afternoon:${check.serviceDate}',
+    );
+    if (record == null) return;
+    final run = DriverAfternoonRun.fromJson(record.payload);
+    if (run.status != DriverAfternoonRunStatus.notStarted) {
+      throw StateError(
+        'The afternoon vehicle check is locked because afternoon service has already started.',
+      );
+    }
   }
 
   Future<DriverTransportAssignment> _loadAssignment(
