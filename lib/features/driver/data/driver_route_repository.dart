@@ -4,6 +4,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../transport/data/transport_repository.dart';
 import '../../transport/data/transport_route_management_repository.dart';
 import '../../transport/domain/transport_models.dart';
+import '../../transport/domain/transport_route_management_models.dart';
 import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
 import '../domain/driver_morning_run_models.dart';
@@ -108,7 +109,7 @@ class DriverRouteRepository {
 
   List<DriverRouteStopView> _plannedMorningStops(
     String routeId,
-    List<dynamic> configuredStops,
+    List<TransportStopDefinition> configuredStops,
   ) {
     final riderCounts = routeId == 'BUS-02'
         ? <String, int>{
@@ -119,10 +120,10 @@ class DriverRouteRepository {
     return [
       for (final stop in configuredStops)
         DriverRouteStopView(
-          id: stop.id as String,
-          sequence: stop.sequence as int,
-          name: stop.name as String,
-          scheduledTime: stop.morningTime as String,
+          id: stop.id,
+          sequence: stop.sequence,
+          name: stop.name,
+          scheduledTime: stop.morningTime,
           assignedRiders: riderCounts[stop.id] ?? 0,
           state: DriverRouteStopState.pending,
           primaryCount: 0,
@@ -135,7 +136,7 @@ class DriverRouteRepository {
 
   List<DriverRouteStopView> _plannedAfternoonStops(
     String routeId,
-    List<dynamic> configuredStops,
+    List<TransportStopDefinition> configuredStops,
   ) {
     final riderCounts = routeId == 'BUS-02'
         ? <String, int>{
@@ -147,10 +148,10 @@ class DriverRouteRepository {
     return [
       for (var index = 0; index < reversed.length; index++)
         DriverRouteStopView(
-          id: reversed[index].id as String,
+          id: reversed[index].id,
           sequence: index + 1,
-          name: reversed[index].name as String,
-          scheduledTime: reversed[index].afternoonTime as String,
+          name: reversed[index].name,
+          scheduledTime: reversed[index].afternoonTime,
           assignedRiders: riderCounts[reversed[index].id] ?? 0,
           state: DriverRouteStopState.pending,
           primaryCount: 0,
