@@ -55,8 +55,11 @@ class TeacherAssessmentScoreEntry {
   final String studentId;
   final int score;
 
-  TeacherAssessmentScoreEntry copyWith({int? score}) =>
-      TeacherAssessmentScoreEntry(studentId: studentId, score: score ?? this.score);
+  TeacherAssessmentScoreEntry copyWith({num? score}) =>
+      TeacherAssessmentScoreEntry(
+        studentId: studentId,
+        score: (score ?? this.score).toInt(),
+      );
 
   Map<String, Object?> toJson() => {'studentId': studentId, 'score': score};
 
