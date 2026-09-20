@@ -47,7 +47,14 @@ class SchoolTransportRoute {
     return queryMatches && statusMatches;
   }
 
-  SchoolTransportRoute copyWith({bool? reviewed}) => SchoolTransportRoute(
+  SchoolTransportRoute copyWith({
+    String? morning,
+    String? afternoon,
+    TransportRouteStatus? status,
+    String? note,
+    bool? reviewed,
+  }) =>
+      SchoolTransportRoute(
         id: id,
         name: name,
         vehicle: vehicle,
@@ -55,10 +62,10 @@ class SchoolTransportRoute {
         assistant: assistant,
         riders: riders,
         stops: stops,
-        morning: morning,
-        afternoon: afternoon,
-        status: status,
-        note: note,
+        morning: morning ?? this.morning,
+        afternoon: afternoon ?? this.afternoon,
+        status: status ?? this.status,
+        note: note ?? this.note,
         reviewed: reviewed ?? this.reviewed,
       );
 
