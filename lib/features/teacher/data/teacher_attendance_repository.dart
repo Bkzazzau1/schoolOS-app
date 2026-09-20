@@ -17,7 +17,29 @@ class TeacherAttendanceActionResult {
   final TeacherAttendanceRegister? register;
 }
 
-class TeacherAttendanceRepository {
+abstract class TeacherAttendanceDataSource {
+  Future<TeacherAttendanceSnapshot> load();
+
+  Future<TeacherAttendanceActionResult> setStatus({
+    required String lessonId,
+    required String studentId,
+    required TeacherAttendanceStatus status,
+  });
+
+  Future<TeacherAttendanceActionResult> setNote({
+    required String lessonId,
+    required String studentId,
+    required String note,
+  });
+
+  Future<TeacherAttendanceActionResult> markAllPresent({
+    required String lessonId,
+  });
+
+  Future<TeacherAttendanceActionResult> submit({required String lessonId});
+}
+
+class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
   TeacherAttendanceRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
@@ -40,6 +62,7 @@ class TeacherAttendanceRepository {
     );
   }
 
+  @override
   Future<TeacherAttendanceSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
     await _seedIfNeeded(membership);
@@ -63,6 +86,7 @@ class TeacherAttendanceRepository {
     );
   }
 
+  @override
   Future<TeacherAttendanceActionResult> setStatus({
     required String lessonId,
     required String studentId,
@@ -84,6 +108,7 @@ class TeacherAttendanceRepository {
     );
   }
 
+  @override
   Future<TeacherAttendanceActionResult> setNote({
     required String lessonId,
     required String studentId,
@@ -105,6 +130,7 @@ class TeacherAttendanceRepository {
     );
   }
 
+  @override
   Future<TeacherAttendanceActionResult> markAllPresent({
     required String lessonId,
   }) async {
@@ -122,6 +148,7 @@ class TeacherAttendanceRepository {
     );
   }
 
+  @override
   Future<TeacherAttendanceActionResult> submit({required String lessonId}) async {
     final membership = _schoolSession.requireActiveMembership();
     final permissions = permissionsFor(membership);
