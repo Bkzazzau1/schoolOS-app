@@ -113,8 +113,10 @@ class TransportPermissions {
   const TransportPermissions({
     required this.canReviewRoutes,
     required this.canViewOperationsControl,
+    required this.canManageDriverAssignments,
   });
 
   final bool canReviewRoutes;
   final bool canViewOperationsControl;
+  final bool canManageDriverAssignments;
 }
