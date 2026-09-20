@@ -161,6 +161,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'payroll' => FinancePayrollPage(
           localDatabase: widget.localDatabase,
           schoolSession: widget.schoolSession,
+          onChanged: _refreshPendingCount,
         ),
         'reports' => const FinanceReportsPage(),
         'ai' => const FinanceAiPage(),

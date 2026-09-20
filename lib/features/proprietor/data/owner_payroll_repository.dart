@@ -264,9 +264,10 @@ class OwnerPayrollRepository {
 
 /// What the signed-in member may do with payroll.
 ///
-/// The owner may do everything. Anyone else, including a finance officer,
-/// needs an active authorizer record linked to their membership; without one
-/// they have no payroll access.
+/// The owner may do everything. A finance officer can always view and prepare
+/// payroll, since that is their job, but approving a batch and releasing
+/// payment need an active authorizer record linked to their membership. Other
+/// roles need such a record for any payroll access.
 Set<String> payrollAuthoritiesFor(
   SchoolMembership member,
   Iterable<PayrollAuthorizer> authorizers,
@@ -275,6 +276,7 @@ Set<String> payrollAuthoritiesFor(
     return payrollAuthorityLabels.keys.toSet();
   }
   return {
+    if (member.role == SchoolRole.accountant) ...{'view', 'prepare'},
     for (final a in authorizers)
       if (a.status == 'active' && a.membershipId == member.id) ...a.authorities,
   };

@@ -6,7 +6,9 @@ import '../../administrator/data/administrator_staff_attendance_repository.dart'
 import '../../administrator/data/administrator_staff_repository.dart';
 import '../../administrator/domain/administrator_staff_attendance_models.dart';
 import '../../administrator/domain/administrator_staff_models.dart';
+import '../../../core/identity/identity_normalizer.dart';
 import '../domain/owner_staff_profile_models.dart';
+import 'staff_identity.dart';
 
 /// Which parts of a staff record a role may see and change.
 ///
@@ -62,6 +64,15 @@ StaffProfileAccess staffProfileAccessFor(SchoolRole role) => switch (role) {
   ),
   _ => const StaffProfileAccess(),
 };
+
+/// A phone number or NIN that already belongs to someone else.
+class DuplicateIdentityError implements Exception {
+  DuplicateIdentityError(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 class StaffProfileView {
   const StaffProfileView({
@@ -174,13 +185,44 @@ class OwnerStaffProfileRepository {
     );
   }
 
-  Future<void> savePersonal(String staffId, StaffPersonalInfo info) {
+  /// Saves personal details. Phone and NIN are stored normalized and must not
+  /// belong to any other staff member or pending proposal.
+  Future<void> savePersonal(
+    String staffId,
+    StaffPersonalInfo info, {
+    String? excludeProposalId,
+  }) async {
+    final owner = _owner();
     final email = info.email.trim();
     if (email.isNotEmpty &&
         !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
       throw ArgumentError('Enter a valid email address.');
     }
-    return _update(staffId, (p) => p.copyWith(personal: info));
+    String? phone;
+    if (info.phone.trim().isNotEmpty) {
+      phone = normalizeNigerianPhone(info.phone);
+      if (phone == null) {
+        throw ArgumentError('Enter a valid Nigerian phone number, for example 0803 123 4567.');
+      }
+    }
+    String? nin;
+    if (info.nin.trim().isNotEmpty) {
+      nin = normalizeNin(info.nin);
+      if (nin == null) throw ArgumentError('A NIN is exactly 11 digits.');
+    }
+    final matches = await findStaffIdentityMatches(
+      database,
+      owner.schoolId,
+      phone: phone,
+      nin: nin,
+      excludeStaffId: staffId,
+      excludeProposalId: excludeProposalId,
+    );
+    if (matches.isNotEmpty) {
+      throw DuplicateIdentityError(matches.map((m) => m.message).toSet().join(' '));
+    }
+    final clean = info.copyWith(phone: phone ?? '', nin: nin ?? '');
+    await _update(staffId, (p) => p.copyWith(personal: clean));
   }
 
   /// Bank details can only be changed by the staff member themselves, from

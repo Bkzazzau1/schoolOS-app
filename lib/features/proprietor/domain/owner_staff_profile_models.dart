@@ -15,6 +15,7 @@ int studyLevelRank(String level) => studyLevels.indexOf(level);
 class StaffPersonalInfo {
   const StaffPersonalInfo({
     this.phone = '',
+    this.nin = '',
     this.email = '',
     this.address = '',
     this.dateOfBirth = '',
@@ -26,7 +27,10 @@ class StaffPersonalInfo {
     this.employmentType = '',
   });
 
+  /// Phone and NIN are each unique to one staff member. They are stored
+  /// normalized (11 digits) so duplicates can be found reliably.
   final String phone;
+  final String nin;
   final String email;
   final String address;
   final String dateOfBirth;
@@ -37,8 +41,23 @@ class StaffPersonalInfo {
   final String employmentDate;
   final String employmentType;
 
+  StaffPersonalInfo copyWith({String? phone, String? nin}) => StaffPersonalInfo(
+    phone: phone ?? this.phone,
+    nin: nin ?? this.nin,
+    email: email,
+    address: address,
+    dateOfBirth: dateOfBirth,
+    gender: gender,
+    stateOfOrigin: stateOfOrigin,
+    nextOfKinName: nextOfKinName,
+    nextOfKinPhone: nextOfKinPhone,
+    employmentDate: employmentDate,
+    employmentType: employmentType,
+  );
+
   Map<String, Object?> toJson() => {
     'phone': phone,
+    'nin': nin,
     'email': email,
     'address': address,
     'dateOfBirth': dateOfBirth,
@@ -53,6 +72,7 @@ class StaffPersonalInfo {
   factory StaffPersonalInfo.fromJson(Map<String, Object?> json) =>
       StaffPersonalInfo(
         phone: json['phone'] as String? ?? '',
+        nin: json['nin'] as String? ?? '',
         email: json['email'] as String? ?? '',
         address: json['address'] as String? ?? '',
         dateOfBirth: json['dateOfBirth'] as String? ?? '',

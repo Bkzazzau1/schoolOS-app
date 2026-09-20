@@ -56,6 +56,7 @@ import 'owner_jobs_page.dart';
 import 'owner_payroll_page.dart';
 import 'owner_staff_profiles_page.dart';
 import '../data/owner_staff_profile_repository.dart';
+import '../data/staff_proposal_repository.dart';
 import '../data/owner_payroll_repository.dart';
 import '../../administrator/presentation/administrator_staff_page.dart';
 import '../../administrator/data/administrator_staff_repository.dart';
@@ -546,6 +547,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
       _pushSharedModule(title: 'Staff Records', body: AdministratorStaffPage(
         schoolName: widget.membership.schoolName,
         repository: AdministratorStaffRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+        proposals: StaffProposalRepository(database: widget.localDatabase, session: widget.schoolSession),
       ));
       return;
     }
@@ -559,6 +561,8 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
   Widget _buildContent() {
     return switch (_activeModule) {
       'staff-profiles' => OwnerStaffProfilesPage(
+          proposals: StaffProposalRepository(
+            database: widget.localDatabase, session: widget.schoolSession),
           repository: OwnerStaffProfileRepository(
             database: widget.localDatabase, session: widget.schoolSession),
           onChanged: _refreshPendingCount,

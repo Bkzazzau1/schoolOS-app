@@ -1,4 +1,5 @@
 import '../../proprietor/data/owner_staff_profile_repository.dart';
+import '../../proprietor/data/staff_proposal_repository.dart';
 import '../../proprietor/presentation/owner_staff_profiles_page.dart';
 import 'package:flutter/material.dart';
 
@@ -272,12 +273,20 @@ class _AdministratorWorkspacePageState
       return AdministratorStaffPage(
         schoolName: widget.membership.schoolName,
         repository: _staffRepository,
+        proposals: StaffProposalRepository(
+          database: widget.localDatabase,
+          session: widget.schoolSession,
+        ),
       );
     }
 
     if (_activeKey == 'staff-profiles') {
       return OwnerStaffProfilesPage(
         repository: OwnerStaffProfileRepository(
+          database: widget.localDatabase,
+          session: widget.schoolSession,
+        ),
+        proposals: StaffProposalRepository(
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),

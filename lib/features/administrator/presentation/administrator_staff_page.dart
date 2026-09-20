@@ -1,31 +1,30 @@
 import 'package:flutter/material.dart';
 
+import '../../proprietor/data/staff_proposal_repository.dart';
+import '../../proprietor/presentation/staff_proposals_ui.dart';
 import '../data/administrator_staff_demo_data.dart';
 import '../data/administrator_staff_repository.dart';
 import '../domain/administrator_staff_models.dart';
-import '../domain/support_staff_roles.dart';
 
 class AdministratorStaffPage extends StatefulWidget {
   const AdministratorStaffPage({
     super.key,
     required this.schoolName,
     required this.repository,
+    this.proposals,
   });
 
   final String schoolName;
   final AdministratorStaffRepository repository;
+
+  /// Adding staff goes through here so non-owners can only propose.
+  final StaffProposalRepository? proposals;
 
   @override
   State<AdministratorStaffPage> createState() => _AdministratorStaffPageState();
 }
 
 class _AdministratorStaffPageState extends State<AdministratorStaffPage> {
-  Future<void> _registerSupportStaff() async {
-    final saved = await showDialog<bool>(context: context,
-      barrierDismissible: false,
-      builder: (_) => _SupportStaffDialog(repository: widget.repository));
-    if (saved == true && mounted) await _load();
-  }
   bool _loading = true;
   String? _error;
   List<AdministratorStaffRecord> _staff = const [];
@@ -152,11 +151,10 @@ class _AdministratorStaffPageState extends State<AdministratorStaffPage> {
           padding: EdgeInsets.all(wide ? 28 : 16),
           children: [
             _Header(schoolName: widget.schoolName),
-            if (_permissions?.canReviewOperationalFile ?? false) Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.icon(onPressed: _registerSupportStaff,
-                icon: const Icon(Icons.person_add_alt_1),
-                label: const Text('Add support staff')),
+            if (widget.proposals != null) StaffProposalsPanel(
+              repository: widget.proposals!,
+              onChanged: () {},
+              onStaffAdded: _load,
             ),
             const SizedBox(height: 18),
             if (wide)
@@ -191,72 +189,6 @@ class _AdministratorStaffPageState extends State<AdministratorStaffPage> {
       },
     );
   }
-}
-
-class _SupportStaffDialog extends StatefulWidget {
-  const _SupportStaffDialog({required this.repository});
-  final AdministratorStaffRepository repository;
-  @override
-  State<_SupportStaffDialog> createState() => _SupportStaffDialogState();
-}
-
-class _SupportStaffDialogState extends State<_SupportStaffDialog> {
-  final _form = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _area = TextEditingController();
-  final _email = TextEditingController();
-  String _role = 'driver';
-  bool _saving = false;
-  String? _error;
-
-  Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
-    setState(() { _saving = true; _error = null; });
-    try {
-      await widget.repository.registerSupportStaff(name: _name.text, role: _role, workArea: _area.text, email: _email.text);
-      if (mounted) Navigator.of(context).pop(true);
-    } catch (error) {
-      if (mounted) setState(() { _saving = false; _error = error is ArgumentError ? '${error.message}' : 'Could not save the staff record. Please try again.'; });
-    }
-  }
-
-  @override
-  void dispose() { _name.dispose(); _area.dispose(); _email.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !_saving,
-    child: AlertDialog(
-      title: const Text('Add support staff'),
-      content: SizedBox(width: 460, child: SingleChildScrollView(child: Form(key: _form,
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('Create a staff record. Login access and job duties are assigned separately in Jobs & Delegation.'),
-          const SizedBox(height: 16),
-          TextFormField(controller: _name, enabled: !_saving,
-            decoration: const InputDecoration(labelText: 'Full name'),
-            validator: (value) => value == null || value.trim().isEmpty ? 'Enter the staff member’s name.' : null),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(initialValue: _role, isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Support role'),
-            items: [for (final role in supportStaffRoles.entries) DropdownMenuItem(value: role.key, child: Text(role.value))],
-            onChanged: _saving ? null : (role) => setState(() => _role = role!)),
-          const SizedBox(height: 12),
-          TextFormField(controller: _area, enabled: !_saving,
-            decoration: const InputDecoration(labelText: 'Campus / work area', hintText: 'For example: Main campus, Bus route 1, Primary block'),
-            validator: (value) => value == null || value.trim().isEmpty ? 'Enter a campus or work area.' : null),
-          const SizedBox(height: 12),
-          TextFormField(controller: _email, enabled: !_saving, keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Email (optional)', helperText: 'If given, an onboarding request is queued asking them to submit their details, documents, passport photo and bank details. The email is sent once delivery is connected.')),
-          const SizedBox(height: 12),
-          const Text('Onboarding documents will be marked as pending review.'),
-          if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-        ])))),
-      actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-        FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Saving…' : 'Save staff record')),
-      ],
-    ),
-  );
 }
 
 class _Header extends StatelessWidget {

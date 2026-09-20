@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../proprietor/data/owner_payroll_repository.dart';
+import '../../proprietor/data/payroll_batch_repository.dart';
+import '../../proprietor/data/staff_proposal_repository.dart';
+import '../../proprietor/presentation/staff_proposals_ui.dart';
+import 'payroll_batch_panel.dart';
 
 import '../data/finance_payroll_demo_data.dart';
 import '../domain/finance_payroll_models.dart';
@@ -12,7 +16,10 @@ class FinancePayrollPage extends StatefulWidget {
     super.key,
     required this.localDatabase,
     required this.schoolSession,
+    this.onChanged,
   });
+
+  final VoidCallback? onChanged;
 
   final LocalDatabase localDatabase;
   final SchoolSessionController schoolSession;
@@ -23,6 +30,7 @@ class FinancePayrollPage extends StatefulWidget {
 
 class _FinancePayrollPageState extends State<FinancePayrollPage> {
   String? _notice;
+  int _batchRefresh = 0;
   PayrollView? _view;
   List<FinancePayrollRow> _rows = const [];
 
@@ -64,7 +72,7 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
     }
   }
 
-  void _prepareBatch() {
+  Future<void> _prepareBatch() async {
     if (!(_view?.can('prepare') ?? false)) {
       setState(() => _notice = 'You have not been authorized by the owner to prepare payroll batches.');
       return;
@@ -72,9 +80,23 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
     final ready = _rows.where((row) => row.isReady).toList();
     final held = _rows.where((row) => row.needsAttendanceReview).toList();
     final readyValue = ready.fold<int>(0, (sum, row) => sum + row.net);
+    try {
+      await PayrollBatchRepository(
+        database: widget.localDatabase,
+        session: widget.schoolSession,
+      ).prepare(PayrollBatchRepository.periodFor(DateTime.now()), ready);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _notice = error is StateError ? error.message : error is ArgumentError ? '${error.message}' : '$error');
+      }
+      return;
+    }
+    widget.onChanged?.call();
+    if (!mounted) return;
     setState(() {
+      _batchRefresh++;
       _notice =
-          'Payment batch preview prepared from ${ready.length} ready records (${financePayrollMoney(readyValue)}). ${held.length} attendance-review record remains held. No salary has been marked Paid and no money has been sent.';
+          'Payment batch prepared from ${ready.length} ready records (${financePayrollMoney(readyValue)}) and sent for approval. ${held.length} attendance-review record remains held. No salary has been marked Paid and no money has been sent.';
     });
   }
 
@@ -110,6 +132,23 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
           const SizedBox(height: 12),
           _Notice(text: _notice!),
         ],
+        const SizedBox(height: 16),
+        StaffProposalsPanel(
+          repository: StaffProposalRepository(
+            database: widget.localDatabase,
+            session: widget.schoolSession,
+          ),
+          onChanged: widget.onChanged ?? () {},
+          onStaffAdded: _load,
+        ),
+        PayrollBatchPanel(
+          repository: PayrollBatchRepository(
+            database: widget.localDatabase,
+            session: widget.schoolSession,
+          ),
+          onChanged: widget.onChanged ?? () {},
+          refreshToken: _batchRefresh,
+        ),
         const SizedBox(height: 16),
         _Kpis(items: kpis),
         const SizedBox(height: 16),

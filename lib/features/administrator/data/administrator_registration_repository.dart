@@ -1,4 +1,5 @@
 import '../../../core/database/local_database.dart';
+import '../../../core/identity/identity_normalizer.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
@@ -134,7 +135,38 @@ class AdministratorRegistrationRepository {
       );
     }
 
+    // A guardian's phone number identifies one parent. Another child may share
+    // it only under the same guardian (a sibling); the same number under a
+    // different guardian is a conflict, not a new parent.
+    final phone = normalizeNigerianPhone(record.guardianPhone);
+    if (phone == null) {
+      return const AdministratorRegistrationActionResult(
+        success: false,
+        message:
+            'Enter a valid Nigerian phone number for the guardian, for example 0803 123 4567.',
+      );
+    }
+    final others = (await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _entityType,
+    )).where((r) => r.entityId != record.registrationId);
+    StudentRegistrationRecord? sibling;
+    for (final other in others) {
+      final o = StudentRegistrationRecord.fromJson(other.payload);
+      if (normalizeNigerianPhone(o.guardianPhone) != phone) continue;
+      if (normalizeName(o.primaryGuardian) !=
+          normalizeName(record.primaryGuardian)) {
+        return AdministratorRegistrationActionResult(
+          success: false,
+          message:
+              'This phone number already belongs to guardian ${o.primaryGuardian} (child ${o.fullName}). A phone number identifies one parent. Use the same guardian name to register a sibling, or correct the number.',
+        );
+      }
+      sibling ??= o;
+    }
+
     final normalized = record.copyWith(
+      guardianPhone: phone,
       admissionNumber: admissionNumberForSection(record.academicSection)
           .replaceFirst(RegExp(r'\d{3}$'), _serialFor(record)),
     );
@@ -165,9 +197,12 @@ class AdministratorRegistrationRepository {
 
     return AdministratorRegistrationActionResult(
       success: true,
-      message: completed
-          ? 'Registration completed offline. Student status is Active and queued for sync; finance and optional services remain separate workflows.'
-          : 'Registration draft saved offline and queued for sync.',
+      message: (completed
+              ? 'Registration completed offline. Student status is Active and queued for sync; finance and optional services remain separate workflows.'
+              : 'Registration draft saved offline and queued for sync.') +
+          (sibling == null
+              ? ''
+              : ' This guardian phone is already registered for ${sibling.fullName}, so this child is a sibling in the same family. Link the family account accordingly.'),
       record: normalized,
     );
   }

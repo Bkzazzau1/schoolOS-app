@@ -119,7 +119,7 @@ void main() {
     addTearDown(session.dispose);
     final repo = OwnerStaffProfileRepository(database: db, session: session);
     final id = (await repo.people()).first.id;
-    await repo.savePersonal(id, const StaffPersonalInfo(phone: '0801', email: 'a@b.com'));
+    await repo.savePersonal(id, const StaffPersonalInfo(phone: '08011111111', email: 'a@b.com'));
     await repo.addCredential(
       id,
       const StaffCredential(title: 'TRCN', issuer: 'TRCN', expiry: '2020-01-01'),
@@ -128,7 +128,7 @@ void main() {
     await repo.addReview(id, 'Term 1', 4, 'Strong');
     await repo.addReview(id, 'Term 2', 5, '');
     final profile = (await repo.view((await repo.people()).first)).profile;
-    expect(profile.personal.phone, '0801');
+    expect(profile.personal.phone, '08011111111');
     expect(profile.credentials.single.verified, isTrue);
     expect(profile.credentials.single.isExpired(DateTime(2026, 9, 20)), isTrue);
     expect(profile.averageRating, 4.5);
@@ -224,7 +224,7 @@ void main() {
     final session = await _session(_owner);
     final repo = OwnerStaffProfileRepository(database: db, session: session);
     final id = (await repo.people()).first.id;
-    await repo.savePersonal(id, const StaffPersonalInfo(phone: '0801'));
+    await repo.savePersonal(id, const StaffPersonalInfo(phone: '08011111111'));
     await repo.addAcademic(
       id,
       const StaffAcademicRecord(
@@ -251,16 +251,16 @@ void main() {
     final repo = OwnerStaffProfileRepository(database: db, session: session);
     final person = (await repo.people()).firstWhere((p) => p.id == id);
     final view = await repo.view(person);
-    expect(view.profile.personal.phone, '0801');
+    expect(view.profile.personal.phone, '08011111111');
     expect(view.profile.credentials, hasLength(1));
     expect(view.profile.payment.accountNumber, '0123456789');
     expect(view.profile.reviews, hasLength(1));
     expect(view.attendance, isNotNull);
     expect(view.access.canEdit, isTrue);
-    await repo.savePersonal(id, const StaffPersonalInfo(phone: '0999'));
+    await repo.savePersonal(id, const StaffPersonalInfo(phone: '09099999999'));
     await repo.addReview(id, 'Term 2', 3, '');
     final after = await repo.view(person);
-    expect(after.profile.personal.phone, '0999');
+    expect(after.profile.personal.phone, '09099999999');
     expect(after.profile.payment.bankName, 'GTBank');
     expect(after.profile.payment.accountNumber, '0123456789');
     expect(after.profile.reviews.last.reviewerRole, 'principal');
@@ -273,7 +273,7 @@ void main() {
     addTearDown(session.dispose);
     final repo = OwnerStaffProfileRepository(database: db, session: session);
     final view = await repo.view((await repo.people()).firstWhere((p) => p.id == id));
-    expect(view.profile.personal.phone, '0801');
+    expect(view.profile.personal.phone, '08011111111');
     expect(view.profile.credentials, hasLength(1));
     expect(view.attendance, isNotNull);
     expect(view.profile.payment.isEmpty, isTrue);
@@ -311,7 +311,7 @@ void main() {
     addTearDown(owner.dispose);
     final repo = OwnerStaffProfileRepository(database: db, session: owner);
     final person = (await repo.people()).firstWhere((p) => p.id == id);
-    await repo.savePersonal(id, const StaffPersonalInfo(phone: '0777'));
+    await repo.savePersonal(id, const StaffPersonalInfo(phone: '07077777777'));
     await repo.addAcademic(id, const StaffAcademicRecord(level: 'HND', institution: 'x', course: 'y', year: 2011));
     await repo.requestOnboarding(id, 'a@b.com');
     await repo.markOnboardingReviewed(id);
@@ -384,7 +384,7 @@ void main() {
 
   test('registering staff with an email queues an onboarding request', () async {
     final db = _Database();
-    final session = await _session(_admin);
+    final session = await _session(_owner);
     addTearDown(session.dispose);
     final staffRepo = AdministratorStaffRepository(localDatabase: db, schoolSession: session);
     await staffRepo.registerSupportStaff(name: 'Musa Driver', role: 'driver', workArea: 'Bus 1', email: 'musa@school.ng');

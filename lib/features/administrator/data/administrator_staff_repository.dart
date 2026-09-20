@@ -26,7 +26,8 @@ class AdministratorStaffRepository {
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession;
 
-  static const _entityType = 'administrator_staff_directory';
+  static const directoryEntityType = 'administrator_staff_directory';
+  static const _entityType = directoryEntityType;
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -82,14 +83,67 @@ class AdministratorStaffRepository {
     );
   }
 
+  /// Adds an approved staff member to the directory. Only the owner can do
+  /// this, and only for a proposal they have approved. Calling it again with
+  /// the same [id] updates that record instead of creating a duplicate.
+  Future<AdministratorStaffRecord> createStaffRecord({
+    required String id,
+    required String name,
+    required String role,
+    required String section,
+    required String proposalId,
+  }) async {
+    final member = _schoolSession.requireActiveMembership();
+    if (member.role != SchoolRole.proprietor) {
+      throw StateError('Only the owner can add an approved staff member.');
+    }
+    final record = AdministratorStaffRecord(
+      id: id,
+      name: name.trim(),
+      role: role.trim(),
+      section: section.trim(),
+      fileStatus: AdministratorStaffFileStatus.missingDocument,
+    );
+    final payload = <String, Object?>{
+      ...record.toJson(),
+      'staffCategory': 'approved',
+      'approvedFromProposal': proposalId,
+      'createdByMembershipId': member.id,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+    };
+    final existing = await _localDatabase.getLocalRecord(
+      tenantId: member.schoolId,
+      entityType: _entityType,
+      entityId: id,
+    );
+    await _localDatabase.upsertLocalRecord(
+      tenantId: member.schoolId,
+      entityType: _entityType,
+      entityId: id,
+      payload: payload,
+      serverVersion: existing?.serverVersion,
+      isDirty: true,
+    );
+    await _localDatabase.queueMutation(
+      tenantId: member.schoolId,
+      membershipId: member.id,
+      entityType: _entityType,
+      entityId: id,
+      operation: existing == null ? SyncOperation.create : SyncOperation.update,
+      payload: payload,
+      baseVersion: existing?.serverVersion,
+    );
+    return record;
+  }
+
   /// With an [email], also queues an onboarding request asking the new staff
   /// member to fill in their details and provide documents. The email itself
   /// is sent by the school backend once connected.
   Future<void> registerSupportStaff({required String name, required String role,
     required String workArea, String email = ''}) async {
     final member = _schoolSession.requireActiveMembership();
-    if (!permissionsFor(member).canReviewOperationalFile) {
-      throw StateError('Only the owner or administrator can register staff.');
+    if (member.role != SchoolRole.proprietor) {
+      throw StateError('Only the owner can add staff directly. Others propose staff for the owner to approve.');
     }
     if (name.trim().isEmpty || workArea.trim().isEmpty || !supportStaffRoles.containsKey(role)) {
       throw ArgumentError('Enter a name, support role and assigned work area.');

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../administrator/domain/administrator_staff_models.dart';
 import '../data/owner_staff_profile_repository.dart';
+import '../data/staff_identity.dart';
+import '../data/staff_proposal_repository.dart';
 import '../domain/owner_staff_profile_models.dart';
+import 'staff_proposals_ui.dart';
 
 /// Staff list. Selecting a person opens their full record.
 class OwnerStaffProfilesPage extends StatefulWidget {
@@ -10,10 +13,14 @@ class OwnerStaffProfilesPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onChanged,
+    this.proposals,
   });
 
   final OwnerStaffProfileRepository repository;
   final VoidCallback onChanged;
+
+  /// When given, shows staff proposals and lets people propose new staff.
+  final StaffProposalRepository? proposals;
 
   @override
   State<OwnerStaffProfilesPage> createState() => _OwnerStaffProfilesPageState();
@@ -21,6 +28,7 @@ class OwnerStaffProfilesPage extends StatefulWidget {
 
 class _OwnerStaffProfilesPageState extends State<OwnerStaffProfilesPage> {
   List<AdministratorStaffRecord> _people = const [];
+  List<StaffDuplicateGroup> _duplicates = const [];
   String? _error;
   bool _loading = true;
 
@@ -33,7 +41,16 @@ class _OwnerStaffProfilesPageState extends State<OwnerStaffProfilesPage> {
   Future<void> _load() async {
     try {
       final people = await widget.repository.people();
-      if (mounted) setState(() => _people = people);
+      final duplicates = await findStaffDuplicateGroups(
+        widget.repository.database,
+        widget.repository.session.requireActiveMembership().schoolId,
+      );
+      if (mounted) {
+        setState(() {
+          _people = people;
+          _duplicates = duplicates;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -56,6 +73,40 @@ class _OwnerStaffProfilesPageState extends State<OwnerStaffProfilesPage> {
         if (_error != null)
           Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
         const SizedBox(height: 12),
+        if (_duplicates.isNotEmpty)
+          Card(
+            color: theme.colorScheme.errorContainer,
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Possible duplicate staff',
+                    style: theme.textTheme.titleLarge,
+                  ),
+                  const Text(
+                    'Each staff member has their own phone number and NIN. These records share one, so one of them may be a duplicate or a mistake.',
+                  ),
+                  for (final group in _duplicates)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Same ${group.field} (${group.value}): '
+                        '${group.people.map((p) => p.name).join(', ')}',
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        if (widget.proposals != null)
+          StaffProposalsPanel(
+            repository: widget.proposals!,
+            onChanged: widget.onChanged,
+            onStaffAdded: _load,
+          ),
         for (final person in _people)
           Card(
             child: ListTile(
@@ -216,7 +267,8 @@ class _OwnerStaffProfileDetailPageState
     final r = await _form(
       'Personal information',
       const {
-        'phone': 'Phone',
+        'phone': 'Phone (unique to this person)',
+        'nin': 'NIN, 11 digits (unique to this person)',
         'email': 'Email',
         'address': 'Home address',
         'dateOfBirth': 'Date of birth (yyyy-mm-dd)',
@@ -235,6 +287,7 @@ class _OwnerStaffProfileDetailPageState
         _id,
         StaffPersonalInfo(
           phone: r['phone']!,
+          nin: r['nin']!,
           email: r['email']!,
           address: r['address']!,
           dateOfBirth: r['dateOfBirth']!,
@@ -644,6 +697,7 @@ class _OwnerStaffProfileDetailPageState
     'Personal information',
     [
       _kv('Phone', p.phone),
+      _kv('NIN', p.nin),
       _kv('Email', p.email),
       _kv('Home address', p.address),
       _kv('Date of birth', p.dateOfBirth),

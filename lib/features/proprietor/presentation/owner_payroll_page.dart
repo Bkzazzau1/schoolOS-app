@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../administrator/domain/administrator_staff_models.dart';
 import '../../finance_office/domain/finance_payroll_models.dart';
+import '../../finance_office/presentation/payroll_batch_panel.dart';
 import '../data/owner_payroll_repository.dart';
+import '../data/payroll_batch_repository.dart';
 
 class OwnerPayrollPage extends StatefulWidget {
   const OwnerPayrollPage({
@@ -317,6 +319,14 @@ class _OwnerPayrollPageState extends State<OwnerPayrollPage> {
                 icon: const Icon(Icons.receipt_long_outlined),
                 label: const Text('View payroll invoice'),
               ),
+            ),
+            const SizedBox(height: 16),
+            PayrollBatchPanel(
+              repository: PayrollBatchRepository(
+                database: widget.repository.database,
+                session: widget.repository.session,
+              ),
+              onChanged: widget.onChanged,
             ),
             const SizedBox(height: 24),
             Text('Staff salaries', style: theme.textTheme.titleLarge),
