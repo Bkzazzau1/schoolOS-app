@@ -21,6 +21,7 @@ class DriverMorningRunRepository {
         );
 
   static const entityType = 'driver_morning_run';
+  static const eventEntityType = 'driver_transport_event';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -86,7 +87,12 @@ class DriverMorningRunRepository {
       status: DriverMorningRunStatus.inProgress,
       startedAt: _now(),
     );
-    await _save(member, updated);
+    await _save(
+      member,
+      updated,
+      eventType: 'morning_run_started',
+      details: {'expectedRiders': updated.expectedRiders},
+    );
     return updated;
   }
 
@@ -118,7 +124,12 @@ class DriverMorningRunRepository {
       arrivedAt: _now(),
     );
     final updated = run.copyWith(stops: stops);
-    await _save(member, updated);
+    await _save(
+      member,
+      updated,
+      eventType: 'stop_arrived',
+      details: {'stopId': stop.id, 'sequence': stop.sequence},
+    );
     return updated;
   }
 
@@ -160,7 +171,17 @@ class DriverMorningRunRepository {
     final stops = [...run.stops];
     stops[stopIndex] = stop.copyWith(riders: riders);
     final updated = run.copyWith(stops: stops);
-    await _save(member, updated);
+    await _save(
+      member,
+      updated,
+      eventType: 'rider_status_recorded',
+      details: {
+        'stopId': stop.id,
+        'studentId': studentId,
+        'status': status.name,
+        if (note.trim().isNotEmpty) 'note': note.trim(),
+      },
+    );
     return updated;
   }
 
@@ -190,7 +211,16 @@ class DriverMorningRunRepository {
       departedAt: _now(),
     );
     final updated = run.copyWith(stops: stops);
-    await _save(member, updated);
+    await _save(
+      member,
+      updated,
+      eventType: 'stop_departed',
+      details: {
+        'stopId': stop.id,
+        'boarded': stop.boardedCount,
+        'exceptions': stop.exceptionCount,
+      },
+    );
     return updated;
   }
 
@@ -227,7 +257,15 @@ class DriverMorningRunRepository {
       status: DriverMorningRunStatus.arrivedSchool,
       arrivedSchoolAt: at,
     );
-    await _save(member, updated);
+    await _save(
+      member,
+      updated,
+      eventType: 'school_arrival_confirmed',
+      details: {
+        'arrivedRiders': updated.arrivedSchoolRiders,
+        'exceptions': updated.exceptions,
+      },
+    );
     return updated;
   }
 
@@ -245,7 +283,15 @@ class DriverMorningRunRepository {
       status: DriverMorningRunStatus.completed,
       completedAt: _now(),
     );
-    await _save(member, updated);
+    await _save(
+      member,
+      updated,
+      eventType: 'morning_run_completed',
+      details: {
+        'arrivedRiders': updated.arrivedSchoolRiders,
+        'exceptions': updated.exceptions,
+      },
+    );
     return updated;
   }
 
@@ -307,7 +353,13 @@ class DriverMorningRunRepository {
     }
   }
 
-  Future<void> _save(SchoolMembership member, DriverMorningRun run) async {
+  Future<void> _save(
+    SchoolMembership member,
+    DriverMorningRun run, {
+    required String eventType,
+    Map<String, Object?> details = const {},
+  }) async {
+    final at = _now();
     final existing = await _localDatabase.getLocalRecord(
       tenantId: member.schoolId,
       entityType: entityType,
@@ -315,7 +367,7 @@ class DriverMorningRunRepository {
     );
     final payload = {
       ...run.toJson(),
-      'updatedAt': _now(),
+      'updatedAt': at,
       'updatedByMembershipId': member.id,
     };
     await _localDatabase.upsertLocalRecord(
@@ -336,6 +388,35 @@ class DriverMorningRunRepository {
           : SyncOperation.update,
       payload: payload,
       baseVersion: existing?.serverVersion,
+    );
+
+    final eventId =
+        '${run.id}:$eventType:${DateTime.now().microsecondsSinceEpoch}';
+    final eventPayload = <String, Object?>{
+      'id': eventId,
+      'runId': run.id,
+      'routeId': run.routeId,
+      'serviceDate': run.serviceDate,
+      'direction': 'home_to_school',
+      'eventType': eventType,
+      'at': at,
+      'actorMembershipId': member.id,
+      ...details,
+    };
+    await _localDatabase.upsertLocalRecord(
+      tenantId: member.schoolId,
+      entityType: eventEntityType,
+      entityId: eventId,
+      payload: eventPayload,
+      isDirty: true,
+    );
+    await _localDatabase.queueMutation(
+      tenantId: member.schoolId,
+      membershipId: member.id,
+      entityType: eventEntityType,
+      entityId: eventId,
+      operation: SyncOperation.create,
+      payload: eventPayload,
     );
   }
 
