@@ -7,7 +7,9 @@ import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/driver_dashboard_repository.dart';
+import '../data/driver_morning_run_repository.dart';
 import 'driver_dashboard_page.dart';
+import 'driver_morning_run_page.dart';
 
 class DriverWorkspacePage extends StatefulWidget {
   const DriverWorkspacePage({
@@ -31,6 +33,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   late final DriverDashboardRepository _dashboardRepository;
+  late final DriverMorningRunRepository _morningRunRepository;
 
   static const _navigation = <_DriverNavItem>[
     _DriverNavItem('dashboard', 'Dashboard', Icons.dashboard_rounded),
@@ -53,6 +56,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
   void initState() {
     super.initState();
     _dashboardRepository = DriverDashboardRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _morningRunRepository = DriverMorningRunRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -111,6 +118,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
         'dashboard' => DriverDashboardPage(
             repository: _dashboardRepository,
             onNavigate: _select,
+          ),
+        'morning' => DriverMorningRunPage(
+            repository: _morningRunRepository,
+            onRunChanged: _refreshPendingCount,
           ),
         _ => _UpcomingDriverFeature(
             item: _activeItem,
