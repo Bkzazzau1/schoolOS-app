@@ -237,7 +237,7 @@ class _Hero extends StatelessWidget {
             SizedBox(
               width: 230,
               child: DropdownButtonFormField<String>(
-                value: className,
+                initialValue: className,
                 decoration: const InputDecoration(labelText: 'Selected class'),
                 items: [
                   for (final item in teacherSyllabusClassOptions)
