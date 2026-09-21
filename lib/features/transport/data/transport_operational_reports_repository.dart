@@ -115,7 +115,7 @@ class TransportOperationalReportsRepository {
       item.addVehicle(incident.vehicle);
       item.incidentCount++;
       if (incident.isOpen) item.openIncidentCount++;
-      if (incident.isOpen && incident.requiresImmediateEscalation) {
+      if (incident.requiresImmediateEscalation) {
         item.urgentIncidentCount++;
       }
     }
@@ -138,13 +138,13 @@ class TransportOperationalReportsRepository {
       item.addVehicle(payload['vehicle'] as String? ?? '');
       item.vehicleDefectCount++;
 
+      final blocksTrip = payload['blocksTrip'] as bool? ?? false;
+      if (blocksTrip) item.blockingVehicleDefectCount++;
+
       final status = (payload['status'] as String? ?? 'reported').toLowerCase();
       final closed = const {'cleared', 'resolved', 'closed'}.contains(status);
       if (!closed) {
         item.openVehicleDefectCount++;
-        if (payload['blocksTrip'] as bool? ?? false) {
-          item.blockingVehicleDefectCount++;
-        }
       }
     }
 
