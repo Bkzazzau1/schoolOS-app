@@ -1,3 +1,4 @@
+import '../data/staff_server_api.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../data/owner_access_controller.dart';
 import '../data/owner_access_scope.dart';
@@ -578,7 +579,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
       _pushSharedModule(title: 'Staff Records', body: AdministratorStaffPage(
         schoolName: widget.membership.schoolName,
         repository: AdministratorStaffRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
-        proposals: StaffProposalRepository(database: widget.localDatabase, session: widget.schoolSession),
+        proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), database: widget.localDatabase, session: widget.schoolSession),
       ));
       return;
     }
@@ -592,7 +593,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
   Widget _buildContent() {
     return switch (_activeModule) {
       'staff-profiles' => OwnerStaffProfilesPage(
-          proposals: StaffProposalRepository(
+          proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), 
             database: widget.localDatabase, session: widget.schoolSession),
           repository: OwnerStaffProfileRepository(
             database: widget.localDatabase, session: widget.schoolSession),

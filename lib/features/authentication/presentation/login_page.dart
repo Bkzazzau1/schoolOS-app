@@ -1,18 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_services.dart';
+import '../../../app/open_home.dart';
 import '../../../core/network/api_exceptions.dart';
+import '../../invitations/presentation/invitation_accept_page.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
-import '../../administrator/presentation/administrator_workspace_page.dart';
-import '../../dashboard/presentation/dashboard_page.dart';
-import '../../driver/presentation/driver_workspace_page.dart';
-import '../../finance_office/presentation/finance_office_workspace_page.dart';
-import '../../parent/presentation/parent_workspace_page.dart';
-import '../../principal/presentation/principal_workspace_page.dart';
-import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
-import '../../teacher/presentation/teacher_workspace_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.services});
@@ -110,6 +104,7 @@ class _LoginPageState extends State<LoginPage> {
                       },
                       onSubmit: _submit,
                       backend: widget.services.usesBackend,
+                      onInvitation: _openInvitation,
                     ),
                   ],
                 ),
@@ -139,6 +134,7 @@ class _LoginPageState extends State<LoginPage> {
                           },
                           onSubmit: _submit,
                           backend: widget.services.usesBackend,
+                          onInvitation: _openInvitation,
                         ),
                       ),
                     ),
@@ -199,6 +195,14 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void _openInvitation() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => InvitationAcceptPage(services: widget.services),
+      ),
+    );
+  }
+
   void _chooseSchool(List<SchoolMembership> memberships) {
     if (memberships.length == 1) {
       _openMembershipHome(context, memberships.single);
@@ -224,76 +228,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _openMembershipHome(
     BuildContext context,
     SchoolMembership membership,
-  ) async {
-    await widget.services.schoolSession.selectSchool(membership);
-    await widget.services.beginSchool(membership);
-    // The login route has been replaced by the school picker. Navigation must
-    // use the picker context, which remains mounted after the session is saved.
-    if (!context.mounted) return;
-
-    final Widget page;
-    if (membership.role == SchoolRole.proprietor) {
-      page = ProprietorWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.administrator) {
-      page = AdministratorWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.accountant) {
-      page = FinanceOfficeWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.principal) {
-      page = PrincipalWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.teacher) {
-      page = TeacherWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.parent) {
-      page = ParentWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else if (membership.role == SchoolRole.driver) {
-      page = DriverWorkspacePage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    } else {
-      page = DashboardPage(
-        membership: membership,
-        localDatabase: widget.services.localDatabase,
-        schoolSession: widget.services.schoolSession,
-        schoolAppearance: widget.services.schoolAppearance,
-      );
-    }
-
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute<void>(builder: (context) => page));
-  }
+  ) => openMembershipHome(context, widget.services, membership);
 }
 
 class _LoginCard extends StatelessWidget {
@@ -306,10 +241,14 @@ class _LoginCard extends StatelessWidget {
     required this.onTogglePassword,
     required this.onSubmit,
     this.backend = false,
+    this.onInvitation,
   });
 
   /// A backend is configured: real sign-in, and no demo panel.
   final bool backend;
+
+  /// Opens the accept-an-invitation page (only offered with a backend).
+  final VoidCallback? onInvitation;
   final GlobalKey<FormState> formKey;
   final List<SchoolMembership> demoMemberships;
   static const _demoUsername = 'demo';
@@ -408,6 +347,14 @@ class _LoginCard extends StatelessWidget {
                   child: Text('Sign in'),
                 ),
               ),
+              if (backend && onInvitation != null) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: onInvitation,
+                  icon: const Icon(Icons.mark_email_read_outlined, size: 18),
+                  label: const Text('I have an invitation link'),
+                ),
+              ],
               if (!backend) ...[
                 const SizedBox(height: 14),
                 Text(

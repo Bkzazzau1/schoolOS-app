@@ -15,6 +15,7 @@ import 'job_assignment_repository.dart';
 import 'owner_payroll_repository.dart';
 import 'owner_staff_profile_repository.dart';
 import 'staff_identity.dart';
+import 'staff_server_api.dart';
 
 enum StaffProposalStatus { pending, approved, rejected }
 
@@ -93,10 +94,15 @@ class StaffProposal {
 /// Approving queues the staff member's registration invitation, which the
 /// school backend emails to them. This app does not send email itself.
 class StaffProposalRepository {
-  StaffProposalRepository({required this.database, required this.session});
+  StaffProposalRepository({required this.database, required this.session, this.remote});
 
   final LocalDatabase database;
   final SchoolSessionController session;
+
+  /// Set when there is a server: it then decides proposals (approving creates the staff
+  /// member, salary, profile and invitation together, or nothing), and this device only
+  /// asks. Null on demo data, where the device does it all itself.
+  final StaffServerApi? remote;
 
   static const entityType = 'staff_proposal';
 
@@ -228,7 +234,34 @@ class StaffProposalRepository {
       'proposedAt': DateTime.now().toUtc().toIso8601String(),
     });
     // The owner's own additions need no one else's approval.
-    if (member.role == SchoolRole.proprietor) await approve(id);
+    if (member.role == SchoolRole.proprietor) {
+      if (remote != null) {
+        await _approveOwnersOwnOnServer(member, id);
+      } else {
+        await approve(id);
+      }
+    }
+  }
+
+  /// With a server the proposal must get there before it can be approved, and the
+  /// server may refuse it (a phone number or NIN that belongs to someone else). So:
+  /// send it, and if the server refused it say why and take the stuck copy off this
+  /// device; if it could not be sent yet (offline) it stays queued, and the owner
+  /// approves it from the list once it has arrived.
+  Future<void> _approveOwnersOwnOnServer(SchoolMembership member, String id) async {
+    await remote!.afterChange?.call();
+    final items = database
+        .syncQueueItems(tenantId: member.schoolId)
+        .where((item) => item.entityType == entityType && item.entityId == id)
+        .toList();
+    for (final item in items) {
+      if (item.status == SyncMutationStatus.failed) {
+        database.discardMutation(tenantId: member.schoolId, mutationId: item.id);
+        throw StateError(item.lastError ?? 'The school refused this proposal.');
+      }
+    }
+    if (items.isNotEmpty) return; // still waiting to be sent
+    await approve(id);
   }
 
   Future<SchoolMembership> _requireApprover() async {
@@ -286,6 +319,9 @@ class StaffProposalRepository {
     int? deductions,
     String? systemRole,
   }) async {
+    if (remote != null) {
+      return _approveOnServer(id, gross: gross, deductions: deductions, systemRole: systemRole);
+    }
     final approver = await _requireApprover();
     final record = await database.getLocalRecord(
       tenantId: approver.schoolId,
@@ -435,6 +471,7 @@ class StaffProposalRepository {
   }
 
   Future<void> reject(String id, String note) async {
+    if (remote != null) return _rejectOnServer(id, note);
     final approver = await _requireApprover();
     final record = await database.getLocalRecord(
       tenantId: approver.schoolId,
@@ -459,6 +496,58 @@ class StaffProposalRepository {
       'decidedByRole': approver.role.name,
       'decidedAt': DateTime.now().toUtc().toIso8601String(),
     });
+  }
+
+  /// The server decides who may approve, whether the numbers are still free, and what
+  /// changes; it either creates everything or nothing. Its refusals are shown as they are.
+  Future<void> _approveOnServer(String id, {int? gross, int? deductions, String? systemRole}) async {
+    final member = _member;
+    final record = await database.getLocalRecord(tenantId: member.schoolId, entityType: entityType, entityId: id);
+    if (record == null) throw StateError('Proposal not found.');
+    final proposal = StaffProposal.fromPayload(id, record.payload);
+    if (proposal.status == StaffProposalStatus.approved) return;
+    if (proposal.status == StaffProposalStatus.rejected) throw StateError('This proposal was rejected.');
+    if (systemRole != null && !staffSystemRoles.containsKey(systemRole)) {
+      throw ArgumentError('Choose the role for this staff member first.');
+    }
+    final staffId = await remote!.approveProposal(member, id, gross: gross, deductions: deductions, systemRole: systemRole);
+    await _showDecision(member, id, record, {
+      'status': StaffProposalStatus.approved.name,
+      'createdStaffId': staffId,
+      'decidedByMembershipId': member.id,
+      'decidedByRole': member.role.name,
+      'decidedAt': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  Future<void> _rejectOnServer(String id, String note) async {
+    final member = _member;
+    final record = await database.getLocalRecord(tenantId: member.schoolId, entityType: entityType, entityId: id);
+    if (record == null) throw StateError('Proposal not found.');
+    if (StaffProposal.fromPayload(id, record.payload).status != StaffProposalStatus.pending) {
+      throw StateError('This proposal has already been decided.');
+    }
+    await remote!.rejectProposal(member, id, note);
+    await _showDecision(member, id, record, {
+      'status': StaffProposalStatus.rejected.name,
+      'decisionNote': note.trim(),
+      'decidedByMembershipId': member.id,
+      'decidedByRole': member.role.name,
+      'decidedAt': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
+  /// Shows the decision on this device straight away. It is not an edit to send: the server
+  /// already has it, and the next download replaces this copy with its own.
+  Future<void> _showDecision(SchoolMembership member, String id, LocalRecord record, Map<String, Object?> decision) async {
+    await database.upsertLocalRecord(
+      tenantId: member.schoolId,
+      entityType: entityType,
+      entityId: id,
+      payload: {...record.payload, ...decision},
+      serverVersion: record.serverVersion,
+      isDirty: false,
+    );
   }
 
   Future<void> _save(

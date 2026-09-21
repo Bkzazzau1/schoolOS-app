@@ -1,3 +1,4 @@
+import '../../proprietor/data/staff_server_api.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
@@ -115,7 +116,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
   Widget _content() => switch (_activeKey) {
         'dashboard' => PrincipalDashboardPage(schoolName: widget.membership.schoolName, onActionRequested: _select),
         'teachers' => PrincipalTeachersPage(repository: _teachers, onActionRequested: _select, onQueuedForSync: _refreshPendingCount),
-        'staff-profiles' => OwnerStaffProfilesPage(repository: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession), proposals: StaffProposalRepository(database: widget.localDatabase, session: widget.schoolSession), payrollBatches: PayrollBatchRepository(database: widget.localDatabase, session: widget.schoolSession), onChanged: _refreshPendingCount),
+        'staff-profiles' => OwnerStaffProfilesPage(repository: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession), proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), database: widget.localDatabase, session: widget.schoolSession), payrollBatches: PayrollBatchRepository(database: widget.localDatabase, session: widget.schoolSession), onChanged: _refreshPendingCount),
         'assignments' => PrincipalAssignmentsPage(repository: _assignments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'academics' => PrincipalAcademicsPage(repository: _academics, onNavigate: _select),
         'students' => PrincipalStudentsPage(repository: _students, onNavigate: _select, onMutationQueued: _refreshPendingCount),

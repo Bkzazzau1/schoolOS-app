@@ -113,12 +113,30 @@ Files: `features/proprietor/domain/owner_access_models.dart`, `data/owner_access
 `data/owner_access_controller.dart`, `presentation/owner_access_*.dart`. `ApiClient` gained `put`, `delete` and query
 parameters on `post`. Tests: `test/owner_access_screen_test.dart` (28), including the exact request each button sends.
 
+## Done (step 6): staff and invitations (checklist sections B and C)
+
+| Piece | File | What it does |
+| --- | --- | --- |
+| Approve and reject | `StaffProposalRepository` with `StaffServerApi` (`features/proprietor/data/staff_server_api.dart`) | With a server, approving or rejecting a proposal is a call to it (`.../proposals/<id>/approve/`, `.../reject/`). The server creates the directory entry, salary, profile and invitation together or not at all, and checks who may approve and whether the phone/NIN are still free. Its refusals are shown in its own words. The device shows the decision at once (not as an edit to send) and downloads the result. On demo data the old local behaviour is unchanged |
+| Owner adds staff directly | same | Sends the proposal, checks the server accepted it (if it refused, the reason is shown and the stuck copy is removed), then approves. Offline it stays queued and is approved from the list later |
+| Accept an invitation | `features/invitations/` (`InvitationAcceptPage`, `invitation_link.dart`), `AuthRepository` | Paste the link (or open the app with it as an argument, e.g. on Windows) to see who it is for, then choose a password (new account) or sign in (existing account). Every refusal has plain words (expired or replaced, already used, wrong account, weak password with the server's reasons). It ends in the school's workspace with syncing started. The login screen has "I have an invitation link" |
+| Invitation and login (owner, principal, administrator) | `InvitationStatusCard` in the staff profile | Where the invitation stands (sent and until when, not delivered, expired, accepted, cancelled), **Send again** (with a corrected email; the old link stops working), and for the owner only **Cancel invitation** and **Remove login** (with an explanation) |
+| Registration | `StaffOnboardingRepository` | With a server the registration goes to `staff/me/onboarding/`, so the person hears at once if a phone number or NIN belongs to someone else, instead of finding a refused change later. Offline it fails cleanly |
+| Shared | `lib/app/open_home.dart` | "Choose this school and open the right workspace", used by login and by accepting an invitation |
+
+Tests: `test/staff_server_test.dart` (24), `test/invitation_accept_test.dart` (23), `test/invitation_status_card_test.dart` (10).
+
+Found on the way: a text-field controller disposed while its dialog was still animating closed throws in debug builds.
+Fixed in the new card. The older dialogs in `staff_proposals_ui.dart` do the same (`deductions.dispose()`, `note.dispose()`
+straight after `showDialog`) and should be moved to dialogs that own their controllers.
+
 ## Not done yet (next)
 
-1. **The general dashboard** (staff and students, `general.*`) still uses the app's fixed role list, not the owner's decisions.
-2. **Deleting a blocked activity's local data.** The contract asks for it; the app hides the screen but keeps the encrypted
-   records, because there is no map from an activity to the record types it uses yet.
-3. **Enforcing a block inside a screen that is already open** (the menu redraws; an open page stays until the person leaves it).
+1. **Opening the link from the email on a phone.** There is no Android project in this repository (only Windows), so App
+   Links cannot be registered yet. Until then people paste the link, or use the web page the same link opens.
+2. **Proposal errors at the moment of proposing.** A proposal is still sent through the queue, so a refused one (duplicate
+   phone) shows in the Sync Center; only the owner's direct add reports it at once.
+3. **Old dialogs' controllers** (see above).
 4. **Opt content screens in** to `SyncRefresh`, module by module (read-only lists first).
 5. **"Send mine anyway" for a conflict.**
 6. **Losing one school but keeping others**: the banner sends the person through sign-in again.

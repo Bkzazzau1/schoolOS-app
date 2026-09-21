@@ -12,6 +12,8 @@ import '../features/teacher/presentation/teacher_workspace_page.dart';
 import '../shared/models/school_membership.dart';
 import '../core/sync/sync_scope.dart';
 import '../features/proprietor/data/owner_access_scope.dart';
+import '../features/proprietor/data/staff_server_api.dart';
+import '../features/invitations/presentation/invitation_accept_page.dart';
 import 'app_services.dart';
 import 'sync_status_banner.dart';
 
@@ -30,9 +32,12 @@ Future<void> _signInAgain(AppServices services) async {
 }
 
 class SchoolOsApp extends StatelessWidget {
-  const SchoolOsApp({super.key, required this.services});
+  const SchoolOsApp({super.key, required this.services, this.initialInvitationLink});
 
   final AppServices services;
+
+  /// An invitation link the app was opened with. Used only when nobody is signed in.
+  final String? initialInvitationLink;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +61,9 @@ class SchoolOsApp extends StatelessWidget {
         );
 
         final Widget home;
-        if (restoredMembership == null) {
+        if (restoredMembership == null && initialInvitationLink != null && services.usesBackend) {
+          home = InvitationAcceptPage(services: services, initialLink: initialInvitationLink);
+        } else if (restoredMembership == null) {
           home = LoginPage(services: services);
         } else if (restoredMembership.role == SchoolRole.proprietor) {
           home = ProprietorWorkspacePage(
@@ -147,6 +154,8 @@ class SchoolOsApp extends StatelessWidget {
             final notifications = services.notifications;
             Widget tree = scoped;
             if (access != null) tree = AccessScope(access: access, child: tree);
+            final staffServer = services.staffServer;
+            if (staffServer != null) tree = StaffServerScope(api: staffServer, child: tree);
             final ownerAccess = services.ownerAccess;
             if (ownerAccess != null) {
               tree = OwnerAccessScope(repository: ownerAccess, child: tree);

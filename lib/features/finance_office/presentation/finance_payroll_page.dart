@@ -1,3 +1,4 @@
+import '../../proprietor/data/staff_server_api.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/database/local_database.dart';
@@ -134,7 +135,7 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
         ],
         const SizedBox(height: 16),
         StaffProposalsPanel(
-          repository: StaffProposalRepository(
+          repository: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), 
             database: widget.localDatabase,
             session: widget.schoolSession,
           ),

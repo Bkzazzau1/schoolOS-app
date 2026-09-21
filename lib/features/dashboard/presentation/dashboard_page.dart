@@ -1,3 +1,4 @@
+import '../../proprietor/data/staff_server_api.dart';
 import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/data/staff_onboarding_repository.dart';
 import '../../proprietor/presentation/staff_onboarding_page.dart';
@@ -180,6 +181,7 @@ class _DashboardPageState extends State<DashboardPage> with SyncRefresh<Dashboar
     repository: StaffOnboardingRepository(
       database: widget.localDatabase,
       session: widget.schoolSession,
+      remote: StaffServerScope.maybeOf(context),
     ),
     child: _buildWorkspace(context),
   );

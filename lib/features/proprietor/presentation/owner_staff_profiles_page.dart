@@ -1,3 +1,5 @@
+import '../data/staff_server_api.dart';
+import 'invitation_status_card.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/school_membership.dart';
@@ -670,6 +672,16 @@ class _OwnerStaffProfileDetailPageState
                 const SizedBox(height: 16),
                 if (view.access.canInvite || view.access.personal)
                   _onboarding(view),
+                if (view.access.canInvite && StaffServerScope.maybeOf(context) != null)
+                  InvitationStatusCard(
+                    api: StaffServerScope.maybeOf(context)!,
+                    membership: widget.repository.session.requireActiveMembership(),
+                    staffId: _id,
+                    onChanged: () {
+                      widget.onChanged();
+                      _load();
+                    },
+                  ),
                 if (view.access.personal) _personal(view.profile.personal),
                 if (view.access.academics) _academics(view.profile),
                 if (view.access.credentials) _documents(view.profile),

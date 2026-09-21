@@ -31,8 +31,8 @@ class ApiClient {
 
   Future<bool>? _refreshing;
 
-  Future<Object?> get(String path, {Map<String, String>? query}) =>
-      _send('GET', path, query: query);
+  Future<Object?> get(String path, {Map<String, String>? query, bool authenticated = true}) =>
+      _send('GET', path, query: query, authenticated: authenticated);
 
   Future<Object?> post(
     String path, {

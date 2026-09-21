@@ -5,6 +5,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../domain/owner_staff_profile_models.dart';
 import 'owner_staff_profile_repository.dart';
 import 'staff_identity.dart';
+import 'staff_server_api.dart';
 
 /// The registration form a new staff member fills in after the owner approves
 /// them and they receive their invitation.
@@ -15,10 +16,15 @@ import 'staff_identity.dart';
 /// details and which documents they have provided, so reviews, credentials
 /// and salary stay untouched.
 class StaffOnboardingRepository {
-  StaffOnboardingRepository({required this.database, required this.session});
+  StaffOnboardingRepository({required this.database, required this.session, this.remote});
 
   final LocalDatabase database;
   final SchoolSessionController session;
+
+  /// Set when there is a server: the registration is then sent to it directly, so the person
+  /// hears at once if something is wrong (a phone number or NIN that belongs to someone else).
+  /// Null on demo data, where it is saved on the device and queued.
+  final StaffServerApi? remote;
 
   Future<LocalRecord?> _ownRecord() async {
     final member = session.requireActiveMembership();
@@ -141,6 +147,44 @@ class StaffOnboardingRepository {
       'updatedByMembershipId': member.id,
       'submittedAt': DateTime.now().toUtc().toIso8601String(),
     };
+    final server = remote;
+    if (server != null) {
+      // The server applies the same rules as everywhere else and answers now.
+      await server.submitOnboarding(
+        member,
+        personal: {
+          'phone': phone,
+          'nin': nin,
+          'email': email,
+          'address': personal.address.trim(),
+          'dateOfBirth': personal.dateOfBirth.trim(),
+          'gender': personal.gender.trim(),
+          'stateOfOrigin': personal.stateOfOrigin.trim(),
+          'nextOfKinName': personal.nextOfKinName.trim(),
+          'nextOfKinPhone': kinPhone,
+        },
+        payment: {
+          'bankName': payment.bankName.trim(),
+          'accountName': payment.accountName.trim(),
+          'accountNumber': payment.accountNumber.trim(),
+        },
+        documents: {
+          for (final entry in documents.entries)
+            if (entry.value.trim().isNotEmpty) entry.key: entry.value.trim(),
+        },
+      );
+      // Show it as submitted now. It is not an edit to send: the server has it, and the next
+      // download replaces this copy with its own.
+      await database.upsertLocalRecord(
+        tenantId: member.schoolId,
+        entityType: OwnerStaffProfileRepository.entityType,
+        entityId: record.entityId,
+        payload: payload,
+        serverVersion: record.serverVersion,
+        isDirty: false,
+      );
+      return;
+    }
     await database.upsertLocalRecord(
       tenantId: member.schoolId,
       entityType: OwnerStaffProfileRepository.entityType,

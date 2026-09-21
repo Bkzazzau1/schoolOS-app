@@ -1,3 +1,4 @@
+import '../../proprietor/data/staff_server_api.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/data/owner_staff_profile_repository.dart';
@@ -282,7 +283,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       return AdministratorStaffPage(
         schoolName: widget.membership.schoolName,
         repository: _staffRepository,
-        proposals: StaffProposalRepository(
+        proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), 
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),
@@ -295,7 +296,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),
-        proposals: StaffProposalRepository(
+        proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), 
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),
