@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../data/transport_rider_assignment_repository.dart';
 import '../data/transport_route_management_repository.dart';
 import '../domain/transport_route_management_models.dart';
+import 'transport_rider_assignments_panel.dart';
 
 class TransportRouteManagementPanel extends StatefulWidget {
   const TransportRouteManagementPanel({
@@ -21,11 +23,16 @@ class TransportRouteManagementPanel extends StatefulWidget {
 class _TransportRouteManagementPanelState
     extends State<TransportRouteManagementPanel> {
   late Future<TransportRouteManagementSnapshot> _future;
+  late final TransportRiderAssignmentRepository _riders;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+    _riders = TransportRiderAssignmentRepository(
+      localDatabase: widget.repository.localDatabase,
+      schoolSession: widget.repository.schoolSession,
+    );
     _future = widget.repository.load();
   }
 
@@ -33,49 +40,64 @@ class _TransportRouteManagementPanelState
     setState(() => _future = widget.repository.load());
   }
 
+  void _changed() {
+    widget.onChanged?.call();
+    _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<TransportRouteManagementSnapshot>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(28),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
-        if (snapshot.hasError || !snapshot.hasData) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Routes & Stops Management',
-                    style: TextStyle(fontWeight: FontWeight.w900),
+    return Column(
+      children: [
+        FutureBuilder<TransportRouteManagementSnapshot>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(28),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Routes & stops management',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('${snapshot.error ?? 'Routes could not be loaded.'}'),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: _reload,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Retry'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text('${snapshot.error ?? 'Routes and stops could not be loaded.'}'),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: _reload,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        return _buildPanel(snapshot.data!);
-      },
+                ),
+              );
+            }
+            return _buildRoutes(snapshot.data!);
+          },
+        ),
+        const SizedBox(height: 18),
+        TransportRiderAssignmentsPanel(
+          repository: _riders,
+          routeManagementRepository: widget.repository,
+          onChanged: _changed,
+        ),
+      ],
     );
   }
 
-  Widget _buildPanel(TransportRouteManagementSnapshot snapshot) {
+  Widget _buildRoutes(TransportRouteManagementSnapshot snapshot) {
     final theme = Theme.of(context);
     return Card(
       child: Padding(
@@ -84,7 +106,7 @@ class _TransportRouteManagementPanelState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(
-              spacing: 14,
+              spacing: 12,
               runSpacing: 10,
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -95,7 +117,7 @@ class _TransportRouteManagementPanelState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'TRANSPORT CONTROL · ROUTE DESIGN',
+                        'TRANSPORT CONTROL · ROUTE PLAN',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w900,
@@ -104,14 +126,14 @@ class _TransportRouteManagementPanelState
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        'Routes & Stops Management',
+                        'Routes & stops management',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w900,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Maintain route identity, assigned vehicle/assistant, stop order and AM/PM timetable. Driver Portal consumes this plan as read-only operational scope.',
+                        'Manage route identity, assigned vehicle/assistant, stop order and morning/afternoon schedules. Driver Portal consumes this plan read-only.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -133,11 +155,20 @@ class _TransportRouteManagementPanelState
               ],
             ),
             const SizedBox(height: 16),
-            _Metrics(snapshot: snapshot),
-            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _Metric('Routes', '${snapshot.routes.length}'),
+                _Metric('Configured', '${snapshot.configuredRoutes}'),
+                _Metric('Stops', '${snapshot.totalStops}'),
+                _Metric('Locked today', '${snapshot.lockedToday}'),
+              ],
+            ),
+            const SizedBox(height: 16),
             if (snapshot.routes.isEmpty)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 26),
+                padding: EdgeInsets.symmetric(vertical: 28),
                 child: Center(child: Text('No transport routes are configured.')),
               )
             else
@@ -151,12 +182,12 @@ class _TransportRouteManagementPanelState
                   onEditStop: (stop) => _editStop(entry, stop),
                   onMoveStop: (stop, direction) =>
                       _moveStop(entry, stop, direction),
-                  onDeactivateStop: (stop) => _deactivateStop(entry, stop),
+                  onRemoveStop: (stop) => _removeStop(entry, stop),
                 ),
                 const SizedBox(height: 12),
               ],
             Text(
-              'Safety boundary: once a Driver manifest or vehicle check exists for today, route structure is locked for that service day. Historical trip records are never rewritten when the future route plan changes.',
+              'Configuration boundary: once a Driver manifest or vehicle check exists for today, route and stop changes are frozen for that service day. Changes otherwise save locally first and queue for synchronization.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.45,
@@ -169,89 +200,64 @@ class _TransportRouteManagementPanelState
   }
 
   Future<void> _createRoute() async {
-    final value = await showDialog<_RouteFormValue>(
+    final value = await showDialog<_RouteEditValue>(
       context: context,
-      builder: (_) => const _RouteFormDialog(),
+      builder: (context) => const _RouteEditDialog(),
     );
     if (value == null) return;
-    await _perform(
-      () => widget.repository.createRoute(
-        name: value.name,
-        vehicle: value.vehicle,
-        assistant: value.assistant,
-        note: value.note,
-      ),
-    );
+    await _run(() => widget.repository.createRoute(
+          name: value.name,
+          vehicle: value.vehicle,
+          assistant: value.assistant,
+          note: value.note,
+        ));
   }
 
   Future<void> _editRoute(TransportRouteManagementEntry entry) async {
-    final value = await showDialog<_RouteFormValue>(
+    final value = await showDialog<_RouteEditValue>(
       context: context,
-      builder: (_) => _RouteFormDialog(
-        title: 'Edit ${entry.route.id}',
-        initial: _RouteFormValue(
-          name: entry.route.name,
-          vehicle: entry.route.vehicle,
-          assistant: entry.route.assistant,
-          note: entry.route.note,
-        ),
-      ),
+      builder: (context) => _RouteEditDialog(entry: entry),
     );
     if (value == null) return;
-    await _perform(
-      () => widget.repository.updateRoute(
-        routeId: entry.route.id,
-        name: value.name,
-        vehicle: value.vehicle,
-        assistant: value.assistant,
-        note: value.note,
-      ),
-    );
+    await _run(() => widget.repository.updateRoute(
+          routeId: entry.route.id,
+          name: value.name,
+          vehicle: value.vehicle,
+          assistant: value.assistant,
+          note: value.note,
+        ));
   }
 
   Future<void> _addStop(TransportRouteManagementEntry entry) async {
-    final value = await showDialog<_StopFormValue>(
+    final value = await showDialog<_StopEditValue>(
       context: context,
-      builder: (_) => _StopFormDialog(
-        title: 'Add stop · ${entry.route.id}',
-      ),
+      builder: (context) => const _StopEditDialog(),
     );
     if (value == null) return;
-    await _perform(
-      () => widget.repository.addStop(
-        routeId: entry.route.id,
-        name: value.name,
-        morningTime: value.morningTime,
-        afternoonTime: value.afternoonTime,
-      ),
-    );
+    await _run(() => widget.repository.addStop(
+          routeId: entry.route.id,
+          name: value.name,
+          morningTime: value.morningTime,
+          afternoonTime: value.afternoonTime,
+        ));
   }
 
   Future<void> _editStop(
     TransportRouteManagementEntry entry,
     TransportStopDefinition stop,
   ) async {
-    final value = await showDialog<_StopFormValue>(
+    final value = await showDialog<_StopEditValue>(
       context: context,
-      builder: (_) => _StopFormDialog(
-        title: 'Edit stop ${stop.sequence}',
-        initial: _StopFormValue(
-          name: stop.name,
-          morningTime: stop.morningTime,
-          afternoonTime: stop.afternoonTime,
-        ),
-      ),
+      builder: (context) => _StopEditDialog(stop: stop),
     );
     if (value == null) return;
-    await _perform(
-      () => widget.repository.updateStop(
-        routeId: entry.route.id,
-        stopId: stop.id,
-        name: value.name,
-        morningTime: value.morningTime,
-        afternoonTime: value.afternoonTime,
-      ),
-    );
+    await _run(() => widget.repository.updateStop(
+          routeId: entry.route.id,
+          stopId: stop.id,
+          name: value.name,
+          morningTime: value.morningTime,
+          afternoonTime: value.afternoonTime,
+        ));
   }
 
   Future<void> _moveStop(
@@ -259,25 +265,23 @@ class _TransportRouteManagementPanelState
     TransportStopDefinition stop,
     int direction,
   ) async {
-    await _perform(
-      () => widget.repository.moveStop(
-        routeId: entry.route.id,
-        stopId: stop.id,
-        direction: direction,
-      ),
-    );
+    await _run(() => widget.repository.moveStop(
+          routeId: entry.route.id,
+          stopId: stop.id,
+          direction: direction,
+        ));
   }
 
-  Future<void> _deactivateStop(
+  Future<void> _removeStop(
     TransportRouteManagementEntry entry,
     TransportStopDefinition stop,
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Remove stop from future plan?'),
+      builder: (context) => AlertDialog(
+        title: const Text('Remove stop from future route plan?'),
         content: Text(
-          '${stop.name} will be removed from future route sequencing. Historical trips remain unchanged. A stop with registered riders cannot be removed until those riders are reassigned.',
+          '${stop.name} will no longer appear in future manifests. Historical trip records remain unchanged. Students assigned to this stop must be reassigned first.',
         ),
         actions: [
           TextButton(
@@ -292,17 +296,13 @@ class _TransportRouteManagementPanelState
       ),
     );
     if (confirmed != true) return;
-    await _perform(
-      () => widget.repository.deactivateStop(
-        routeId: entry.route.id,
-        stopId: stop.id,
-      ),
-    );
+    await _run(() => widget.repository.deactivateStop(
+          routeId: entry.route.id,
+          stopId: stop.id,
+        ));
   }
 
-  Future<void> _perform(
-    Future<dynamic> Function() action,
-  ) async {
+  Future<void> _run(Future<dynamic> Function() action) async {
     if (_saving) return;
     setState(() => _saving = true);
     try {
@@ -334,70 +334,33 @@ class _TransportRouteManagementPanelState
   }
 }
 
-class _Metrics extends StatelessWidget {
-  const _Metrics({required this.snapshot});
-
-  final TransportRouteManagementSnapshot snapshot;
+class _Metric extends StatelessWidget {
+  const _Metric(this.label, this.value);
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    final values = [
-      ('Routes', '${snapshot.routes.length}', Icons.alt_route_rounded),
-      ('Configured', '${snapshot.configuredRoutes}', Icons.route_outlined),
-      ('Active stops', '${snapshot.totalStops}', Icons.pin_drop_outlined),
-      ('Locked today', '${snapshot.lockedToday}', Icons.lock_clock_outlined),
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 850
-            ? 4
-            : constraints.maxWidth >= 480
-                ? 2
-                : 1;
-        final width =
-            (constraints.maxWidth - ((columns - 1) * 10)) / columns;
-        return Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            for (final value in values)
-              SizedBox(
-                width: width,
-                child: Container(
-                  padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(value.$3, size: 20),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            value.$2,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
-                            ),
-                          ),
-                          Text(
-                            value.$1,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+    return Container(
+      width: 140,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
                 ),
-              ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -411,7 +374,7 @@ class _RoutePlanCard extends StatelessWidget {
     required this.onAddStop,
     required this.onEditStop,
     required this.onMoveStop,
-    required this.onDeactivateStop,
+    required this.onRemoveStop,
   });
 
   final TransportRouteManagementEntry entry;
@@ -420,124 +383,97 @@ class _RoutePlanCard extends StatelessWidget {
   final VoidCallback onEditRoute;
   final VoidCallback onAddStop;
   final ValueChanged<TransportStopDefinition> onEditStop;
-  final void Function(TransportStopDefinition, int) onMoveStop;
-  final ValueChanged<TransportStopDefinition> onDeactivateStop;
+  final void Function(TransportStopDefinition stop, int direction) onMoveStop;
+  final ValueChanged<TransportStopDefinition> onRemoveStop;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final stops = entry.plan.activeStops;
+    final controlsEnabled = canManage && !busy && !entry.lockedForToday;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: entry.lockedForToday
-              ? theme.colorScheme.tertiary.withValues(alpha: .55)
-              : theme.colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
-                      children: [
-                        Chip(label: Text(entry.route.id)),
-                        Chip(label: Text('${stops.length} stops')),
-                        if (entry.assignedDriverName.isNotEmpty)
-                          Chip(label: Text(entry.assignedDriverName)),
-                        if (entry.lockedForToday)
-                          const Chip(
-                            avatar: Icon(Icons.lock_clock_outlined, size: 16),
-                            label: Text('Locked today'),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      entry.route.name,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${entry.route.vehicle} · Assistant ${entry.route.assistant}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    if (entry.route.note.trim().isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        entry.route.note,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (canManage)
-                PopupMenuButton<String>(
-                  enabled: !busy && !entry.lockedForToday,
-                  onSelected: (value) {
-                    if (value == 'edit') onEditRoute();
-                    if (value == 'add') onAddStop();
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'edit', child: Text('Edit route details')),
-                    PopupMenuItem(value: 'add', child: Text('Add stop')),
-                  ],
+              Chip(label: Text(entry.route.id)),
+              Chip(label: Text('${entry.route.riders} riders')),
+              Chip(label: Text('${entry.activeStopCount} stops')),
+              if (entry.assignedDriverName.isNotEmpty)
+                Chip(label: Text('Driver · ${entry.assignedDriverName}')),
+              if (entry.lockedForToday)
+                const Chip(
+                  avatar: Icon(Icons.lock_outline_rounded, size: 17),
+                  label: Text('Locked today'),
                 ),
             ],
           ),
+          const SizedBox(height: 8),
+          Text(
+            entry.route.name,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text('${entry.route.vehicle} · Assistant ${entry.route.assistant}'),
+          if (entry.route.note.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(entry.route.note, style: theme.textTheme.bodySmall),
+          ],
           if (entry.lockedForToday) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               entry.lockReason,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.tertiary,
-                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.error,
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          if (canManage) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: controlsEnabled ? onEditRoute : null,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Edit route'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: controlsEnabled ? onAddStop : null,
+                  icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                  label: const Text('Add stop'),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
           if (stops.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Text('No active stops configured for this route.'),
-            )
+            const Text('No active stops configured yet.')
           else
             for (var index = 0; index < stops.length; index++) ...[
               _StopRow(
                 stop: stops[index],
-                first: index == 0,
-                last: index == stops.length - 1,
-                canManage: canManage && !entry.lockedForToday && !busy,
+                canManage: controlsEnabled,
+                canMoveUp: index > 0,
+                canMoveDown: index < stops.length - 1,
                 onEdit: () => onEditStop(stops[index]),
                 onMoveUp: () => onMoveStop(stops[index], -1),
                 onMoveDown: () => onMoveStop(stops[index], 1),
-                onRemove: () => onDeactivateStop(stops[index]),
+                onRemove: () => onRemoveStop(stops[index]),
               ),
-              if (index != stops.length - 1) const Divider(height: 14),
+              if (index != stops.length - 1) const Divider(height: 18),
             ],
-          if (canManage && !entry.lockedForToday) ...[
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: busy ? null : onAddStop,
-              icon: const Icon(Icons.add_location_alt_outlined),
-              label: const Text('Add stop'),
-            ),
-          ],
         ],
       ),
     );
@@ -547,9 +483,9 @@ class _RoutePlanCard extends StatelessWidget {
 class _StopRow extends StatelessWidget {
   const _StopRow({
     required this.stop,
-    required this.first,
-    required this.last,
     required this.canManage,
+    required this.canMoveUp,
+    required this.canMoveDown,
     required this.onEdit,
     required this.onMoveUp,
     required this.onMoveDown,
@@ -557,9 +493,9 @@ class _StopRow extends StatelessWidget {
   });
 
   final TransportStopDefinition stop;
-  final bool first;
-  final bool last;
   final bool canManage;
+  final bool canMoveUp;
+  final bool canMoveDown;
   final VoidCallback onEdit;
   final VoidCallback onMoveUp;
   final VoidCallback onMoveDown;
@@ -570,52 +506,40 @@ class _StopRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: 17,
-          child: Text('${stop.sequence}'),
-        ),
-        const SizedBox(width: 11),
+        CircleAvatar(radius: 16, child: Text('${stop.sequence}')),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                stop.name,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'AM ${stop.morningTime} · PM ${stop.afternoonTime}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text(stop.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text('AM ${stop.morningTime} · PM ${stop.afternoonTime}'),
             ],
           ),
         ),
         if (canManage)
           PopupMenuButton<String>(
+            tooltip: 'Stop actions',
             onSelected: (value) {
               if (value == 'edit') onEdit();
               if (value == 'up') onMoveUp();
               if (value == 'down') onMoveDown();
               if (value == 'remove') onRemove();
             },
-            itemBuilder: (_) => [
+            itemBuilder: (context) => [
               const PopupMenuItem(value: 'edit', child: Text('Edit stop')),
               PopupMenuItem(
                 value: 'up',
-                enabled: !first,
+                enabled: canMoveUp,
                 child: const Text('Move earlier'),
               ),
               PopupMenuItem(
                 value: 'down',
-                enabled: !last,
+                enabled: canMoveDown,
                 child: const Text('Move later'),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'remove',
-                child: Text('Remove from future plan'),
-              ),
+              const PopupMenuItem(value: 'remove', child: Text('Remove stop')),
             ],
           ),
       ],
@@ -623,20 +547,15 @@ class _StopRow extends StatelessWidget {
   }
 }
 
-class _RouteFormDialog extends StatefulWidget {
-  const _RouteFormDialog({
-    this.title = 'Create transport route',
-    this.initial,
-  });
-
-  final String title;
-  final _RouteFormValue? initial;
+class _RouteEditDialog extends StatefulWidget {
+  const _RouteEditDialog({this.entry});
+  final TransportRouteManagementEntry? entry;
 
   @override
-  State<_RouteFormDialog> createState() => _RouteFormDialogState();
+  State<_RouteEditDialog> createState() => _RouteEditDialogState();
 }
 
-class _RouteFormDialogState extends State<_RouteFormDialog> {
+class _RouteEditDialogState extends State<_RouteEditDialog> {
   late final TextEditingController _name;
   late final TextEditingController _vehicle;
   late final TextEditingController _assistant;
@@ -645,10 +564,10 @@ class _RouteFormDialogState extends State<_RouteFormDialog> {
   @override
   void initState() {
     super.initState();
-    _name = TextEditingController(text: widget.initial?.name ?? '');
-    _vehicle = TextEditingController(text: widget.initial?.vehicle ?? '');
-    _assistant = TextEditingController(text: widget.initial?.assistant ?? '');
-    _note = TextEditingController(text: widget.initial?.note ?? '');
+    _name = TextEditingController(text: widget.entry?.route.name ?? '');
+    _vehicle = TextEditingController(text: widget.entry?.route.vehicle ?? '');
+    _assistant = TextEditingController(text: widget.entry?.route.assistant ?? '');
+    _note = TextEditingController(text: widget.entry?.route.note ?? '');
   }
 
   @override
@@ -663,58 +582,27 @@ class _RouteFormDialogState extends State<_RouteFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title),
+      title: Text(widget.entry == null ? 'Create transport route' : 'Edit route'),
       content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _name,
-                decoration: const InputDecoration(
-                  labelText: 'Route name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _vehicle,
-                decoration: const InputDecoration(
-                  labelText: 'Vehicle',
-                  hintText: 'Toyota Coaster · BGA-05',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _assistant,
-                decoration: const InputDecoration(
-                  labelText: 'Route assistant',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _note,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Operational note',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: _name, decoration: const InputDecoration(labelText: 'Route name')),
+            const SizedBox(height: 10),
+            TextField(controller: _vehicle, decoration: const InputDecoration(labelText: 'Vehicle / fleet ID')),
+            const SizedBox(height: 10),
+            TextField(controller: _assistant, decoration: const InputDecoration(labelText: 'Assistant')),
+            const SizedBox(height: 10),
+            TextField(controller: _note, maxLines: 2, decoration: const InputDecoration(labelText: 'Operational note')),
+          ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(
-            _RouteFormValue(
+            _RouteEditValue(
               name: _name.text,
               vehicle: _vehicle.text,
               assistant: _assistant.text,
@@ -728,20 +616,15 @@ class _RouteFormDialogState extends State<_RouteFormDialog> {
   }
 }
 
-class _StopFormDialog extends StatefulWidget {
-  const _StopFormDialog({
-    required this.title,
-    this.initial,
-  });
-
-  final String title;
-  final _StopFormValue? initial;
+class _StopEditDialog extends StatefulWidget {
+  const _StopEditDialog({this.stop});
+  final TransportStopDefinition? stop;
 
   @override
-  State<_StopFormDialog> createState() => _StopFormDialogState();
+  State<_StopEditDialog> createState() => _StopEditDialogState();
 }
 
-class _StopFormDialogState extends State<_StopFormDialog> {
+class _StopEditDialogState extends State<_StopEditDialog> {
   late final TextEditingController _name;
   late final TextEditingController _morning;
   late final TextEditingController _afternoon;
@@ -749,9 +632,9 @@ class _StopFormDialogState extends State<_StopFormDialog> {
   @override
   void initState() {
     super.initState();
-    _name = TextEditingController(text: widget.initial?.name ?? '');
-    _morning = TextEditingController(text: widget.initial?.morningTime ?? '');
-    _afternoon = TextEditingController(text: widget.initial?.afternoonTime ?? '');
+    _name = TextEditingController(text: widget.stop?.name ?? '');
+    _morning = TextEditingController(text: widget.stop?.morningTime ?? '06:30');
+    _afternoon = TextEditingController(text: widget.stop?.afternoonTime ?? '15:00');
   }
 
   @override
@@ -765,58 +648,25 @@ class _StopFormDialogState extends State<_StopFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title),
+      title: Text(widget.stop == null ? 'Add transport stop' : 'Edit stop'),
       content: SizedBox(
-        width: 520,
+        width: 500,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _name,
-              decoration: const InputDecoration(
-                labelText: 'Stop name',
-                border: OutlineInputBorder(),
-              ),
-            ),
+            TextField(controller: _name, decoration: const InputDecoration(labelText: 'Public pickup / drop stop')),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _morning,
-                    keyboardType: TextInputType.datetime,
-                    decoration: const InputDecoration(
-                      labelText: 'Morning HH:mm',
-                      hintText: '06:45',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _afternoon,
-                    keyboardType: TextInputType.datetime,
-                    decoration: const InputDecoration(
-                      labelText: 'Afternoon HH:mm',
-                      hintText: '15:35',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            TextField(controller: _morning, decoration: const InputDecoration(labelText: 'Morning time · HH:mm')),
+            const SizedBox(height: 10),
+            TextField(controller: _afternoon, decoration: const InputDecoration(labelText: 'Afternoon time · HH:mm')),
           ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(
-            _StopFormValue(
+            _StopEditValue(
               name: _name.text,
               morningTime: _morning.text,
               afternoonTime: _afternoon.text,
@@ -829,27 +679,25 @@ class _StopFormDialogState extends State<_StopFormDialog> {
   }
 }
 
-class _RouteFormValue {
-  const _RouteFormValue({
+class _RouteEditValue {
+  const _RouteEditValue({
     required this.name,
     required this.vehicle,
     required this.assistant,
     required this.note,
   });
-
   final String name;
   final String vehicle;
   final String assistant;
   final String note;
 }
 
-class _StopFormValue {
-  const _StopFormValue({
+class _StopEditValue {
+  const _StopEditValue({
     required this.name,
     required this.morningTime,
     required this.afternoonTime,
   });
-
   final String name;
   final String morningTime;
   final String afternoonTime;
