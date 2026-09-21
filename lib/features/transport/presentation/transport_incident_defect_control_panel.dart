@@ -255,7 +255,7 @@ class _TransportIncidentDefectControlPanelState
     final note = await _noteDialog(
       title: 'Start incident review',
       hint: 'Optional management review note',
-      required: false,
+      isRequired: false,
       initial: incident.managementNote,
       confirmLabel: 'Under review',
     );
@@ -269,7 +269,7 @@ class _TransportIncidentDefectControlPanelState
     final note = await _noteDialog(
       title: 'Resolve incident',
       hint: 'State what was done and why the incident can be closed.',
-      required: true,
+      isRequired: true,
       initial: incident.managementNote,
       confirmLabel: 'Resolve',
     );
@@ -286,7 +286,7 @@ class _TransportIncidentDefectControlPanelState
     final note = await _noteDialog(
       title: 'Review vehicle defect',
       hint: 'Optional maintenance / inspection note',
-      required: false,
+      isRequired: false,
       initial: defect.managementNote,
       confirmLabel: 'Under review',
     );
@@ -300,7 +300,7 @@ class _TransportIncidentDefectControlPanelState
     final note = await _noteDialog(
       title: 'Clear vehicle defect',
       hint: 'Describe the repair, inspection or corrective action completed.',
-      required: true,
+      isRequired: true,
       initial: defect.managementNote,
       confirmLabel: 'Clear defect',
     );
@@ -313,7 +313,7 @@ class _TransportIncidentDefectControlPanelState
   Future<String?> _noteDialog({
     required String title,
     required String hint,
-    required bool required,
+    required bool isRequired,
     required String confirmLabel,
     String initial = '',
   }) async {
@@ -329,7 +329,8 @@ class _TransportIncidentDefectControlPanelState
             minLines: 3,
             maxLines: 6,
             decoration: InputDecoration(
-              labelText: required ? 'Management note · required' : 'Management note',
+              labelText:
+                  isRequired ? 'Management note · required' : 'Management note',
               hintText: hint,
               border: const OutlineInputBorder(),
             ),
@@ -343,7 +344,7 @@ class _TransportIncidentDefectControlPanelState
           FilledButton(
             onPressed: () {
               final value = controller.text.trim();
-              if (required && value.isEmpty) return;
+              if (isRequired && value.isEmpty) return;
               Navigator.of(context).pop(value);
             },
             child: Text(confirmLabel),
