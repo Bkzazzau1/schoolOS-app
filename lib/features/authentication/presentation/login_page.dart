@@ -226,6 +226,7 @@ class _LoginPageState extends State<LoginPage> {
     SchoolMembership membership,
   ) async {
     await widget.services.schoolSession.selectSchool(membership);
+    widget.services.syncCoordinator?.start();
     // The login route has been replaced by the school picker. Navigation must
     // use the picker context, which remains mounted after the session is saved.
     if (!context.mounted) return;
@@ -507,22 +508,24 @@ class _BrandHeader extends StatelessWidget {
           child: Icon(Icons.school_rounded, color: theme.colorScheme.onPrimary),
         ),
         const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'SchoolOS',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'SchoolOS',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-            Text(
-              'Work anywhere. Sync when connected.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              Text(
+                'Work anywhere. Sync when connected.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );

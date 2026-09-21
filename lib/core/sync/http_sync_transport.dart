@@ -24,7 +24,8 @@ class HttpSyncTransport implements SyncTransport {
       'entityType': mutation.entityType,
       'entityId': mutation.entityId,
       'operation': mutation.operation.name,
-      if (mutation.operation != SyncOperation.delete) 'payload': mutation.payload,
+      if (mutation.operation != SyncOperation.delete)
+        'payload': mutation.payload,
       if (mutation.baseVersion != null) 'baseVersion': mutation.baseVersion,
       'createdAt': mutation.createdAt.toUtc().toIso8601String(),
     };
@@ -36,8 +37,13 @@ class HttpSyncTransport implements SyncTransport {
       // 409 and 422 carry the decision in their body.
       if (error.isConflict || error.statusCode == 422) {
         final details = error.details;
-        return _result(details, error.isConflict ? SyncPushDisposition.conflict : SyncPushDisposition.rejected,
-            fallbackMessage: error.message);
+        return _result(
+          details,
+          error.isConflict
+              ? SyncPushDisposition.conflict
+              : SyncPushDisposition.rejected,
+          fallbackMessage: error.message,
+        );
       }
       if (error.isForbidden) {
         return SyncPushResult(
@@ -46,7 +52,10 @@ class HttpSyncTransport implements SyncTransport {
         );
       }
       // A malformed change (400) is the change's own fault; it will not get better by waiting.
-      return SyncPushResult(disposition: SyncPushDisposition.rejected, message: error.message);
+      return SyncPushResult(
+        disposition: SyncPushDisposition.rejected,
+        message: error.message,
+      );
     } on ApiOfflineException catch (error) {
       throw SyncRetryLater(error.message);
     } on SessionExpiredException catch (error) {
@@ -54,14 +63,21 @@ class HttpSyncTransport implements SyncTransport {
     }
   }
 
-  SyncPushResult _result(Object? data, SyncPushDisposition fallback, {String? fallbackMessage}) {
+  SyncPushResult _result(
+    Object? data,
+    SyncPushDisposition fallback, {
+    String? fallbackMessage,
+  }) {
     final map = data is Map ? data : const {};
-    final message = map['message'] is String && (map['message'] as String).isNotEmpty
+    final message =
+        map['message'] is String && (map['message'] as String).isNotEmpty
         ? map['message'] as String
         : fallbackMessage;
     return SyncPushResult(
       disposition: fallback,
-      serverVersion: map['serverVersion'] is int ? map['serverVersion'] as int : null,
+      serverVersion: map['serverVersion'] is int
+          ? map['serverVersion'] as int
+          : null,
       message: message,
     );
   }

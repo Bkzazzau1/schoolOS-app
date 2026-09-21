@@ -4,7 +4,10 @@ import 'sync_mutation.dart';
 /// tests use memory.
 abstract interface class SyncStore {
   /// How far down the school's changes this membership has already read (0 = nothing yet).
-  Future<int> readSyncCursor({required String tenantId, required String membershipId});
+  Future<int> readSyncCursor({
+    required String tenantId,
+    required String membershipId,
+  });
 
   Future<void> writeSyncCursor({
     required String tenantId,

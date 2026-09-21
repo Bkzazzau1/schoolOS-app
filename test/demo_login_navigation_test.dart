@@ -6,6 +6,7 @@ import 'package:schoolos_app/core/appearance/school_appearance_controller.dart';
 import 'package:schoolos_app/core/auth/auth_repository.dart';
 import 'package:schoolos_app/core/network/api_config.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
+import 'package:schoolos_app/core/sync/sync_coordinator.dart';
 import 'package:schoolos_app/core/sync/sync_engine.dart';
 import 'package:schoolos_app/core/sync/sync_mutation.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
@@ -35,6 +36,8 @@ class _DemoServices implements AppServices {
   final AuthRepository? auth = null;
   @override
   final SyncEngine? syncEngine = null;
+  @override
+  final SyncCoordinator? syncCoordinator = null;
   @override
   bool get usesBackend => false;
   @override

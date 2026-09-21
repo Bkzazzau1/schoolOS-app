@@ -829,7 +829,7 @@ void main() {
       final other = _Database();
       await proposeAs(await _repo(other, _principal, sessions), good);
     }
-    expect(staffSystemRoles.keys, ['teacher', 'staff', 'accountant', 'administrator', 'principal']);
+    expect(staffSystemRoles.keys, ['teacher', 'driver', 'staff', 'accountant', 'administrator', 'principal']);
   });
 
   test('the proposed role becomes the staff member role on approval', () async {
@@ -907,7 +907,7 @@ void main() {
     for (final role in staffSystemRoles.keys.where((r) => !delegateApprovableRoles.contains(r))) {
       await assignAndTry(role, allowed: false);
     }
-    expect(delegateApprovableRoles, {'teacher', 'staff'});
+    expect(delegateApprovableRoles, {'teacher', 'driver', 'staff'});
   });
 
   test('a proposal with no role cannot be approved until the owner chooses one', () async {

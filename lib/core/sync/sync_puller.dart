@@ -5,7 +5,11 @@ import 'sync_store.dart';
 import 'sync_transport.dart';
 
 class PullSummary {
-  const PullSummary({required this.applied, required this.skippedUnsent, required this.removed});
+  const PullSummary({
+    required this.applied,
+    required this.skippedUnsent,
+    required this.removed,
+  });
 
   final int applied;
 
@@ -23,9 +27,12 @@ class PullSummary {
 /// after each page, so an interrupted download carries on where it stopped, and
 /// applying a page twice does no harm.
 class SyncPuller {
-  SyncPuller({required ApiClient api, required SyncStore store, this.pageSize = 200})
-      : _api = api,
-        _store = store;
+  SyncPuller({
+    required ApiClient api,
+    required SyncStore store,
+    this.pageSize = 200,
+  }) : _api = api,
+       _store = store;
 
   final ApiClient _api;
   final SyncStore _store;
@@ -33,17 +40,23 @@ class SyncPuller {
 
   Future<PullSummary> pull(SchoolMembership membership) async {
     var applied = 0, skipped = 0, removed = 0;
-    var cursor = await _store.readSyncCursor(tenantId: membership.schoolId, membershipId: membership.id);
+    var cursor = await _store.readSyncCursor(
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+    );
 
     while (true) {
       final Object? data;
       try {
-        data = await _api.get('sync/pull/', query: {
-          'school': membership.schoolId,
-          'membership': membership.id,
-          'since': '$cursor',
-          'limit': '$pageSize',
-        });
+        data = await _api.get(
+          'sync/pull/',
+          query: {
+            'school': membership.schoolId,
+            'membership': membership.id,
+            'since': '$cursor',
+            'limit': '$pageSize',
+          },
+        );
       } on ApiOfflineException catch (error) {
         throw SyncRetryLater(error.message);
       } on SessionExpiredException catch (error) {
@@ -67,21 +80,37 @@ class SyncPuller {
       }
 
       cursor = data['cursor'] as int;
-      await _store.writeSyncCursor(tenantId: membership.schoolId, membershipId: membership.id, cursor: cursor);
+      await _store.writeSyncCursor(
+        tenantId: membership.schoolId,
+        membershipId: membership.id,
+        cursor: cursor,
+      );
       if (data['hasMore'] != true) break;
     }
-    return PullSummary(applied: applied, skippedUnsent: skipped, removed: removed);
+    return PullSummary(
+      applied: applied,
+      skippedUnsent: skipped,
+      removed: removed,
+    );
   }
 
   Future<_Applied> _apply(String tenantId, Map<String, dynamic> record) async {
     final type = record['entityType'] as String;
     final id = record['entityId'] as String;
-    final existing = await _store.getLocalRecord(tenantId: tenantId, entityType: type, entityId: id);
+    final existing = await _store.getLocalRecord(
+      tenantId: tenantId,
+      entityType: type,
+      entityId: id,
+    );
     if (existing != null && existing.isDirty) return _Applied.skipped;
 
     if (record['deleted'] == true) {
       if (existing != null) {
-        await _store.deleteLocalRecord(tenantId: tenantId, entityType: type, entityId: id);
+        await _store.deleteLocalRecord(
+          tenantId: tenantId,
+          entityType: type,
+          entityId: id,
+        );
       }
       return _Applied.removed;
     }

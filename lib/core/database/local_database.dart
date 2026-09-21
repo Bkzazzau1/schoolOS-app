@@ -9,9 +9,18 @@ import '../sync/sync_mutation.dart';
 import '../sync/sync_store.dart';
 
 class LocalDatabase implements SyncStore {
-  LocalDatabase({required PayloadCipher cipher}) : _cipher = cipher;
+  /// [databasePath] is for tests (use `':memory:'`); the app leaves it out and
+  /// gets its own file in the platform's private support folder.
+  LocalDatabase({required PayloadCipher cipher, String? databasePath})
+    : _cipher = cipher,
+      _databasePath = databasePath;
 
   final PayloadCipher _cipher;
+  final String? _databasePath;
+
+  /// Called whenever there is new work in the outbox, so the app can send it
+  /// soon without every screen having to ask.
+  void Function()? onMutationQueued;
   Database? _database;
 
   Database get _db {
@@ -26,8 +35,12 @@ class LocalDatabase implements SyncStore {
     if (_database != null) return;
 
     await _cipher.initialize();
-    final supportDirectory = await getApplicationSupportDirectory();
-    final databasePath = p.join(supportDirectory.path, 'schoolos_local.db');
+    final databasePath =
+        _databasePath ??
+        p.join(
+          (await getApplicationSupportDirectory()).path,
+          'schoolos_local.db',
+        );
 
     final db = sqlite3.open(databasePath);
     db.execute('PRAGMA journal_mode = WAL;');
@@ -232,10 +245,10 @@ class LocalDatabase implements SyncStore {
     }
 
     final encryptedPayload = await _cipher.encryptJson(payload);
-    final createdAt = DateTime.now().toUtc().toIso8601String();
+    final now = _nextQueueTime();
     final existing = _db.select(
       '''
-      SELECT id, operation
+      SELECT id, operation, status, attempt_count, created_at
       FROM sync_outbox
       WHERE tenant_id = ?
         AND entity_type = ?
@@ -247,38 +260,55 @@ class LocalDatabase implements SyncStore {
       [tenantId, entityType, entityId],
     );
 
-    if (existing.isNotEmpty) {
-      final existingId = existing.first['id'] as String;
-      final existingOperation = SyncOperation.values.byName(
-        existing.first['operation'] as String,
-      );
-      final effectiveOperation =
-          existingOperation == SyncOperation.create && operation != SyncOperation.delete
-              ? SyncOperation.create
-              : operation;
+    var effectiveOperation = operation;
+    var createdAt = now;
 
-      _db.execute(
-        '''
-        UPDATE sync_outbox
-        SET membership_id = ?,
-            operation = ?,
-            encrypted_payload = ?,
-            base_version = ?,
-            created_at = ?,
-            status = 'pending',
-            last_error = NULL
-        WHERE id = ?;
-        ''',
-        [
-          membershipId,
-          effectiveOperation.name,
-          encryptedPayload,
-          baseVersion,
-          createdAt,
-          existingId,
-        ],
+    if (existing.isNotEmpty) {
+      final row = existing.first;
+      final existingId = row['id'] as String;
+      final existingOperation = SyncOperation.values.byName(
+        row['operation'] as String,
       );
-      return existingId;
+      // The server has never seen an earlier create, so the record is still a
+      // create however many times it is edited before it is sent.
+      final stillACreate =
+          existingOperation == SyncOperation.create &&
+          operation != SyncOperation.delete;
+
+      if (row['status'] == 'pending' && (row['attempt_count'] as int) == 0) {
+        // Nothing has been sent yet: fold the new edit into the waiting change.
+        // It keeps its id and its place in the queue, because changes must
+        // reach the server in the order they were first made (a comment cannot
+        // arrive before the post it is on).
+        _db.execute(
+          '''
+          UPDATE sync_outbox
+          SET membership_id = ?, operation = ?, encrypted_payload = ?, base_version = ?
+          WHERE id = ?;
+          ''',
+          [
+            membershipId,
+            (stillACreate ? SyncOperation.create : operation).name,
+            encryptedPayload,
+            baseVersion,
+            existingId,
+          ],
+        );
+        onMutationQueued?.call();
+        return existingId;
+      }
+
+      if (row['status'] == 'failed') {
+        // The server refused the earlier change. The new edit replaces it, but
+        // under a new id, because the server remembers its answer to the old
+        // one and would give the same answer again. It keeps its place too.
+        _db.execute('DELETE FROM sync_outbox WHERE id = ?;', [row['id']]);
+        createdAt = row['created_at'] as String;
+        if (stillACreate) effectiveOperation = SyncOperation.create;
+      }
+      // A change that was sent but never answered may already be applied on the
+      // server, so it is left alone and the new edit follows it as its own
+      // change. Editing it in place could make the server ignore the edit.
     }
 
     final id = _newMutationId();
@@ -304,14 +334,33 @@ class LocalDatabase implements SyncStore {
         membershipId,
         entityType,
         entityId,
-        operation.name,
+        effectiveOperation.name,
         encryptedPayload,
         baseVersion,
         createdAt,
       ],
     );
 
+    onMutationQueued?.call();
     return id;
+  }
+
+  /// The time to stamp a new change with. Strictly later than every change
+  /// already queued, so the order of the queue is never a tie, and always
+  /// written with six decimals so that ordering by text is ordering by time.
+  String _nextQueueTime() {
+    var time = DateTime.now().toUtc();
+    final latest = _db
+        .select('SELECT MAX(created_at) AS latest FROM sync_outbox;')
+        .first['latest'] as String?;
+    if (latest != null) {
+      final last = DateTime.parse(latest);
+      if (!time.isAfter(last)) time = last.add(const Duration(microseconds: 1));
+    }
+    return time.toIso8601String().replaceFirstMapped(
+          RegExp(r'\.(\d{3})Z$'),
+          (match) => '.${match[1]}000Z',
+        );
   }
 
   Future<List<SyncMutation>> pendingMutations({
@@ -326,7 +375,7 @@ class LocalDatabase implements SyncStore {
     final rows = _db.select(
       '''
       SELECT * FROM sync_outbox
-      WHERE tenant_id = ? AND status IN ('pending', 'failed')
+      WHERE tenant_id = ? AND status = 'pending'
       ORDER BY created_at ASC
       LIMIT ?;
       ''',
@@ -417,14 +466,17 @@ class LocalDatabase implements SyncStore {
   }) {
     _requireTenant(tenantId);
 
+    // A new id, because the server remembers its answer to the old one and
+    // would simply repeat it.
     _db.execute(
       '''
       UPDATE sync_outbox
-      SET status = 'pending', last_error = NULL
+      SET id = ?, status = 'pending', attempt_count = 0, last_error = NULL
       WHERE id = ? AND tenant_id = ? AND status = 'failed';
       ''',
-      [mutationId, tenantId],
+      [_newMutationId(), mutationId, tenantId],
     );
+    onMutationQueued?.call();
   }
 
   /// Puts a change that was being sent back in the queue, untouched, because it
@@ -458,10 +510,7 @@ class LocalDatabase implements SyncStore {
     );
   }
 
-  void markMutationSynced(
-    String mutationId, {
-    int? serverVersion,
-  }) {
+  void markMutationSynced(String mutationId, {int? serverVersion}) {
     final mutation = _db.select(
       '''
       SELECT tenant_id, entity_type, entity_id
@@ -490,10 +539,7 @@ class LocalDatabase implements SyncStore {
       );
     }
 
-    _db.execute(
-      'DELETE FROM sync_outbox WHERE id = ?;',
-      [mutationId],
-    );
+    _db.execute('DELETE FROM sync_outbox WHERE id = ?;', [mutationId]);
   }
 
   void close() {
@@ -543,8 +589,9 @@ class LocalDatabase implements SyncStore {
 
 String _newMutationId() {
   final random = Random.secure();
-  final randomPart = List<int>.generate(12, (_) => random.nextInt(256))
-      .map((value) => value.toRadixString(16).padLeft(2, '0'))
-      .join();
+  final randomPart = List<int>.generate(
+    12,
+    (_) => random.nextInt(256),
+  ).map((value) => value.toRadixString(16).padLeft(2, '0')).join();
   return '${DateTime.now().microsecondsSinceEpoch}-$randomPart';
 }

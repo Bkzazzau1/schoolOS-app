@@ -1,14 +1,6 @@
-enum SyncOperation {
-  create,
-  update,
-  delete,
-}
+enum SyncOperation { create, update, delete }
 
-enum SyncMutationStatus {
-  pending,
-  syncing,
-  failed,
-}
+enum SyncMutationStatus { pending, syncing, failed }
 
 class SyncMutation {
   const SyncMutation({
@@ -71,8 +63,7 @@ class SyncQueueItem {
       status == SyncMutationStatus.failed &&
       (lastError?.startsWith('SYNC_CONFLICT:') ?? false);
 
-  bool get canQueueRetry =>
-      status == SyncMutationStatus.failed && !isConflict;
+  bool get canQueueRetry => status == SyncMutationStatus.failed && !isConflict;
 }
 
 class LocalRecord {

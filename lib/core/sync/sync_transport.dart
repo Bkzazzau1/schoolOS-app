@@ -1,10 +1,6 @@
 import 'sync_mutation.dart';
 
-enum SyncPushDisposition {
-  accepted,
-  conflict,
-  rejected,
-}
+enum SyncPushDisposition { accepted, conflict, rejected }
 
 class SyncPushResult {
   const SyncPushResult({

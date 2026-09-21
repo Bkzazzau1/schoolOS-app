@@ -27,7 +27,7 @@ const staffSystemRoles = <String, String>{
 /// Roles someone the owner has assigned to approve staff may approve. The
 /// others reach money, student records or protected transport data, so only
 /// the owner approves them.
-const delegateApprovableRoles = <String>{'teacher', 'staff'};
+const delegateApprovableRoles = <String>{'teacher', 'driver', 'staff'};
 
 String staffSystemRoleLabel(String role) => staffSystemRoles[role] ?? 'Not chosen';
 

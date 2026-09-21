@@ -11,12 +11,25 @@ import '../features/proprietor/presentation/proprietor_workspace_page.dart';
 import '../features/teacher/presentation/teacher_workspace_page.dart';
 import '../shared/models/school_membership.dart';
 import 'app_services.dart';
+import 'sync_status_banner.dart';
+
+/// Lets the sync banner take the person back to the login screen from anywhere.
+final _navigatorKey = GlobalKey<NavigatorState>();
+
+/// Ends the current sign-in (unsent work stays on the device) and opens the login screen.
+Future<void> _signInAgain(AppServices services) async {
+  services.syncCoordinator?.stop();
+  await services.auth?.signOut();
+  _navigatorKey.currentState?.pushAndRemoveUntil(
+    MaterialPageRoute<void>(
+      builder: (context) => LoginPage(services: services),
+    ),
+    (route) => false,
+  );
+}
 
 class SchoolOsApp extends StatelessWidget {
-  const SchoolOsApp({
-    super.key,
-    required this.services,
-  });
+  const SchoolOsApp({super.key, required this.services});
 
   final AppServices services;
 
@@ -103,6 +116,7 @@ class SchoolOsApp extends StatelessWidget {
         }
 
         return MaterialApp(
+          navigatorKey: _navigatorKey,
           title: 'SchoolOS',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
@@ -115,6 +129,17 @@ class SchoolOsApp extends StatelessWidget {
               fillColor: Colors.white,
             ),
           ),
+          builder: (context, child) {
+            final coordinator = services.syncCoordinator;
+            if (coordinator == null || child == null) {
+              return child ?? const SizedBox.shrink();
+            }
+            return SyncStatusBanner(
+              coordinator: coordinator,
+              onSignInAgain: () => _signInAgain(services),
+              child: child,
+            );
+          },
           home: home,
         );
       },

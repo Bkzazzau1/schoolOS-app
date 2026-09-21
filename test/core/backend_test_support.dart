@@ -13,10 +13,10 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 const testConfig = ApiConfig('https://api.test/api/v1/');
 
 http.Response jsonResponse(Object? body, [int status = 200]) => http.Response(
-      jsonEncode(body),
-      status,
-      headers: {'content-type': 'application/json'},
-    );
+  jsonEncode(body),
+  status,
+  headers: {'content-type': 'application/json'},
+);
 
 /// A client whose server is [handler]; every request it receives is kept.
 class FakeServer {
@@ -31,27 +31,33 @@ class FakeServer {
   late final MockClient client;
   final requests = <http.Request>[];
 
-  List<http.Request> to(String path) => requests.where((r) => r.url.path.endsWith(path)).toList();
+  List<http.Request> to(String path) =>
+      requests.where((r) => r.url.path.endsWith(path)).toList();
 }
 
 ApiClient apiFor(FakeServer server, {TokenStore? tokens}) => ApiClient(
-      config: testConfig,
-      tokens: tokens ?? (MemoryTokenStore()..tokens = const AuthTokens(access: 'access-1', refresh: 'refresh-1')),
-      httpClient: server.client,
-    );
+  config: testConfig,
+  tokens:
+      tokens ??
+      (MemoryTokenStore()
+        ..tokens = const AuthTokens(access: 'access-1', refresh: 'refresh-1')),
+  httpClient: server.client,
+);
 
 class FakeSessionStore implements SchoolSessionStore {
   List<SchoolMembership> memberships = const [];
   SchoolMembership? active;
 
   @override
-  Future<void> saveMemberships(List<SchoolMembership> value) async => memberships = value;
+  Future<void> saveMemberships(List<SchoolMembership> value) async =>
+      memberships = value;
 
   @override
   Future<List<SchoolMembership>> readMemberships() async => memberships;
 
   @override
-  Future<void> saveActiveMembership(SchoolMembership value) async => active = value;
+  Future<void> saveActiveMembership(SchoolMembership value) async =>
+      active = value;
 
   @override
   Future<SchoolMembership?> readActiveMembership() async => active;
@@ -67,19 +73,28 @@ class MemorySyncStore implements SyncStore {
   final records = <String, LocalRecord>{};
   final cursors = <String, int>{};
 
-  static String key(String tenant, String type, String id) => '$tenant|$type|$id';
+  static String key(String tenant, String type, String id) =>
+      '$tenant|$type|$id';
 
   @override
-  Future<int> readSyncCursor({required String tenantId, required String membershipId}) async =>
-      cursors['$tenantId|$membershipId'] ?? 0;
+  Future<int> readSyncCursor({
+    required String tenantId,
+    required String membershipId,
+  }) async => cursors['$tenantId|$membershipId'] ?? 0;
 
   @override
-  Future<void> writeSyncCursor({required String tenantId, required String membershipId, required int cursor}) async =>
-      cursors['$tenantId|$membershipId'] = cursor;
+  Future<void> writeSyncCursor({
+    required String tenantId,
+    required String membershipId,
+    required int cursor,
+  }) async => cursors['$tenantId|$membershipId'] = cursor;
 
   @override
-  Future<LocalRecord?> getLocalRecord({required String tenantId, required String entityType, required String entityId}) async =>
-      records[key(tenantId, entityType, entityId)];
+  Future<LocalRecord?> getLocalRecord({
+    required String tenantId,
+    required String entityType,
+    required String entityId,
+  }) async => records[key(tenantId, entityType, entityId)];
 
   @override
   Future<void> upsertLocalRecord({
@@ -102,8 +117,11 @@ class MemorySyncStore implements SyncStore {
   }
 
   @override
-  Future<void> deleteLocalRecord({required String tenantId, required String entityType, required String entityId}) async =>
-      records.remove(key(tenantId, entityType, entityId));
+  Future<void> deleteLocalRecord({
+    required String tenantId,
+    required String entityType,
+    required String entityId,
+  }) async => records.remove(key(tenantId, entityType, entityId));
 }
 
 const teacher = SchoolMembership(
@@ -113,4 +131,5 @@ const teacher = SchoolMembership(
   role: SchoolRole.teacher,
 );
 
-Map<String, Object?> body(http.Request request) => Map<String, Object?>.from(jsonDecode(request.body) as Map);
+Map<String, Object?> body(http.Request request) =>
+    Map<String, Object?>.from(jsonDecode(request.body) as Map);

@@ -36,19 +36,48 @@ Tests: `test/core/` (45 tests) cover each layer with a fake server and in-memory
 The app did not compile: two identical `TransportActionResult` classes were imported together by the transport route and
 rider-assignment repositories. The unused import was removed.
 
+## Done (step 2): keeping in step, and being signed out
+
+| Piece | File | What it does |
+| --- | --- | --- |
+| Coordinator | `lib/core/sync/sync_coordinator.dart` | Runs a round when the app starts, after a change is queued (short pause, so a burst is one round), when the app comes back to the front, and on a timer. One round at a time; a change queued during a round makes another follow. Offline: retries 15 s, 30 s, ... up to 5 min, and at once when the app returns. Exposes `status`, `message`, `lastSyncedAt`, `changes` |
+| Queue hook | `LocalDatabase.onMutationQueued` | Every screen already queues through the database, so no screen had to change |
+| Banner | `lib/app/sync_status_banner.dart` | A strip across the whole app: offline (work is safe), sign-in ended, lost access. The last two offer "Sign in" |
+| Start-up | `lib/app/app_services.dart` | A saved school with no saved sign-in starts at the login screen; the coordinator starts when a school is open, and after login |
+| Signing in again | `lib/app/app.dart` | Stops syncing, signs out (unsent work stays on the device), opens the login screen |
+
+### Queue rules found and fixed on the way (`LocalDatabase`)
+
+The server remembers its answer to each change by id. Sending the same id again gets the same answer, so the old queue
+rules could lose work once a real server was involved. Now:
+
+1. **Editing a record again before anything was sent** folds into the waiting change and keeps its id **and its place in the
+   queue** (it used to move to the back, which would send a comment before the post it is on).
+2. **Editing it after an attempt to send it** is a *new* change. The first may already be applied on the server with the
+   reply lost; editing it in place would make the server ignore the edit.
+3. **A change the server refused** is not sent again by itself, and no longer crowds out new work (refused changes used to
+   be retried every round and could fill the batch). The next edit replaces it under a new id; retrying by hand also uses
+   a new id.
+4. Queue times are strictly increasing, so order is never a tie.
+
+The database can now run in tests (`databasePath: ':memory:'`), so these rules are tested against real SQLite
+(`test/core/local_database_queue_test.dart`).
+
 ## Not done yet (next)
 
-1. **Run the sync engine.** Nothing calls `services.syncEngine.syncActiveSchool()` yet. It should run after sign-in, when
-   the app opens, on pull-to-refresh, after a change is queued, and when the connection returns. The Sync Center screen
-   should show its summary (`pulled`, offline, needs sign-in).
-2. **Signed-out handling.** If the sign-in expires (`needsSignIn`), send the person to the login screen and keep their work.
-   On start-up, a saved school with no saved sign-in should open the login screen.
-3. **Access** (`access/me/`, hiding screens, the blocking flow) and the **notifications inbox**.
-4. Everything in `schoolOS_backend/docs/APP_CHANGES.md` sections B to H, feature by feature.
+1. **Sync Center screen**: show `SyncCoordinator` status, last sync time and counts, and a "Sync now" button; let a person
+   retry or discard a refused change (it lists them already).
+2. **Screens reload when new data arrives**: they read the local database when they open. Listen to `coordinator.changes`.
+3. **Losing one school but keeping others**: the banner sends the person through sign-in again; a school picker would be gentler.
+4. **Access** (`access/me/`, hiding screens, the blocking flow) and the **notifications inbox**.
+5. Everything in `schoolOS_backend/docs/APP_CHANGES.md` sections B to H, feature by feature.
 
 ## Known problems that are not from this work
 
-- 40 Teacher-module tests fail on wrong expected figures, and `staff_proposals_test.dart` fails one test
-  ("a proposal must name a valid role") because the app's role list now includes `driver`.
-- **`driver` is an app role the backend does not have.** A driver signing in would be skipped by the app (unknown role
-  is ignored) and the backend refuses `driver` as a staff role. Decide whether the backend gets a `driver` role.
+- 47 tests fail, and none of them is from this work: 40 in the Teacher module (wrong expected figures), 6 in
+  `demo_login_navigation_test.dart` and 1 in `finance_fee_structure_feature_test.dart`. The last seven are a layout
+  overflow (a row 109 px too wide in a shared widget at the test screen size). They were hidden while the app did not
+  compile. They fail the same way with the original login page.
+- The desktop layout of the login screen's brand panel overflows at about 900 px wide.
+- **Fixed:** the backend now has the `driver` role (workspace screens, staff role, school-life access), and the app's
+  delegated-approver roles include it.

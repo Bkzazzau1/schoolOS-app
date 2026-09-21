@@ -6,6 +6,7 @@ import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
 import '../core/security/payload_cipher.dart';
 import '../core/sync/http_sync_transport.dart';
+import '../core/sync/sync_coordinator.dart';
 import '../core/sync/sync_engine.dart';
 import '../core/sync/sync_puller.dart';
 import '../core/tenancy/school_session_controller.dart';
@@ -19,6 +20,7 @@ class AppServices {
     required this.apiConfig,
     this.auth,
     this.syncEngine,
+    this.syncCoordinator,
   });
 
   final LocalDatabase localDatabase;
@@ -32,6 +34,9 @@ class AppServices {
 
   /// Sends queued changes to the backend and downloads what changed. Null without a backend.
   final SyncEngine? syncEngine;
+
+  /// Keeps the device and the school in step (sending, downloading, retrying). Null without a backend.
+  final SyncCoordinator? syncCoordinator;
 
   bool get usesBackend => auth != null;
 
@@ -53,6 +58,7 @@ class AppServices {
 
     AuthRepository? auth;
     SyncEngine? syncEngine;
+    SyncCoordinator? syncCoordinator;
     if (apiConfig.enabled) {
       final tokens = SecureTokenStore();
       final api = ApiClient(config: apiConfig, tokens: tokens);
@@ -67,6 +73,18 @@ class AppServices {
         transport: HttpSyncTransport(api),
         puller: SyncPuller(api: api, store: localDatabase),
       );
+
+      // A school chosen on an earlier visit is only usable while the sign-in
+      // that chose it is still here. Without it, start at the login screen.
+      if (schoolSession.hasActiveSchool && !await auth.hasSession()) {
+        await schoolSession.clear();
+      }
+
+      syncCoordinator = SyncCoordinator(runner: syncEngine, auth: auth);
+      // Every screen queues its changes through the database, so hearing about
+      // them here means no screen has to remember to ask for a sync.
+      localDatabase.onMutationQueued = syncCoordinator.requestSync;
+      if (schoolSession.hasActiveSchool) syncCoordinator.start();
     }
 
     return AppServices._(
@@ -76,6 +94,7 @@ class AppServices {
       apiConfig: apiConfig,
       auth: auth,
       syncEngine: syncEngine,
+      syncCoordinator: syncCoordinator,
     );
   }
 }

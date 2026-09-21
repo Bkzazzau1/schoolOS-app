@@ -1,5 +1,7 @@
 import '../database/local_database.dart';
+import '../network/api_exceptions.dart';
 import '../tenancy/school_session_controller.dart';
+import 'sync_coordinator.dart';
 import 'sync_puller.dart';
 import 'sync_transport.dart';
 
@@ -12,6 +14,8 @@ class SyncRunSummary {
     this.pulled = 0,
     this.stoppedOffline = false,
     this.needsSignIn = false,
+    this.accessLost = false,
+    this.pullError,
   });
 
   final int attempted;
@@ -28,21 +32,27 @@ class SyncRunSummary {
 
   /// The sign-in expired: the person must sign in again before anything more is sent.
   final bool needsSignIn;
+
+  /// The server says the person no longer belongs to this school.
+  final bool accessLost;
+
+  /// Why downloading failed, in words for the person, when it did (and it was not just being offline).
+  final String? pullError;
 }
 
 /// Sends the device's queued changes to the server, then downloads what changed
 /// in the school. Send first, so the device's own edits reach the server before
 /// it asks what changed.
-class SyncEngine {
+class SyncEngine implements SyncRunner {
   SyncEngine({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
     required SyncTransport transport,
     SyncPuller? puller,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession,
-        _transport = transport,
-        _puller = puller;
+  }) : _localDatabase = localDatabase,
+       _schoolSession = schoolSession,
+       _transport = transport,
+       _puller = puller;
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -51,6 +61,7 @@ class SyncEngine {
 
   bool _running = false;
 
+  @override
   Future<SyncRunSummary> syncActiveSchool({int batchSize = 50}) async {
     if (_running) {
       return const SyncRunSummary(
@@ -127,6 +138,8 @@ class SyncEngine {
       }
 
       var pulled = 0;
+      var accessLost = false;
+      String? pullError;
       if (!stoppedOffline && _puller != null) {
         try {
           final summary = await _puller.pull(membership);
@@ -134,6 +147,9 @@ class SyncEngine {
         } on SyncRetryLater catch (later) {
           stoppedOffline = true;
           needsSignIn = later.needsSignIn;
+        } on ApiException catch (error) {
+          accessLost = error.isForbidden;
+          pullError = error.message;
         }
       }
 
@@ -145,6 +161,8 @@ class SyncEngine {
         pulled: pulled,
         stoppedOffline: stoppedOffline,
         needsSignIn: needsSignIn,
+        accessLost: accessLost,
+        pullError: pullError,
       );
     } finally {
       _running = false;

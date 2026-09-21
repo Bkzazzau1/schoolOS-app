@@ -17,16 +17,32 @@ class FakeOutbox implements LocalDatabase {
   final errors = <String, String>{};
   final versions = <String, int?>{};
 
-  void add(String id, {String type = 'school_event', SyncOperation op = SyncOperation.create}) {
-    queue.add(SyncMutation(
-      id: id, tenantId: teacher.schoolId, membershipId: teacher.id, entityType: type, entityId: id,
-      operation: op, payload: {'id': id}, createdAt: DateTime.utc(2026, 9, 21), status: SyncMutationStatus.pending,
-    ));
+  void add(
+    String id, {
+    String type = 'school_event',
+    SyncOperation op = SyncOperation.create,
+  }) {
+    queue.add(
+      SyncMutation(
+        id: id,
+        tenantId: teacher.schoolId,
+        membershipId: teacher.id,
+        entityType: type,
+        entityId: id,
+        operation: op,
+        payload: {'id': id},
+        createdAt: DateTime.utc(2026, 9, 21),
+        status: SyncMutationStatus.pending,
+      ),
+    );
     status[id] = 'pending';
   }
 
   @override
-  Future<List<SyncMutation>> pendingMutations({required String tenantId, int limit = 50}) async =>
+  Future<List<SyncMutation>> pendingMutations({
+    required String tenantId,
+    int limit = 50,
+  }) async =>
       queue.where((m) => status[m.id] == 'pending').take(limit).toList();
 
   @override
@@ -77,61 +93,105 @@ void main() {
     );
   }
 
-  Response respond(Object body, [int status = 200]) => jsonResponse(body, status);
+  Response respond(Object body, [int status = 200]) =>
+      jsonResponse(body, status);
 
   test('sends what is queued, then downloads what changed', () async {
     outbox.add('m1');
     outbox.add('m2');
     final server = FakeServer((r) async {
-      if (r.url.path.endsWith('sync/push/')) return jsonResponse({'disposition': 'accepted', 'serverVersion': 1, 'message': ''});
-      return jsonResponse({'records': [rec('school_event', 'E-9')], 'cursor': 5, 'hasMore': false});
+      if (r.url.path.endsWith('sync/push/')) {
+        return jsonResponse({
+          'disposition': 'accepted',
+          'serverVersion': 1,
+          'message': '',
+        });
+      }
+      return jsonResponse({
+        'records': [rec('school_event', 'E-9')],
+        'cursor': 5,
+        'hasMore': false,
+      });
     });
     final summary = await (await engine(server)).syncActiveSchool();
 
-    expect((summary.attempted, summary.synced, summary.failed, summary.conflicts, summary.pulled), (2, 2, 0, 0, 1));
+    expect(
+      (
+        summary.attempted,
+        summary.synced,
+        summary.failed,
+        summary.conflicts,
+        summary.pulled,
+      ),
+      (2, 2, 0, 0, 1),
+    );
     expect(outbox.status, {'m1': 'synced', 'm2': 'synced'});
     expect(outbox.versions['m1'], 1);
     // Sending comes before asking what changed.
-    expect(server.requests.map((r) => r.method + r.url.path.split('/api/v1').last), [
-      'POST/sync/push/',
-      'POST/sync/push/',
-      'GET/sync/pull/',
-    ]);
+    expect(
+      server.requests.map((r) => r.method + r.url.path.split('/api/v1').last),
+      ['POST/sync/push/', 'POST/sync/push/', 'GET/sync/pull/'],
+    );
     expect(store.cursors['${teacher.schoolId}|${teacher.id}'], 5);
   });
 
-  test('conflicts and refusals are recorded on the change, and the rest carry on', () async {
-    outbox.add('m1');
-    outbox.add('m2');
-    outbox.add('m3');
-    final answers = [
-      () => respond({'disposition': 'conflict', 'serverVersion': 4, 'message': 'This record changed on the server first.'}, 409),
-      () => respond({'disposition': 'rejected', 'serverVersion': null, 'message': 'Only the owner can decide.'}, 422),
-      () => respond({'disposition': 'accepted', 'serverVersion': 2, 'message': ''}),
-    ];
-    var i = 0;
-    final server = FakeServer((r) async => r.url.path.endsWith('sync/push/') ? answers[i++]() : jsonResponse({'records': [], 'cursor': 0, 'hasMore': false}));
-    final summary = await (await engine(server)).syncActiveSchool();
-    expect((summary.synced, summary.failed, summary.conflicts), (1, 1, 1));
-    expect(outbox.errors['m1'], startsWith('SYNC_CONFLICT:'));
-    expect(outbox.errors['m2'], 'Only the owner can decide.');
-    expect(outbox.status['m3'], 'synced');
-  });
+  test(
+    'conflicts and refusals are recorded on the change, and the rest carry on',
+    () async {
+      outbox.add('m1');
+      outbox.add('m2');
+      outbox.add('m3');
+      final answers = [
+        () => respond({
+          'disposition': 'conflict',
+          'serverVersion': 4,
+          'message': 'This record changed on the server first.',
+        }, 409),
+        () => respond({
+          'disposition': 'rejected',
+          'serverVersion': null,
+          'message': 'Only the owner can decide.',
+        }, 422),
+        () => respond({
+          'disposition': 'accepted',
+          'serverVersion': 2,
+          'message': '',
+        }),
+      ];
+      var i = 0;
+      final server = FakeServer(
+        (r) async => r.url.path.endsWith('sync/push/')
+            ? answers[i++]()
+            : jsonResponse({'records': [], 'cursor': 0, 'hasMore': false}),
+      );
+      final summary = await (await engine(server)).syncActiveSchool();
+      expect((summary.synced, summary.failed, summary.conflicts), (1, 1, 1));
+      expect(outbox.errors['m1'], startsWith('SYNC_CONFLICT:'));
+      expect(outbox.errors['m2'], 'Only the owner can decide.');
+      expect(outbox.status['m3'], 'synced');
+    },
+  );
 
-  test('with no signal the change goes back in the queue, the order is kept, and nothing is downloaded', () async {
-    outbox.add('m1');
-    outbox.add('m2');
-    final server = FakeServer((r) async => throw const ApiOfflineException());
-    final summary = await (await engine(server)).syncActiveSchool();
+  test(
+    'with no signal the change goes back in the queue, the order is kept, and nothing is downloaded',
+    () async {
+      outbox.add('m1');
+      outbox.add('m2');
+      final server = FakeServer((r) async => throw const ApiOfflineException());
+      final summary = await (await engine(server)).syncActiveSchool();
 
-    expect(summary.stoppedOffline, isTrue);
-    expect(summary.needsSignIn, isFalse);
-    expect((summary.synced, summary.failed), (0, 0));
-    expect(outbox.status, {'m1': 'pending', 'm2': 'pending'});
-    expect(outbox.errors, isEmpty);
-    expect(server.requests.length, 1);          // it stopped at the first: no point trying the rest
-    expect(server.to('sync/pull/'), isEmpty);
-  });
+      expect(summary.stoppedOffline, isTrue);
+      expect(summary.needsSignIn, isFalse);
+      expect((summary.synced, summary.failed), (0, 0));
+      expect(outbox.status, {'m1': 'pending', 'm2': 'pending'});
+      expect(outbox.errors, isEmpty);
+      expect(
+        server.requests.length,
+        1,
+      ); // it stopped at the first: no point trying the rest
+      expect(server.to('sync/pull/'), isEmpty);
+    },
+  );
 
   test('an expired sign-in stops the run and says so', () async {
     outbox.add('m1');
@@ -141,39 +201,67 @@ void main() {
     expect(outbox.status['m1'], 'pending');
   });
 
-  test('a change that goes through after being offline is sent, once', () async {
-    outbox.add('m1');
-    var online = false;
-    final server = FakeServer((r) async {
-      if (!online) throw const ApiOfflineException();
-      return r.url.path.endsWith('sync/push/')
-          ? jsonResponse({'disposition': 'accepted', 'serverVersion': 1, 'message': ''})
-          : jsonResponse({'records': [], 'cursor': 0, 'hasMore': false});
-    });
-    final sync = await engine(server);
-    await sync.syncActiveSchool();
-    online = true;
-    final summary = await sync.syncActiveSchool();
-    expect((summary.synced, summary.stoppedOffline), (1, false));
-    expect(outbox.status['m1'], 'synced');
-    expect(server.to('sync/push/').length, 2);
-  });
+  test(
+    'a change that goes through after being offline is sent, once',
+    () async {
+      outbox.add('m1');
+      var online = false;
+      final server = FakeServer((r) async {
+        if (!online) throw const ApiOfflineException();
+        return r.url.path.endsWith('sync/push/')
+            ? jsonResponse({
+                'disposition': 'accepted',
+                'serverVersion': 1,
+                'message': '',
+              })
+            : jsonResponse({'records': [], 'cursor': 0, 'hasMore': false});
+      });
+      final sync = await engine(server);
+      await sync.syncActiveSchool();
+      online = true;
+      final summary = await sync.syncActiveSchool();
+      expect((summary.synced, summary.stoppedOffline), (1, false));
+      expect(outbox.status['m1'], 'synced');
+      expect(server.to('sync/push/').length, 2);
+    },
+  );
 
-  test('going offline while downloading is reported and keeps what was sent', () async {
-    outbox.add('m1');
-    final server = FakeServer((r) async {
-      if (r.url.path.endsWith('sync/push/')) return jsonResponse({'disposition': 'accepted', 'serverVersion': 1, 'message': ''});
-      throw const ApiOfflineException();
-    });
-    final summary = await (await engine(server)).syncActiveSchool();
-    expect((summary.synced, summary.stoppedOffline, summary.pulled), (1, true, 0));
-    expect(outbox.status['m1'], 'synced');
-  });
+  test(
+    'going offline while downloading is reported and keeps what was sent',
+    () async {
+      outbox.add('m1');
+      final server = FakeServer((r) async {
+        if (r.url.path.endsWith('sync/push/')) {
+          return jsonResponse({
+            'disposition': 'accepted',
+            'serverVersion': 1,
+            'message': '',
+          });
+        }
+        throw const ApiOfflineException();
+      });
+      final summary = await (await engine(server)).syncActiveSchool();
+      expect(
+        (summary.synced, summary.stoppedOffline, summary.pulled),
+        (1, true, 0),
+      );
+      expect(outbox.status['m1'], 'synced');
+    },
+  );
 
   test('without a puller it only sends, as before', () async {
     outbox.add('m1');
-    final server = FakeServer((r) async => jsonResponse({'disposition': 'accepted', 'serverVersion': 1, 'message': ''}));
-    final summary = await (await engine(server, pull: false)).syncActiveSchool();
+    final server = FakeServer(
+      (r) async => jsonResponse({
+        'disposition': 'accepted',
+        'serverVersion': 1,
+        'message': '',
+      }),
+    );
+    final summary = await (await engine(
+      server,
+      pull: false,
+    )).syncActiveSchool();
     expect((summary.synced, summary.pulled), (1, 0));
     expect(server.to('sync/pull/'), isEmpty);
   });
@@ -184,20 +272,27 @@ void main() {
     final server = FakeServer((r) async {
       await gate;
       return r.url.path.endsWith('sync/push/')
-          ? jsonResponse({'disposition': 'accepted', 'serverVersion': 1, 'message': ''})
+          ? jsonResponse({
+              'disposition': 'accepted',
+              'serverVersion': 1,
+              'message': '',
+            })
           : jsonResponse({'records': [], 'cursor': 0, 'hasMore': false});
     });
     final sync = await engine(server);
-    final results = await Future.wait([sync.syncActiveSchool(), sync.syncActiveSchool()]);
+    final results = await Future.wait([
+      sync.syncActiveSchool(),
+      sync.syncActiveSchool(),
+    ]);
     expect(results.map((r) => r.attempted).toList()..sort(), [0, 1]);
     expect(server.to('sync/push/').length, 1);
   });
 }
 
 Map<String, Object?> rec(String type, String id) => {
-      'entityType': type,
-      'entityId': id,
-      'version': 1,
-      'deleted': false,
-      'payload': {'id': id},
-    };
+  'entityType': type,
+  'entityId': id,
+  'version': 1,
+  'deleted': false,
+  'payload': {'id': id},
+};
