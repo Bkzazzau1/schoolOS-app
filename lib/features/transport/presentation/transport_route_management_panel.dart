@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../data/transport_incident_defect_control_repository.dart';
+import '../data/transport_operational_reports_repository.dart';
 import '../data/transport_rider_assignment_repository.dart';
 import '../data/transport_route_management_repository.dart';
 import '../data/transport_vehicle_readiness_repository.dart';
 import '../domain/transport_route_management_models.dart';
 import 'transport_incident_defect_control_panel.dart';
+import 'transport_operational_reports_panel.dart';
 import 'transport_rider_assignments_panel.dart';
 import 'transport_vehicle_readiness_panel.dart';
 
@@ -30,6 +32,7 @@ class _TransportRouteManagementPanelState
   late final TransportRiderAssignmentRepository _riders;
   late final TransportVehicleReadinessRepository _vehicles;
   late final TransportIncidentDefectControlRepository _cases;
+  late final TransportOperationalReportsRepository _reports;
   bool _saving = false;
   int _childRevision = 0;
 
@@ -45,6 +48,10 @@ class _TransportRouteManagementPanelState
       schoolSession: widget.repository.schoolSession,
     );
     _cases = TransportIncidentDefectControlRepository(
+      localDatabase: widget.repository.localDatabase,
+      schoolSession: widget.repository.schoolSession,
+    );
+    _reports = TransportOperationalReportsRepository(
       localDatabase: widget.repository.localDatabase,
       schoolSession: widget.repository.schoolSession,
     );
@@ -123,6 +130,11 @@ class _TransportRouteManagementPanelState
           key: ValueKey('transport-cases-$_childRevision'),
           repository: _cases,
           onChanged: _changed,
+        ),
+        const SizedBox(height: 18),
+        TransportOperationalReportsPanel(
+          key: ValueKey('transport-reports-$_childRevision'),
+          repository: _reports,
         ),
       ],
     );
