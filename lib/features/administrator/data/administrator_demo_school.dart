@@ -17,7 +17,7 @@ final administratorStudentsDemoExtras = <AdministratorStudentRecord>[
   _student('NUR-001', 'Zainab Yusuf', 'Nursery 2', 'Mrs. Amina Yusuf'),
   _student('NUR-002', 'Bilal Kabir', 'Nursery 1', 'Mr. Sani Kabir'),
   _student('PRI-001', 'Aisha Danladi', 'Primary 1', 'Mr. Ibrahim Danladi'),
-  _student('PRI-002', 'Umar Faruq', 'Primary 2', 'Mrs. Hauwa Faruq'),
+  _student('PRI-002', 'Hassan Faruq', 'Primary 2', 'Mrs. Hauwa Faruq'),
   _student('PRI-004', 'Khadija Sule', 'Primary 4', 'Mrs. Hauwa Sule'),
   _student('PRI-005', 'Musa Abubakar', 'Primary 5', 'Mr. Musa Abubakar'),
   _student('PRI-006', 'Ahmad Musa', 'Primary 6', 'Mrs. Grace Musa'),
@@ -30,6 +30,8 @@ final administratorStudentsDemoExtras = <AdministratorStudentRecord>[
   _student('STU-009', 'Yakubu Garba', 'SS3A', 'Mr. Aliyu Garba'),
   _student('STU-010', 'Rahma Ibrahim', 'JSS 3A', 'Alhaji Ibrahim Bashir'),
   _student('STU-011', 'Ahmed Yusuf', 'JSS 2B', 'Mrs. Amina Yusuf'),
+  // Registered through admissions (the applicant BGA-ADM-26082).
+  _student('STU-012', 'Fatima Musa', 'JSS 2', 'Alhaji Musa Bello'),
 ];
 
 /// Changes that are already part of the school's history, and one waiting to be processed.

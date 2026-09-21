@@ -301,3 +301,19 @@ checked in" list, followed up in the normal way.
 The demo school gets a morning of gate scans for today (deterministic: about nine in ten arrive, a few late, some absent, one
 scan to identify); a school server blocks these, since real devices supply the scans. The device list is labelled as sample:
 gate hardware is not connected. Tests: `test/administrator_attendance_actions_test.dart`.
+
+## Administrator: the admissions journey works end to end
+
+Applicant to student now runs as one connected flow (`administrator_admissions_repository.dart`, `administrator_registration_repository.dart`):
+
+1. **New application** taken at the school (walk-in, phone, referral): validated (full name, class, guardian, valid Nigerian phone, no
+   duplicate open application), given the next reference, all three documents pending. Online applications arrive on their own.
+2. **Documents**: each is marked received; the first moves a new application into document collection.
+3. **Screening** needs every document received. **Offer** needs screening. **Accept offer** needs an issued offer.
+4. **Registration** can only be completed for an accepted offer. Completing it marks the applicant Registered and the child
+   appears on the student register in their class.
+5. An application that will not go ahead is **closed with a reason**; it is kept, cannot move on or be registered, and drops out of
+   the open counts on the dashboard and the pipeline.
+
+The admissions page's numbers are now counted from the applicants (they were fixed sample figures). Tests:
+`test/administrator_admissions_flow_test.dart`.

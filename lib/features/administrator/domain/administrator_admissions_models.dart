@@ -47,6 +47,7 @@ class AdmissionApplicant {
     this.previousSchoolReport = AdmissionDocumentStatus.received,
     this.guardianId = AdmissionDocumentStatus.received,
     this.documentRequestQueued = false,
+    this.closedReason = '',
   });
 
   final String reference;
@@ -63,12 +64,18 @@ class AdmissionApplicant {
   final AdmissionDocumentStatus guardianId;
   final bool documentRequestQueued;
 
+  /// Set when the application will not go ahead (declined, withdrawn). The record is kept.
+  final String closedReason;
+
+  bool get isClosed => closedReason.isNotEmpty;
+
   AdmissionApplicant copyWith({
     AdmissionStage? stage,
     AdmissionDocumentStatus? birthCertificate,
     AdmissionDocumentStatus? previousSchoolReport,
     AdmissionDocumentStatus? guardianId,
     bool? documentRequestQueued,
+    String? closedReason,
   }) {
     return AdmissionApplicant(
       reference: reference,
@@ -85,6 +92,7 @@ class AdmissionApplicant {
       guardianId: guardianId ?? this.guardianId,
       documentRequestQueued:
           documentRequestQueued ?? this.documentRequestQueued,
+      closedReason: closedReason ?? this.closedReason,
     );
   }
 
@@ -105,6 +113,7 @@ class AdmissionApplicant {
       'previousSchoolReport': previousSchoolReport.name,
       'guardianId': guardianId.name,
       'documentRequestQueued': documentRequestQueued,
+      'closedReason': closedReason,
     };
   }
 
@@ -129,6 +138,7 @@ class AdmissionApplicant {
         json['guardianId'] as String? ?? AdmissionDocumentStatus.received.name,
       ),
       documentRequestQueued: json['documentRequestQueued'] as bool? ?? false,
+      closedReason: json['closedReason'] as String? ?? '',
     );
   }
 }

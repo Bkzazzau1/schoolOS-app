@@ -5,6 +5,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_registration_models.dart';
+import 'administrator_admissions_repository.dart';
 import 'administrator_registration_demo_data.dart';
 
 class AdministratorRegistrationSnapshot {
@@ -114,6 +115,30 @@ class AdministratorRegistrationRepository {
       );
     }
 
+    final applicantReference = record.sourceApplicantReference;
+    if (completed && applicantReference != null && applicantReference.isNotEmpty) {
+      final applicantRecord = await _localDatabase.getLocalRecord(
+        tenantId: membership.schoolId,
+        entityType: AdministratorAdmissionsRepository.entityType,
+        entityId: applicantReference,
+      );
+      if (applicantRecord != null) {
+        final applicant = AdmissionApplicant.fromJson(applicantRecord.payload);
+        if (applicant.isClosed) {
+          return AdministratorRegistrationActionResult(
+            success: false,
+            message: '${applicant.name}\'s application is closed: ${applicant.closedReason}',
+          );
+        }
+        if (applicant.stage.index < AdmissionStage.accepted.index) {
+          return AdministratorRegistrationActionResult(
+            success: false,
+            message: 'The offer to ${applicant.name} has not been accepted yet. Accept it in Admissions before completing registration.',
+          );
+        }
+      }
+    }
+
     if (record.firstName.trim().isEmpty || record.surname.trim().isEmpty) {
       return const AdministratorRegistrationActionResult(
         success: false,
@@ -194,6 +219,11 @@ class AdministratorRegistrationRepository {
       payload: normalized.toJson(),
       baseVersion: existing?.serverVersion,
     );
+
+    if (completed && applicantReference != null && applicantReference.isNotEmpty) {
+      await AdministratorAdmissionsRepository(localDatabase: _localDatabase, schoolSession: _schoolSession)
+          .markRegistered(applicantReference);
+    }
 
     return AdministratorRegistrationActionResult(
       success: true,

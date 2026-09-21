@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+import '../../proprietor/presentation/owner_dialogs.dart';
 import '../data/administrator_admissions_demo_data.dart';
 import '../data/administrator_admissions_repository.dart';
 import '../domain/administrator_admissions_models.dart';
+import 'administrator_admissions_dialogs.dart';
 
 class AdministratorAdmissionsPage extends StatefulWidget {
   const AdministratorAdmissionsPage({
@@ -26,7 +29,10 @@ class AdministratorAdmissionsPage extends StatefulWidget {
 }
 
 class _AdministratorAdmissionsPageState
-    extends State<AdministratorAdmissionsPage> {
+    extends State<AdministratorAdmissionsPage> with SyncRefresh<AdministratorAdmissionsPage> {
+  @override
+  void onSynced() => _load();
+
   AdministratorAdmissionsSnapshot? _snapshot;
   AdmissionStage? _filter;
   String? _selectedReference;
@@ -96,6 +102,30 @@ class _AdministratorAdmissionsPageState
     widget.onAdmissionsChanged();
   }
 
+  Future<void> _newApplicant() async {
+    final choice = await askNewApplicant(context);
+    if (choice == null) return;
+    await _runAction(() => widget.repository.addApplicant(
+          name: choice.name,
+          section: choice.section,
+          className: choice.className,
+          guardian: choice.guardian,
+          phone: choice.phone,
+          source: choice.source,
+        ));
+  }
+
+  Future<void> _closeApplication(AdmissionApplicant applicant) async {
+    final reason = await askReason(
+      context,
+      title: 'Close the application for ${applicant.name}?',
+      action: 'Close application',
+      label: 'Why (required)',
+    );
+    if (reason == null) return;
+    await _runAction(() => widget.repository.close(applicant.reference, reason));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading && _snapshot == null) {
@@ -150,9 +180,10 @@ class _AdministratorAdmissionsPageState
                   widget.onRegistrationRequested(applicant);
                 }
               },
+              onNewApplicant: (_snapshot?.permissions.canManagePipeline ?? false) ? _newApplicant : null,
             ),
             const SizedBox(height: 18),
-            _KpiStrip(compact: constraints.maxWidth < 720),
+            _KpiStrip(compact: constraints.maxWidth < 720, applicants: _snapshot?.applicants ?? const []),
             const SizedBox(height: 18),
             _StageFilterCard(
               selected: _filter,
@@ -197,7 +228,7 @@ class _AdministratorAdmissionsPageState
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
             ),
             const SizedBox(height: 3),
-            Text('${rows.length} sample applications shown'),
+            Text('${rows.length} ${rows.length == 1 ? 'application' : 'applications'}'),
             const SizedBox(height: 14),
             if (rows.isEmpty)
               Container(
@@ -208,7 +239,7 @@ class _AdministratorAdmissionsPageState
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'No sample applicant is currently in this stage.',
+                  'No application is in this stage.',
                 ),
               )
             else
@@ -242,10 +273,11 @@ class _AdministratorAdmissionsPageState
       );
     }
 
-    final canSchedule = permissions.canManagePipeline &&
-        applicant.stage.index <= AdmissionStage.screening.index;
-    final canIssueOffer = permissions.canManagePipeline &&
-        applicant.stage.index <= AdmissionStage.offer.index;
+    final open = permissions.canManagePipeline && !applicant.isClosed;
+    final canSchedule = open && applicant.stage.index <= AdmissionStage.screening.index;
+    final canIssueOffer = open && applicant.stage.index <= AdmissionStage.offer.index;
+    final canAccept = open && applicant.stage == AdmissionStage.offer;
+    final canRegister = open && applicant.stage == AdmissionStage.accepted;
 
     return Card(
       elevation: 0,
@@ -301,15 +333,30 @@ class _AdministratorAdmissionsPageState
             _DocumentRow(
               label: 'Birth certificate',
               status: applicant.birthCertificate,
+              onReceive: open ? () => _runAction(() => widget.repository.markDocumentReceived(applicant.reference, 'Birth certificate')) : null,
             ),
             _DocumentRow(
               label: 'Previous school report',
               status: applicant.previousSchoolReport,
+              onReceive: open ? () => _runAction(() => widget.repository.markDocumentReceived(applicant.reference, 'Previous school report')) : null,
             ),
             _DocumentRow(
               label: 'Guardian ID',
               status: applicant.guardianId,
+              onReceive: open ? () => _runAction(() => widget.repository.markDocumentReceived(applicant.reference, 'Guardian ID')) : null,
             ),
+            if (applicant.isClosed) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('Application closed: ${applicant.closedReason}'),
+              ),
+            ],
             if (applicant.documentRequestQueued) ...[
               const SizedBox(height: 10),
               Container(
@@ -375,16 +422,29 @@ class _AdministratorAdmissionsPageState
                   icon: const Icon(Icons.mark_email_read_outlined),
                   label: const Text('Issue offer'),
                 ),
-                FilledButton.icon(
-                  onPressed: () => widget.onRegistrationRequested(applicant),
-                  icon: const Icon(Icons.person_add_alt_1_rounded),
-                  label: const Text('Proceed to registration'),
+                OutlinedButton.icon(
+                  key: const ValueKey('admissions-accept'),
+                  onPressed: canAccept ? () => _runAction(() => widget.repository.acceptOffer(applicant.reference)) : null,
+                  icon: const Icon(Icons.how_to_reg_outlined),
+                  label: const Text('Accept offer'),
                 ),
+                FilledButton.icon(
+                  key: const ValueKey('admissions-register'),
+                  onPressed: canRegister ? () => widget.onRegistrationRequested(applicant) : null,
+                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                  label: Text(applicant.stage == AdmissionStage.registered ? 'Registered' : 'Proceed to registration'),
+                ),
+                if (open && applicant.stage != AdmissionStage.registered)
+                  TextButton(
+                    key: const ValueKey('admissions-close'),
+                    onPressed: () => _closeApplication(applicant),
+                    child: const Text('Close application'),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
             Text(
-              'Pipeline actions update the applicant record only. Proceeding to Registration does not activate the child automatically.',
+              'Documents come first, then screening, an offer, and its acceptance. Registration completes the child\'s admission; it cannot be skipped to.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -402,12 +462,14 @@ class _AdmissionsHeader extends StatelessWidget {
     required this.compact,
     required this.onOpenPublicWebsite,
     required this.onRegisterAccepted,
+    this.onNewApplicant,
   });
 
   final String schoolName;
   final bool compact;
   final VoidCallback onOpenPublicWebsite;
   final VoidCallback onRegisterAccepted;
+  final VoidCallback? onNewApplicant;
 
   @override
   Widget build(BuildContext context) {
@@ -440,6 +502,13 @@ class _AdmissionsHeader extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
+        if (onNewApplicant != null)
+          FilledButton.icon(
+            key: const ValueKey('admissions-new'),
+            onPressed: onNewApplicant,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('New application'),
+          ),
         OutlinedButton.icon(
           onPressed: onOpenPublicWebsite,
           icon: const Icon(Icons.open_in_browser_rounded),
@@ -448,7 +517,7 @@ class _AdmissionsHeader extends StatelessWidget {
         FilledButton.icon(
           onPressed: onRegisterAccepted,
           icon: const Icon(Icons.person_add_alt_1_rounded),
-          label: const Text('Register accepted child'),
+          label: const Text('Register selected child'),
         ),
       ],
     );
@@ -476,12 +545,26 @@ class _AdmissionsHeader extends StatelessWidget {
 }
 
 class _KpiStrip extends StatelessWidget {
-  const _KpiStrip({required this.compact});
+  const _KpiStrip({required this.compact, required this.applicants});
 
   final bool compact;
+  final List<AdmissionApplicant> applicants;
 
   @override
   Widget build(BuildContext context) {
+    final open = applicants.where((a) => !a.isClosed).toList();
+    int at(AdmissionStage s) => open.where((a) => a.stage == s).length;
+    final kpis = [
+      AdmissionKpi(label: 'Applications', value: '${applicants.length}', detail: '${applicants.length - open.length} closed'),
+      AdmissionKpi(
+        label: 'Awaiting documents',
+        value: '${open.where((a) => a.stage.index < AdmissionStage.screening.index && AdministratorAdmissionsRepository.pendingDocuments(a).isNotEmpty).length}',
+        detail: 'Parent follow-up',
+      ),
+      AdmissionKpi(label: 'Screening queue', value: '${at(AdmissionStage.screening)}', detail: 'Assessment/interview'),
+      AdmissionKpi(label: 'Offers issued', value: '${at(AdmissionStage.offer)}', detail: 'Waiting for the guardian'),
+      AdmissionKpi(label: 'Accepted', value: '${at(AdmissionStage.accepted)}', detail: 'Ready for registration'),
+    ];
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = compact
@@ -491,7 +574,7 @@ class _KpiStrip extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            for (final kpi in administratorAdmissionsKpis)
+            for (final kpi in kpis)
               SizedBox(
                 width: width,
                 child: Card(
@@ -657,10 +740,11 @@ class _InfoBox extends StatelessWidget {
 }
 
 class _DocumentRow extends StatelessWidget {
-  const _DocumentRow({required this.label, required this.status});
+  const _DocumentRow({required this.label, required this.status, this.onReceive});
 
   final String label;
   final AdmissionDocumentStatus status;
+  final VoidCallback? onReceive;
 
   @override
   Widget build(BuildContext context) {
@@ -680,6 +764,12 @@ class _DocumentRow extends StatelessWidget {
             status.label,
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
+          if (status == AdmissionDocumentStatus.pending && onReceive != null)
+            TextButton(
+              key: ValueKey('receive-$label'),
+              onPressed: onReceive,
+              child: const Text('Mark received'),
+            ),
         ],
       ),
     );

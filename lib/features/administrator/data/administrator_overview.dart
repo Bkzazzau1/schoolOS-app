@@ -34,7 +34,7 @@ AdministratorOverview buildAdministratorOverview({
   required List<AdministratorStaffRecord> staff,
 }) {
   final active = students.where((s) => s.status == AdministratorStudentStatus.active).length;
-  final inProgress = applicants.where((a) => a.stage != AdmissionStage.registered).toList();
+  final inProgress = applicants.where((a) => a.stage != AdmissionStage.registered && !a.isClosed).toList();
   final awaitingDocuments = inProgress.where(_documentsPending).toList();
   final recordTasks = records.where((r) => r.needsAttention).toList();
   final pendingLifecycle = lifecycle.where((l) => l.isPending).toList();
@@ -100,7 +100,7 @@ AdministratorOverview buildAdministratorOverview({
     for (final stage in AdmissionStage.values)
       AdministratorDeskActivity(
         title: stage.label,
-        detail: '${applicants.where((a) => a.stage == stage).length}',
+        detail: '${applicants.where((a) => a.stage == stage && !a.isClosed).length}',
       ),
   ];
 
