@@ -213,3 +213,9 @@ leadership, scholarships/discounts & payroll) and lists four as "not available y
 enrollment, academic & attendance, school life). "Create report pack" saves exactly what the reports say (text file on the
 device). The old made-up report list, cadence and KPI row were removed.
 Tests: `test/proprietor_reports_test.dart`, `test/owner_reports_page_test.dart`.
+
+## Owner: Campus Comparison is real
+
+`lib/features/proprietor/data/owner_campuses.dart` groups the school's sections by campus and counts classes, staff,
+teachers, leaders and incomplete files per campus. Students, attendance and fees are shown as "Not recorded". The made-up
+"planned campus" was removed (the app has no such record). Tests: `test/proprietor_campus_test.dart`.
