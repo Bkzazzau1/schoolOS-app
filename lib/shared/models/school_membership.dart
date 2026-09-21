@@ -7,6 +7,7 @@ enum SchoolRole {
   parent,
   driver,
   student,
+  alumni,
   staff,
 }
 
@@ -33,6 +34,7 @@ class SchoolMembership {
       SchoolRole.parent => 'Parent',
       SchoolRole.driver => 'Driver',
       SchoolRole.student => 'Student',
+      SchoolRole.alumni => 'Alumni',
       SchoolRole.staff => 'Staff',
     };
   }
