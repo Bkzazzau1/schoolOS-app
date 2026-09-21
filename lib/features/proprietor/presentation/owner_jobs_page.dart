@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+
 import '../../../core/sync/sync_mutation.dart';
 import '../data/job_assignment_repository.dart';
 import '../../administrator/domain/administrator_staff_models.dart';
@@ -18,7 +20,10 @@ class OwnerJobsPage extends StatefulWidget {
   State<OwnerJobsPage> createState() => _OwnerJobsPageState();
 }
 
-class _OwnerJobsPageState extends State<OwnerJobsPage> {
+class _OwnerJobsPageState extends State<OwnerJobsPage> with SyncRefresh<OwnerJobsPage> {
+  @override
+  void onSynced() => _load();
+
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _title = TextEditingController();

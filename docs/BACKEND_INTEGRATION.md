@@ -233,3 +233,12 @@ Backend: `apps/structure/appearance.py` accepts the new theme ids, `custom` with
 `logo` (base64, at most 200,000 characters, within the 256 KB sync payload cap). Tests: `test/school_theme_test.dart`,
 `test/school_appearance_test.dart`, backend `apps.structure`.
 The logo also shows in the teacher, parent, finance, principal and driver side panels and the owner's side mark. Not done: the login page (no school is chosen yet there).
+
+## Owner cleanup
+
+- The staff approval, rejection, salary and document dialogs now own and dispose their own text boxes
+  (`lib/features/proprietor/presentation/owner_dialogs.dart`), which fixes a crash when they closed. Test: `test/owner_dialogs_test.dart`.
+- The owner's staff proposals, payroll, jobs, staff profiles, concession approvals and structure screens reload after each sync.
+- The Access & Activities screen says when it is the demo. A test (`test/owner_menu_catalog_test.dart`) checks that every owner
+  menu item is in the access catalog and vice versa.
+- `test/owner_demo_walkthrough_test.dart` signs in as the demo owner (no server) and opens every owner screen.

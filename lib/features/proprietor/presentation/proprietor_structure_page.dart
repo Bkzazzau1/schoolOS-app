@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+
 import '../data/proprietor_structure_demo_data.dart';
 import '../data/proprietor_structure_repository.dart';
 import '../domain/proprietor_structure_models.dart';
@@ -22,7 +24,10 @@ class ProprietorStructurePage extends StatefulWidget {
   State<ProprietorStructurePage> createState() => _ProprietorStructurePageState();
 }
 
-class _ProprietorStructurePageState extends State<ProprietorStructurePage> {
+class _ProprietorStructurePageState extends State<ProprietorStructurePage> with SyncRefresh<ProprietorStructurePage> {
+  @override
+  void onSynced() => _load();
+
   ProprietorStructureSnapshot? _snapshot;
   String _selectedSectionId = 'secondary';
   String _person = 'Mrs. Grace Musa';

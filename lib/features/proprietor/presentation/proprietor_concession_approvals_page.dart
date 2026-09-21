@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+
 import '../data/concession_repository.dart';
 import '../domain/concession_request.dart';
 
@@ -20,8 +22,10 @@ class ProprietorConcessionApprovalsPage extends StatefulWidget {
       _ProprietorConcessionApprovalsPageState();
 }
 
-class _ProprietorConcessionApprovalsPageState
-    extends State<ProprietorConcessionApprovalsPage> {
+class _ProprietorConcessionApprovalsPageState extends State<ProprietorConcessionApprovalsPage> with SyncRefresh<ProprietorConcessionApprovalsPage> {
+  @override
+  void onSynced() => _load();
+
   final _searchController = TextEditingController();
   final _noteController = TextEditingController();
   List<ConcessionRequest> _requests = const [];

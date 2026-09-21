@@ -2,6 +2,9 @@ import '../data/staff_server_api.dart';
 import 'invitation_status_card.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+
+import 'owner_dialogs.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/domain/administrator_staff_models.dart';
 import '../data/owner_staff_profile_repository.dart';
@@ -36,7 +39,10 @@ class OwnerStaffProfilesPage extends StatefulWidget {
   State<OwnerStaffProfilesPage> createState() => _OwnerStaffProfilesPageState();
 }
 
-class _OwnerStaffProfilesPageState extends State<OwnerStaffProfilesPage> {
+class _OwnerStaffProfilesPageState extends State<OwnerStaffProfilesPage> with SyncRefresh<OwnerStaffProfilesPage> {
+  @override
+  void onSynced() => _load();
+
   List<AdministratorStaffRecord> _people = const [];
   List<StaffDuplicateGroup> _duplicates = const [];
   bool _paymentAuthority = false;
@@ -381,51 +387,10 @@ class _OwnerStaffProfileDetailPageState
   }
 
   Future<void> _editDocument(int index, StaffRequiredDocument doc) async {
-    var status = doc.status;
-    final reference = TextEditingController(text: doc.reference);
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setLocal) => AlertDialog(
-          title: Text(doc.name),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<StaffDocumentStatus>(
-                initialValue: status,
-                decoration: const InputDecoration(labelText: 'Status'),
-                items: [
-                  for (final s in StaffDocumentStatus.values)
-                    DropdownMenuItem(value: s, child: Text(_statusLabel(s))),
-                ],
-                onChanged: (v) => setLocal(() => status = v ?? status),
-              ),
-              TextField(
-                controller: reference,
-                decoration: const InputDecoration(
-                  labelText: 'Where the original is kept',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-    final ref = reference.text;
-    reference.dispose();
-    if (saved != true) return;
+    final choice = await askDocument(context, doc, label: _statusLabel);
+    if (choice == null) return;
     await _run(
-      () => widget.repository.updateDocument(_id, index, status, ref),
+      () => widget.repository.updateDocument(_id, index, choice.status, choice.reference),
     );
   }
 

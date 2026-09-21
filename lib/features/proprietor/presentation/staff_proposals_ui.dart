@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+
 import '../../finance_office/domain/finance_payroll_models.dart';
 import '../data/staff_proposal_repository.dart';
 import '../domain/owner_staff_profile_models.dart';
+import 'owner_dialogs.dart';
 
 String _message(Object error) => error is StateError
     ? error.message
@@ -252,7 +255,10 @@ class StaffProposalsPanel extends StatefulWidget {
   State<StaffProposalsPanel> createState() => _StaffProposalsPanelState();
 }
 
-class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
+class _StaffProposalsPanelState extends State<StaffProposalsPanel> with SyncRefresh<StaffProposalsPanel> {
+  @override
+  void onSynced() => _load();
+
   List<StaffProposal> _proposals = const [];
   bool _allowed = false;
   bool _approver = false;
@@ -316,107 +322,23 @@ class _StaffProposalsPanelState extends State<StaffProposalsPanel> {
   }
 
   Future<void> _approve(StaffProposal p) async {
-    final gross = TextEditingController(text: '${p.gross}');
-    final deductions = TextEditingController(text: '${p.deductions}');
-    final owner = widget.repository.isOwner;
-    String? role = staffSystemRoles.containsKey(p.systemRole) ? p.systemRole : null;
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setLocal) => AlertDialog(
-          title: Text('Approve ${p.name}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                owner
-                    ? '${p.roleTitle} · ${p.workArea}. Approving makes them a staff member and puts them on payroll at the salary below. You may change the role and the salary.'
-                    : '${p.roleTitle} · ${p.workArea}. Approving makes them a ${staffSystemRoleLabel(p.systemRole)} and puts them on payroll at the proposed salary of ${financePayrollMoney(p.gross)} gross, ${financePayrollMoney(p.deductions)} deductions. Only the owner can change the role or the salary.',
-              ),
-              if (owner) ...[
-                DropdownButtonFormField<String>(
-                  initialValue: role,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Role in the system',
-                    helperText: 'Proposed by the person who added them.',
-                  ),
-                  items: [
-                    for (final e in staffSystemRoles.entries)
-                      DropdownMenuItem(value: e.key, child: Text(e.value)),
-                  ],
-                  onChanged: (v) => setLocal(() => role = v),
-                ),
-                TextField(
-                  controller: gross,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Gross salary (₦)'),
-                ),
-                TextField(
-                  controller: deductions,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Deductions (₦)'),
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: owner && role == null
-                  ? null
-                  : () => Navigator.pop(context, true),
-              child: const Text('Approve'),
-            ),
-          ],
-        ),
-      ),
-    );
-    final g = owner ? int.tryParse(gross.text.trim()) : null;
-    final d = owner ? int.tryParse(deductions.text.trim()) : null;
-    final chosen = owner ? role : null;
-    gross.dispose();
-    deductions.dispose();
-    if (go != true) return;
+    final choice = await askApproval(context, p, owner: widget.repository.isOwner);
+    if (choice == null) return;
     await _run(() async {
       await widget.repository.approve(
         p.id,
-        gross: g,
-        deductions: d,
-        systemRole: chosen,
+        gross: choice.gross,
+        deductions: choice.deductions,
+        systemRole: choice.systemRole,
       );
       widget.onStaffAdded?.call();
     });
   }
 
   Future<void> _reject(StaffProposal p) async {
-    final note = TextEditingController();
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Reject ${p.name}'),
-        content: TextField(
-          controller: note,
-          decoration: const InputDecoration(labelText: 'Reason (optional)'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
-    );
-    final text = note.text;
-    note.dispose();
-    if (go == true) await _run(() => widget.repository.reject(p.id, text));
+    final reason = await askReason(context, title: 'Reject ${p.name}', action: 'Reject');
+    if (reason == null) return;
+    await _run(() => widget.repository.reject(p.id, reason));
   }
 
   String _status(StaffProposal p) => switch (p.status) {

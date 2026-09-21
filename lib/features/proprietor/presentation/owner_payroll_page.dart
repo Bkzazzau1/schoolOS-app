@@ -1,6 +1,7 @@
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
+import 'owner_dialogs.dart';
 import '../../administrator/domain/administrator_staff_models.dart';
 import '../../finance_office/domain/finance_payroll_models.dart';
 import '../../finance_office/presentation/payroll_batch_panel.dart';
@@ -21,7 +22,10 @@ class OwnerPayrollPage extends StatefulWidget {
   State<OwnerPayrollPage> createState() => _OwnerPayrollPageState();
 }
 
-class _OwnerPayrollPageState extends State<OwnerPayrollPage> {
+class _OwnerPayrollPageState extends State<OwnerPayrollPage> with SyncRefresh<OwnerPayrollPage> {
+  @override
+  void onSynced() => _load();
+
   PayrollSnapshot? _snapshot;
   String? _error;
   bool _busy = true;
@@ -69,85 +73,20 @@ class _OwnerPayrollPageState extends State<OwnerPayrollPage> {
 
   Future<void> _editSalary(AdministratorStaffRecord person) async {
     final current = _snapshot?.profiles[person.id];
-    final gross = TextEditingController(
-      text: current == null ? '' : '${current.gross}',
+    final choice = await askSalary(
+      context,
+      personName: person.name,
+      gross: current?.gross,
+      deductions: current?.deductions,
+      onPayroll: current?.onPayroll ?? true,
     );
-    final deductions = TextEditingController(
-      text: current == null ? '' : '${current.deductions}',
-    );
-    var onPayroll = current?.onPayroll ?? true;
-    final formKey = GlobalKey<FormState>();
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setLocal) => AlertDialog(
-          title: Text('Salary · ${person.name}'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: gross,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Monthly gross salary (₦)',
-                  ),
-                  validator: (v) =>
-                      int.tryParse(v ?? '') == null ? 'Enter a number.' : null,
-                ),
-                TextFormField(
-                  controller: deductions,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Approved deductions (₦)',
-                  ),
-                  validator: (v) {
-                    final d = int.tryParse(v ?? '');
-                    if (d == null) return 'Enter a number (0 if none).';
-                    if (d > (int.tryParse(gross.text) ?? 0)) {
-                      return 'Deductions cannot exceed gross.';
-                    }
-                    return null;
-                  },
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('On payroll'),
-                  value: onPayroll,
-                  onChanged: (v) => setLocal(() => onPayroll = v),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(context, true);
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-    final grossValue = int.tryParse(gross.text) ?? 0;
-    final deductionValue = int.tryParse(deductions.text) ?? 0;
-    gross.dispose();
-    deductions.dispose();
-    if (saved != true) return;
+    if (choice == null) return;
     await _run(
       () => widget.repository.saveSalary(
         person: person,
-        gross: grossValue,
-        deductions: deductionValue,
-        onPayroll: onPayroll,
+        gross: choice.gross,
+        deductions: choice.deductions,
+        onPayroll: choice.onPayroll,
       ),
       'Salary saved on this device and queued for sync. History is kept.',
     );

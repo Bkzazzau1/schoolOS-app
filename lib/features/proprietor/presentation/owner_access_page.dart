@@ -46,6 +46,16 @@ class _OwnerAccessPageState extends State<OwnerAccessPage> {
                   content: Text(controller.loadError!),
                   actions: [TextButton(onPressed: controller.load, child: const Text('Try again'))],
                 ),
+              if (controller.supportsExtraRoles)
+                Container(
+                  key: const ValueKey('demo-access-note'),
+                  width: double.infinity,
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: const Text(
+                    'Demo school: your decisions apply on this device at once. Sign in as the person to see what they now get.',
+                  ),
+                ),
               const TabBar(
                 tabs: [
                   Tab(text: 'People'),
