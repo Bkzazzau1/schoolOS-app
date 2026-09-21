@@ -27,6 +27,7 @@ class TransportRiderAssignmentRepository {
   static const entityType = 'transport_rider_assignment';
   static const eventEntityType = 'transport_rider_assignment_event';
   static const studentDirectoryEntityType = 'administrator_student_directory';
+  static const driverAssignmentEntityType = 'driver_transport_assignment';
   static const morningRunEntityType = 'driver_morning_run';
   static const afternoonRunEntityType = 'driver_afternoon_run';
   static const vehicleCheckEntityType = 'driver_vehicle_check';
@@ -106,10 +107,17 @@ class TransportRiderAssignmentRepository {
     String routeId,
   ) async {
     final member = _schoolSession.requireActiveMembership();
+    final normalizedRouteId = routeId.trim();
+    if (normalizedRouteId.isEmpty) {
+      throw ArgumentError('Route id is required to load transport riders.');
+    }
+    await _requireRouteReadScope(member, normalizedRouteId);
     await _ensureInitialAssignments(member.schoolId);
     final assignments = await _loadAssignments(member.schoolId);
     final result = assignments
-        .where((item) => item.assigned && item.routeId == routeId)
+        .where(
+          (item) => item.assigned && item.routeId == normalizedRouteId,
+        )
         .toList(growable: false)
       ..sort((a, b) {
         final stopCompare = a.stopId.compareTo(b.stopId);
@@ -374,6 +382,38 @@ class TransportRiderAssignmentRepository {
       );
     }
     return member;
+  }
+
+  Future<void> _requireRouteReadScope(
+    SchoolMembership member,
+    String routeId,
+  ) async {
+    if (member.role == SchoolRole.driver) {
+      final record = await _localDatabase.getLocalRecord(
+        tenantId: member.schoolId,
+        entityType: driverAssignmentEntityType,
+        entityId: member.id,
+      );
+      if (record == null) {
+        throw StateError('No active transport route is assigned to this Driver.');
+      }
+      final payload = record.payload;
+      final active = payload['active'] as bool? ?? true;
+      final membershipId = payload['membershipId'] as String? ?? '';
+      final assignedRouteId = active ? payload['routeId'] as String? ?? '' : '';
+      if (!active || membershipId != member.id || assignedRouteId != routeId) {
+        throw StateError(
+          'Drivers can only access riders assigned to their active transport route.',
+        );
+      }
+      return;
+    }
+
+    if (!_canView(member.role)) {
+      throw StateError(
+        'Transport rider rosters require an authorized school management membership.',
+      );
+    }
   }
 
   Future<bool> _routeLockedToday(String tenantId, String routeId) async {
