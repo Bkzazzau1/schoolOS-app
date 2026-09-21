@@ -3,12 +3,12 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../transport/data/transport_repository.dart';
+import '../../transport/data/transport_rider_assignment_repository.dart';
 import '../../transport/data/transport_route_management_repository.dart';
 import '../../transport/domain/transport_models.dart';
 import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
 import '../domain/driver_vehicle_check_models.dart';
-import 'driver_afternoon_run_demo_data.dart';
 import 'driver_dashboard_repository.dart';
 import 'driver_vehicle_check_repository.dart';
 
@@ -26,6 +26,10 @@ class DriverAfternoonRunRepository {
           localDatabase: localDatabase,
           schoolSession: schoolSession,
         ),
+        _riderAssignments = TransportRiderAssignmentRepository(
+          localDatabase: localDatabase,
+          schoolSession: schoolSession,
+        ),
         _vehicleCheckRepository = DriverVehicleCheckRepository(
           localDatabase: localDatabase,
           schoolSession: schoolSession,
@@ -38,13 +42,15 @@ class DriverAfternoonRunRepository {
   final SchoolSessionController _schoolSession;
   final TransportRepository _transportRepository;
   final TransportRouteManagementRepository _routeManagementRepository;
+  final TransportRiderAssignmentRepository _riderAssignments;
   final DriverVehicleCheckRepository _vehicleCheckRepository;
 
   Future<DriverAfternoonRun> loadToday() async {
     final member = _requireDriver();
     final assignment = await _loadAssignment(member);
     final route = await _assignedRoute(assignment);
-    final id = _runId(member.id, _todayKey());
+    final serviceDate = _todayKey();
+    final id = _runId(member.id, serviceDate);
     final record = await _localDatabase.getLocalRecord(
       tenantId: member.schoolId,
       entityType: entityType,
@@ -55,12 +61,6 @@ class DriverAfternoonRunRepository {
       final run = DriverAfternoonRun.fromJson(record.payload);
       _validateOwnership(run, member, assignment);
       return run;
-    }
-
-    if (assignment.routeId != 'BUS-02') {
-      throw StateError(
-        'The afternoon rider manifest for ${assignment.routeId} has not been downloaded to this device yet.',
-      );
     }
 
     final plan = await _routeManagementRepository.loadPlanForRoute(route.id);
@@ -76,9 +76,16 @@ class DriverAfternoonRunRepository {
       );
     }
 
-    final seeded = <String, DriverAfternoonStop>{
-      for (final stop in defaultBus02AfternoonStops()) stop.id: stop,
-    };
+    final assignments = await _riderAssignments.loadAssignmentsForRoute(route.id);
+    final validStopIds = {for (final stop in configuredStops) stop.id};
+    for (final rider in assignments) {
+      if (!validStopIds.contains(rider.stopId)) {
+        throw StateError(
+          '${rider.studentName} is assigned to a stop that is no longer active on ${route.name}.',
+        );
+      }
+    }
+
     final reversed = configuredStops.reversed.toList(growable: false);
     final stops = <DriverAfternoonStop>[
       for (var index = 0; index < reversed.length; index++)
@@ -87,7 +94,17 @@ class DriverAfternoonRunRepository {
           sequence: index + 1,
           name: reversed[index].name,
           scheduledTime: reversed[index].afternoonTime,
-          riders: seeded[reversed[index].id]?.riders ?? const [],
+          riders: [
+            for (final rider in assignments.where(
+              (item) => item.stopId == reversed[index].id,
+            ))
+              DriverAfternoonRider(
+                studentId: rider.studentId,
+                name: rider.studentName,
+                className: rider.className,
+                stopId: reversed[index].id,
+              ),
+          ],
         ),
     ];
 
@@ -95,7 +112,7 @@ class DriverAfternoonRunRepository {
       id: id,
       membershipId: member.id,
       routeId: route.id,
-      serviceDate: _todayKey(),
+      serviceDate: serviceDate,
       vehicle: route.vehicle,
       driverName: assignment.driverDisplayName,
       assistantName: route.assistant,
@@ -128,11 +145,6 @@ class DriverAfternoonRunRepository {
     );
     if (run.expectedRiders == 0) {
       throw StateError('The afternoon manifest is empty. Contact Transport Control.');
-    }
-    if (run.expectedRiders != route.riders) {
-      throw StateError(
-        'The downloaded rider manifest has ${run.expectedRiders} students but Transport Control expects ${route.riders}. Reconcile rider assignments before departure.',
-      );
     }
 
     final updated = run.copyWith(
@@ -178,7 +190,9 @@ class DriverAfternoonRunRepository {
         current.status != DriverAfternoonRiderStatus.guardianPickup &&
         current.status != DriverAfternoonRiderStatus.notRiding &&
         current.status != DriverAfternoonRiderStatus.boardingException) {
-      throw StateError('This rider has already entered the route drop-off workflow.');
+      throw StateError(
+        'This rider has already entered the route drop-off workflow.',
+      );
     }
 
     final updated = _replaceRider(
@@ -245,7 +259,9 @@ class DriverAfternoonRunRepository {
     final run = await loadToday();
     _requireInProgress(run);
     if (run.activeStop != null) {
-      throw StateError('Depart ${run.activeStop!.name} before opening another stop.');
+      throw StateError(
+        'Depart ${run.activeStop!.name} before opening another stop.',
+      );
     }
 
     final index = run.stops.indexWhere((stop) => stop.id == stopId);
@@ -318,7 +334,9 @@ class DriverAfternoonRunRepository {
     }
     final rider = stop.riders[riderIndex];
     if (rider.status != DriverAfternoonRiderStatus.boarded) {
-      throw StateError('Only a student currently boarded for this stop can be released here.');
+      throw StateError(
+        'Only a student currently boarded for this stop can be released here.',
+      );
     }
 
     final updated = _replaceRider(
@@ -401,7 +419,8 @@ class DriverAfternoonRunRepository {
         stop.copyWith(
           riders: [
             for (final rider in stop.riders)
-              if (rider.status == DriverAfternoonRiderStatus.guardianUnavailable ||
+              if (rider.status ==
+                      DriverAfternoonRiderStatus.guardianUnavailable ||
                   rider.status == DriverAfternoonRiderStatus.dropException)
                 rider.copyWith(
                   status: DriverAfternoonRiderStatus.returnedSchool,
@@ -423,8 +442,10 @@ class DriverAfternoonRunRepository {
       eventType: 'afternoon_students_returned_school',
       details: {
         'returnedRiders': updated.riders
-            .where((rider) =>
-                rider.status == DriverAfternoonRiderStatus.returnedSchool)
+            .where(
+              (rider) =>
+                  rider.status == DriverAfternoonRiderStatus.returnedSchool,
+            )
             .length,
       },
     );
@@ -475,32 +496,28 @@ class DriverAfternoonRunRepository {
   Future<DriverTransportAssignment> _loadAssignment(
     SchoolMembership member,
   ) async {
-    final record = await _localDatabase.getLocalRecord(
+    var record = await _localDatabase.getLocalRecord(
       tenantId: member.schoolId,
       entityType: DriverDashboardRepository.assignmentEntityType,
       entityId: member.id,
     );
-    if (record != null) {
-      final assignment = DriverTransportAssignment.fromJson(record.payload);
-      if (!assignment.hasRoute) {
-        throw StateError('No active transport route is assigned to this Driver account.');
-      }
-      return assignment;
+    if (record == null) {
+      await DriverDashboardRepository(
+        localDatabase: _localDatabase,
+        schoolSession: _schoolSession,
+      ).load();
+      record = await _localDatabase.getLocalRecord(
+        tenantId: member.schoolId,
+        entityType: DriverDashboardRepository.assignmentEntityType,
+        entityId: member.id,
+      );
     }
-
-    await DriverDashboardRepository(
-      localDatabase: _localDatabase,
-      schoolSession: _schoolSession,
-    ).load();
-    final seeded = await _localDatabase.getLocalRecord(
-      tenantId: member.schoolId,
-      entityType: DriverDashboardRepository.assignmentEntityType,
-      entityId: member.id,
-    );
-    if (seeded == null) throw StateError('No transport assignment is available.');
-    final assignment = DriverTransportAssignment.fromJson(seeded.payload);
-    if (!assignment.hasRoute) {
-      throw StateError('No active transport route is assigned to this Driver account.');
+    if (record == null) {
+      throw StateError('No active transport assignment is available.');
+    }
+    final assignment = DriverTransportAssignment.fromJson(record.payload);
+    if (assignment.membershipId != member.id || !assignment.hasRoute) {
+      throw StateError('No active transport assignment is available.');
     }
     return assignment;
   }
@@ -521,13 +538,17 @@ class DriverAfternoonRunRepository {
     DriverTransportAssignment assignment,
   ) {
     if (run.membershipId != member.id || run.routeId != assignment.routeId) {
-      throw StateError('This afternoon run does not belong to the active Driver membership.');
+      throw StateError(
+        'This afternoon run does not belong to the active Driver membership.',
+      );
     }
   }
 
   void _requireInProgress(DriverAfternoonRun run) {
     if (run.status != DriverAfternoonRunStatus.inProgress) {
-      throw StateError('Depart school before recording route drop-off activity.');
+      throw StateError(
+        'Depart school before recording route drop-off activity.',
+      );
     }
   }
 
@@ -547,7 +568,9 @@ class DriverAfternoonRunRepository {
         }
       }
     }
-    throw ArgumentError('This student is not on the assigned afternoon manifest.');
+    throw ArgumentError(
+      'This student is not on the assigned afternoon manifest.',
+    );
   }
 
   DriverAfternoonRun _replaceRider(
@@ -576,7 +599,7 @@ class DriverAfternoonRunRepository {
       entityType: entityType,
       entityId: run.id,
     );
-    final payload = {
+    final payload = <String, Object?>{
       ...run.toJson(),
       'updatedAt': at,
       'updatedByMembershipId': member.id,
@@ -634,7 +657,9 @@ class DriverAfternoonRunRepository {
 
   String _todayKey() {
     final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
   }
 
   String _runId(String membershipId, String serviceDate) =>
