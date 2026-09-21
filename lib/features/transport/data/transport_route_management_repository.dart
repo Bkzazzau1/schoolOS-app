@@ -5,9 +5,11 @@ import '../../../shared/models/school_membership.dart';
 import '../../driver/domain/driver_afternoon_run_models.dart';
 import '../../driver/domain/driver_dashboard_models.dart';
 import '../../driver/domain/driver_morning_run_models.dart';
-import '../domain/transport_route_management_models.dart';
 import '../domain/transport_models.dart';
+import '../domain/transport_rider_assignment_models.dart';
+import '../domain/transport_route_management_models.dart';
 import 'transport_demo_data.dart';
+import 'transport_repository.dart';
 import 'transport_route_plan_demo_data.dart';
 
 class TransportRouteManagementRepository {
@@ -21,12 +23,16 @@ class TransportRouteManagementRepository {
   static const planEntityType = 'transport_route_plan';
   static const eventEntityType = 'transport_route_event';
   static const assignmentEntityType = 'driver_transport_assignment';
+  static const riderAssignmentEntityType = 'transport_rider_assignment';
   static const morningRunEntityType = 'driver_morning_run';
   static const afternoonRunEntityType = 'driver_afternoon_run';
   static const vehicleCheckEntityType = 'driver_vehicle_check';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+
+  LocalDatabase get localDatabase => _localDatabase;
+  SchoolSessionController get schoolSession => _schoolSession;
 
   bool _canView(SchoolRole role) => const {
         SchoolRole.proprietor,
@@ -50,21 +56,22 @@ class TransportRouteManagementRepository {
     final routes = await _loadRoutes(member.schoolId);
     final assignments = await _loadAssignments(member.schoolId);
     final entries = <TransportRouteManagementEntry>[];
-
     for (final route in routes) {
       final plan = await loadPlanForRoute(route.id);
-      final assignment = assignments.where(
-        (item) => item.hasRoute && item.routeId == route.id,
-      ).toList(growable: false);
+      final routeAssignments = assignments
+          .where((item) => item.hasRoute && item.routeId == route.id)
+          .toList(growable: false);
       final locked = await _routeLockedToday(member.schoolId, route.id);
       entries.add(
         TransportRouteManagementEntry(
           route: route,
           plan: plan,
-          assignedDriverName:
-              assignment.length == 1 ? assignment.single.driverDisplayName : '',
-          assignedMembershipId:
-              assignment.length == 1 ? assignment.single.membershipId : '',
+          assignedDriverName: routeAssignments.length == 1
+              ? routeAssignments.single.driverDisplayName
+              : '',
+          assignedMembershipId: routeAssignments.length == 1
+              ? routeAssignments.single.membershipId
+              : '',
           lockedForToday: locked,
           lockReason: locked
               ? 'Today’s Driver manifest or vehicle check already exists for this route.'
@@ -79,8 +86,6 @@ class TransportRouteManagementRepository {
     );
   }
 
-  /// Available to Driver repositories as a read-only source of the configured
-  /// stop plan. It does not grant route-management authority.
   Future<TransportRoutePlan> loadPlanForRoute(String routeId) async {
     final member = _schoolSession.requireActiveMembership();
     final normalized = routeId.trim();
@@ -107,9 +112,7 @@ class TransportRouteManagementRepository {
         entityId: normalized,
       );
     }
-    if (record == null) {
-      throw StateError('Route stop plan could not be loaded.');
-    }
+    if (record == null) throw StateError('Route stop plan could not be loaded.');
     final plan = TransportRoutePlan.fromJson(record.payload);
     if (plan.routeId != normalized) {
       throw StateError('Route stop plan does not match the requested route.');
@@ -133,7 +136,6 @@ class TransportRouteManagementRepository {
         message: 'Enter the route name, assigned vehicle and assistant.',
       );
     }
-
     final routes = await _loadRoutes(manager.schoolId);
     if (routes.any(
       (route) => route.name.toLowerCase() == cleanName.toLowerCase(),
@@ -143,6 +145,7 @@ class TransportRouteManagementRepository {
         message: 'A transport route with this name already exists.',
       );
     }
+
     final id = _nextRouteId(routes);
     final route = SchoolTransportRoute(
       id: id,
@@ -191,9 +194,9 @@ class TransportRouteManagementRepository {
     required String note,
   }) async {
     final manager = _requireManager();
-    final locked = await _routeLockedToday(manager.schoolId, routeId);
-    if (locked) return _lockedResult();
-
+    if (await _routeLockedToday(manager.schoolId, routeId)) {
+      return _lockedResult();
+    }
     final record = await _localDatabase.getLocalRecord(
       tenantId: manager.schoolId,
       entityType: routeEntityType,
@@ -205,6 +208,7 @@ class TransportRouteManagementRepository {
         message: 'Transport route was not found.',
       );
     }
+
     final cleanName = name.trim();
     final cleanVehicle = vehicle.trim();
     final cleanAssistant = assistant.trim();
@@ -214,7 +218,6 @@ class TransportRouteManagementRepository {
         message: 'Route name, vehicle and assistant cannot be empty.',
       );
     }
-
     final routes = await _loadRoutes(manager.schoolId);
     if (routes.any(
       (route) =>
@@ -281,7 +284,8 @@ class TransportRouteManagementRepository {
       );
     }
     final sequence = plan.activeStops.length + 1;
-    final stopId = '$routeId-STOP-${sequence.toString().padLeft(2, '0')}-${DateTime.now().microsecondsSinceEpoch}';
+    final stopId =
+        '$routeId-STOP-${sequence.toString().padLeft(2, '0')}-${DateTime.now().microsecondsSinceEpoch}';
     final updated = plan.copyWith(
       stops: [
         ...plan.stops,
@@ -302,11 +306,7 @@ class TransportRouteManagementRepository {
       manager: manager,
       routeId: routeId,
       eventType: 'route_stop_added',
-      details: {
-        'stopId': stopId,
-        'name': cleanName,
-        'sequence': sequence,
-      },
+      details: {'stopId': stopId, 'name': cleanName, 'sequence': sequence},
     );
     return const TransportActionResult(
       success: true,
@@ -353,6 +353,7 @@ class TransportRouteManagementRepository {
         message: 'Another stop on this route already uses this name.',
       );
     }
+
     final stops = [...plan.stops];
     stops[index] = stops[index].copyWith(
       name: cleanName,
@@ -413,14 +414,13 @@ class TransportRouteManagementRepository {
     final sequenceById = <String, int>{
       for (var i = 0; i < reordered.length; i++) reordered[i].id: i + 1,
     };
-    final allStops = [
-      for (final stop in plan.stops)
-        stop.active
-            ? stop.copyWith(sequence: sequenceById[stop.id])
-            : stop,
-    ];
     final updated = plan.copyWith(
-      stops: allStops,
+      stops: [
+        for (final stop in plan.stops)
+          stop.active
+              ? stop.copyWith(sequence: sequenceById[stop.id])
+              : stop,
+      ],
       updatedAt: _now(),
       updatedByMembershipId: manager.id,
     );
@@ -448,22 +448,21 @@ class TransportRouteManagementRepository {
     if (await _routeLockedToday(manager.schoolId, routeId)) {
       return _lockedResult();
     }
-    final routeRecord = await _localDatabase.getLocalRecord(
+
+    final riderRecords = await _localDatabase.getLocalRecords(
       tenantId: manager.schoolId,
-      entityType: routeEntityType,
-      entityId: routeId,
+      entityType: riderAssignmentEntityType,
     );
-    if (routeRecord == null) {
+    final assignedToStop = riderRecords.any((record) {
+      final assignment = TransportRiderAssignment.fromJson(record.payload);
+      return assignment.assigned &&
+          assignment.routeId == routeId &&
+          assignment.stopId == stopId;
+    });
+    if (assignedToStop) {
       return const TransportActionResult(
         success: false,
-        message: 'Transport route was not found.',
-      );
-    }
-    final route = SchoolTransportRoute.fromJson(routeRecord.payload);
-    if (route.riders > 0) {
-      return const TransportActionResult(
-        success: false,
-        message: 'This route still has registered riders. Reassign riders from the stop before removing it.',
+        message: 'Students are still assigned to this stop. Reassign or remove those riders first.',
       );
     }
 
@@ -482,14 +481,13 @@ class TransportRouteManagementRepository {
     final sequenceById = <String, int>{
       for (var i = 0; i < active.length; i++) active[i].id: i + 1,
     };
-    final normalized = [
-      for (final stop in stops)
-        stop.active
-            ? stop.copyWith(sequence: sequenceById[stop.id])
-            : stop,
-    ];
     final updated = plan.copyWith(
-      stops: normalized,
+      stops: [
+        for (final stop in stops)
+          stop.active
+              ? stop.copyWith(sequence: sequenceById[stop.id])
+              : stop,
+      ],
       updatedAt: _now(),
       updatedByMembershipId: manager.id,
     );
@@ -657,10 +655,9 @@ class TransportRouteManagementRepository {
     );
     if (record == null) return;
     final route = SchoolTransportRoute.fromJson(record.payload);
-    final updated = route.copyWith(stops: stopCount);
     await _saveRoute(
       manager,
-      updated,
+      route.copyWith(stops: stopCount),
       SyncOperation.update,
       existing: record,
     );
@@ -672,13 +669,12 @@ class TransportRouteManagementRepository {
     required String eventType,
     Map<String, Object?> details = const {},
   }) async {
-    final at = _now();
     final id = '$routeId:$eventType:${DateTime.now().microsecondsSinceEpoch}';
     final payload = <String, Object?>{
       'id': id,
       'routeId': routeId,
       'eventType': eventType,
-      'at': at,
+      'at': _now(),
       'actorMembershipId': manager.id,
       'actorRole': manager.role.name,
       ...details,
@@ -702,7 +698,8 @@ class TransportRouteManagementRepository {
 
   TransportActionResult _lockedResult() => const TransportActionResult(
         success: false,
-        message: 'This route already has today’s Driver manifest or vehicle check. Route and stop changes are locked for the service day.',
+        message:
+            'This route already has today’s Driver manifest or vehicle check. Route and stop changes are locked for the service day.',
       );
 
   String _nextRouteId(List<SchoolTransportRoute> routes) {
@@ -730,7 +727,9 @@ class TransportRouteManagementRepository {
 
   String _todayKey() {
     final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
   }
 
   String _now() => DateTime.now().toUtc().toIso8601String();
