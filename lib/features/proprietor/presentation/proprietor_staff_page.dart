@@ -1,20 +1,69 @@
 import 'package:flutter/material.dart';
 
-import '../data/proprietor_staff_demo_data.dart';
+import '../../../core/sync/sync_scope.dart';
+import '../data/owner_staff_overview.dart';
 import '../domain/proprietor_staff_models.dart';
 
-class ProprietorStaffPage extends StatelessWidget {
+/// The owner's people overview, worked out from the school's real staff files, profiles and
+/// leadership structure.
+class ProprietorStaffPage extends StatefulWidget {
   const ProprietorStaffPage({
     super.key,
     required this.schoolName,
     required this.onActionRequested,
+    required this.repository,
   });
 
   final String schoolName;
   final ValueChanged<String> onActionRequested;
+  final OwnerStaffOverviewRepository repository;
+
+  @override
+  State<ProprietorStaffPage> createState() => _ProprietorStaffPageState();
+}
+
+class _ProprietorStaffPageState extends State<ProprietorStaffPage> with SyncRefresh<ProprietorStaffPage> {
+  StaffOverview? _overview;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void onSynced() => _load();
+
+  Future<void> _load() async {
+    try {
+      final overview = await widget.repository.load();
+      if (!mounted) return;
+      setState(() {
+        _overview = overview;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  String get schoolName => widget.schoolName;
+  ValueChanged<String> get onActionRequested => widget.onActionRequested;
 
   @override
   Widget build(BuildContext context) {
+    final overview = _overview;
+    if (overview == null) {
+      return Center(
+        child: _error == null
+            ? const CircularProgressIndicator()
+            : const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('The staff overview could not be loaded. You may not have access to staff records.'),
+              ),
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 760;
@@ -40,28 +89,34 @@ class ProprietorStaffPage extends StatelessWidget {
                       onActionRequested: onActionRequested,
                     ),
                     const SizedBox(height: 20),
-                    _KpiGrid(compact: compact),
+                    _KpiGrid(compact: compact, kpis: overview.kpis),
                     const SizedBox(height: 18),
                     _TwoColumn(
                       compact: compact,
-                      left: const _StaffCard(
+                      left: _StaffCard(
                         title: 'Leadership & staffing overview',
                         subtitle: 'Section ownership and current staffing context.',
-                        child: _LeadershipTable(),
+                        child: overview.leaders.isEmpty
+                            ? const _Empty('No leadership appointed yet. Add them in Structure & Leadership.')
+                            : _LeadershipTable(rows: overview.leaders),
                       ),
-                      right: const _StaffCard(
+                      right: _StaffCard(
                         title: 'People attention queue',
                         subtitle: 'Owner-level issues, not day-to-day supervision.',
-                        child: _AttentionList(),
+                        child: overview.attention.isEmpty
+                            ? const _Empty('Nothing needs your attention.')
+                            : _AttentionList(items: overview.attention),
                       ),
                     ),
                     const SizedBox(height: 18),
                     _TwoColumn(
                       compact: compact,
-                      left: const _StaffCard(
+                      left: _StaffCard(
                         title: 'Staff mix',
-                        subtitle: 'Current teaching-staff distribution.',
-                        child: _StaffMix(),
+                        subtitle: 'Staff on record by section.',
+                        child: overview.empty
+                            ? const _Empty('No staff on record yet. Register staff in Staff Records.')
+                            : _StaffMix(mix: overview.mix, total: overview.total),
                       ),
                       right: const _StaffCard(
                         title: 'HR privacy boundary',
@@ -71,7 +126,7 @@ class ProprietorStaffPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Prototype people data · current term · $schoolName',
+                      'Worked out from staff files, profiles and structure · $schoolName. Workload and vacancies are not tracked yet.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context)
                                 .colorScheme
@@ -195,10 +250,23 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _Empty extends StatelessWidget {
+  const _Empty(this.message);
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(message, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      );
+}
+
 class _KpiGrid extends StatelessWidget {
-  const _KpiGrid({required this.compact});
+  const _KpiGrid({required this.compact, required this.kpis});
 
   final bool compact;
+  final List<OwnerStaffKpi> kpis;
 
   @override
   Widget build(BuildContext context) {
@@ -213,7 +281,7 @@ class _KpiGrid extends StatelessWidget {
           spacing: spacing,
           runSpacing: spacing,
           children: [
-            for (final item in proprietorStaffKpis)
+            for (final item in kpis)
               SizedBox(
                 width: itemWidth,
                 child: _KpiCard(item: item),
@@ -343,7 +411,9 @@ class _StaffCard extends StatelessWidget {
 }
 
 class _LeadershipTable extends StatelessWidget {
-  const _LeadershipTable();
+  const _LeadershipTable({required this.rows});
+
+  final List<OwnerLeaderRow> rows;
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +426,7 @@ class _LeadershipTable extends StatelessWidget {
           children: [
             const _LeadershipHeader(),
             const Divider(height: 1),
-            for (final row in proprietorLeadershipRows) ...[
+            for (final row in rows) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Row(
@@ -460,15 +530,17 @@ class _SignalChip extends StatelessWidget {
 }
 
 class _AttentionList extends StatelessWidget {
-  const _AttentionList();
+  const _AttentionList({required this.items});
+
+  final List<OwnerPeopleAttentionItem> items;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        for (var i = 0; i < proprietorPeopleAttention.length; i++) ...[
-          _AttentionItem(item: proprietorPeopleAttention[i]),
-          if (i != proprietorPeopleAttention.length - 1)
+        for (var i = 0; i < items.length; i++) ...[
+          _AttentionItem(item: items[i]),
+          if (i != items.length - 1)
             const Divider(height: 24),
         ],
       ],
@@ -527,14 +599,17 @@ class _AttentionItem extends StatelessWidget {
 }
 
 class _StaffMix extends StatelessWidget {
-  const _StaffMix();
+  const _StaffMix({required this.mix, required this.total});
+
+  final List<OwnerStaffMixItem> mix;
+  final int total;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Column(
       children: [
-        for (final item in proprietorStaffMix)
+        for (final item in mix)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
@@ -571,12 +646,12 @@ class _StaffMix extends StatelessWidget {
           children: [
             const Expanded(
               child: Text(
-                'Total teaching staff',
+                'Total staff',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
             Text(
-              '$proprietorTeachingStaffTotal',
+              '$total',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w900,
               ),

@@ -181,3 +181,11 @@ menus use it through two small interfaces (`OwnerAccessSource`, `AccessView`), s
 
 Tests: `test/local_owner_access_test.dart` (10), `test/demo_extra_roles_test.dart`.
 Not done: a test that every menu key in the app is in the catalog; a "demo data" banner on the access screen.
+
+## Owner: Staff & HR is real
+
+`OwnerStaffOverviewRepository` (`lib/features/proprietor/data/owner_staff_overview.dart`) works the page out from the school's
+staff records, staff profiles and leadership structure: staff and teaching counts, average attendance (only when recorded),
+staff by section, and an attention list (incomplete files, open onboarding, credentials expired or ending within 60 days).
+A leader is marked "Review" when someone in their section has an incomplete file. Workload and vacancies are not tracked
+yet, so they are no longer shown. Tests: `test/proprietor_staff_test.dart`.
