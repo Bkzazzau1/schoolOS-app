@@ -521,6 +521,7 @@ class _SubjectList extends StatelessWidget {
                   SizedBox(
                     width: 190,
                     child: DropdownButtonFormField<String>(
+        isExpanded: true,
                       initialValue: update.className,
                       decoration: const InputDecoration(labelText: 'Class'),
                       items: [
@@ -537,6 +538,7 @@ class _SubjectList extends StatelessWidget {
                   SizedBox(
                     width: 160,
                     child: DropdownButtonFormField<String>(
+        isExpanded: true,
                       initialValue: update.week,
                       decoration: const InputDecoration(labelText: 'Week'),
                       items: [

@@ -99,6 +99,9 @@ void main() {
   });
 
   testWidgets('CBT Practice renders exact website evidence', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -124,6 +127,9 @@ void main() {
   });
 
   testWidgets('draft publication becomes queued and never self-confirms Published', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeCbtRepository();
     var mutationCallbacks = 0;
     await tester.pumpWidget(
@@ -154,6 +160,9 @@ void main() {
   });
 
   testWidgets('CBT top actions route to Teacher Dashboard and Assessments', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     String? destination;
     await tester.pumpWidget(
       MaterialApp(

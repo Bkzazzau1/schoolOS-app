@@ -118,6 +118,9 @@ void main() {
 
   testWidgets('Teacher AI renders exact website workspace and history',
       (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -145,6 +148,9 @@ void main() {
 
   testWidgets('Teacher AI prompt generates review-only response and history',
       (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final repository = _FakeTeacherAiRepository();
     await tester.pumpWidget(
       MaterialApp(
@@ -173,6 +179,9 @@ void main() {
 
   testWidgets('Teacher AI handoffs route to governed Teacher modules',
       (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     String? destination;
     await tester.pumpWidget(
       MaterialApp(

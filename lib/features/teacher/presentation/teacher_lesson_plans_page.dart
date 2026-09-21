@@ -473,6 +473,7 @@ class _SelectField extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
         width: 210,
         child: DropdownButtonFormField<String>(
+        isExpanded: true,
           initialValue: value,
           decoration: InputDecoration(labelText: label),
           items: [for (final item in values) DropdownMenuItem(value: item, child: Text(item))],

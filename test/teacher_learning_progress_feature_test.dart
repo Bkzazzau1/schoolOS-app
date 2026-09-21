@@ -114,6 +114,9 @@ void main() {
 
   testWidgets('Learning Progress renders website evidence and Maryam summary',
       (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -139,6 +142,9 @@ void main() {
 
   testWidgets('Learning Progress connected actions route to dedicated Teacher modules',
       (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     String? destination;
     await tester.pumpWidget(
       MaterialApp(

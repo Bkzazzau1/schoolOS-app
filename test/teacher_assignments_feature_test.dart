@@ -84,6 +84,9 @@ void main() {
   });
 
   testWidgets('Assignments renders website content and accepts library search', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -113,6 +116,9 @@ void main() {
   });
 
   testWidgets('Teacher AI draft remains a draft until teacher queues publication', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeAssignmentRepository();
     await tester.pumpWidget(
       MaterialApp(

@@ -324,6 +324,7 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+        isExpanded: true,
               initialValue: value.className,
               decoration: const InputDecoration(labelText: 'Class', border: OutlineInputBorder()),
               items: const ['JSS 2A', 'JSS 2B', 'JSS 3A']
@@ -365,6 +366,7 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+        isExpanded: true,
               initialValue: value.resultMode,
               decoration: const InputDecoration(labelText: 'Result mode', border: OutlineInputBorder()),
               items: const [

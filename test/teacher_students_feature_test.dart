@@ -114,6 +114,9 @@ void main() {
   });
 
   testWidgets('Students renders exact roster and search filters visible rows', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -142,6 +145,9 @@ void main() {
   });
 
   testWidgets('full student profile exposes academic context but not sensitive website fields', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -169,6 +175,9 @@ void main() {
   });
 
   testWidgets('saving a teacher note versions local evidence without changing student status', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeStudentsRepository();
     var queued = 0;
     await tester.pumpWidget(
@@ -198,6 +207,9 @@ void main() {
   });
 
   testWidgets('Students top actions route to completed Teacher modules', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     String? destination;
     await tester.pumpWidget(
       MaterialApp(

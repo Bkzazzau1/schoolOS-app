@@ -121,6 +121,9 @@ void main() {
 
   testWidgets('My Performance renders exact score and core website sections',
       (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -145,6 +148,9 @@ void main() {
   });
 
   testWidgets('period selector changes the visible coaching period', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -167,6 +173,9 @@ void main() {
   });
 
   testWidgets('professional focus routes to Syllabus', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     String? destination;
     await tester.pumpWidget(
       MaterialApp(
@@ -187,6 +196,9 @@ void main() {
 
   testWidgets('private reflection is saved locally in the performance view',
       (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final repository = _FakePerformanceRepository();
     await tester.pumpWidget(
       MaterialApp(

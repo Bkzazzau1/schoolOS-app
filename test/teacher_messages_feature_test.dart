@@ -80,6 +80,9 @@ void main() {
   });
 
   testWidgets('Messages renders website channels and search filters them', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -107,6 +110,9 @@ void main() {
   });
 
   testWidgets('thread switching does not leak JSS 2A history into other channels', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -128,6 +134,9 @@ void main() {
   });
 
   testWidgets('Send queues locally without claiming Sent or Delivered', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeMessagesRepository();
     var mutations = 0;
     await tester.pumpWidget(
@@ -156,6 +165,9 @@ void main() {
   });
 
   testWidgets('Teacher AI drafts but does not queue a message automatically', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeMessagesRepository();
     await tester.pumpWidget(
       MaterialApp(
@@ -180,6 +192,9 @@ void main() {
   });
 
   testWidgets('Messages routes to Students, Classes and Teacher AI', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     String? destination;
     await tester.pumpWidget(
       MaterialApp(

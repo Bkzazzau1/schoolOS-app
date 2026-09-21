@@ -116,6 +116,9 @@ void main() {
   });
 
   testWidgets('AI draft fills editor but does not auto-submit', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeLessonPlanRepository();
     await tester.pumpWidget(
       MaterialApp(
@@ -141,6 +144,9 @@ void main() {
   });
 
   testWidgets('submit moves draft to pending approval rather than approved', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeLessonPlanRepository();
     await tester.pumpWidget(
       MaterialApp(
@@ -168,6 +174,9 @@ void main() {
   });
 
   testWidgets('lesson plan history search filters website rows', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

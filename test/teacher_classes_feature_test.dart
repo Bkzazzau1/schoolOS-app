@@ -157,6 +157,9 @@ void main() {
   });
 
   testWidgets('My Classes routes connected teaching actions', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     String? destination;
     await tester.pumpWidget(
       MaterialApp(
@@ -183,6 +186,9 @@ void main() {
   });
 
   testWidgets('selecting SS 1A updates selected class evidence', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

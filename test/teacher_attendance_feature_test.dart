@@ -125,6 +125,9 @@ void main() {
   });
 
   testWidgets('attendance search filters by student ID', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeAttendanceRepository();
     await tester.pumpWidget(
       MaterialApp(
@@ -149,6 +152,9 @@ void main() {
   });
 
   testWidgets('submit locks the local register and keeps sync pending', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeAttendanceRepository();
     await tester.pumpWidget(
       MaterialApp(

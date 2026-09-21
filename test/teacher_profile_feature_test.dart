@@ -87,6 +87,9 @@ void main() {
   });
 
   testWidgets('Profile renders website overview and confidential payroll context', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -110,6 +113,9 @@ void main() {
   });
 
   testWidgets('Profile self-service edit saves contact without changing authority fields', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final fake = _FakeProfileRepository();
     var queued = 0;
     await tester.pumpWidget(
@@ -142,6 +148,9 @@ void main() {
   });
 
   testWidgets('Profile connected work routes to existing Teacher modules', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     String? destination;
     await tester.pumpWidget(
       MaterialApp(
