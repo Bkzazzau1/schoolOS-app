@@ -62,6 +62,7 @@ import 'proprietor_staff_page.dart';
 import 'owner_jobs_page.dart';
 import 'owner_payroll_page.dart';
 import 'owner_staff_profiles_page.dart';
+import '../data/owner_attention_repository.dart';
 import '../data/owner_staff_overview.dart';
 import '../data/owner_staff_profile_repository.dart';
 import '../data/staff_proposal_repository.dart';
@@ -537,6 +538,28 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     return null;
   }
 
+  /// From the overview's queue: some targets are pages that have no menu item of their own.
+  void _openFromOverview(String key) {
+    if (key == 'finance-approvals') {
+      setState(() => _activeModule = key);
+      return;
+    }
+    _selectModule(key);
+  }
+
+  OwnerAttentionRepository _attentionRepository() {
+    final profiles = OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession);
+    return OwnerAttentionRepository(
+      database: widget.localDatabase,
+      session: widget.schoolSession,
+      proposals: StaffProposalRepository(
+          remote: StaffServerScope.maybeOf(context), database: widget.localDatabase, session: widget.schoolSession),
+      concessions: _concessionRepository,
+      staff: OwnerStaffOverviewRepository(profiles: profiles, structure: _structureRepository),
+      structure: _structureRepository,
+    );
+  }
+
   void _selectModule(String key) {
     if (_navItem(key) == null) return;
     setState(() => _activeModule = key);
@@ -666,7 +689,8 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
         ),
       _ => ProprietorOverviewPage(
           schoolName: widget.membership.schoolName,
-          onModuleRequested: _selectModule,
+          onModuleRequested: _openFromOverview,
+          attention: _attentionRepository(),
         ),
     };
   }

@@ -39,12 +39,16 @@ class ProprietorAttentionItem {
     required this.detail,
     required this.owner,
     required this.tone,
+    this.moduleKey,
   });
 
   final String title;
   final String detail;
   final String owner;
   final ProprietorAttentionTone tone;
+
+  /// The owner screen where this is dealt with.
+  final String? moduleKey;
 }
 
 class ProprietorLeadershipItem {

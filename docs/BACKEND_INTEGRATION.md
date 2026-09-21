@@ -189,3 +189,11 @@ staff records, staff profiles and leadership structure: staff and teaching count
 staff by section, and an attention list (incomplete files, open onboarding, credentials expired or ending within 60 days).
 A leader is marked "Review" when someone in their section has an incomplete file. Workload and vacancies are not tracked
 yet, so they are no longer shown. Tests: `test/proprietor_staff_test.dart`.
+
+## Owner: Executive Overview shows what is really waiting
+
+`OwnerAttentionRepository` (`lib/features/proprietor/data/owner_attention_repository.dart`) builds the Owner Attention Queue
+and the Leadership card from real records: staff proposals to approve, concessions to decide, payroll batches waiting for
+approval, an empty structure, and the staff-file items from Staff & HR. Each item opens the screen where it is dealt with.
+The fee, attendance, results and enrolment figures on that page are still sample figures, and the page says so.
+Tests: `test/owner_attention_test.dart`.

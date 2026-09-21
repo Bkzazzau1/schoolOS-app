@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+import '../data/owner_attention_repository.dart';
 import '../data/proprietor_overview_demo_data.dart';
 import '../domain/proprietor_overview_models.dart';
 
@@ -8,8 +10,11 @@ class ProprietorOverviewPage extends StatefulWidget {
     super.key,
     required this.schoolName,
     this.onModuleRequested,
+    this.attention,
   });
 
+  /// What is waiting on the owner, from the school's real records. Without it the sample list is shown.
+  final OwnerAttentionRepository? attention;
   final String schoolName;
   final ValueChanged<String>? onModuleRequested;
 
@@ -17,8 +22,34 @@ class ProprietorOverviewPage extends StatefulWidget {
   State<ProprietorOverviewPage> createState() => _ProprietorOverviewPageState();
 }
 
-class _ProprietorOverviewPageState extends State<ProprietorOverviewPage> {
+class _ProprietorOverviewPageState extends State<ProprietorOverviewPage> with SyncRefresh<ProprietorOverviewPage> {
   int _selectedSectionIndex = 2;
+  List<ProprietorAttentionItem>? _attention;
+  List<ProprietorLeadershipItem>? _leadership;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttention();
+  }
+
+  @override
+  void onSynced() => _loadAttention();
+
+  Future<void> _loadAttention() async {
+    final repository = widget.attention;
+    if (repository == null) return;
+    try {
+      final loaded = await repository.load();
+      if (!mounted) return;
+      setState(() {
+        _attention = loaded.items;
+        _leadership = loaded.leadership;
+      });
+    } catch (_) {
+      // Keep whatever was shown; the queue is a convenience.
+    }
+  }
 
   ProprietorSectionPerformance get _selectedSection =>
       ProprietorOverviewDemoData.sections[_selectedSectionIndex];
@@ -73,6 +104,7 @@ class _ProprietorOverviewPageState extends State<ProprietorOverviewPage> {
                     onReport: () => _openModule('reports'),
                   ),
                   const SizedBox(height: 18),
+                  if (widget.attention != null) const _SampleNote(),
                   _KpiGrid(
                     items: ProprietorOverviewDemoData.kpis,
                     width: width,
@@ -90,7 +122,7 @@ class _ProprietorOverviewPageState extends State<ProprietorOverviewPage> {
                       },
                       onReports: () => _openModule('reports'),
                     ),
-                    right: const _AttentionQueueCard(),
+                    right: _AttentionQueueCard(items: _attention, onOpen: _openModule),
                   ),
                   const SizedBox(height: 18),
                   _ResponsivePair(
@@ -108,6 +140,7 @@ class _ProprietorOverviewPageState extends State<ProprietorOverviewPage> {
                     leftFlex: 3,
                     rightFlex: 2,
                     left: _LeadershipOversightCard(
+                      items: _leadership,
                       onOpen: () => _openModule('structure'),
                     ),
                     right: _QuickAccessCard(onOpen: _openModule),
@@ -621,25 +654,35 @@ class _SectionRow extends StatelessWidget {
 }
 
 class _AttentionQueueCard extends StatelessWidget {
-  const _AttentionQueueCard();
+  const _AttentionQueueCard({required this.items, required this.onOpen});
+
+  /// Null while loading, or when there is no real data (then the sample list is shown).
+  final List<ProprietorAttentionItem>? items;
+  final ValueChanged<String> onOpen;
 
   @override
   Widget build(BuildContext context) {
+    final real = items;
+    final list = real ?? ProprietorOverviewDemoData.attention;
     return _OwnerCard(
       title: 'Owner Attention Queue',
-      subtitle: 'Items requiring oversight or delegated follow-up.',
-      trailing: CircleAvatar(
-        radius: 16,
-        child: Text('${ProprietorOverviewDemoData.attention.length}'),
-      ),
+      subtitle: real == null
+          ? 'Sample items. Your own appear here as work arrives.'
+          : 'Waiting on you, from the school records.',
+      trailing: CircleAvatar(radius: 16, child: Text('${list.length}')),
       child: Column(
         children: [
-          for (var index = 0;
-              index < ProprietorOverviewDemoData.attention.length;
-              index++) ...[
-            _AttentionItem(item: ProprietorOverviewDemoData.attention[index]),
-            if (index != ProprietorOverviewDemoData.attention.length - 1)
-              const SizedBox(height: 10),
+          if (list.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('Nothing is waiting on you.'),
+            ),
+          for (var index = 0; index < list.length; index++) ...[
+            _AttentionItem(
+              item: list[index],
+              onTap: real == null || list[index].moduleKey == null ? null : () => onOpen(list[index].moduleKey!),
+            ),
+            if (index != list.length - 1) const SizedBox(height: 10),
           ],
         ],
       ),
@@ -648,9 +691,10 @@ class _AttentionQueueCard extends StatelessWidget {
 }
 
 class _AttentionItem extends StatelessWidget {
-  const _AttentionItem({required this.item});
+  const _AttentionItem({required this.item, this.onTap});
 
   final ProprietorAttentionItem item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -661,7 +705,10 @@ class _AttentionItem extends StatelessWidget {
       ProprietorAttentionTone.info => theme.colorScheme.primary,
     };
 
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         border: Border.all(color: accent.withValues(alpha: 0.25)),
@@ -700,6 +747,7 @@ class _AttentionItem extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -864,24 +912,25 @@ class _EnrollmentSummaryCard extends StatelessWidget {
 }
 
 class _LeadershipOversightCard extends StatelessWidget {
-  const _LeadershipOversightCard({required this.onOpen});
+  const _LeadershipOversightCard({required this.items, required this.onOpen});
 
+  /// Null when there is no real data (then the sample list is shown).
+  final List<ProprietorLeadershipItem>? items;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
+    final list = items ?? ProprietorOverviewDemoData.leadership;
     return _OwnerCard(
       title: 'Leadership Oversight',
       subtitle: 'Current section leadership and owner-level signal.',
       trailing: TextButton(onPressed: onOpen, child: const Text('Manage structure')),
       child: Column(
         children: [
-          for (var index = 0;
-              index < ProprietorOverviewDemoData.leadership.length;
-              index++) ...[
-            _LeadershipRow(item: ProprietorOverviewDemoData.leadership[index]),
-            if (index != ProprietorOverviewDemoData.leadership.length - 1)
-              const Divider(height: 20),
+          if (list.isEmpty) const Text('No leadership appointed yet.'),
+          for (var index = 0; index < list.length; index++) ...[
+            _LeadershipRow(item: list[index]),
+            if (index != list.length - 1) const Divider(height: 20),
           ],
         ],
       ),
@@ -1285,4 +1334,31 @@ String _moduleTitle(String moduleKey) {
     'appearance' => 'School Appearance',
     _ => 'Proprietor module',
   };
+}
+
+/// Says which parts of the overview are still sample figures.
+class _SampleNote extends StatelessWidget {
+  const _SampleNote();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'The Owner Attention Queue and Leadership are from your school records. The figures on fees, attendance, '
+              'results and enrolment below are sample figures until those modules hold real data.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
