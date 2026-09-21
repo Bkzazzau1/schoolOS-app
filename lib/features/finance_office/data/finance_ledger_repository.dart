@@ -8,6 +8,7 @@ import '../../administrator/domain/administrator_students_models.dart';
 import '../../proprietor/data/concession_repository.dart';
 import '../../proprietor/domain/concession_request.dart';
 import '../domain/finance_ledger_models.dart';
+import 'finance_aging.dart';
 import 'finance_billing.dart';
 
 class FinanceActionResult {
@@ -286,5 +287,110 @@ class FinanceLedgerRepository {
       b.write(raw[i]);
     }
     return '₦$b';
+  }
+
+  // ---------------------------------------------------------------- due dates and reminders
+
+  static const dueType = 'finance_term_due';
+  static const reminderType = 'finance_reminder';
+
+  /// When fees for the term fall due.
+  Future<DateTime> dueDate(String term) async {
+    final m = session.requireActiveMembership();
+    final record = await database.getLocalRecord(tenantId: m.schoolId, entityType: dueType, entityId: term);
+    final stored = record?.payload['date'] as String?;
+    return stored == null ? defaultDueDate(term) : DateTime.parse(stored);
+  }
+
+  Future<FinanceActionResult> setDueDate(String term, DateTime date) async {
+    final SchoolMembership m;
+    try {
+      m = _staff();
+    } on StateError catch (e) {
+      return FinanceActionResult(success: false, message: e.message);
+    }
+    final day = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    await _put(m, dueType, term, {'term': term, 'date': day});
+    return FinanceActionResult(success: true, message: 'Fees for $term are due on $day.');
+  }
+
+  Future<AgingReport> aging({String term = financeCurrentTerm, DateTime? today}) async => buildAgingReport(
+        accounts: await accounts(term),
+        due: await dueDate(term),
+        today: today ?? DateTime.now(),
+      );
+
+  Future<List<FeeReminder>> reminders() async {
+    final m = session.requireActiveMembership();
+    final records = await database.getLocalRecords(tenantId: m.schoolId, entityType: reminderType);
+    final list = [for (final r in records) FeeReminder.fromJson(r.payload)];
+    list.sort((a, b) => b.queuedAt.compareTo(a.queuedAt));
+    return list;
+  }
+
+  /// A family is not reminded again within this many days.
+  static const reminderGapDays = 3;
+
+  /// Queues a reminder for a student who owes and whose fees are overdue. Each one is firmer than the last (friendly, second,
+  /// final), and a family is not reminded again within [reminderGapDays] days. Sending is done by the school server.
+  Future<FinanceActionResult> queueReminder(
+    StudentAccount account, {
+    required String schoolName,
+    String term = financeCurrentTerm,
+    DateTime? now,
+  }) async {
+    final SchoolMembership m;
+    try {
+      m = _staff();
+    } on StateError catch (e) {
+      return FinanceActionResult(success: false, message: e.message);
+    }
+    final at = now ?? DateTime.now();
+    if (account.balance <= 0) {
+      return FinanceActionResult(success: false, message: '${account.student.name} owes nothing this term.');
+    }
+    if (daysOverdue(await dueDate(term), at) <= 0) {
+      return const FinanceActionResult(success: false, message: 'These fees are not overdue yet, so no reminder is queued.');
+    }
+    final mine = [for (final r in await reminders()) if (r.studentId == account.student.id && r.term == term) r];
+    if (mine.isNotEmpty) {
+      final last = DateTime.parse(mine.first.queuedAt);
+      if (at.difference(last).inDays < reminderGapDays) {
+        return FinanceActionResult(
+          success: false,
+          message: '${account.student.name}\'s family was reminded ${at.difference(last).inDays == 0 ? 'today' : '${at.difference(last).inDays} day(s) ago'}. Wait $reminderGapDays days between reminders.',
+        );
+      }
+    }
+    final level = (mine.length + 1).clamp(1, 3);
+    final reminder = FeeReminder(
+      id: 'REM-${account.student.id}-${at.microsecondsSinceEpoch}',
+      studentId: account.student.id,
+      studentName: account.student.name,
+      term: term,
+      level: level,
+      balance: account.balance,
+      queuedAt: at.toUtc().toIso8601String(),
+      message: reminderMessage(
+        level: level,
+        guardian: account.student.primaryGuardian,
+        student: account.student.name,
+        balance: account.balance,
+        term: term,
+        school: schoolName,
+      ),
+      queuedBy: m.id,
+    );
+    await _put(m, reminderType, reminder.id, reminder.toJson());
+    return FinanceActionResult(success: true, message: '${reminderLevelNames[level]} queued for ${account.student.name}\'s family.');
+  }
+
+  /// Queues a reminder for every overdue account that can be reminded now. Returns how many were queued.
+  Future<int> queueAllReminders({required String schoolName, String term = financeCurrentTerm, DateTime? now}) async {
+    var queued = 0;
+    for (final a in await accounts(term)) {
+      if ((await queueReminder(a, schoolName: schoolName, term: term, now: now)).success) queued++;
+    }
+    return queued;
   }
 }

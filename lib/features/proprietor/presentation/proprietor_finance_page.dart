@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/sync/sync_scope.dart';
 import '../data/owner_finance_overview.dart';
+import '../domain/concession_request.dart' show formatNaira;
 import '../data/proprietor_finance_demo_data.dart';
 import '../domain/proprietor_finance_models.dart';
 
@@ -109,63 +110,18 @@ class _ProprietorFinancePageState extends State<ProprietorFinancePage> with Sync
                       ),
                     ),
                     const SizedBox(height: 18),
-                    const _SampleBanner(),
+                    if (overview.fees != null) ...[
+                      const SizedBox(height: 4),
+                      _FeesSection(fees: overview.fees!, compact: compact),
+                    ] else
+                      const _SampleBanner(),
                     const SizedBox(height: 12),
-                    _TwoColumn(
-                      compact: compact,
-                      left: _FinanceCard(
-                        title: 'Revenue bridge',
-                        subtitle: 'How gross school fees become real collectible revenue.',
-                        child: _FinanceList(items: proprietorRevenueBridge),
-                      ),
-                      right: _FinanceCard(
-                        title: 'Owner attention',
-                        subtitle: 'Exceptions that materially affect cash collection.',
-                        child: _FinanceList(items: proprietorFinanceAttention),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const _SectionCollectionCard(),
-                    const SizedBox(height: 18),
-                    _TwoColumn(
-                      compact: compact,
-                      left: const _FinanceCard(
-                        title: 'Outstanding fee aging',
-                        subtitle: 'How long open receivables have remained unpaid after approved concessions.',
-                        child: _AgingList(),
-                      ),
-                      right: _FinanceCard(
-                        title: 'Collection arrangements',
-                        subtitle: 'Outstanding does not always mean unplanned debt.',
-                        child: _FinanceList(items: proprietorCollectionArrangements),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _TwoColumn(
-                      compact: compact,
-                      left: _FinanceCard(
-                        title: 'School Store revenue',
-                        subtitle: 'Books, uniforms and other sundry sales are tracked separately from tuition.',
-                        child: _FinanceList(items: proprietorStoreRevenue),
-                      ),
-                      right: _FinanceCard(
-                        title: 'Store control',
-                        subtitle: 'Payment confirmation must reconcile with physical issue of goods.',
-                        child: _FinanceList(items: proprietorStoreControl),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _TwoColumn(
-                      compact: compact,
-                      left: const _FinanceCard(
-                        title: 'Term collection trend',
-                        subtitle: 'Net collectible realized by week.',
-                        child: _CollectionTrend(),
-                      ),
-                      right: _FinanceCard(
-                        title: 'Expense & cash watch',
-                        subtitle: 'Proprietor-level operating context.',
-                        child: _FinanceList(items: proprietorExpenseWatch),
+                    _FinanceCard(
+                      title: 'Not available yet',
+                      subtitle: 'These need records the school does not keep yet.',
+                      child: const Text(
+                        'School store revenue and stock control, collection arrangements (payment mandates), expenses and cash position, '
+                        'and the weekly collection trend are not recorded yet. They appear once the finance office records them.',
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -184,7 +140,7 @@ class _ProprietorFinancePageState extends State<ProprietorFinancePage> with Sync
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Scholarships, discounts and payroll are from your records. Everything under "Sample figures" is not real yet · $schoolName',
+                      'Fees, scholarships, discounts and payroll are from the school records · $schoolName',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -489,173 +445,6 @@ class _FinanceListRow extends StatelessWidget {
   }
 }
 
-class _SectionCollectionCard extends StatelessWidget {
-  const _SectionCollectionCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Collection by school section', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            Text(
-              'Gross charges, concessions, net collectible and realized collections.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 18),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 860),
-                child: DataTable(
-                  headingRowHeight: 46,
-                  dataRowMinHeight: 54,
-                  dataRowMaxHeight: 64,
-                  columns: const [
-                    DataColumn(label: Text('Section')),
-                    DataColumn(label: Text('Gross fees')),
-                    DataColumn(label: Text('Concessions')),
-                    DataColumn(label: Text('Net collectible')),
-                    DataColumn(label: Text('Collected')),
-                    DataColumn(label: Text('Rate')),
-                  ],
-                  rows: [
-                    for (final row in proprietorFinanceSections)
-                      DataRow(
-                        cells: [
-                          DataCell(Text(row.section, style: const TextStyle(fontWeight: FontWeight.w800))),
-                          DataCell(Text(row.grossFees)),
-                          DataCell(Text(row.concessions)),
-                          DataCell(Text(row.netCollectible)),
-                          DataCell(Text(row.collected)),
-                          DataCell(_RateBadge(rate: row.rate)),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RateBadge extends StatelessWidget {
-  const _RateBadge({required this.rate});
-
-  final int rate;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final warning = rate < 85;
-    final color = warning ? theme.colorScheme.error : theme.colorScheme.primary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text('$rate%', style: TextStyle(color: color, fontWeight: FontWeight.w900)),
-    );
-  }
-}
-
-class _AgingList extends StatelessWidget {
-  const _AgingList();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      children: [
-        for (var i = 0; i < proprietorFinanceAging.length; i++) ...[
-          Builder(builder: (context) {
-            final item = proprietorFinanceAging[i];
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${item.band} · ${item.amount}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 4),
-                        Text(item.status),
-                        const SizedBox(height: 4),
-                        Text(
-                          'See Finance Office aging queue for arrangement-level detail',
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-          if (i != proprietorFinanceAging.length - 1) Divider(color: theme.colorScheme.outlineVariant),
-        ],
-      ],
-    );
-  }
-}
-
-class _CollectionTrend extends StatelessWidget {
-  const _CollectionTrend();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 220,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (var i = 0; i < proprietorTermCollectionTrend.length; i++)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text('${proprietorTermCollectionTrend[i]}%', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 5),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: FractionallySizedBox(
-                          heightFactor: proprietorTermCollectionTrend[i] / 100,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primaryContainer,
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text('W${i + 1}', style: theme.textTheme.labelSmall),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _QuickActions extends StatelessWidget {
   const _QuickActions({required this.onActionRequested});
 
@@ -725,6 +514,115 @@ class _GovernanceCallout extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Fees billed and collected this term, from the finance office's ledger.
+class _FeesSection extends StatelessWidget {
+  const _FeesSection({required this.fees, required this.compact});
+
+  final OwnerFeeSummary fees;
+  final bool compact;
+
+  static String _date(DateTime d) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = fees.totals;
+    return Column(
+      key: const ValueKey('owner-fees'),
+      children: [
+        _FinanceCard(
+          title: 'Fees this term',
+          subtitle: '${fees.term}, from the finance office\'s student accounts.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final row in [
+                ('Gross fees billed', formatNaira(t.gross)),
+                ('Less scholarships & discounts', '- ${formatNaira(t.gross - t.net)}'),
+                ('Net collectible', formatNaira(t.net)),
+                ('Collected', '${formatNaira(t.paid)} (${t.collectedPercent}%)'),
+                ('Still owed', formatNaira(t.balance)),
+              ])
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(children: [Expanded(child: Text(row.$1)), Text(row.$2, style: const TextStyle(fontWeight: FontWeight.w800))]),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        _FinanceCard(
+          title: 'Collection by section',
+          subtitle: 'Who has paid, by section.',
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: const [
+                DataColumn(label: Text('Section')),
+                DataColumn(label: Text('Students'), numeric: true),
+                DataColumn(label: Text('Net collectible'), numeric: true),
+                DataColumn(label: Text('Collected'), numeric: true),
+                DataColumn(label: Text('Owed'), numeric: true),
+                DataColumn(label: Text('Rate'), numeric: true),
+              ],
+              rows: [
+                for (final r in fees.sections)
+                  DataRow(cells: [
+                    DataCell(Text(r.section, style: const TextStyle(fontWeight: FontWeight.w800))),
+                    DataCell(Text('${r.students}')),
+                    DataCell(Text(formatNaira(r.net))),
+                    DataCell(Text(formatNaira(r.paid))),
+                    DataCell(Text(formatNaira(r.balance))),
+                    DataCell(Text('${r.rate}%')),
+                  ]),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        _TwoColumn(
+          compact: compact,
+          left: _FinanceCard(
+            title: 'Outstanding fees',
+            subtitle: 'Due ${_date(fees.due)}. ${fees.daysOverdue > 0 ? '${fees.daysOverdue} days overdue (${fees.band}).' : 'Not yet due.'}',
+            child: fees.topOwing.isEmpty
+                ? const Text('Nobody owes anything.')
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${fees.owingAccounts} accounts owe ${formatNaira(t.balance)}. The largest balances:'),
+                      const SizedBox(height: 8),
+                      for (final o in fees.topOwing)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Row(children: [Expanded(child: Text('${o.$1} (${o.$2})')), Text(formatNaira(o.$3), style: const TextStyle(fontWeight: FontWeight.w800))]),
+                        ),
+                    ],
+                  ),
+          ),
+          right: _FinanceCard(
+            title: 'How families paid',
+            subtitle: 'Money received this term by method.',
+            child: fees.byMethod.isEmpty
+                ? const Text('No payments recorded yet.')
+                : Column(
+                    children: [
+                      for (final e in fees.byMethod.entries)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(children: [Expanded(child: Text(e.key)), Text(formatNaira(e.value), style: const TextStyle(fontWeight: FontWeight.w800))]),
+                        ),
+                    ],
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }

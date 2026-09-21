@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
+import 'package:schoolos_app/features/finance_office/data/finance_ledger_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/concession_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_finance_overview.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_payroll_repository.dart';
@@ -33,6 +35,12 @@ void main() {
         await session.selectSchool(owner);
         repository = OwnerFinanceOverviewRepository(
           concessions: ConcessionRepository(localDatabase: db, schoolSession: session),
+          ledger: FinanceLedgerRepository(
+            database: db,
+            session: session,
+            students: AdministratorStudentsRepository(localDatabase: db, schoolSession: session),
+            concessions: ConcessionRepository(localDatabase: db, schoolSession: session),
+          ),
           payroll: OwnerPayrollRepository(database: db, session: session),
           database: db,
           session: session,
@@ -53,8 +61,9 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
       await tester.pumpAndSettle();
       expect(find.text('Waiting on you'), findsOneWidget);
+      expect(find.byKey(const ValueKey('owner-fees')), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Collection by school section'));
+      await tester.ensureVisible(find.text('Collection by section'));
       await tester.pumpAndSettle();
       expect(find.byType(DataTable), findsWidgets);
       expect(tester.takeException(), isNull);

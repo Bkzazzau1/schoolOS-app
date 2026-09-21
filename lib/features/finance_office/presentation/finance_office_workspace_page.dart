@@ -167,6 +167,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'dashboard' => FinanceOfficeDashboardPage(
             schoolName: widget.membership.schoolName,
             onNavigate: _select,
+            ledger: _ledger,
           ),
         'fee-structure' => FinanceFeeStructurePage(ledger: _ledger, onChanged: _refreshPendingCount),
         'scholarships' => FinanceConcessionsPage(
@@ -174,10 +175,10 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
             onMutationQueued: _refreshPendingCount,
           ),
         'collections' => const FinanceCollectionsPage(),
-        'reminders' => const FinanceRemindersPage(),
+        'reminders' => FinanceRemindersPage(ledger: _ledger, schoolName: widget.membership.schoolName, onChanged: _refreshPendingCount),
         'store' => const FinanceStorePage(),
         'mandates' => const FinanceMandatesPage(),
-        'debt-aging' => const FinanceDebtAgingPage(),
+        'debt-aging' => FinanceDebtAgingPage(ledger: _ledger, onChanged: _refreshPendingCount, onOpenReminders: () => _select('reminders')),
         'receipts' => FinanceReceiptsPage(ledger: _ledger, schoolName: widget.membership.schoolName, onChanged: _refreshPendingCount),
         'accounts' => FinanceFamilyAccountsPage(ledger: _ledger, onChanged: _refreshPendingCount),
         'reconciliation' => const FinanceReconciliationPage(),

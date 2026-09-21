@@ -1,8 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_debt_aging_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/domain/finance_debt_aging_models.dart';
-import 'package:schoolos_app/features/finance_office/presentation/finance_debt_aging_page.dart';
 
 void main() {
   test('outstanding aging preserves exact five website family rows', () {
@@ -81,19 +79,5 @@ void main() {
   test('aging money formatter matches Nigerian display', () {
     expect(financeAgingMoney(180000), '₦180,000');
     expect(financeAgingMoney(2000000), '₦2,000,000');
-  });
-
-  testWidgets('Outstanding Aging renders on a phone-sized viewport without exceptions', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: FinanceDebtAgingPage())));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Outstanding Fees & Aging'), findsOneWidget);
-    expect(find.text('Export aging'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 }

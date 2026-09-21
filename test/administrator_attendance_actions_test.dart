@@ -66,7 +66,7 @@ void main() {
     final before = await desk();
     final missing = expected.firstWhere((s) => before.absentNames.contains(s.name));
 
-    final late = await attendance.checkIn(missing, now: DateTime(2026, 9, 21, 8, 30));
+    final late = await attendance.checkIn(missing, now: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, 8, 30));
     expect(late.success, isTrue, reason: late.message);
     final events = (await attendance.load(students: expected)).events;
     final mine = events.firstWhere((e) => e.student == missing.name);

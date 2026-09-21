@@ -66,6 +66,7 @@ import 'owner_staff_profiles_page.dart';
 import '../data/owner_attention_repository.dart';
 import '../../administrator/data/administrator_admissions_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
+import '../../finance_office/data/finance_ledger_repository.dart';
 import '../data/owner_campuses.dart';
 import '../data/owner_enrollment.dart';
 import '../data/owner_finance_overview.dart';
@@ -554,6 +555,19 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _selectModule(key);
   }
 
+  OwnerFinanceOverviewRepository _financeOverviewRepository() => OwnerFinanceOverviewRepository(
+        concessions: _concessionRepository,
+        payroll: OwnerPayrollRepository(database: widget.localDatabase, session: widget.schoolSession),
+        database: widget.localDatabase,
+        session: widget.schoolSession,
+        ledger: FinanceLedgerRepository(
+          database: widget.localDatabase,
+          session: widget.schoolSession,
+          students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+          concessions: _concessionRepository,
+        ),
+      );
+
   OwnerEnrollmentRepository _enrollmentRepository() => OwnerEnrollmentRepository(
         students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
         admissions: AdministratorAdmissionsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
@@ -563,12 +577,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     final profiles = OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession);
     return OwnerReportsRepository(
       staff: OwnerStaffOverviewRepository(profiles: profiles, structure: _structureRepository),
-      finance: OwnerFinanceOverviewRepository(
-        concessions: _concessionRepository,
-        payroll: OwnerPayrollRepository(database: widget.localDatabase, session: widget.schoolSession),
-        database: widget.localDatabase,
-        session: widget.schoolSession,
-      ),
+      finance: _financeOverviewRepository(),
       attention: _attentionRepository(),
       enrollment: _enrollmentRepository(),
     );
@@ -662,12 +671,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           onChanged: _refreshPendingCount,
         ),
       'finance' => ProprietorFinancePage(
-          repository: OwnerFinanceOverviewRepository(
-            concessions: _concessionRepository,
-            payroll: OwnerPayrollRepository(database: widget.localDatabase, session: widget.schoolSession),
-            database: widget.localDatabase,
-            session: widget.schoolSession,
-          ),
+          repository: _financeOverviewRepository(),
           schoolName: widget.membership.schoolName,
           onActionRequested: _handleFinanceAction,
         ),

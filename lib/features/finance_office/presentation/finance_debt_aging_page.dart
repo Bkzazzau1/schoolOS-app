@@ -1,381 +1,172 @@
 import 'package:flutter/material.dart';
 
-import '../data/finance_debt_aging_demo_data.dart';
-import '../domain/finance_debt_aging_models.dart';
+import '../../../core/sync/sync_scope.dart';
+import '../../proprietor/domain/concession_request.dart';
+import '../data/finance_aging.dart';
+import '../data/finance_billing.dart';
+import '../data/finance_ledger_repository.dart';
 
+/// Who still owes, how much, and how overdue it is. The due date is the finance office's to set.
 class FinanceDebtAgingPage extends StatefulWidget {
-  const FinanceDebtAgingPage({super.key});
+  const FinanceDebtAgingPage({super.key, required this.ledger, this.onChanged, this.onOpenReminders});
+
+  final FinanceLedgerRepository ledger;
+  final VoidCallback? onChanged;
+  final VoidCallback? onOpenReminders;
 
   @override
   State<FinanceDebtAgingPage> createState() => _FinanceDebtAgingPageState();
 }
 
-class _FinanceDebtAgingPageState extends State<FinanceDebtAgingPage> {
-  String _bucket = 'All';
+class _FinanceDebtAgingPageState extends State<FinanceDebtAgingPage> with SyncRefresh<FinanceDebtAgingPage> {
+  AgingReport? _report;
+  String _section = 'All';
+  String? _error;
 
-  List<FinanceFamilyReceivable> get _visible =>
-      financeFilterReceivables(financeFamilyReceivables, _bucket);
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  void _prototypeAction(String action) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$action is a prototype action until its governed workflow is connected.')),
+  @override
+  void onSynced() => _load();
+
+  Future<void> _load() async {
+    try {
+      final report = await widget.ledger.aging();
+      if (!mounted) return;
+      setState(() {
+        _report = report;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    }
+  }
+
+  Future<void> _changeDue(AgingReport report) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: report.due,
+      firstDate: DateTime(2026, 1, 1),
+      lastDate: DateTime(2028, 12, 31),
+      helpText: 'Fees for $financeCurrentTerm are due',
     );
+    if (picked == null) return;
+    final result = await widget.ledger.setDueDate(financeCurrentTerm, picked);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) {
+      widget.onChanged?.call();
+      await _load();
+    }
+  }
+
+  static String _date(DateTime d) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
   @override
   Widget build(BuildContext context) {
+    final report = _report;
+    if (report == null) {
+      return Center(child: _error == null ? const CircularProgressIndicator() : Padding(padding: const EdgeInsets.all(24), child: Text(_error!)));
+    }
+    final theme = Theme.of(context);
+    final owing = [for (final a in report.owing) if (_section == 'All' || a.section == _section) a];
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       children: [
-        _Header(
-          bucket: _bucket,
-          onBucketChanged: (value) => setState(() => _bucket = value),
-          onExport: () => _prototypeAction('Export aging'),
-        ),
-        const SizedBox(height: 18),
-        const _KpiWrap(),
-        const SizedBox(height: 18),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final aging = const _AgingCard();
-            final quality = const _ArrangementQualityCard();
-            if (constraints.maxWidth < 900) {
-              return Column(children: [aging, const SizedBox(height: 18), quality]);
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: aging),
-                const SizedBox(width: 18),
-                Expanded(child: quality),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 18),
-        _ReceivablesCard(rows: _visible),
-        const SizedBox(height: 18),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final actions = _ActionsCard(onAction: _prototypeAction);
-            const principle = _PrincipleCard();
-            if (constraints.maxWidth < 850) {
-              return Column(children: [actions, const SizedBox(height: 18), principle]);
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: actions),
-                const SizedBox(width: 18),
-                const Expanded(child: principle),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 14),
-        _BoundaryCallout(text: financeAgingAccountingBoundary),
-        const SizedBox(height: 10),
-        _BoundaryCallout(text: financeAgingPrototypeBoundary),
-      ],
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.bucket, required this.onBucketChanged, required this.onExport});
-  final String bucket;
-  final ValueChanged<String> onBucketChanged;
-  final VoidCallback onExport;
-
-  @override
-  Widget build(BuildContext context) {
-    final heading = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('FINANCE OFFICE · RECEIVABLES', style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.primary)),
+        Text('FINANCE OFFICE · RECEIVABLES', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900, color: theme.colorScheme.primary)),
         const SizedBox(height: 6),
-        Text('Outstanding Fees & Aging', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+        Text('Outstanding & Aging', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
         const SizedBox(height: 6),
-        const Text('Separate current balances, scheduled collections, structured financing and genuinely overdue debt before taking action.'),
-      ],
-    );
-    final controls = Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 170,
-          child: DropdownButtonFormField<String>(
-            initialValue: bucket,
-            isExpanded: true,
-            decoration: const InputDecoration(isDense: true, labelText: 'Aging bucket'),
-            items: const [
-              DropdownMenuItem(value: 'All', child: Text('All')),
-              DropdownMenuItem(value: '0–30 days', child: Text('0–30 days')),
-              DropdownMenuItem(value: '31–60 days', child: Text('31–60 days')),
-              DropdownMenuItem(value: '61–90 days', child: Text('61–90 days')),
-              DropdownMenuItem(value: '90+ days', child: Text('90+ days')),
-            ],
-            onChanged: (value) {
-              if (value != null) onBucketChanged(value);
-            },
-          ),
-        ),
-        FilledButton(onPressed: onExport, child: const Text('Export aging')),
-      ],
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 760) {
-          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [heading, const SizedBox(height: 14), controls]);
-        }
-        return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [Expanded(child: heading), const SizedBox(width: 18), controls]);
-      },
-    );
-  }
-}
-
-class _KpiWrap extends StatelessWidget {
-  const _KpiWrap();
-
-  @override
-  Widget build(BuildContext context) {
-    const cards = <Widget>[
-      _Kpi('Total open receivables', '₦18.7m', 'After scholarships & discounts'),
-      _Kpi('0–30 days', '₦8.2m', 'Current / newly due'),
-      _Kpi('31–60 days', '₦5.4m', 'Follow-up window'),
-      _Kpi('61–90 days', '₦3.1m', 'Structured review'),
-      _Kpi('90+ days', '₦2.0m', 'Priority owner visibility'),
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final itemWidth = width >= 1180 ? (width - 48) / 5 : width >= 720 ? (width - 24) / 3 : width;
-        return Wrap(spacing: 12, runSpacing: 12, children: [for (final card in cards) SizedBox(width: itemWidth, child: card)]);
-      },
-    );
-  }
-}
-
-class _Kpi extends StatelessWidget {
-  const _Kpi(this.label, this.value, this.hint);
-  final String label;
-  final String value;
-  final String hint;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label),
-            const SizedBox(height: 8),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            Text(hint, style: Theme.of(context).textTheme.bodySmall),
-          ]),
-        ),
-      );
-}
-
-class _AgingCard extends StatelessWidget {
-  const _AgingCard();
-
-  @override
-  Widget build(BuildContext context) => _CardShell(
-        title: 'Receivable aging',
-        subtitle: 'Age alone does not tell the whole story—collection arrangements matter.',
-        child: Column(
-          children: [
-            for (final item in financeAgingSummaries)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(children: [
-                  SizedBox(width: 88, child: Text(item.bucket.label, style: const TextStyle(fontWeight: FontWeight.w800))),
-                  const SizedBox(width: 10),
-                  Expanded(child: LinearProgressIndicator(value: item.progressPercent / 100, minHeight: 10, borderRadius: BorderRadius.circular(8))),
-                  const SizedBox(width: 10),
-                  SizedBox(width: 72, child: Text(_millions(item.amount), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w900))),
-                ]),
-              ),
-          ],
-        ),
-      );
-}
-
-class _ArrangementQualityCard extends StatelessWidget {
-  const _ArrangementQualityCard();
-
-  @override
-  Widget build(BuildContext context) => _CardShell(
-        title: 'Arrangement quality',
-        subtitle: 'How much of the outstanding balance already has a recovery path.',
-        child: Column(
-          children: [
-            for (final item in financeArrangementQuality)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text('${_millions(item.amount)} · ${item.label}', style: const TextStyle(fontWeight: FontWeight.w900)),
-                subtitle: Text('${item.description}\n${item.guidance}'),
-              ),
-          ],
-        ),
-      );
-}
-
-class _ReceivablesCard extends StatelessWidget {
-  const _ReceivablesCard({required this.rows});
-  final List<FinanceFamilyReceivable> rows;
-
-  @override
-  Widget build(BuildContext context) => _CardShell(
-        title: 'Family receivables queue',
-        subtitle: 'Operational view for respectful collection follow-up.',
-        child: rows.isEmpty
-            ? const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: Text('No family receivables match this aging bucket.')))
-            : LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth < 880) {
-                    return Column(children: [for (final row in rows) _ReceivableTile(row: row)]);
-                  }
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('Family')),
-                        DataColumn(label: Text('Children')),
-                        DataColumn(label: Text('Balance')),
-                        DataColumn(label: Text('Age')),
-                        DataColumn(label: Text('Arrangement')),
-                        DataColumn(label: Text('Next action')),
-                        DataColumn(label: Text('Status')),
-                      ],
-                      rows: [
-                        for (final row in rows)
-                          DataRow(cells: [
-                            DataCell(Text(row.family, style: const TextStyle(fontWeight: FontWeight.w800))),
-                            DataCell(Text(row.children)),
-                            DataCell(Text(financeAgingMoney(row.balance), style: const TextStyle(fontWeight: FontWeight.w800))),
-                            DataCell(Text(row.age.label)),
-                            DataCell(Text(row.plan)),
-                            DataCell(Text(row.nextAction)),
-                            DataCell(_StatusChip(status: row.status)),
-                          ]),
-                      ],
-                    ),
-                  );
-                },
-              ),
-      );
-}
-
-class _ReceivableTile extends StatelessWidget {
-  const _ReceivableTile({required this.row});
-  final FinanceFamilyReceivable row;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(14)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Expanded(child: Text(row.family, style: const TextStyle(fontWeight: FontWeight.w900))), const SizedBox(width: 8), _StatusChip(status: row.status)]),
-          const SizedBox(height: 4),
-          Text(row.children),
-          const SizedBox(height: 8),
-          Wrap(spacing: 14, runSpacing: 6, children: [
-            Text(financeAgingMoney(row.balance), style: const TextStyle(fontWeight: FontWeight.w900)),
-            Text(row.age.label),
-            Text(row.plan),
-            Text(row.nextAction),
-          ]),
-        ]),
-      );
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-  final FinanceReceivableStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final background = switch (status) {
-      FinanceReceivableStatus.action => scheme.errorContainer,
-      FinanceReceivableStatus.watch => scheme.tertiaryContainer,
-      _ => scheme.secondaryContainer,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(99)),
-      child: Text(status.label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-    );
-  }
-}
-
-class _ActionsCard extends StatelessWidget {
-  const _ActionsCard({required this.onAction});
-  final ValueChanged<String> onAction;
-
-  @override
-  Widget build(BuildContext context) => _CardShell(
-        title: 'Collection actions',
-        subtitle: 'Actions depend on arrangement, not labels about the family.',
-        child: Wrap(
+        Text('Fees for $financeCurrentTerm are due ${_date(report.due)}. ${report.overdue ? '${report.days} days overdue.' : 'Not yet due.'}'),
+        const SizedBox(height: 12),
+        Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: [for (final action in financeAgingActions) OutlinedButton(onPressed: () => onAction(action), child: Text(action))],
+          children: [
+            OutlinedButton.icon(
+              key: const ValueKey('aging-due'),
+              onPressed: () => _changeDue(report),
+              icon: const Icon(Icons.event_outlined, size: 18),
+              label: const Text('Change due date'),
+            ),
+            if (widget.onOpenReminders != null)
+              FilledButton.icon(
+                onPressed: widget.onOpenReminders,
+                icon: const Icon(Icons.notifications_active_outlined, size: 18),
+                label: const Text('Fee reminders'),
+              ),
+          ],
         ),
-      );
-}
-
-class _PrincipleCard extends StatelessWidget {
-  const _PrincipleCard();
-
-  @override
-  Widget build(BuildContext context) => const _CardShell(
-        title: 'SchoolOS principle',
-        subtitle: 'Finance facts stay separate from treatment of the child.',
-        child: _BoundaryCallout(text: financeAgingAcademicBoundary),
-      );
-}
-
-class _CardShell extends StatelessWidget {
-  const _CardShell({required this.title, required this.subtitle, required this.child});
-  final String title;
-  final String subtitle;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 4),
-            Text(subtitle),
-            const SizedBox(height: 14),
-            child,
-          ]),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final b in report.bands)
+              SizedBox(
+                width: 200,
+                child: Card(
+                  key: ValueKey('band-${b.band.name}'),
+                  elevation: 0,
+                  color: b.accounts > 0 ? theme.colorScheme.primaryContainer : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(b.band.label, style: theme.textTheme.labelMedium),
+                        const SizedBox(height: 6),
+                        Text(formatNaira(b.amount), style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                        Text('${b.accounts} accounts', style: theme.textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
-      );
+        const SizedBox(height: 8),
+        Text(
+          'All fees share one due date, so every unpaid account sits in the same band today. As days pass they move down the bands together.',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final s in ['All', ...financeSections])
+              ChoiceChip(label: Text(s), selected: _section == s, onSelected: (_) => setState(() => _section = s)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text('${owing.length} accounts owe ${formatNaira(owing.fold(0, (n, a) => n + a.balance))}', style: const TextStyle(fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        if (owing.isEmpty) const Text('Nobody owes anything.'),
+        for (final a in owing)
+          Card(
+            key: ValueKey('owing-${a.student.id}'),
+            elevation: 0,
+            child: ListTile(
+              title: Text(a.student.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text('${a.student.className} · Guardian ${a.student.primaryGuardian}\nNet ${formatNaira(a.net)} · Paid ${formatNaira(a.paid)}'),
+              isThreeLine: true,
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(formatNaira(a.balance), style: const TextStyle(fontWeight: FontWeight.w900)),
+                  Text(report.band.label, style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
-
-class _BoundaryCallout extends StatelessWidget {
-  const _BoundaryCallout({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .45), borderRadius: BorderRadius.circular(14)),
-        child: Text(text),
-      );
-}
-
-String _millions(int amount) => '₦${(amount / 1000000).toStringAsFixed(1)}m';

@@ -347,3 +347,18 @@ The billing core is now real (`finance_billing.dart`, `finance_ledger_repository
 Still sample: Smart Collections, Fee Reminders, School Store, Payment Mandates, Outstanding & Aging, Reconciliation, Expenses &
 Income, Reports, Finance AI and the dashboard. Next: Outstanding & Aging, Reminders, the dashboard and the owner's finance
 numbers from this ledger. Tests: `test/finance_ledger_test.dart`, `test/finance_pages_test.dart`.
+
+## Finance: aging, reminders, dashboard, and the owner's fee figures
+
+- **Outstanding & Aging** (`finance_aging.dart`): fees are due on a date the finance office sets per term; who owes is grouped by
+  how overdue it is (not yet due, 1-30, 31-60, 61-90, over 90 days) and totals match the ledger.
+- **Fee Reminders**: a reminder for each overdue account, in the words of a friendly, second and final notice (stating the amount
+  and term, never a reason). At least 3 days apart per family; queued in the app, sent by the school server. "Queue for everyone"
+  reminds each family once.
+- **Finance Dashboard** (`finance_dashboard.dart`): net collectible, collected, still owed, received today, requests waiting for
+  the owner, what needs attention (each opens its screen), recent receipts, and how families paid, all from the ledger.
+- **Owner Finance** now shows the real fees for the term (gross, scholarships and discounts, net, collected, owed), collection by
+  section, outstanding fees with the largest balances, and how families paid. School store, payment mandates, expenses and the weekly
+  trend are labelled "not available yet".
+Tests: `test/finance_aging_reminders_test.dart`, `test/finance_dashboard_test.dart`, `test/proprietor_finance_test.dart`.
+Still sample in Finance: Smart Collections, School Store, Payment Mandates, Reconciliation, Expenses & Income, Reports, Finance AI.

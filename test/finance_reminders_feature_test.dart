@@ -1,8 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_reminders_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/domain/finance_reminders_models.dart';
-import 'package:schoolos_app/features/finance_office/presentation/finance_reminders_page.dart';
 
 void main() {
   test('fee reminders preserve exact five website family rows', () {
@@ -97,24 +95,5 @@ void main() {
     expect(financeReminderDeliveryBoundary, contains('provider/server acknowledgement'));
     expect(financeReminderDeliveryBoundary, contains('not the same as delivered'));
     expect(financeReminderPrototypeBoundary, contains('Do not invent delivery or account mutations'));
-  });
-
-  testWidgets('Fee Reminder Center renders on a phone-sized viewport without exceptions', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: FinanceRemindersPage()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Fee Reminder Center'), findsOneWidget);
-    expect(find.text('Reminder rules'), findsOneWidget);
-    expect(find.text('Create campaign'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 }
