@@ -693,6 +693,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           onActionRequested: _selectModule,
         ),
       'ai' => ProprietorAiPage(
+          repository: _reportsRepository(),
           schoolName: widget.membership.schoolName,
           onActionRequested: _selectModule,
         ),

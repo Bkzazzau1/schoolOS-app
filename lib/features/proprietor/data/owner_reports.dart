@@ -25,10 +25,21 @@ class ReportDoc {
 }
 
 class OwnerReports {
-  const OwnerReports({required this.docs, required this.generatedOn});
+  const OwnerReports({
+    required this.docs,
+    required this.generatedOn,
+    required this.staff,
+    required this.finance,
+    required this.attention,
+  });
 
   final List<ReportDoc> docs;
   final DateTime generatedOn;
+
+  /// The records the reports were built from (the AI assistant answers from the same ones).
+  final StaffOverview staff;
+  final OwnerFinanceOverview finance;
+  final OwnerAttention attention;
 
   Iterable<ReportDoc> get available => docs.where((d) => d.available);
   Iterable<ReportDoc> get unavailable => docs.where((d) => !d.available);
@@ -112,7 +123,7 @@ OwnerReports buildOwnerReports({
       unavailableReason: 'These are recorded by other roles and are not in yet.',
     ),
   ];
-  return OwnerReports(docs: docs, generatedOn: now);
+  return OwnerReports(docs: docs, generatedOn: now, staff: staff, finance: finance, attention: attention);
 }
 
 String _date(DateTime d) =>

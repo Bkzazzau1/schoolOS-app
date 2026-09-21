@@ -242,3 +242,11 @@ The logo also shows in the teacher, parent, finance, principal and driver side p
 - The Access & Activities screen says when it is the demo. A test (`test/owner_menu_catalog_test.dart`) checks that every owner
   menu item is in the access catalog and vice versa.
 - `test/owner_demo_walkthrough_test.dart` signs in as the demo owner (no server) and opens every owner screen.
+
+## Owner: Proprietor AI answers from real records
+
+`ProprietorAiService` (`lib/features/proprietor/data/proprietor_ai_service.dart`) answers from the same records as the
+reports (attention queue, staff files, scholarships, discounts, payroll, leadership). Questions about fees, attendance,
+enrollment and results say plainly that nothing has been recorded and never invent figures or causes. The executive brief
+is built from the same records and lists what is not available yet. The old made-up numbers (94%, 648 students, ₦3.7m) are
+gone. Tests: `test/proprietor_ai_test.dart`.

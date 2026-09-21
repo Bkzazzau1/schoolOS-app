@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../data/proprietor_ai_brief_exporter.dart';
-import '../data/proprietor_ai_demo_data.dart';
+import '../../../core/sync/sync_scope.dart';
+import '../data/owner_reports.dart';
 import '../data/proprietor_ai_service.dart';
+import '../data/proprietor_ai_text.dart';
 import '../domain/proprietor_ai_models.dart';
 
 class ProprietorAiPage extends StatefulWidget {
@@ -10,27 +12,49 @@ class ProprietorAiPage extends StatefulWidget {
     super.key,
     required this.schoolName,
     required this.onActionRequested,
+    required this.repository,
   });
 
   final String schoolName;
   final ValueChanged<String> onActionRequested;
+  final OwnerReportsRepository repository;
 
   @override
   State<ProprietorAiPage> createState() => _ProprietorAiPageState();
 }
 
-class _ProprietorAiPageState extends State<ProprietorAiPage> {
+class _ProprietorAiPageState extends State<ProprietorAiPage> with SyncRefresh<ProprietorAiPage> {
   final _controller = TextEditingController();
-  final ProprietorAiService _service = const ProprietorAiService();
   final ProprietorAiBriefExporter _exporter = const ProprietorAiBriefExporter();
 
-  late ProprietorAiResponse _response;
+  ProprietorAiService? _service;
+  ProprietorAiResponse? _response;
+  String? _lastQuestion;
+  bool _failed = false;
   bool _exporting = false;
 
   @override
   void initState() {
     super.initState();
-    _response = _service.defaultBriefQuestion();
+    _load();
+  }
+
+  @override
+  void onSynced() => _load();
+
+  Future<void> _load() async {
+    try {
+      final facts = await widget.repository.load();
+      if (!mounted) return;
+      final service = ProprietorAiService(facts);
+      setState(() {
+        _service = service;
+        _response = _lastQuestion == null ? service.defaultBriefQuestion() : service.answer(_lastQuestion!);
+        _failed = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
   }
 
   @override
@@ -41,9 +65,11 @@ class _ProprietorAiPageState extends State<ProprietorAiPage> {
 
   void _ask(String question) {
     final value = question.trim();
-    if (value.isEmpty) return;
+    final service = _service;
+    if (value.isEmpty || service == null) return;
     setState(() {
-      _response = _service.answer(value);
+      _lastQuestion = value;
+      _response = service.answer(value);
       _controller.clear();
     });
   }
@@ -52,7 +78,9 @@ class _ProprietorAiPageState extends State<ProprietorAiPage> {
     if (_exporting) return;
     setState(() => _exporting = true);
     try {
-      final path = await _exporter.export(schoolName: widget.schoolName);
+      final service = _service;
+      if (service == null) return;
+      final path = await _exporter.export(schoolName: widget.schoolName, sections: service.briefSections());
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -72,6 +100,14 @@ class _ProprietorAiPageState extends State<ProprietorAiPage> {
 
   @override
   Widget build(BuildContext context) {
+    final response = _response;
+    if (response == null) {
+      return Center(
+        child: _failed
+            ? const Padding(padding: EdgeInsets.all(24), child: Text('The assistant could not read the school records.'))
+            : const CircularProgressIndicator(),
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 780;
@@ -106,9 +142,9 @@ class _ProprietorAiPageState extends State<ProprietorAiPage> {
                       left: _AiCard(
                         title: 'Ask Your School',
                         subtitle:
-                            'Offline prototype conversation using proprietor-authorized cached evidence.',
+                            'Answers come from the records on this device. Nothing is guessed.',
                         child: _Conversation(
-                          response: _response,
+                          response: response,
                           controller: _controller,
                           onAsk: _ask,
                         ),
@@ -141,7 +177,7 @@ class _ProprietorAiPageState extends State<ProprietorAiPage> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Prototype AI context · owner-authorized aggregate data · ${widget.schoolName}',
+                      'Answers from your school records on this device · ${widget.schoolName}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
@@ -280,7 +316,7 @@ class _AssistantHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Designed for finance, enrollment, staffing, attendance, performance and operations. Answers separate evidence from interpretation and keep sensitive decisions with authorized humans.',
+                  'Answers from what has been recorded: what is waiting on you, staffing, scholarships, discounts, payroll and leadership. Areas with no data say so. Answers separate evidence from interpretation and keep decisions with you.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     height: 1.45,
                     color: theme.colorScheme.onSurfaceVariant,
