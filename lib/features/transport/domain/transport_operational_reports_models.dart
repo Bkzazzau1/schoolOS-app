@@ -9,6 +9,9 @@ class TransportOperationalReportEntry {
     required this.serviceDate,
     required this.routeId,
     required this.routeName,
+    required this.driverMembershipIds,
+    required this.driverNames,
+    required this.vehicles,
     required this.hasMorningRun,
     required this.morningStatus,
     required this.morningDriverMembershipId,
@@ -36,6 +39,9 @@ class TransportOperationalReportEntry {
   final String serviceDate;
   final String routeId;
   final String routeName;
+  final List<String> driverMembershipIds;
+  final List<String> driverNames;
+  final List<String> vehicles;
 
   final bool hasMorningRun;
   final DriverMorningRunStatus? morningStatus;
@@ -75,23 +81,12 @@ class TransportOperationalReportEntry {
   String get afternoonStatusLabel =>
       afternoonStatus?.label ?? (hasAfternoonRun ? 'Recorded' : 'Not recorded');
 
-  String get driverSummary {
-    final morning = morningDriverName.trim();
-    final afternoon = afternoonDriverName.trim();
-    if (morning.isEmpty && afternoon.isEmpty) return 'No Driver run recorded';
-    if (morning.isEmpty) return afternoon;
-    if (afternoon.isEmpty || afternoon == morning) return morning;
-    return '$morning → $afternoon';
-  }
+  String get driverSummary => driverNames.isEmpty
+      ? 'No Driver identity recorded'
+      : driverNames.join(' → ');
 
-  String get vehicleSummary {
-    final morning = morningVehicle.trim();
-    final afternoon = afternoonVehicle.trim();
-    if (morning.isEmpty && afternoon.isEmpty) return 'No trip vehicle recorded';
-    if (morning.isEmpty) return afternoon;
-    if (afternoon.isEmpty || afternoon == morning) return morning;
-    return '$morning → $afternoon';
-  }
+  String get vehicleSummary =>
+      vehicles.isEmpty ? 'No vehicle recorded' : vehicles.join(' → ');
 
   bool get hasSafetyAttention =>
       urgentIncidentCount > 0 || blockingVehicleDefectCount > 0;
@@ -129,12 +124,9 @@ class TransportOperationalReportsSnapshot {
   int get distinctDrivers {
     final ids = <String>{};
     for (final entry in entries) {
-      if (entry.morningDriverMembershipId.trim().isNotEmpty) {
-        ids.add(entry.morningDriverMembershipId);
-      }
-      if (entry.afternoonDriverMembershipId.trim().isNotEmpty) {
-        ids.add(entry.afternoonDriverMembershipId);
-      }
+      ids.addAll(
+        entry.driverMembershipIds.where((id) => id.trim().isNotEmpty),
+      );
     }
     return ids.length;
   }
