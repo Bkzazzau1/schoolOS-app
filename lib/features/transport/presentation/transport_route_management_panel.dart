@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../data/transport_incident_defect_control_repository.dart';
 import '../data/transport_rider_assignment_repository.dart';
 import '../data/transport_route_management_repository.dart';
 import '../data/transport_vehicle_readiness_repository.dart';
 import '../domain/transport_route_management_models.dart';
+import 'transport_incident_defect_control_panel.dart';
 import 'transport_rider_assignments_panel.dart';
 import 'transport_vehicle_readiness_panel.dart';
 
@@ -27,6 +29,7 @@ class _TransportRouteManagementPanelState
   late Future<TransportRouteManagementSnapshot> _future;
   late final TransportRiderAssignmentRepository _riders;
   late final TransportVehicleReadinessRepository _vehicles;
+  late final TransportIncidentDefectControlRepository _cases;
   bool _saving = false;
   int _childRevision = 0;
 
@@ -38,6 +41,10 @@ class _TransportRouteManagementPanelState
       schoolSession: widget.repository.schoolSession,
     );
     _vehicles = TransportVehicleReadinessRepository(
+      localDatabase: widget.repository.localDatabase,
+      schoolSession: widget.repository.schoolSession,
+    );
+    _cases = TransportIncidentDefectControlRepository(
       localDatabase: widget.repository.localDatabase,
       schoolSession: widget.repository.schoolSession,
     );
@@ -109,6 +116,12 @@ class _TransportRouteManagementPanelState
         TransportVehicleReadinessPanel(
           key: ValueKey('transport-vehicles-$_childRevision'),
           repository: _vehicles,
+          onChanged: _changed,
+        ),
+        const SizedBox(height: 18),
+        TransportIncidentDefectControlPanel(
+          key: ValueKey('transport-cases-$_childRevision'),
+          repository: _cases,
           onChanged: _changed,
         ),
       ],
