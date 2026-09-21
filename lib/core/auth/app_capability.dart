@@ -59,6 +59,10 @@ abstract final class RolePermissions {
           AppCapability.academics,
           AppCapability.messaging,
         },
+      SchoolRole.alumni => {
+          AppCapability.dashboard,
+          AppCapability.messaging,
+        },
       SchoolRole.staff => {
           AppCapability.dashboard,
           AppCapability.students,
