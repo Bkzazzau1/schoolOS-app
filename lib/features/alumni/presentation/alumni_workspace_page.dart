@@ -5,6 +5,9 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_scope.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../data/alumni_profile_repository.dart';
+import '../data/alumni_server_api.dart';
+import 'alumni_profile_page.dart';
 
 class AlumniNavItem {
   const AlumniNavItem(this.key, this.label, this.icon);
@@ -69,7 +72,11 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
           appBar: AppBar(
             title: Text('${widget.membership.schoolName} · Alumni'),
           ),
-          drawer: wide ? null : Drawer(child: _navigationList(navigation, closeDrawer: true)),
+          drawer: wide
+              ? null
+              : Drawer(
+                  child: _navigationList(navigation, closeDrawer: true),
+                ),
           body: Row(
             children: [
               if (wide)
@@ -141,11 +148,12 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
   Widget _content(AlumniNavItem item) {
     return switch (item.key) {
       'dashboard' => _dashboard(),
-      'profile' => _foundationCard(
-          title: 'My Alumni Profile',
-          description:
-              'Your verified former-student identity, graduation details and professional profile will live here. The historical student record remains separate and read-only.',
-          icon: Icons.badge_outlined,
+      'profile' => AlumniProfilePage(
+          repository: AlumniProfileRepository(
+            localDatabase: widget.localDatabase,
+            membership: widget.membership,
+            remote: AlumniServerScope.maybeOf(context),
+          ),
         ),
       'directory' => _foundationCard(
           title: 'Alumni Directory',
@@ -194,7 +202,9 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
       children: [
         Text(
           'Welcome to Alumni',
-          style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
@@ -234,7 +244,9 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
               children: [
                 Text(
                   'Identity boundary',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -264,7 +276,9 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
             const SizedBox(height: 14),
             Text(
               title,
-              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 8),
             Text(description),
@@ -297,7 +311,9 @@ class _IdentityCard extends StatelessWidget {
       width: 250,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
