@@ -2,7 +2,7 @@ import '../../driver/domain/driver_afternoon_run_models.dart';
 import '../../driver/domain/driver_morning_run_models.dart';
 
 const transportOperationalReportsBoundary =
-    'Operational reports are read-only views derived from recorded Driver runs, incidents and vehicle defects. Historical records are not rewritten when a Driver, vehicle, route assignment or future route plan later changes.';
+    'Operational reports are read-only views derived from recorded Driver runs, incidents and vehicle defects. Historical custody, Driver, vehicle, count and safety records are not rewritten by later assignment changes; the displayed route name is the current label for the stable historical route ID.';
 
 class TransportOperationalReportEntry {
   const TransportOperationalReportEntry({
