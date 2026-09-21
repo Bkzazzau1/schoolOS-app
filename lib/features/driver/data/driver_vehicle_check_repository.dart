@@ -3,6 +3,7 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../transport/data/transport_repository.dart';
+import '../../transport/data/transport_vehicle_readiness_repository.dart';
 import '../../transport/domain/transport_models.dart';
 import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
@@ -20,6 +21,10 @@ class DriverVehicleCheckRepository {
         _transportRepository = TransportRepository(
           localDatabase: localDatabase,
           schoolSession: schoolSession,
+        ),
+        _vehicleReadinessRepository = TransportVehicleReadinessRepository(
+          localDatabase: localDatabase,
+          schoolSession: schoolSession,
         );
 
   static const entityType = 'driver_vehicle_check';
@@ -29,6 +34,7 @@ class DriverVehicleCheckRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final TransportRepository _transportRepository;
+  final TransportVehicleReadinessRepository _vehicleReadinessRepository;
 
   Future<DriverVehicleCheck> loadToday(DriverVehicleCheckPeriod period) async {
     final member = _requireDriver();
@@ -157,6 +163,10 @@ class DriverVehicleCheckRepository {
 
   Future<void> requireReadyFor(DriverVehicleCheckPeriod period) async {
     final check = await loadToday(period);
+    await _vehicleReadinessRepository.requireOperationalRelease(
+      routeId: check.routeId,
+      vehicle: check.vehicle,
+    );
     if (check.status == DriverVehicleCheckStatus.ready) return;
     if (check.status == DriverVehicleCheckStatus.blocked) {
       throw StateError(
