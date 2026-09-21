@@ -1,8 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_reconciliation_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/domain/finance_reconciliation_models.dart';
-import 'package:schoolos_app/features/finance_office/presentation/finance_reconciliation_page.dart';
 
 void main() {
   test('reconciliation queue preserves exact four website transactions', () {
@@ -94,66 +92,5 @@ void main() {
   test('reconciliation money formatter matches Nigerian display', () {
     expect(financeReconciliationMoney(80000), '₦80,000');
     expect(financeReconciliationMoney(50000), '₦50,000');
-  });
-
-  testWidgets('manual review proposal does not turn ambiguous transfer into matched payment', (tester) async {
-    tester.view.physicalSize = const Size(1800, 2800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: FinanceReconciliationPage())),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Review & match'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Human review · BNK-260913-879'), findsOneWidget);
-    expect(find.text('Still Review'), findsOneWidget);
-
-    var dropdowns = find.byWidgetPredicate(
-      (widget) => widget is DropdownButtonFormField,
-      description: 'generic DropdownButtonFormField',
-    );
-    expect(dropdowns, findsNWidgets(2));
-    await tester.tap(dropdowns.first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Alhaji Abdullahi Yusuf').last);
-    await tester.pumpAndSettle();
-
-    dropdowns = find.byWidgetPredicate(
-      (widget) => widget is DropdownButtonFormField,
-      description: 'generic DropdownButtonFormField after family selection',
-    );
-    expect(dropdowns, findsNWidgets(2));
-    await tester.tap(dropdowns.last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Maryam Abdullahi').last);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Record review proposal'));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('transaction remains Review'), findsOneWidget);
-    expect(find.textContaining('no child balance or receipt changed'), findsOneWidget);
-    expect(financeReconciliationRows[1].status, FinanceReconciliationStatus.review);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Payment Reconciliation renders on phone without exceptions', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: FinanceReconciliationPage())),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Payment Reconciliation'), findsOneWidget);
-    expect(find.text('Import bank statement'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 }

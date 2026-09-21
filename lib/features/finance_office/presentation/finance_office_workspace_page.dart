@@ -181,15 +181,15 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'debt-aging' => FinanceDebtAgingPage(ledger: _ledger, onChanged: _refreshPendingCount, onOpenReminders: () => _select('reminders')),
         'receipts' => FinanceReceiptsPage(ledger: _ledger, schoolName: widget.membership.schoolName, onChanged: _refreshPendingCount),
         'accounts' => FinanceFamilyAccountsPage(ledger: _ledger, onChanged: _refreshPendingCount),
-        'reconciliation' => const FinanceReconciliationPage(),
+        'reconciliation' => FinanceReconciliationPage(ledger: _ledger, onChanged: _refreshPendingCount),
         'expenses' => const FinanceCashflowPage(),
         'payroll' => FinancePayrollPage(
           localDatabase: widget.localDatabase,
           schoolSession: widget.schoolSession,
           onChanged: _refreshPendingCount,
         ),
-        'reports' => const FinanceReportsPage(),
-        'ai' => const FinanceAiPage(),
+        'reports' => FinanceReportsPage(ledger: _ledger, schoolName: widget.membership.schoolName),
+        'ai' => FinanceAiPage(ledger: _ledger),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),

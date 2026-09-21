@@ -362,3 +362,18 @@ numbers from this ledger. Tests: `test/finance_ledger_test.dart`, `test/finance_
   trend are labelled "not available yet".
 Tests: `test/finance_aging_reminders_test.dart`, `test/finance_dashboard_test.dart`, `test/proprietor_finance_test.dart`.
 Still sample in Finance: Smart Collections, School Store, Payment Mandates, Reconciliation, Expenses & Income, Reports, Finance AI.
+
+## Finance close-out: reports, assistant and reconciliation
+
+- **Reports** (`finance_facts.dart`): collection summary, outstanding fees, receipts register (with voided), scholarships and
+  discounts, and bank reconciliation are built from the ledger; "Save report pack" writes them to one text file. School store,
+  expenses & income and payment mandates are listed as not available yet, with the reason.
+- **Finance AI**: answers who owes the most, collection, sections, how overdue fees are, payment methods, reminders, waiting
+  scholarships and the statement, from the ledger. Store, expenses, profit and forecasts get "not recorded". It never contacts
+  families, changes records or judges ability to pay.
+- **Reconciliation** (`finance_reconciliation.dart`): statement lines (added by hand for now) are matched to transfer and POS
+  receipts by reference and amount. It lists bank money with no receipt (with a "Record payment" action that creates the receipt
+  from the line), amounts that disagree, and receipts not yet on the statement. Cash is not matched. The demo statement has
+  matches, one disagreement and two unrecorded payments.
+Tests: `test/finance_reports_ai_reconciliation_test.dart`. Still not built in Finance: Smart Collections, School Store, Payment
+Mandates and Expenses & Income (their own features).

@@ -10,6 +10,7 @@ import '../../proprietor/domain/concession_request.dart';
 import '../domain/finance_ledger_models.dart';
 import 'finance_aging.dart';
 import 'finance_billing.dart';
+import 'finance_reconciliation.dart';
 
 class FinanceActionResult {
   const FinanceActionResult({required this.success, required this.message, this.payment});
@@ -392,5 +393,98 @@ class FinanceLedgerRepository {
       if ((await queueReminder(a, schoolName: schoolName, term: term, now: now)).success) queued++;
     }
     return queued;
+  }
+
+  // ---------------------------------------------------------------- bank statement and reconciliation
+
+  static const bankLineType = 'finance_bank_line';
+
+  Future<List<BankLine>> bankLines() async {
+    final m = session.requireActiveMembership();
+    var records = await database.getLocalRecords(tenantId: m.schoolId, entityType: bankLineType);
+    if (records.isEmpty) {
+      await _seedDemoBankLines(m);
+      records = await database.getLocalRecords(tenantId: m.schoolId, entityType: bankLineType);
+    }
+    final list = [for (final r in records) BankLine.fromJson(r.payload)];
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
+  }
+
+  Future<ReconciliationReport> reconciliation() async {
+    await accounts(); // the demo school's payments must be in place before its statement is
+    return reconcile(lines: await bankLines(), payments: await allPayments());
+  }
+
+  /// Adds a line from the bank statement. A reference can only be entered once.
+  Future<FinanceActionResult> addBankLine({
+    required DateTime date,
+    required int amount,
+    required String reference,
+    String narration = '',
+  }) async {
+    final SchoolMembership m;
+    try {
+      m = _staff();
+    } on StateError catch (e) {
+      return FinanceActionResult(success: false, message: e.message);
+    }
+    if (amount <= 0) return const FinanceActionResult(success: false, message: 'Enter an amount above zero.');
+    if (reference.trim().isEmpty) return const FinanceActionResult(success: false, message: 'Enter the reference on the statement.');
+    final existing = await bankLines();
+    if (existing.any((l) => l.reference.trim().toLowerCase() == reference.trim().toLowerCase())) {
+      return const FinanceActionResult(success: false, message: 'That reference is already on the statement.');
+    }
+    final day = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final line = BankLine(
+      id: 'BNK-${DateTime.now().microsecondsSinceEpoch}',
+      date: day,
+      amount: amount,
+      reference: reference.trim(),
+      narration: narration.trim(),
+      addedBy: m.id,
+    );
+    await _put(m, bankLineType, line.id, line.toJson());
+    return FinanceActionResult(success: true, message: 'Statement line ${line.reference} added.');
+  }
+
+  /// Turns a statement line nobody recorded into a payment for the student it belongs to. The receipt is recorded as a bank
+  /// transfer with the statement's reference and amount, so it then matches the line.
+  Future<FinanceActionResult> recordFromStatement(BankLine line, AdministratorStudentRecord student) => recordPayment(
+        student: student,
+        amount: line.amount,
+        method: 'Bank transfer',
+        reference: line.reference,
+        note: line.narration.isEmpty ? 'From the bank statement' : 'From the bank statement: ${line.narration}',
+      );
+
+  /// The demo school's statement: most transfer and POS receipts appear on it, one with the wrong amount, and two payments
+  /// nobody recorded. A school server blocks this: the statement comes from the bank.
+  Future<void> _seedDemoBankLines(SchoolMembership m) async {
+    final payments = [
+      for (final p in await allPayments())
+        if (!p.isVoided && p.method != 'Cash' && p.reference.trim().isNotEmpty) p,
+    ]..sort((a, b) => a.receiptNumber.compareTo(b.receiptNumber));
+    var n = 0;
+    Future<void> add(String date, int amount, String reference, String narration) async {
+      n++;
+      final line = BankLine(id: 'BNK-DEMO-${n.toString().padLeft(3, '0')}', date: date, amount: amount, reference: reference, narration: narration);
+      await database.upsertLocalRecord(tenantId: m.schoolId, entityType: bankLineType, entityId: line.id, payload: line.toJson());
+    }
+
+    for (var i = 0; i < payments.length; i++) {
+      final p = payments[i];
+      if (i % 5 == 4) continue; // recorded by the school but not on the statement yet
+      final amount = i == 2 ? p.amount + 500 : p.amount; // one where the bank shows a different amount
+      await add(p.receivedAt.split('T').first, amount, p.reference, 'Fees ${p.studentName}');
+    }
+    final today = DateTime.now();
+    String day(int back) {
+      final d = today.subtract(Duration(days: back));
+      return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    }
+
+    await add(day(2), 45000, 'NIP2026092107714', 'Transfer from A. S. Ibrahim');
+    await add(day(4), 20000, 'NIP2026091905530', 'Transfer, no narration');
   }
 }

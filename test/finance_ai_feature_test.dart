@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_ai_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_cashflow_demo_data.dart';
@@ -6,7 +5,6 @@ import 'package:schoolos_app/features/finance_office/data/finance_debt_aging_dem
 import 'package:schoolos_app/features/finance_office/data/finance_reconciliation_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_reports_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/domain/finance_ai_models.dart';
-import 'package:schoolos_app/features/finance_office/presentation/finance_ai_page.dart';
 
 void main() {
   test('Finance AI preserves exact five website suggested questions', () {
@@ -98,51 +96,5 @@ void main() {
     expect(restored.answer, original.answer);
     expect(restored.evidence, original.evidence);
     expect(restored.boundary, original.boundary);
-  });
-
-  testWidgets('suggested question updates grounded answer', (tester) async {
-    tester.view.physicalSize = const Size(1400, 1800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: FinanceAiPage())));
-    expect(find.text('Why is Secondary collection below target?'), findsWidgets);
-
-    await tester.tap(find.text('Show unmatched payments needing review').last);
-    await tester.pump();
-
-    expect(find.text('Show unmatched payments needing review'), findsWidgets);
-    expect(find.textContaining('7 payment events remain unmatched'), findsOneWidget);
-    expect(find.textContaining('₦386,000'), findsWidgets);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('free-form unsupported question stays bounded', (tester) async {
-    tester.view.physicalSize = const Size(1400, 1800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: FinanceAiPage())));
-    await tester.enterText(find.byType(TextField), 'Predict which parent will default next term');
-    await tester.tap(find.widgetWithText(FilledButton, 'Ask AI'));
-    await tester.pump();
-
-    expect(find.textContaining('does not support a grounded answer'), findsOneWidget);
-    expect(find.textContaining('Predict which parent will default next term'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Finance AI renders on phone without exceptions', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: FinanceAiPage())));
-    expect(find.text('Finance AI'), findsOneWidget);
-    expect(find.text('Finance Intelligence Assistant'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 }

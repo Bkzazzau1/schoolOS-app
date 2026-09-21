@@ -1,11 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_cashflow_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_office_dashboard_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_reconciliation_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_reports_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/domain/finance_reports_models.dart';
-import 'package:schoolos_app/features/finance_office/presentation/finance_reports_page.dart';
 
 void main() {
   test('report library preserves exact six website reports', () {
@@ -79,38 +77,5 @@ void main() {
     expect(snapshot.section, 'Secondary School');
     expect(snapshot.collectionRate, 86);
     expect(snapshot.status, 'Watch');
-  });
-
-  testWidgets('report actions remain non-financial document actions', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1400, 1000));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: FinanceReportsPage())),
-    );
-
-    await tester.tap(find.text('Export current view'));
-    await tester.pump();
-    expect(find.textContaining('no production export contract'), findsOneWidget);
-
-    await tester.tap(find.text('Generate report pack'));
-    await tester.pump();
-    expect(find.textContaining('6 core finance reports'), findsOneWidget);
-    expect(find.textContaining('No salary has been marked Paid'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Finance Reports renders on phone without exceptions', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: FinanceReportsPage())),
-    );
-    await tester.pump();
-
-    expect(find.text('Finance Reports'), findsOneWidget);
-    expect(find.text('94.1%'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 }
