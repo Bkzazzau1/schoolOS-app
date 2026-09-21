@@ -64,6 +64,7 @@ import 'owner_payroll_page.dart';
 import 'owner_staff_profiles_page.dart';
 import '../data/owner_attention_repository.dart';
 import '../data/owner_finance_overview.dart';
+import '../data/owner_reports.dart';
 import '../data/owner_staff_overview.dart';
 import '../data/owner_staff_profile_repository.dart';
 import '../data/staff_proposal_repository.dart';
@@ -548,6 +549,20 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _selectModule(key);
   }
 
+  OwnerReportsRepository _reportsRepository() {
+    final profiles = OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession);
+    return OwnerReportsRepository(
+      staff: OwnerStaffOverviewRepository(profiles: profiles, structure: _structureRepository),
+      finance: OwnerFinanceOverviewRepository(
+        concessions: _concessionRepository,
+        payroll: OwnerPayrollRepository(database: widget.localDatabase, session: widget.schoolSession),
+        database: widget.localDatabase,
+        session: widget.schoolSession,
+      ),
+      attention: _attentionRepository(),
+    );
+  }
+
   OwnerAttentionRepository _attentionRepository() {
     final profiles = OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession);
     return OwnerAttentionRepository(
@@ -663,6 +678,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           onActionRequested: _handleStaffAction,
         ),
       'reports' => ProprietorReportsPage(
+          repository: _reportsRepository(),
           schoolName: widget.membership.schoolName,
           onActionRequested: _selectModule,
         ),

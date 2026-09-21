@@ -205,3 +205,11 @@ finance page from real records: approved scholarships and discounts, what awaits
 from recorded salaries, and payroll batches. The revenue bridge, collections, aging, store and expense sections underneath
 are sample figures (labelled as such) until the Finance role records fees and payments.
 Tests: `test/owner_finance_overview_test.dart`, `test/proprietor_finance_test.dart`.
+
+## Owner: Executive Reports are real
+
+`lib/features/proprietor/data/owner_reports.dart` builds three reports from real records (executive summary, staff &
+leadership, scholarships/discounts & payroll) and lists four as "not available yet" with the reason (fee collection,
+enrollment, academic & attendance, school life). "Create report pack" saves exactly what the reports say (text file on the
+device). The old made-up report list, cadence and KPI row were removed.
+Tests: `test/proprietor_reports_test.dart`, `test/owner_reports_page_test.dart`.
