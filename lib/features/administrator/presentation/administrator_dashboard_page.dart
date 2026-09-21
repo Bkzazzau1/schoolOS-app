@@ -1,21 +1,67 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
 import '../data/administrator_dashboard_demo_data.dart';
+import '../data/administrator_overview.dart';
 import '../domain/administrator_dashboard_models.dart';
 
-class AdministratorDashboardPage extends StatelessWidget {
+/// The administrator's desk, worked out from the school's real students, admissions, records, lifecycle changes and staff.
+class AdministratorDashboardPage extends StatefulWidget {
   const AdministratorDashboardPage({
     super.key,
     required this.schoolName,
     required this.onActionRequested,
+    required this.repository,
   });
 
   final String schoolName;
   final ValueChanged<String> onActionRequested;
+  final AdministratorOverviewRepository repository;
+
+  @override
+  State<AdministratorDashboardPage> createState() => _AdministratorDashboardPageState();
+}
+
+class _AdministratorDashboardPageState extends State<AdministratorDashboardPage> with SyncRefresh<AdministratorDashboardPage> {
+  AdministratorOverview? _overview;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void onSynced() => _load();
+
+  Future<void> _load() async {
+    try {
+      final overview = await widget.repository.load();
+      if (!mounted) return;
+      setState(() {
+        _overview = overview;
+        _failed = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  String get schoolName => widget.schoolName;
+  ValueChanged<String> get onActionRequested => widget.onActionRequested;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final overview = _overview;
+    if (overview == null) {
+      return Center(
+        child: _failed
+            ? const Padding(padding: EdgeInsets.all(24), child: Text('The desk could not be loaded.'))
+            : const CircularProgressIndicator(),
+      );
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -41,7 +87,7 @@ class AdministratorDashboardPage extends StatelessWidget {
               spacing: 12,
               runSpacing: 12,
               children: [
-                for (final kpi in administratorKpis)
+                for (final kpi in overview.kpis)
                   SizedBox(
                     width: compact ? 165 : 205,
                     child: _KpiCard(kpi: kpi),
@@ -50,16 +96,16 @@ class AdministratorDashboardPage extends StatelessWidget {
             ),
             const SizedBox(height: 22),
             if (compact) ...[
-              const _WorkQueueCard(),
+              _WorkQueueCard(items: overview.queue),
               const SizedBox(height: 14),
-              const _TodayCard(),
+              _PipelineCard(stages: overview.pipeline),
             ] else
-              const Row(
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _WorkQueueCard()),
-                  SizedBox(width: 16),
-                  Expanded(child: _TodayCard()),
+                  Expanded(child: _WorkQueueCard(items: overview.queue)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _PipelineCard(stages: overview.pipeline)),
                 ],
               ),
             const SizedBox(height: 18),
@@ -238,15 +284,19 @@ class _KpiCard extends StatelessWidget {
 }
 
 class _WorkQueueCard extends StatelessWidget {
-  const _WorkQueueCard();
+  const _WorkQueueCard({required this.items});
+
+  final List<AdministratorQueueItem> items;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Administration Work Queue',
-      subtitle: 'Operational records that need action today.',
+      subtitle: 'Operational records that need action.',
       children: [
-        for (final item in administratorWorkQueue)
+        if (items.isEmpty)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Nothing needs action.')),
+        for (final item in items)
           _ListItem(
             title: item.title,
             detail: item.detail,
@@ -257,17 +307,18 @@ class _WorkQueueCard extends StatelessWidget {
   }
 }
 
-class _TodayCard extends StatelessWidget {
-  const _TodayCard();
+class _PipelineCard extends StatelessWidget {
+  const _PipelineCard({required this.stages});
+
+  final List<AdministratorDeskActivity> stages;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Today at the Admin Desk',
-      subtitle: 'Current prototype activity.',
+      title: 'Admissions pipeline',
+      subtitle: 'Applicants at each stage.',
       children: [
-        for (final activity in administratorTodayActivities)
-          _ListItem(title: activity.title, detail: activity.detail),
+        for (final stage in stages) _ListItem(title: stage.title, detail: '${stage.detail} applicants'),
       ],
     );
   }

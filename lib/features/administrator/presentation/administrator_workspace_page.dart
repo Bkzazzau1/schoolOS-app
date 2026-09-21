@@ -1,3 +1,4 @@
+import '../data/administrator_overview.dart';
 import '../../../core/appearance/school_logo.dart';
 import '../../proprietor/data/staff_server_api.dart';
 import '../../notifications/presentation/notifications_bell.dart';
@@ -240,6 +241,13 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
   Widget _buildContent() {
     if (_activeKey == 'dashboard') {
       return AdministratorDashboardPage(
+        repository: AdministratorOverviewRepository(
+          students: _studentsRepository,
+          admissions: _admissionsRepository,
+          records: _recordsRepository,
+          lifecycle: _lifecycleRepository,
+          staff: _staffRepository,
+        ),
         schoolName: widget.membership.schoolName,
         onActionRequested: _select,
       );

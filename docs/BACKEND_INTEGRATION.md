@@ -250,3 +250,16 @@ reports (attention queue, staff files, scholarships, discounts, payroll, leaders
 enrollment and results say plainly that nothing has been recorded and never invent figures or causes. The executive brief
 is built from the same records and lists what is not available yet. The old made-up numbers (94%, 648 students, ₦3.7m) are
 gone. Tests: `test/proprietor_ai_test.dart`.
+
+## Administrator (role 2): audit and first step
+
+Audit of the 13 screens. **Connected and saving:** Student Registration (validates, keeps a guardian's phone to one guardian,
+creates the student who then appears in Students & Families), Admissions Pipeline (request documents, schedule screening,
+issue offer, hand off to registration), Staff Records (register support staff, with an onboarding request), Notices (drafts),
+Website Manager (saves), Staff Attendance (payroll summary). **Read-only lists filled from sample records:** Attendance Desk,
+Transfers & Promotion, Operations, Records & Documents, and the sample rows behind Students and Staff. Nothing on the server
+yet handles admissions, registration, students, notices, records or lifecycle.
+
+Step 1 done: the Administrator dashboard is worked out from the real students, admissions, records, lifecycle changes and
+staff files (`administrator_overview.dart`), replacing fixed numbers (648 students, 17 admissions...) and the sample queue.
+Tests: `test/administrator_dashboard_test.dart`.
