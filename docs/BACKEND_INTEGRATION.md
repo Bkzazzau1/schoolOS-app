@@ -29,7 +29,8 @@ existing test runs on that path. With a value, the login screen asks for an emai
 | Storage | `lib/core/database/local_database.dart` | New `sync_cursors` table (per school and membership), `deleteLocalRecord`, `markMutationPending` |
 | Login screen | `lib/features/authentication/presentation/login_page.dart` | Real sign-in when a backend is set: email field, plain error messages, "not connected to any school yet" message, no demo panel |
 
-Tests: `test/core/` (45 tests) cover each layer with a fake server and in-memory storage.
+Tests: `test/core/` (74 tests) cover each layer with a fake server, in-memory storage and, for the queue rules, real SQLite;
+`test/backend_login_and_banner_test.dart` covers the login screen and banner (9 tests).
 
 ## Fixed on the way
 
@@ -78,6 +79,6 @@ The database can now run in tests (`databasePath: ':memory:'`), so these rules a
   `demo_login_navigation_test.dart` and 1 in `finance_fee_structure_feature_test.dart`. The last seven are a layout
   overflow (a row 109 px too wide in a shared widget at the test screen size). They were hidden while the app did not
   compile. They fail the same way with the original login page.
-- The desktop layout of the login screen's brand panel overflows at about 900 px wide.
+- **Fixed:** the login screen's brand header overflowed on narrow screens (a `Column` in a `Row` without `Expanded`).
 - **Fixed:** the backend now has the `driver` role (workspace screens, staff role, school-life access), and the app's
   delegated-approver roles include it.
