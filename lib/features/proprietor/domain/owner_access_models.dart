@@ -9,21 +9,12 @@ class AccessActivity {
     required this.rolesInThisSchool,
   });
 
-  /// `<workspace>.<screen>`, the same key the app's menus use.
   final String key;
   final String label;
-
-  /// A landing screen: it cannot be taken away, or the person would be locked out.
   final bool essential;
-
-  /// False for the screen that manages access itself: only the owner ever has it.
   final bool grantable;
-
-  /// Shows money or personal data: the owner is warned before granting it.
   final bool sensitive;
   final Set<String> defaultRoles;
-
-  /// The roles that have it in this school (after the owner's changes).
   final Set<String> rolesInThisSchool;
 
   factory AccessActivity.fromJson(Map<String, dynamic> json) => AccessActivity(
@@ -39,21 +30,20 @@ class AccessActivity {
 
 class AccessGroup {
   const AccessGroup({required this.area, required this.activities});
-
   final String area;
   final List<AccessActivity> activities;
 
   factory AccessGroup.fromJson(Map<String, dynamic> json) => AccessGroup(
         area: json['area'] as String,
         activities: [
-          for (final a in (json['activities'] as List? ?? const [])) AccessActivity.fromJson(Map<String, dynamic>.from(a as Map)),
+          for (final a in (json['activities'] as List? ?? const []))
+            AccessActivity.fromJson(Map<String, dynamic>.from(a as Map)),
         ],
       );
 }
 
 class AccessCatalogData {
   const AccessCatalogData(this.groups);
-
   final List<AccessGroup> groups;
 
   Iterable<AccessActivity> get all => groups.expand((g) => g.activities);
@@ -68,17 +58,15 @@ class AccessCatalogData {
   String labelOf(String key) => byKey(key)?.label ?? key;
 
   factory AccessCatalogData.fromJson(Map<String, dynamic> json) => AccessCatalogData([
-        for (final g in (json['groups'] as List? ?? const [])) AccessGroup.fromJson(Map<String, dynamic>.from(g as Map)),
+        for (final g in (json['groups'] as List? ?? const []))
+          AccessGroup.fromJson(Map<String, dynamic>.from(g as Map)),
       ]);
 }
 
 class RoleAccess {
   const RoleAccess({required this.role, required this.activities, required this.customized, required this.editable});
-
   final String role;
   final Set<String> activities;
-
-  /// The owner has changed this role from the built-in defaults.
   final bool customized;
   final bool editable;
 
@@ -92,7 +80,6 @@ class RoleAccess {
 
 enum OverrideState { inForce, waitingForSync, expired }
 
-/// A grant or a block the owner set for one person on one activity.
 class AccessOverride {
   const AccessOverride({
     required this.activity,
@@ -109,8 +96,6 @@ class AccessOverride {
   final OverrideState state;
   final DateTime setAt;
   final DateTime? expiresAt;
-
-  /// For a block waiting on the person's next sync: the latest it will take effect.
   final DateTime? takesEffectBy;
   final String note;
 
@@ -143,8 +128,6 @@ class PersonAccess {
   final String email;
   final String name;
   final String role;
-
-  /// Everything they can use right now (role defaults plus grants, minus blocks that are in force).
   final Set<String> activities;
   final List<AccessOverride> overrides;
 
@@ -164,7 +147,8 @@ class PersonAccess {
         role: json['role'] as String,
         activities: {for (final a in (json['activities'] as List? ?? const [])) a as String},
         overrides: [
-          for (final o in (json['overrides'] as List? ?? const [])) AccessOverride.fromJson(Map<String, dynamic>.from(o as Map)),
+          for (final o in (json['overrides'] as List? ?? const []))
+            AccessOverride.fromJson(Map<String, dynamic>.from(o as Map)),
         ],
       );
 }
@@ -181,8 +165,6 @@ class AccessChangeEntry {
   });
 
   final DateTime at;
-
-  /// `person_grant`, `person_block`, `person_clear`, `reassign`, `role_set` or `role_reset`.
   final String kind;
   final String activity;
   final String role;
@@ -209,6 +191,7 @@ const roleLabels = <String, String>{
   'accountant': 'Finance officer',
   'parent': 'Parent',
   'student': 'Student',
+  'alumni': 'Alumni',
   'staff': 'Support / other staff',
   'driver': 'Driver',
 };
