@@ -1,13 +1,22 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/alumni_profile_models.dart';
 
 class AlumniServerApi {
-  AlumniServerApi({required ApiClient api}) : _api = api;
+  AlumniServerApi({
+    required ApiClient api,
+    required SchoolSessionController schoolSession,
+  })  : _api = api,
+        _schoolSession = schoolSession;
 
   final ApiClient _api;
+  final SchoolSessionController _schoolSession;
+
+  SchoolMembership get activeMembership =>
+      _schoolSession.requireActiveMembership();
 
   Map<String, String> _who(SchoolMembership membership) =>
       {'membership': membership.id};
