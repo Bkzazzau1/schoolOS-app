@@ -2,17 +2,17 @@ import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../transport/data/transport_repository.dart';
+import '../../transport/data/transport_rider_assignment_repository.dart';
 import '../../transport/data/transport_route_management_repository.dart';
 import '../../transport/domain/transport_models.dart';
+import '../../transport/domain/transport_rider_assignment_models.dart';
 import '../../transport/domain/transport_route_management_models.dart';
 import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
 import '../domain/driver_morning_run_models.dart';
 import '../domain/driver_route_models.dart';
-import 'driver_afternoon_run_demo_data.dart';
 import 'driver_afternoon_run_repository.dart';
 import 'driver_dashboard_repository.dart';
-import 'driver_morning_run_demo_data.dart';
 import 'driver_morning_run_repository.dart';
 
 class DriverRouteRepository {
@@ -28,12 +28,17 @@ class DriverRouteRepository {
         _routeManagementRepository = TransportRouteManagementRepository(
           localDatabase: localDatabase,
           schoolSession: schoolSession,
+        ),
+        _riderAssignments = TransportRiderAssignmentRepository(
+          localDatabase: localDatabase,
+          schoolSession: schoolSession,
         );
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final TransportRepository _transportRepository;
   final TransportRouteManagementRepository _routeManagementRepository;
+  final TransportRiderAssignmentRepository _riderAssignments;
 
   Future<DriverRouteSnapshot> loadToday() async {
     final member = _requireDriver();
@@ -59,7 +64,7 @@ class DriverRouteRepository {
           morning.routeId != assignment.routeId ||
           morning.serviceDate != today) {
         throw StateError(
-          'Today\'s morning route record does not belong to the active Driver assignment.',
+          'Today’s morning route record does not belong to the active Driver assignment.',
         );
       }
     }
@@ -71,7 +76,7 @@ class DriverRouteRepository {
           afternoon.routeId != assignment.routeId ||
           afternoon.serviceDate != today) {
         throw StateError(
-          'Today\'s afternoon route record does not belong to the active Driver assignment.',
+          'Today’s afternoon route record does not belong to the active Driver assignment.',
         );
       }
     }
@@ -79,16 +84,15 @@ class DriverRouteRepository {
     final plan = await _routeManagementRepository.loadPlanForRoute(route.id);
     final configuredStops = plan.activeStops;
     if (configuredStops.length != route.stops) {
-      throw StateError(
-        'The configured stop count does not match Transport Control.',
-      );
+      throw StateError('The configured stop count does not match Transport Control.');
     }
+    final riders = await _riderAssignments.loadAssignmentsForRoute(route.id);
 
     final morningViews = morning == null
-        ? _plannedMorningStops(route.id, configuredStops)
+        ? _plannedMorningStops(configuredStops, riders)
         : [for (final stop in morning.stops) _morningStop(stop)];
     final afternoonViews = afternoon == null
-        ? _plannedAfternoonStops(route.id, configuredStops)
+        ? _plannedAfternoonStops(configuredStops, riders)
         : [
             for (final stop in afternoon.stops)
               _afternoonStop(stop, afternoon.status),
@@ -101,30 +105,24 @@ class DriverRouteRepository {
       driverName: assignment.driverDisplayName,
       assistantName: route.assistant,
       serviceDate: today,
-      totalAssignedRiders: route.riders,
+      totalAssignedRiders: riders.length,
       morningStops: List.unmodifiable(morningViews),
       afternoonStops: List.unmodifiable(afternoonViews),
     );
   }
 
   List<DriverRouteStopView> _plannedMorningStops(
-    String routeId,
-    List<TransportStopDefinition> configuredStops,
+    List<TransportStopDefinition> stops,
+    List<TransportRiderAssignment> riders,
   ) {
-    final riderCounts = routeId == 'BUS-02'
-        ? <String, int>{
-            for (final stop in defaultBus02MorningStops())
-              stop.id: stop.riders.length,
-          }
-        : const <String, int>{};
     return [
-      for (final stop in configuredStops)
+      for (final stop in stops)
         DriverRouteStopView(
           id: stop.id,
           sequence: stop.sequence,
           name: stop.name,
           scheduledTime: stop.morningTime,
-          assignedRiders: riderCounts[stop.id] ?? 0,
+          assignedRiders: riders.where((rider) => rider.stopId == stop.id).length,
           state: DriverRouteStopState.pending,
           primaryCount: 0,
           secondaryCount: 0,
@@ -135,16 +133,10 @@ class DriverRouteRepository {
   }
 
   List<DriverRouteStopView> _plannedAfternoonStops(
-    String routeId,
-    List<TransportStopDefinition> configuredStops,
+    List<TransportStopDefinition> stops,
+    List<TransportRiderAssignment> riders,
   ) {
-    final riderCounts = routeId == 'BUS-02'
-        ? <String, int>{
-            for (final stop in defaultBus02AfternoonStops())
-              stop.id: stop.riders.length,
-          }
-        : const <String, int>{};
-    final reversed = configuredStops.reversed.toList(growable: false);
+    final reversed = stops.reversed.toList(growable: false);
     return [
       for (var index = 0; index < reversed.length; index++)
         DriverRouteStopView(
@@ -152,7 +144,8 @@ class DriverRouteRepository {
           sequence: index + 1,
           name: reversed[index].name,
           scheduledTime: reversed[index].afternoonTime,
-          assignedRiders: riderCounts[reversed[index].id] ?? 0,
+          assignedRiders:
+              riders.where((rider) => rider.stopId == reversed[index].id).length,
           state: DriverRouteStopState.pending,
           primaryCount: 0,
           secondaryCount: 0,
@@ -190,7 +183,6 @@ class DriverRouteRepository {
     final routeHasDeparted = runStatus == DriverAfternoonRunStatus.inProgress ||
         runStatus == DriverAfternoonRunStatus.returnedSchool ||
         runStatus == DriverAfternoonRunStatus.completed;
-
     final state = stop.status == DriverAfternoonStopStatus.active
         ? DriverRouteStopState.active
         : stop.status == DriverAfternoonStopStatus.departed
@@ -198,7 +190,6 @@ class DriverRouteRepository {
             : routeHasDeparted && boardedToday == 0
                 ? DriverRouteStopState.noService
                 : DriverRouteStopState.pending;
-
     return DriverRouteStopView(
       id: stop.id,
       sequence: stop.sequence,
@@ -245,7 +236,7 @@ class DriverRouteRepository {
     }
     final assignment = DriverTransportAssignment.fromJson(record.payload);
     if (assignment.membershipId != member.id || !assignment.hasRoute) {
-      throw StateError('The Driver route assignment is invalid.');
+      throw StateError('The Driver route assignment is inactive or invalid.');
     }
     return assignment;
   }
@@ -262,6 +253,8 @@ class DriverRouteRepository {
 
   String _todayKey() {
     final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
   }
 }
