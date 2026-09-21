@@ -197,3 +197,11 @@ and the Leadership card from real records: staff proposals to approve, concessio
 approval, an empty structure, and the staff-file items from Staff & HR. Each item opens the screen where it is dealt with.
 The fee, attendance, results and enrolment figures on that page are still sample figures, and the page says so.
 Tests: `test/owner_attention_test.dart`.
+
+## Owner: Finance shows real scholarships, discounts and payroll
+
+`OwnerFinanceOverviewRepository` (`lib/features/proprietor/data/owner_finance_overview.dart`) gives the top of the owner
+finance page from real records: approved scholarships and discounts, what awaits the owner's decision, monthly payroll
+from recorded salaries, and payroll batches. The revenue bridge, collections, aging, store and expense sections underneath
+are sample figures (labelled as such) until the Finance role records fees and payments.
+Tests: `test/owner_finance_overview_test.dart`, `test/proprietor_finance_test.dart`.

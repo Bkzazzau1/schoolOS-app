@@ -63,6 +63,7 @@ import 'owner_jobs_page.dart';
 import 'owner_payroll_page.dart';
 import 'owner_staff_profiles_page.dart';
 import '../data/owner_attention_repository.dart';
+import '../data/owner_finance_overview.dart';
 import '../data/owner_staff_overview.dart';
 import '../data/owner_staff_profile_repository.dart';
 import '../data/staff_proposal_repository.dart';
@@ -635,6 +636,12 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           onChanged: _refreshPendingCount,
         ),
       'finance' => ProprietorFinancePage(
+          repository: OwnerFinanceOverviewRepository(
+            concessions: _concessionRepository,
+            payroll: OwnerPayrollRepository(database: widget.localDatabase, session: widget.schoolSession),
+            database: widget.localDatabase,
+            session: widget.schoolSession,
+          ),
           schoolName: widget.membership.schoolName,
           onActionRequested: _handleFinanceAction,
         ),

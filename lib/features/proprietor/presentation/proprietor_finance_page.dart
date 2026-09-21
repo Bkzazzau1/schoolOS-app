@@ -1,21 +1,68 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+import '../data/owner_finance_overview.dart';
 import '../data/proprietor_finance_demo_data.dart';
 import '../domain/proprietor_finance_models.dart';
 
-class ProprietorFinancePage extends StatelessWidget {
+/// The owner's money page. Scholarships, discounts and payroll are worked out from the school's real records;
+/// fees billed, collections, aging and the store are sample figures until the Finance role holds real data.
+class ProprietorFinancePage extends StatefulWidget {
   const ProprietorFinancePage({
     super.key,
     required this.schoolName,
     required this.onActionRequested,
+    required this.repository,
   });
 
   final String schoolName;
   final ValueChanged<String> onActionRequested;
+  final OwnerFinanceOverviewRepository repository;
+
+  @override
+  State<ProprietorFinancePage> createState() => _ProprietorFinancePageState();
+}
+
+class _ProprietorFinancePageState extends State<ProprietorFinancePage> with SyncRefresh<ProprietorFinancePage> {
+  OwnerFinanceOverview? _overview;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void onSynced() => _load();
+
+  Future<void> _load() async {
+    try {
+      final overview = await widget.repository.load();
+      if (!mounted) return;
+      setState(() {
+        _overview = overview;
+        _failed = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  String get schoolName => widget.schoolName;
+  ValueChanged<String> get onActionRequested => widget.onActionRequested;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final overview = _overview;
+    if (overview == null) {
+      return Center(
+        child: _failed
+            ? const Padding(padding: EdgeInsets.all(24), child: Text('The finance overview could not be loaded.'))
+            : const CircularProgressIndicator(),
+      );
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -42,8 +89,28 @@ class ProprietorFinancePage extends StatelessWidget {
                       onActionRequested: onActionRequested,
                     ),
                     const SizedBox(height: 20),
-                    _KpiGrid(compact: compact),
+                    _KpiGrid(compact: compact, kpis: overview.kpis),
                     const SizedBox(height: 18),
+                    _TwoColumn(
+                      compact: compact,
+                      left: _FinanceCard(
+                        title: 'Waiting on you',
+                        subtitle: 'Scholarships, discounts and payroll that need a decision.',
+                        child: overview.attention.isEmpty
+                            ? const Text('Nothing is waiting on you.')
+                            : _FinanceList(items: overview.attention),
+                      ),
+                      right: _FinanceCard(
+                        title: 'Recent decisions',
+                        subtitle: 'The last scholarships and discounts you decided.',
+                        child: overview.decidedRecently.isEmpty
+                            ? const Text('No decisions yet.')
+                            : _FinanceList(items: overview.decidedRecently),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const _SampleBanner(),
+                    const SizedBox(height: 12),
                     _TwoColumn(
                       compact: compact,
                       left: _FinanceCard(
@@ -117,7 +184,7 @@ class ProprietorFinancePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Prototype finance data · current term · $schoolName',
+                      'Scholarships, discounts and payroll are from your records. Everything under "Sample figures" is not real yet · $schoolName',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -217,17 +284,41 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _SampleBanner extends StatelessWidget {
+  const _SampleBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.info_outline_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Sample figures: fees billed, collections, aging, the store and expenses below are examples. They become '
+            'real when the Finance role records them.',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _KpiGrid extends StatelessWidget {
-  const _KpiGrid({required this.compact});
+  const _KpiGrid({required this.compact, required this.kpis});
 
   final bool compact;
+  final List<OwnerFinanceKpi> kpis;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final columns = compact ? 1 : (width >= 1080 ? 5 : width >= 760 ? 3 : 2);
+        final columns = compact ? 1 : (width >= 1080 ? 4 : width >= 760 ? 2 : 2);
         final spacing = 12.0;
         final itemWidth = (width - spacing * (columns - 1)) / columns;
 
@@ -235,7 +326,7 @@ class _KpiGrid extends StatelessWidget {
           spacing: spacing,
           runSpacing: spacing,
           children: [
-            for (final item in proprietorFinanceKpis)
+            for (final item in kpis)
               SizedBox(width: itemWidth, child: _KpiCard(item: item)),
           ],
         );
