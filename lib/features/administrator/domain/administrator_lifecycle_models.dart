@@ -1,6 +1,7 @@
 enum AdministratorLifecycleStatus {
   pending('Pending'),
-  completed('Completed');
+  completed('Completed'),
+  cancelled('Cancelled');
 
   const AdministratorLifecycleStatus(this.label);
   final String label;
@@ -20,13 +21,67 @@ class AdministratorLifecycleRecord {
     required this.workflow,
     required this.change,
     required this.status,
+    this.studentId = '',
+    this.fromClass = '',
+    this.toClass = '',
+    this.requestedAt = '',
+    this.completedAt = '',
+    this.approvedBy = '',
+    this.recordsPackReady = false,
+    this.note = '',
   });
 
+  /// The record's own id. For the older records it is the student's id, so a student's id is [studentId] when this is empty.
   final String id;
   final String studentName;
   final String workflow;
   final String change;
   final AdministratorLifecycleStatus status;
+
+  /// The student this change is for.
+  final String studentId;
+
+  /// For a class change or promotion: where the student is, and where they move to.
+  final String fromClass;
+  final String toClass;
+  final String requestedAt;
+  final String completedAt;
+
+  /// Who approved a promotion (the decision belongs to academic leadership, not administration).
+  final String approvedBy;
+
+  /// For a transfer out: the student's records pack has been prepared.
+  final bool recordsPackReady;
+  final String note;
+
+  String get student => studentId.isEmpty ? id : studentId;
+
+  /// Changes the student's class, once completed.
+  bool get movesClass => (isPromotion || isClassChange) && toClass.isNotEmpty;
+
+  AdministratorLifecycleRecord copyWith({
+    String? change,
+    AdministratorLifecycleStatus? status,
+    String? completedAt,
+    String? approvedBy,
+    bool? recordsPackReady,
+    String? note,
+  }) =>
+      AdministratorLifecycleRecord(
+        id: id,
+        studentName: studentName,
+        workflow: workflow,
+        change: change ?? this.change,
+        status: status ?? this.status,
+        studentId: student,
+        fromClass: fromClass,
+        toClass: toClass,
+        requestedAt: requestedAt,
+        completedAt: completedAt ?? this.completedAt,
+        approvedBy: approvedBy ?? this.approvedBy,
+        recordsPackReady: recordsPackReady ?? this.recordsPackReady,
+        note: note ?? this.note,
+      );
 
   bool get isPromotion => workflow == 'Promotion';
   bool get isTransferOut => workflow == 'Transfer out';
@@ -40,6 +95,14 @@ class AdministratorLifecycleRecord {
         'workflow': workflow,
         'change': change,
         'status': status.label,
+        'studentId': student,
+        'fromClass': fromClass,
+        'toClass': toClass,
+        'requestedAt': requestedAt,
+        'completedAt': completedAt,
+        'approvedBy': approvedBy,
+        'recordsPackReady': recordsPackReady,
+        'note': note,
       };
 
   factory AdministratorLifecycleRecord.fromJson(Map<String, Object?> json) {
@@ -49,6 +112,14 @@ class AdministratorLifecycleRecord {
       workflow: json['workflow'] as String? ?? '',
       change: json['change'] as String? ?? '',
       status: AdministratorLifecycleStatus.fromLabel(json['status'] as String?),
+      studentId: json['studentId'] as String? ?? '',
+      fromClass: json['fromClass'] as String? ?? '',
+      toClass: json['toClass'] as String? ?? '',
+      requestedAt: json['requestedAt'] as String? ?? '',
+      completedAt: json['completedAt'] as String? ?? '',
+      approvedBy: json['approvedBy'] as String? ?? '',
+      recordsPackReady: json['recordsPackReady'] as bool? ?? false,
+      note: json['note'] as String? ?? '',
     );
   }
 }

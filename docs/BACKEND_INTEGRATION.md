@@ -263,3 +263,18 @@ yet handles admissions, registration, students, notices, records or lifecycle.
 Step 1 done: the Administrator dashboard is worked out from the real students, admissions, records, lifecycle changes and
 staff files (`administrator_overview.dart`), replacing fixed numbers (648 students, 17 admissions...) and the sample queue.
 Tests: `test/administrator_dashboard_test.dart`.
+
+## Administrator: Transfers & Promotion now work
+
+The lifecycle desk (`administrator_lifecycle_repository.dart`, `administrator_lifecycle_effects.dart`) starts, processes and
+cancels student changes, and the student register follows them:
+
+- **Class change / Promotion / Transfer out** are started for a real student from "New student change".
+- A class change completes directly and puts the student in the new class. A **promotion** is an academic decision, so it can
+  only be processed with the name of who approved it. A **transfer out** needs the records pack marked ready first; while
+  pending the student shows "Transfer pending", and once completed they leave the active register (their last class is kept).
+- Nothing is overwritten: completed changes are kept as history and applied in order; a cancelled change is kept with its
+  reason and has no effect. Only an administrator can do this.
+- The demo school now has 20 students in real classes (`administrator_demo_school.dart`) and lifecycle records that refer only
+  to students that exist.
+Tests: `test/administrator_lifecycle_actions_test.dart`.

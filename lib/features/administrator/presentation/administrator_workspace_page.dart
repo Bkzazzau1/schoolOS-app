@@ -336,6 +336,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       return AdministratorLifecyclePage(
         schoolName: widget.membership.schoolName,
         repository: _lifecycleRepository,
+        students: _studentsRepository,
       );
     }
 

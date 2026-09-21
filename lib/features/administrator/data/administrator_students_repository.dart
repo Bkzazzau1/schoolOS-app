@@ -2,7 +2,11 @@ import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/administrator_registration_models.dart';
+import '../domain/administrator_lifecycle_models.dart';
 import '../domain/administrator_students_models.dart';
+import 'administrator_demo_school.dart';
+import 'administrator_lifecycle_effects.dart';
+import 'administrator_lifecycle_repository.dart';
 import 'administrator_students_demo_data.dart';
 
 class AdministratorStudentsSnapshot {
@@ -44,7 +48,7 @@ class AdministratorStudentsRepository {
     );
 
     if (records.isEmpty) {
-      for (final student in administratorStudentsWebsiteSeed) {
+      for (final student in [...administratorStudentsWebsiteSeed, ...administratorStudentsDemoExtras]) {
         await _localDatabase.upsertLocalRecord(
           tenantId: membership.schoolId,
           entityType: _entityType,
@@ -94,8 +98,16 @@ class AdministratorStudentsRepository {
       return a.id.compareTo(b.id);
     });
 
+    // The register shows each student where the completed lifecycle changes have put them.
+    final lifecycle = (await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: AdministratorLifecycleRepository.entityType,
+    ))
+        .map((r) => AdministratorLifecycleRecord.fromJson(r.payload))
+        .toList();
+
     return AdministratorStudentsSnapshot(
-      students: students,
+      students: applyLifecycle(students, lifecycle),
       permissions: permissionsFor(membership),
     );
   }

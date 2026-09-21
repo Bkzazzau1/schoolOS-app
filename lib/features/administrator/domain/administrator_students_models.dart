@@ -1,6 +1,7 @@
 enum AdministratorStudentStatus {
   active('Active'),
-  transferPending('Transfer pending');
+  transferPending('Transfer pending'),
+  transferredOut('Transferred out');
 
   const AdministratorStudentStatus(this.label);
   final String label;
@@ -27,6 +28,14 @@ class AdministratorStudentRecord {
   final String className;
   final String primaryGuardian;
   final AdministratorStudentStatus status;
+
+  AdministratorStudentRecord copyWith({String? className, AdministratorStudentStatus? status}) => AdministratorStudentRecord(
+        id: id,
+        name: name,
+        className: className ?? this.className,
+        primaryGuardian: primaryGuardian,
+        status: status ?? this.status,
+      );
 
   bool get isPrimary => id.startsWith('PRI');
   String get leadershipDestination =>

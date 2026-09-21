@@ -174,7 +174,7 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<AlumniTransitionCandidate>(
-                    value: selected,
+                    initialValue: selected,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Student account'),
                     items: [
