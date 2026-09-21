@@ -2,6 +2,7 @@ import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../transport/data/transport_repository.dart';
+import '../../transport/data/transport_vehicle_readiness_repository.dart';
 import '../../transport/domain/transport_models.dart';
 import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
@@ -18,6 +19,10 @@ class DriverDashboardRepository {
         _transportRepository = TransportRepository(
           localDatabase: localDatabase,
           schoolSession: schoolSession,
+        ),
+        _vehicleReadinessRepository = TransportVehicleReadinessRepository(
+          localDatabase: localDatabase,
+          schoolSession: schoolSession,
         );
 
   static const assignmentEntityType = 'driver_transport_assignment';
@@ -28,6 +33,7 @@ class DriverDashboardRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final TransportRepository _transportRepository;
+  final TransportVehicleReadinessRepository _vehicleReadinessRepository;
 
   Future<DriverDashboardSnapshot> load() async {
     final membership = _requireDriver();
@@ -121,20 +127,34 @@ class DriverDashboardRepository {
       }
     }
 
+    String? clearanceError;
+    try {
+      await _vehicleReadinessRepository.requireOperationalRelease(
+        routeId: assignedRoute.id,
+        vehicle: assignedRoute.vehicle,
+      );
+    } on StateError catch (error) {
+      clearanceError = error.message;
+    }
+
     final vehicleCheckRequired = nextCheckPeriod != null &&
-        nextCheck?.status != DriverVehicleCheckStatus.ready;
-    final vehicleCheckSummary = nextCheckPeriod == null
-        ? 'No pre-trip check currently pending'
-        : '${nextCheckPeriod.label} · ${nextCheck?.status.label ?? DriverVehicleCheckStatus.notStarted.label}';
+        (clearanceError != null ||
+            nextCheck?.status != DriverVehicleCheckStatus.ready);
+    final vehicleCheckSummary = clearanceError ??
+        (nextCheckPeriod == null
+            ? 'No pre-trip check currently pending'
+            : '${nextCheckPeriod.label} · ${nextCheck?.status.label ?? DriverVehicleCheckStatus.notStarted.label}');
 
     final operationalNextAction = _nextAction(
       displayRoute,
       morningRun,
       afternoonRun,
     );
-    final nextAction = vehicleCheckRequired && nextCheckPeriod != null
-        ? _vehicleCheckAction(nextCheckPeriod, nextCheck)
-        : operationalNextAction;
+    final nextAction = clearanceError != null && nextCheckPeriod != null
+        ? clearanceError
+        : vehicleCheckRequired && nextCheckPeriod != null
+            ? _vehicleCheckAction(nextCheckPeriod, nextCheck)
+            : operationalNextAction;
 
     return DriverDashboardSnapshot(
       assignment: assignment,
