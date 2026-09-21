@@ -226,7 +226,7 @@ class _LoginPageState extends State<LoginPage> {
     SchoolMembership membership,
   ) async {
     await widget.services.schoolSession.selectSchool(membership);
-    widget.services.syncCoordinator?.start();
+    await widget.services.beginSchool(membership);
     // The login route has been replaced by the school picker. Navigation must
     // use the picker context, which remains mounted after the session is saved.
     if (!context.mounted) return;

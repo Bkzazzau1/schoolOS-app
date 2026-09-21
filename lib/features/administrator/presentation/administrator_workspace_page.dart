@@ -1,3 +1,4 @@
+import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/data/owner_staff_profile_repository.dart';
 import '../../proprietor/data/payroll_batch_repository.dart';
@@ -58,7 +59,11 @@ class AdministratorWorkspacePage extends StatefulWidget {
       _AdministratorWorkspacePageState();
 }
 
-class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage> with SyncRefresh<AdministratorWorkspacePage> {
+class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage> with SyncRefresh<AdministratorWorkspacePage>, AccessAware<AdministratorWorkspacePage> {
+  /// The screens the owner allows this person (all of them until their access is known).
+  List<AdministratorNavItem> get _navigation =>
+      visibleScreens('administrator', administratorNavigation, (item) => item.key);
+
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   AdmissionApplicant? _registrationApplicant;
@@ -193,7 +198,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       return;
     }
 
-    final exists = administratorNavigation.any((item) => item.key == key);
+    final exists = _navigation.any((item) => item.key == key);
     if (!exists) return;
     setState(() {
       if (key == 'registration') _registrationApplicant = null;
@@ -225,9 +230,9 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
     );
   }
 
-  AdministratorNavItem get _activeItem => administratorNavigation.firstWhere(
+  AdministratorNavItem get _activeItem => _navigation.firstWhere(
         (item) => item.key == _activeKey,
-        orElse: () => administratorNavigation.first,
+        orElse: () => _navigation.first,
       );
 
   Widget _buildContent() {
@@ -373,6 +378,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
               memberships: widget.schoolSession.memberships,
               onSelected: _switchSchool,
             ),
+          NotificationsBell(membership: widget.membership),
           IconButton(
             tooltip: _pendingSyncCount == 0
                 ? 'Sync Center'
@@ -410,7 +416,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                 subtitle: Text(administratorAcademicYear),
               ),
               const Divider(),
-              for (final item in administratorNavigation)
+              for (final item in _navigation)
                 ListTile(
                   selected: _activeKey == item.key,
                   leading: Icon(_iconFor(item.key)),
@@ -510,7 +516,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                     child: ListView(
                       padding: const EdgeInsets.only(bottom: 12),
                       children: [
-                        for (final item in administratorNavigation)
+                        for (final item in _navigation)
                           _AdminNavTile(
                             extended: extended,
                             item: item,
@@ -584,6 +590,8 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                             onSelected: _switchSchool,
                           ),
                         ],
+                        const SizedBox(width: 6),
+                        NotificationsBell(membership: widget.membership),
                         const SizedBox(width: 6),
                         OutlinedButton.icon(
                           onPressed: _openSyncCenter,

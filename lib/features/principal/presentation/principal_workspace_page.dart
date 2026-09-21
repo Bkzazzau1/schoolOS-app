@@ -1,3 +1,4 @@
+import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
@@ -50,7 +51,11 @@ class PrincipalWorkspacePage extends StatefulWidget {
   @override State<PrincipalWorkspacePage> createState() => _PrincipalWorkspacePageState();
 }
 
-class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with SyncRefresh<PrincipalWorkspacePage> {
+class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with SyncRefresh<PrincipalWorkspacePage>, AccessAware<PrincipalWorkspacePage> {
+  /// The screens the owner allows this person (all of them until their access is known).
+  List<PrincipalNavItem> get _navigation =>
+      visibleScreens('principal', principalNavigation, (item) => item.key);
+
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   late final PrincipalTeachersRepository _teachers;
@@ -82,8 +87,8 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
     _refreshPendingCount();
   }
 
-  PrincipalNavItem get _activeItem => principalNavigation.firstWhere((e) => e.key == _activeKey, orElse: () => principalNavigation.first);
-  void _select(String key) { if (principalNavigation.any((e) => e.key == key)) setState(() => _activeKey = key); }
+  PrincipalNavItem get _activeItem => _navigation.firstWhere((e) => e.key == _activeKey, orElse: () => _navigation.first);
+  void _select(String key) { if (_navigation.any((e) => e.key == key)) setState(() => _activeKey = key); }
   @override
   void onSynced() => _refreshPendingCount();
 
@@ -133,13 +138,14 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
           title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(widget.membership.schoolName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)), const Text('Principal · Secondary', style: TextStyle(fontSize: 12))]),
           actions: [
             if (widget.schoolSession.canSwitchSchool) _SchoolSwitcherButton(activeMembership: widget.membership, memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
+            NotificationsBell(membership: widget.membership),
             IconButton(tooltip: _pendingSyncCount == 0 ? 'Sync Center' : 'Sync Center · $_pendingSyncCount pending', onPressed: _openSyncCenter, icon: Badge(isLabelVisible: _pendingSyncCount > 0, label: Text('$_pendingSyncCount'), child: const Icon(Icons.cloud_sync_outlined))),
             Builder(builder: (context) => IconButton(onPressed: () => Scaffold.of(context).openEndDrawer(), icon: const Icon(Icons.menu_rounded), tooltip: 'Principal menu')),
           ],
         ),
         endDrawer: Drawer(child: SafeArea(child: ListView(children: [
           const ListTile(title: Text('Principal Portal', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: Text('Secondary School')), const Divider(),
-          for (final item in principalNavigation) ListTile(selected: item.key == _activeKey, leading: Icon(_iconFor(item.key)), title: Text(item.label), onTap: () { Navigator.of(context).pop(); _select(item.key); }),
+          for (final item in _navigation) ListTile(selected: item.key == _activeKey, leading: Icon(_iconFor(item.key)), title: Text(item.label), onTap: () { Navigator.of(context).pop(); _select(item.key); }),
         ]))),
         body: Column(children: [Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), color: Theme.of(context).colorScheme.surfaceContainerLow, child: Text(_activeItem.label, style: const TextStyle(fontWeight: FontWeight.w800))), Expanded(child: _content())]),
       );
@@ -150,7 +156,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
       SafeArea(child: Container(width: extended ? 282 : 88, decoration: BoxDecoration(border: Border(right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant))), child: Column(children: [
         Padding(padding: const EdgeInsets.all(16), child: extended ? const ListTile(contentPadding: EdgeInsets.zero, leading: CircleAvatar(child: Text('S')), title: Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: Text('Principal Portal')) : const CircleAvatar(child: Text('S'))),
         if (extended) Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 12), child: Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('ACTIVE LEADERSHIP SCOPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)), const Text(principalCampusLabel, style: TextStyle(fontSize: 12))])))),
-        Expanded(child: ListView(children: [for (final item in principalNavigation) ListTile(selected: item.key == _activeKey, selectedTileColor: Theme.of(context).colorScheme.primaryContainer, leading: Icon(_iconFor(item.key)), title: extended ? Text(item.label) : null, trailing: extended && item.key == 'ai' ? const Chip(label: Text('AI')) : null, onTap: () => _select(item.key))])),
+        Expanded(child: ListView(children: [for (final item in _navigation) ListTile(selected: item.key == _activeKey, selectedTileColor: Theme.of(context).colorScheme.primaryContainer, leading: Icon(_iconFor(item.key)), title: extended ? Text(item.label) : null, trailing: extended && item.key == 'ai' ? const Chip(label: Text('AI')) : null, onTap: () => _select(item.key))])),
         if (extended) Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Secondary section health', style: TextStyle(fontSize: 12)), const Text('86%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)), const LinearProgressIndicator(value: .86), const SizedBox(height: 6), Text('Academics, attendance, staff & compliance', style: Theme.of(context).textTheme.bodySmall)])),
       ]))),
       Expanded(child: SafeArea(child: Column(children: [

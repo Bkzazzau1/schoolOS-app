@@ -1,3 +1,4 @@
+import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
@@ -44,7 +45,7 @@ class DriverWorkspacePage extends StatefulWidget {
   State<DriverWorkspacePage> createState() => _DriverWorkspacePageState();
 }
 
-class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefresh<DriverWorkspacePage> {
+class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefresh<DriverWorkspacePage>, AccessAware<DriverWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
 
@@ -58,7 +59,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefr
   late final DriverMessagesRepository _messagesRepository;
   late final DriverHistoryRepository _historyRepository;
 
-  static const _navigation = <_DriverNavItem>[
+  static const _allNavigation = <_DriverNavItem>[
     _DriverNavItem('dashboard', 'Dashboard', Icons.dashboard_rounded),
     _DriverNavItem('morning', 'Morning Run', Icons.wb_sunny_outlined),
     _DriverNavItem('afternoon', 'Afternoon Run', Icons.nights_stay_outlined),
@@ -73,6 +74,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefr
     _DriverNavItem('messages', 'Messages & Alerts', Icons.mail_outline_rounded),
     _DriverNavItem('history', 'Trip History & Profile', Icons.history_rounded),
   ];
+
+  /// The screens the owner allows this person (all of them until their access is known).
+  List<_DriverNavItem> get _navigation =>
+      visibleScreens('driver', _allNavigation, (item) => item.key);
 
   _DriverNavItem get _activeItem => _navigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -240,6 +245,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefr
               memberships: widget.schoolSession.memberships,
               onSelected: _switchSchool,
             ),
+          NotificationsBell(membership: widget.membership),
           IconButton(
             tooltip: _pendingSyncCount == 0
                 ? 'Sync Center'
@@ -407,6 +413,8 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefr
                             onSelected: _switchSchool,
                           ),
                         const SizedBox(width: 8),
+                        NotificationsBell(membership: widget.membership),
+                        const SizedBox(width: 6),
                         OutlinedButton.icon(
                           onPressed: _openSyncCenter,
                           icon: const Icon(Icons.cloud_sync_outlined, size: 18),

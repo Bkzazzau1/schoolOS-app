@@ -1,3 +1,4 @@
+import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
@@ -83,13 +84,13 @@ class ProprietorWorkspacePage extends StatefulWidget {
   State<ProprietorWorkspacePage> createState() => _ProprietorWorkspacePageState();
 }
 
-class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with SyncRefresh<ProprietorWorkspacePage> {
+class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with SyncRefresh<ProprietorWorkspacePage>, AccessAware<ProprietorWorkspacePage> {
   int _pendingSyncCount = 0;
   String _activeModule = 'overview';
   late final ConcessionRepository _concessionRepository;
   late final ProprietorStructureRepository _structureRepository;
 
-  static const _navigation = <_OwnerNavItem>[
+  static const _allNavigation = <_OwnerNavItem>[
     _OwnerNavItem('overview', 'Executive Overview', Icons.dashboard_rounded),
     _OwnerNavItem('finance', 'Owner Finance', Icons.account_balance_wallet_rounded),
     _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded),
@@ -104,6 +105,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined),
     _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined),
   ];
+
+  /// The screens the owner allows this person (all of them until their access is known).
+  List<_OwnerNavItem> get _navigation =>
+      visibleScreens('owner', _allNavigation, (item) => item.key);
 
   @override
   void initState() {
@@ -489,6 +494,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           appBar: AppBar(
             title: Text('${widget.membership.schoolName} · $title'),
             actions: [
+              NotificationsBell(membership: widget.membership),
               IconButton(
                 tooltip: _pendingSyncCount == 0
                     ? 'Sync Center'
@@ -682,6 +688,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
               memberships: widget.schoolSession.memberships,
               onSelected: _switchSchool,
             ),
+          NotificationsBell(membership: widget.membership),
           IconButton(
             tooltip: _pendingSyncCount == 0
                 ? 'Sync Center'
@@ -785,6 +792,8 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
                           ),
                           const SizedBox(width: 8),
                         ],
+                        NotificationsBell(membership: widget.membership),
+                        const SizedBox(width: 6),
                         OutlinedButton.icon(
                           onPressed: _openSyncCenter,
                           icon: Icon(

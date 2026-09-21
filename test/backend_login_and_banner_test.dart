@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/app/app_services.dart';
 import 'package:schoolos_app/app/sync_status_banner.dart';
+import 'package:schoolos_app/core/access/access_controller.dart';
 import 'package:schoolos_app/core/appearance/school_appearance_controller.dart';
+import 'package:schoolos_app/core/notifications/notifications_controller.dart';
 import 'package:schoolos_app/core/auth/auth_repository.dart';
 import 'package:schoolos_app/core/auth/token_store.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
@@ -11,6 +13,7 @@ import 'package:schoolos_app/core/sync/sync_coordinator.dart';
 import 'package:schoolos_app/core/sync/sync_engine.dart';
 import 'package:schoolos_app/core/sync/sync_mutation.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/shared/models/school_membership.dart';
 import 'package:schoolos_app/features/authentication/presentation/login_page.dart';
 import 'package:schoolos_app/features/school_switcher/presentation/school_selection_page.dart';
 
@@ -65,6 +68,17 @@ class _BackendServices implements AppServices {
   final SyncEngine? syncEngine = null;
   @override
   bool get usesBackend => true;
+  @override
+  final AccessController? access = null;
+  @override
+  final NotificationsController? notifications = null;
+  @override
+  Future<void> beginSchool(SchoolMembership membership) async {
+    syncCoordinator?.start();
+  }
+
+  @override
+  Future<void> endSession() async {}
 }
 
 const _twoSchools = {

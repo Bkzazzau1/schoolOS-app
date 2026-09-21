@@ -45,6 +45,7 @@ class SyncCoordinator extends ChangeNotifier with WidgetsBindingObserver {
     this.debounce = const Duration(seconds: 2),
     this.firstBackoff = const Duration(seconds: 15),
     this.maxBackoff = const Duration(minutes: 5),
+    this.afterRound,
     bool observeLifecycle = true,
   }) : _runner = runner,
        _auth = auth,
@@ -56,6 +57,10 @@ class SyncCoordinator extends ChangeNotifier with WidgetsBindingObserver {
   final Duration debounce;
   final Duration firstBackoff;
   final Duration maxBackoff;
+
+  /// Runs after every round that reached the server (not when offline or signed out).
+  /// Anything it throws is ignored: it must never stop syncing.
+  final Future<void> Function(SyncRunSummary summary)? afterRound;
   final bool _observeLifecycle;
 
   SyncStatus _status = SyncStatus.idle;
@@ -173,6 +178,7 @@ class SyncCoordinator extends ChangeNotifier with WidgetsBindingObserver {
         if (summary.synced > 0 || summary.pulled > 0) _changes += 1;
         if (summary.pulled > 0) _remoteChanges += 1;
         final problem = summary.pullError;
+        await _followUp(summary);
         _setStatus(
           problem == null ? SyncStatus.idle : SyncStatus.error,
           problem,
@@ -193,6 +199,14 @@ class SyncCoordinator extends ChangeNotifier with WidgetsBindingObserver {
         SyncStatus.error,
         'Syncing hit a problem and will try again. ($error)',
       );
+    }
+  }
+
+  Future<void> _followUp(SyncRunSummary summary) async {
+    try {
+      await afterRound?.call(summary);
+    } catch (_) {
+      // Never let the follow-up stop syncing.
     }
   }
 

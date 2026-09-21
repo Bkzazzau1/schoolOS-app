@@ -19,8 +19,7 @@ final _navigatorKey = GlobalKey<NavigatorState>();
 
 /// Ends the current sign-in (unsent work stays on the device) and opens the login screen.
 Future<void> _signInAgain(AppServices services) async {
-  services.syncCoordinator?.stop();
-  await services.auth?.signOut();
+  await services.endSession();
   _navigatorKey.currentState?.pushAndRemoveUntil(
     MaterialPageRoute<void>(
       builder: (context) => LoginPage(services: services),
@@ -135,7 +134,7 @@ class SchoolOsApp extends StatelessWidget {
             if (coordinator == null || child == null) {
               return child ?? const SizedBox.shrink();
             }
-            return SyncScope(
+            final scoped = SyncScope(
               coordinator: coordinator,
               child: SyncStatusBanner(
                 coordinator: coordinator,
@@ -143,6 +142,14 @@ class SchoolOsApp extends StatelessWidget {
                 child: child,
               ),
             );
+            final access = services.access;
+            final notifications = services.notifications;
+            Widget tree = scoped;
+            if (access != null) tree = AccessScope(access: access, child: tree);
+            if (notifications != null) {
+              tree = NotificationsScope(notifications: notifications, child: tree);
+            }
+            return tree;
           },
           home: home,
         );

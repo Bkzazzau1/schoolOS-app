@@ -79,14 +79,31 @@ The database can now run in tests (`databasePath: ':memory:'`), so these rules a
 Content screens are **not** reloaded automatically. Most load once when they open, and replacing a screen while someone is
 typing in it could wipe their text. Each screen opts in with the mixin above, reloading only what is safe to replace.
 
+## Done (step 4): access and notifications
+
+| Piece | File | What it does |
+| --- | --- | --- |
+| Access | `lib/core/access/access_controller.dart` | Reads `access/me/` for the person's membership, keeps it on the device (menus are right offline and after a restart), announces only real changes. Until it is known nothing is hidden |
+| Menus | `AccessAware` mixin in `lib/core/sync/sync_scope.dart` | A workspace lists its screens through `visibleScreens('<workspace>', items, key)`. Done for the owner, principal, administrator, finance, teacher, driver and parent workspaces; the menu redraws when access changes |
+| Blocks | `lib/core/sync/round_follow_up.dart` | After each round that reached the server: read the inbox, read access, and if the owner has a waiting block and **nothing is left unsent**, `access/acknowledge/` so it takes effect. If anything is still unsent it does not, so no work is lost (the server ends the block at its deadline anyway) |
+| Inbox | `lib/core/notifications/notifications_controller.dart` | Reads `notifications/`, keeps the last messages and unread count on the device, marks read (a read made offline is told to the server later) |
+| Screens | `lib/features/notifications/presentation/` | `NotificationsBell` (unread badge; shows nothing on demo data) in every workspace's header next to the Sync Center button, and `NotificationsPage` (tap to read, mark all read, pull to refresh) |
+| Wiring | `AppServices.beginSchool` / `endSession` | Restores the cached access and inbox when a school is chosen or the app opens on one; forgets them on sign-out |
+
+Tests: `test/core/access_and_notifications_test.dart` (17) and `test/access_menus_and_inbox_test.dart` (15, including a real
+driver workspace hiding and showing screens as access changes).
+
 ## Not done yet (next)
 
-1. **Opt content screens in** to `SyncRefresh`, module by module (read-only lists first: notices, events, staff lists).
-2. **"Send mine anyway" for a conflict.** Today a conflict can only be kept waiting or resolved with the school's version,
-   because the refused change does not remember the school's version number it lost to.
-3. **Losing one school but keeping others**: the banner sends the person through sign-in again; a school picker would be gentler.
-4. **Access** (`access/me/`, hiding screens, the blocking flow) and the **notifications inbox**.
-5. Everything in `schoolOS_backend/docs/APP_CHANGES.md` sections B to H, feature by feature.
+1. **The general dashboard** (staff and students, `general.*`) still uses the app's fixed role list, not the owner's decisions.
+2. **Deleting a blocked activity's local data.** The contract asks for it; the app hides the screen but keeps the encrypted
+   records, because there is no map from an activity to the record types it uses yet.
+3. **Enforcing a block inside a screen that is already open** (the menu redraws; an open page stays until the person leaves it).
+4. **The owner's Access & Activities screen** (roles, per-person grants and blocks, reassign, audit).
+5. **Opt content screens in** to `SyncRefresh`, module by module (read-only lists first).
+6. **"Send mine anyway" for a conflict.**
+7. **Losing one school but keeping others**: the banner sends the person through sign-in again.
+8. Everything in `schoolOS_backend/docs/APP_CHANGES.md` sections B to H, feature by feature.
 
 ## Known problems that are not from this work
 

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/app/app_services.dart';
+import 'package:schoolos_app/core/access/access_controller.dart';
 import 'package:schoolos_app/core/appearance/school_appearance_controller.dart';
+import 'package:schoolos_app/core/notifications/notifications_controller.dart';
 import 'package:schoolos_app/core/auth/auth_repository.dart';
 import 'package:schoolos_app/core/network/api_config.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
@@ -38,6 +40,14 @@ class _DemoServices implements AppServices {
   final SyncEngine? syncEngine = null;
   @override
   final SyncCoordinator? syncCoordinator = null;
+  @override
+  final AccessController? access = null;
+  @override
+  final NotificationsController? notifications = null;
+  @override
+  Future<void> beginSchool(SchoolMembership membership) async {}
+  @override
+  Future<void> endSession() async {}
   @override
   bool get usesBackend => false;
   @override

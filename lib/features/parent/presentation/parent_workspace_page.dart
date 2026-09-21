@@ -1,3 +1,4 @@
+import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
@@ -55,7 +56,11 @@ class ParentWorkspacePage extends StatefulWidget {
   State<ParentWorkspacePage> createState() => _ParentWorkspacePageState();
 }
 
-class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefresh<ParentWorkspacePage> {
+class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefresh<ParentWorkspacePage>, AccessAware<ParentWorkspacePage> {
+  /// The screens the owner allows this person (all of them until their access is known).
+  List<ParentNavItem> get _navigation =>
+      visibleScreens('parent', parentNavigation, (item) => item.key);
+
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
 
@@ -71,9 +76,9 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
   late final ParentDocumentsRepository _documentsRepository;
   late final ParentAIRepository _aiRepository;
 
-  ParentNavItem get _activeItem => parentNavigation.firstWhere(
+  ParentNavItem get _activeItem => _navigation.firstWhere(
         (item) => item.key == _activeKey,
-        orElse: () => parentNavigation.first,
+        orElse: () => _navigation.first,
       );
 
   @override
@@ -127,7 +132,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
   }
 
   void _select(String key) {
-    if (key == _activeKey || !parentNavigation.any((item) => item.key == key)) {
+    if (key == _activeKey || !_navigation.any((item) => item.key == key)) {
       return;
     }
     setState(() => _activeKey = key);
@@ -296,6 +301,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
               memberships: widget.schoolSession.memberships,
               onSelected: _switchSchool,
             ),
+          NotificationsBell(membership: widget.membership),
           IconButton(
             tooltip: _pendingSyncCount == 0
                 ? 'Sync Center'
@@ -331,7 +337,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   children: [
-                    for (final item in parentNavigation)
+                    for (final item in _navigation)
                       _ParentNavigationTile(
                         item: item,
                         selected: item.key == _activeKey,
@@ -403,7 +409,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
                     child: ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       children: [
-                        for (final item in parentNavigation)
+                        for (final item in _navigation)
                           _ParentNavigationTile(
                             item: item,
                             selected: item.key == _activeKey,

@@ -1,15 +1,19 @@
 import '../core/appearance/school_appearance_controller.dart';
 import '../core/auth/auth_repository.dart';
 import '../core/auth/token_store.dart';
+import '../core/access/access_controller.dart';
 import '../core/database/local_database.dart';
 import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
 import '../core/security/payload_cipher.dart';
+import '../core/notifications/notifications_controller.dart';
 import '../core/sync/http_sync_transport.dart';
+import '../core/sync/round_follow_up.dart';
 import '../core/sync/sync_coordinator.dart';
 import '../core/sync/sync_engine.dart';
 import '../core/sync/sync_puller.dart';
 import '../core/tenancy/school_session_controller.dart';
+import '../shared/models/school_membership.dart';
 import '../core/tenancy/school_session_store.dart';
 
 class AppServices {
@@ -21,6 +25,8 @@ class AppServices {
     this.auth,
     this.syncEngine,
     this.syncCoordinator,
+    this.access,
+    this.notifications,
   });
 
   final LocalDatabase localDatabase;
@@ -38,7 +44,29 @@ class AppServices {
   /// Keeps the device and the school in step (sending, downloading, retrying). Null without a backend.
   final SyncCoordinator? syncCoordinator;
 
+  /// Which screens the person may use, as the owner decided. Null without a backend (everything is shown).
+  final AccessController? access;
+
+  /// The person's inbox. Null without a backend.
+  final NotificationsController? notifications;
+
   bool get usesBackend => auth != null;
+
+  /// A school has been chosen (after sign-in, or when the app opens on one):
+  /// load what is kept on the device for it, and start keeping in step.
+  Future<void> beginSchool(SchoolMembership membership) async {
+    await access?.restore(membership);
+    await notifications?.restore(membership);
+    syncCoordinator?.start();
+  }
+
+  /// The person signed out: forget what belonged to them and stop syncing.
+  Future<void> endSession() async {
+    syncCoordinator?.stop();
+    access?.clear();
+    notifications?.clear();
+    await auth?.signOut();
+  }
 
   static Future<AppServices> bootstrap({
     ApiConfig apiConfig = ApiConfig.fromEnvironment,
@@ -59,6 +87,8 @@ class AppServices {
     AuthRepository? auth;
     SyncEngine? syncEngine;
     SyncCoordinator? syncCoordinator;
+    AccessController? access;
+    NotificationsController? notifications;
     if (apiConfig.enabled) {
       final tokens = SecureTokenStore();
       final api = ApiClient(config: apiConfig, tokens: tokens);
@@ -80,14 +110,24 @@ class AppServices {
         await schoolSession.clear();
       }
 
-      syncCoordinator = SyncCoordinator(runner: syncEngine, auth: auth);
+      access = AccessController(api: api, store: localDatabase);
+      notifications = NotificationsController(api: api, store: localDatabase);
+      syncCoordinator = SyncCoordinator(
+        runner: syncEngine,
+        auth: auth,
+        afterRound: RoundFollowUp(
+          access: access,
+          notifications: notifications,
+          unsent: _LocalUnsentWork(localDatabase),
+          activeMembership: () => schoolSession.activeMembership,
+        ).call,
+      );
       // Every screen queues its changes through the database, so hearing about
       // them here means no screen has to remember to ask for a sync.
       localDatabase.onMutationQueued = syncCoordinator.requestSync;
-      if (schoolSession.hasActiveSchool) syncCoordinator.start();
     }
 
-    return AppServices._(
+    final services = AppServices._(
       localDatabase: localDatabase,
       schoolSession: schoolSession,
       schoolAppearance: schoolAppearance,
@@ -95,6 +135,21 @@ class AppServices {
       auth: auth,
       syncEngine: syncEngine,
       syncCoordinator: syncCoordinator,
+      access: access,
+      notifications: notifications,
     );
+    final active = schoolSession.activeMembership;
+    if (active != null) await services.beginSchool(active);
+    return services;
   }
+}
+
+class _LocalUnsentWork implements UnsentWork {
+  _LocalUnsentWork(this._database);
+
+  final LocalDatabase _database;
+
+  @override
+  Future<bool> hasUnsentChanges(String tenantId) async =>
+      (await _database.pendingMutations(tenantId: tenantId, limit: 1)).isNotEmpty;
 }

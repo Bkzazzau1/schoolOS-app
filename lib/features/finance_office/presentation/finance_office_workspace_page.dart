@@ -1,3 +1,4 @@
+import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
@@ -50,20 +51,24 @@ class FinanceOfficeWorkspacePage extends StatefulWidget {
       _FinanceOfficeWorkspacePageState();
 }
 
-class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage> with SyncRefresh<FinanceOfficeWorkspacePage> {
+class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage> with SyncRefresh<FinanceOfficeWorkspacePage>, AccessAware<FinanceOfficeWorkspacePage> {
+  /// The screens the owner allows this person (all of them until their access is known).
+  List<FinanceOfficeNavItem> get _navigation =>
+      visibleScreens('finance', financeOfficeNavigation, (item) => item.key);
+
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   late final FinanceConcessionsRepository _concessions;
 
-  FinanceOfficeNavItem get _activeItem => financeOfficeNavigation.firstWhere(
+  FinanceOfficeNavItem get _activeItem => _navigation.firstWhere(
         (item) => item.key == _activeKey,
-        orElse: () => financeOfficeNavigation.first,
+        orElse: () => _navigation.first,
       );
 
   @override
   void initState() {
     super.initState();
-    if (financeOfficeNavigation.any((item) => item.key == widget.initialPage)) {
+    if (_navigation.any((item) => item.key == widget.initialPage)) {
       _activeKey = widget.initialPage;
     }
     _concessions = FinanceConcessionsRepository(
@@ -74,7 +79,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
   }
 
   void _select(String key) {
-    if (!financeOfficeNavigation.any((item) => item.key == key)) return;
+    if (!_navigation.any((item) => item.key == key)) return;
     setState(() => _activeKey = key);
   }
 
@@ -205,6 +210,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
               memberships: widget.schoolSession.memberships,
               onSelected: _switchSchool,
             ),
+          NotificationsBell(membership: widget.membership),
           IconButton(
             tooltip: _pendingSyncCount == 0
                 ? 'Sync Center'
@@ -234,7 +240,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                 subtitle: Text('Finance operations'),
               ),
               const Divider(),
-              for (final item in financeOfficeNavigation)
+              for (final item in _navigation)
                 ListTile(
                   selected: item.key == _activeKey,
                   leading: Icon(_iconFor(item.key)),
@@ -315,7 +321,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                   Expanded(
                     child: ListView(
                       children: [
-                        for (final item in financeOfficeNavigation)
+                        for (final item in _navigation)
                           ListTile(
                             selected: item.key == _activeKey,
                             selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
@@ -367,6 +373,8 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                             onSelected: _switchSchool,
                           ),
                         const SizedBox(width: 8),
+                        NotificationsBell(membership: widget.membership),
+                        const SizedBox(width: 6),
                         OutlinedButton.icon(
                           onPressed: _openSyncCenter,
                           icon: const Icon(Icons.cloud_sync_outlined, size: 18),

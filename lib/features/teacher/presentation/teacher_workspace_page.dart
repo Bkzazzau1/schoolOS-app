@@ -1,3 +1,4 @@
+import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
@@ -63,7 +64,11 @@ class TeacherWorkspacePage extends StatefulWidget {
   State<TeacherWorkspacePage> createState() => _TeacherWorkspacePageState();
 }
 
-class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRefresh<TeacherWorkspacePage> {
+class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRefresh<TeacherWorkspacePage>, AccessAware<TeacherWorkspacePage> {
+  /// The screens the owner allows this person (all of them until their access is known).
+  List<TeacherNavItem> get _navigation =>
+      visibleScreens('teacher', teacherNavigation, (item) => item.key);
+
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
 
@@ -83,9 +88,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
   late final TeacherPerformanceRepository _performance;
   late final TeacherProfileRepository _profile;
 
-  TeacherNavItem get _activeItem => teacherNavigation.firstWhere(
+  TeacherNavItem get _activeItem => _navigation.firstWhere(
         (item) => item.key == _activeKey,
-        orElse: () => teacherNavigation.first,
+        orElse: () => _navigation.first,
       );
 
   @override
@@ -110,7 +115,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
   }
 
   void _select(String key) {
-    if (!teacherNavigation.any((item) => item.key == key)) return;
+    if (!_navigation.any((item) => item.key == key)) return;
     setState(() => _activeKey = key);
   }
 
@@ -213,6 +218,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
           actions: [
             if (widget.schoolSession.canSwitchSchool)
               _SchoolSwitcherButton(memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
+            NotificationsBell(membership: widget.membership),
             IconButton(
               tooltip: _pendingSyncCount == 0 ? 'Sync Center' : 'Sync Center · $_pendingSyncCount pending',
               onPressed: _openSyncCenter,
@@ -237,7 +243,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
               children: [
                 const ListTile(title: Text('Teacher Portal', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: Text('Teaching workspace')),
                 const Divider(),
-                for (final item in teacherNavigation)
+                for (final item in _navigation)
                   ListTile(
                     selected: item.key == _activeKey,
                     leading: Icon(_iconFor(item.key)),
@@ -309,7 +315,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
                   Expanded(
                     child: ListView(
                       children: [
-                        for (final item in teacherNavigation)
+                        for (final item in _navigation)
                           ListTile(
                             selected: item.key == _activeKey,
                             selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
@@ -359,6 +365,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
                         if (widget.schoolSession.canSwitchSchool)
                           _SchoolSwitcherButton(memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
                         const SizedBox(width: 8),
+                        NotificationsBell(membership: widget.membership),
+                        const SizedBox(width: 6),
                         OutlinedButton.icon(
                           onPressed: _openSyncCenter,
                           icon: const Icon(Icons.cloud_sync_outlined, size: 18),
