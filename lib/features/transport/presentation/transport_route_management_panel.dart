@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../data/transport_rider_assignment_repository.dart';
 import '../data/transport_route_management_repository.dart';
+import '../data/transport_vehicle_readiness_repository.dart';
 import '../domain/transport_route_management_models.dart';
 import 'transport_rider_assignments_panel.dart';
+import 'transport_vehicle_readiness_panel.dart';
 
 class TransportRouteManagementPanel extends StatefulWidget {
   const TransportRouteManagementPanel({
@@ -24,12 +26,18 @@ class _TransportRouteManagementPanelState
     extends State<TransportRouteManagementPanel> {
   late Future<TransportRouteManagementSnapshot> _future;
   late final TransportRiderAssignmentRepository _riders;
+  late final TransportVehicleReadinessRepository _vehicles;
   bool _saving = false;
+  int _childRevision = 0;
 
   @override
   void initState() {
     super.initState();
     _riders = TransportRiderAssignmentRepository(
+      localDatabase: widget.repository.localDatabase,
+      schoolSession: widget.repository.schoolSession,
+    );
+    _vehicles = TransportVehicleReadinessRepository(
       localDatabase: widget.repository.localDatabase,
       schoolSession: widget.repository.schoolSession,
     );
@@ -42,7 +50,10 @@ class _TransportRouteManagementPanelState
 
   void _changed() {
     widget.onChanged?.call();
-    _reload();
+    setState(() {
+      _childRevision++;
+      _future = widget.repository.load();
+    });
   }
 
   @override
@@ -89,8 +100,15 @@ class _TransportRouteManagementPanelState
         ),
         const SizedBox(height: 18),
         TransportRiderAssignmentsPanel(
+          key: ValueKey('transport-riders-$_childRevision'),
           repository: _riders,
           routeManagementRepository: widget.repository,
+          onChanged: _changed,
+        ),
+        const SizedBox(height: 18),
+        TransportVehicleReadinessPanel(
+          key: ValueKey('transport-vehicles-$_childRevision'),
+          repository: _vehicles,
           onChanged: _changed,
         ),
       ],
@@ -316,6 +334,7 @@ class _TransportRouteManagementPanelState
       setState(() {
         _saving = false;
         _future = widget.repository.load();
+        if (success) _childRevision++;
       });
       if (success) widget.onChanged?.call();
     } catch (error) {
