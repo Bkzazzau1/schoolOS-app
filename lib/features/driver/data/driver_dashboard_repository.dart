@@ -152,7 +152,7 @@ class DriverDashboardRepository {
     );
     final nextAction = clearanceError != null && nextCheckPeriod != null
         ? clearanceError
-        : vehicleCheckRequired && nextCheckPeriod != null
+        : vehicleCheckRequired
             ? _vehicleCheckAction(nextCheckPeriod, nextCheck)
             : operationalNextAction;
 

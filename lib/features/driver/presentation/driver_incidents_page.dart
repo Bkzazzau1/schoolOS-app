@@ -410,7 +410,7 @@ class _IncidentReportDialogState extends State<_IncidentReportDialog> {
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<DriverIncidentCategory>(
-                  value: _category,
+                  initialValue: _category,
                   decoration: const InputDecoration(labelText: 'Category'),
                   items: [
                     for (final value in DriverIncidentCategory.values)
@@ -425,7 +425,7 @@ class _IncidentReportDialogState extends State<_IncidentReportDialog> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<DriverIncidentSeverity>(
-                  value: _severity,
+                  initialValue: _severity,
                   decoration: const InputDecoration(labelText: 'Severity'),
                   items: [
                     for (final value in DriverIncidentSeverity.values)
@@ -440,7 +440,7 @@ class _IncidentReportDialogState extends State<_IncidentReportDialog> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _studentId.isEmpty ? null : _studentId,
+                  initialValue: _studentId.isEmpty ? null : _studentId,
                   decoration: const InputDecoration(
                     labelText: 'Related student (optional)',
                   ),
