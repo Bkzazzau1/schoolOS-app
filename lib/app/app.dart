@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/administrator/presentation/administrator_workspace_page.dart';
+import '../features/alumni/presentation/alumni_workspace_page.dart';
 import '../features/authentication/presentation/login_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
 import '../features/driver/presentation/driver_workspace_page.dart';
@@ -17,10 +18,8 @@ import '../features/invitations/presentation/invitation_accept_page.dart';
 import 'app_services.dart';
 import 'sync_status_banner.dart';
 
-/// Lets the sync banner take the person back to the login screen from anywhere.
 final _navigatorKey = GlobalKey<NavigatorState>();
 
-/// Ends the current sign-in (unsent work stays on the device) and opens the login screen.
 Future<void> _signInAgain(AppServices services) async {
   await services.endSession();
   _navigatorKey.currentState?.pushAndRemoveUntil(
@@ -35,8 +34,6 @@ class SchoolOsApp extends StatelessWidget {
   const SchoolOsApp({super.key, required this.services, this.initialInvitationLink});
 
   final AppServices services;
-
-  /// An invitation link the app was opened with. Used only when nobody is signed in.
   final String? initialInvitationLink;
 
   @override
@@ -109,6 +106,13 @@ class SchoolOsApp extends StatelessWidget {
           );
         } else if (restoredMembership.role == SchoolRole.driver) {
           home = DriverWorkspacePage(
+            membership: restoredMembership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+          );
+        } else if (restoredMembership.role == SchoolRole.alumni) {
+          home = AlumniWorkspacePage(
             membership: restoredMembership,
             localDatabase: services.localDatabase,
             schoolSession: services.schoolSession,
