@@ -9,7 +9,6 @@ import '../domain/transport_models.dart';
 import '../domain/transport_rider_assignment_models.dart';
 import '../domain/transport_route_management_models.dart';
 import 'transport_demo_data.dart';
-import 'transport_repository.dart';
 import 'transport_route_plan_demo_data.dart';
 
 class TransportRouteManagementRepository {

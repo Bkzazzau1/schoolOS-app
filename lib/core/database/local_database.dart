@@ -6,8 +6,9 @@ import 'package:sqlite3/sqlite3.dart';
 
 import '../security/payload_cipher.dart';
 import '../sync/sync_mutation.dart';
+import '../sync/sync_store.dart';
 
-class LocalDatabase {
+class LocalDatabase implements SyncStore {
   LocalDatabase({required PayloadCipher cipher}) : _cipher = cipher;
 
   final PayloadCipher _cipher;
@@ -73,9 +74,61 @@ class LocalDatabase {
       ON sync_outbox (tenant_id, status, created_at);
     ''');
 
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_cursors (
+        tenant_id TEXT NOT NULL,
+        membership_id TEXT NOT NULL,
+        cursor INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (tenant_id, membership_id)
+      );
+    ''');
+
     _database = db;
   }
 
+  @override
+  Future<int> readSyncCursor({
+    required String tenantId,
+    required String membershipId,
+  }) async {
+    _requireTenant(tenantId);
+    final rows = _db.select(
+      'SELECT cursor FROM sync_cursors WHERE tenant_id = ? AND membership_id = ?;',
+      [tenantId, membershipId],
+    );
+    return rows.isEmpty ? 0 : rows.first['cursor'] as int;
+  }
+
+  @override
+  Future<void> writeSyncCursor({
+    required String tenantId,
+    required String membershipId,
+    required int cursor,
+  }) async {
+    _requireTenant(tenantId);
+    _db.execute(
+      '''
+      INSERT INTO sync_cursors (tenant_id, membership_id, cursor) VALUES (?, ?, ?)
+      ON CONFLICT(tenant_id, membership_id) DO UPDATE SET cursor = excluded.cursor;
+      ''',
+      [tenantId, membershipId, cursor],
+    );
+  }
+
+  @override
+  Future<void> deleteLocalRecord({
+    required String tenantId,
+    required String entityType,
+    required String entityId,
+  }) async {
+    _requireTenant(tenantId);
+    _db.execute(
+      'DELETE FROM local_records WHERE tenant_id = ? AND entity_type = ? AND entity_id = ?;',
+      [tenantId, entityType, entityId],
+    );
+  }
+
+  @override
   Future<void> upsertLocalRecord({
     required String tenantId,
     required String entityType,
@@ -117,6 +170,7 @@ class LocalDatabase {
     );
   }
 
+  @override
   Future<LocalRecord?> getLocalRecord({
     required String tenantId,
     required String entityType,
@@ -370,6 +424,15 @@ class LocalDatabase {
       WHERE id = ? AND tenant_id = ? AND status = 'failed';
       ''',
       [mutationId, tenantId],
+    );
+  }
+
+  /// Puts a change that was being sent back in the queue, untouched, because it
+  /// could not be delivered yet (no signal). It is not a failure.
+  void markMutationPending(String mutationId) {
+    _db.execute(
+      "UPDATE sync_outbox SET status = 'pending' WHERE id = ? AND status = 'syncing';",
+      [mutationId],
     );
   }
 

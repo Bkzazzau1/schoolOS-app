@@ -1,5 +1,6 @@
 import '../database/local_database.dart';
 import '../tenancy/school_session_controller.dart';
+import 'sync_puller.dart';
 import 'sync_transport.dart';
 
 class SyncRunSummary {
@@ -8,26 +9,45 @@ class SyncRunSummary {
     required this.synced,
     required this.failed,
     required this.conflicts,
+    this.pulled = 0,
+    this.stoppedOffline = false,
+    this.needsSignIn = false,
   });
 
   final int attempted;
   final int synced;
   final int failed;
   final int conflicts;
+
+  /// Records downloaded from the school since the last run.
+  final int pulled;
+
+  /// The run stopped because the server could not be reached; nothing was lost
+  /// and the rest of the queue is still waiting.
+  final bool stoppedOffline;
+
+  /// The sign-in expired: the person must sign in again before anything more is sent.
+  final bool needsSignIn;
 }
 
+/// Sends the device's queued changes to the server, then downloads what changed
+/// in the school. Send first, so the device's own edits reach the server before
+/// it asks what changed.
 class SyncEngine {
   SyncEngine({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
     required SyncTransport transport,
+    SyncPuller? puller,
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession,
-        _transport = transport;
+        _transport = transport,
+        _puller = puller;
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final SyncTransport _transport;
+  final SyncPuller? _puller;
 
   bool _running = false;
 
@@ -47,12 +67,16 @@ class SyncEngine {
     var synced = 0;
     var failed = 0;
     var conflicts = 0;
+    var stoppedOffline = false;
+    var needsSignIn = false;
+    var attempted = 0;
 
     try {
       final mutations = await _localDatabase.pendingMutations(
         tenantId: membership.schoolId,
         limit: batchSize,
       );
+      attempted = mutations.length;
 
       for (final mutation in mutations) {
         if (mutation.tenantId != membership.schoolId ||
@@ -89,17 +113,38 @@ class SyncEngine {
               );
               failed += 1;
           }
+        } on SyncRetryLater catch (later) {
+          // Not this change's fault: put it back and stop. Changes must reach
+          // the server in the order they were made, so the rest wait too.
+          _localDatabase.markMutationPending(mutation.id);
+          stoppedOffline = true;
+          needsSignIn = later.needsSignIn;
+          break;
         } catch (error) {
           _localDatabase.markMutationFailed(mutation.id, error.toString());
           failed += 1;
         }
       }
 
+      var pulled = 0;
+      if (!stoppedOffline && _puller != null) {
+        try {
+          final summary = await _puller.pull(membership);
+          pulled = summary.applied + summary.removed;
+        } on SyncRetryLater catch (later) {
+          stoppedOffline = true;
+          needsSignIn = later.needsSignIn;
+        }
+      }
+
       return SyncRunSummary(
-        attempted: mutations.length,
+        attempted: attempted,
         synced: synced,
         failed: failed,
         conflicts: conflicts,
+        pulled: pulled,
+        stoppedOffline: stoppedOffline,
+        needsSignIn: needsSignIn,
       );
     } finally {
       _running = false;

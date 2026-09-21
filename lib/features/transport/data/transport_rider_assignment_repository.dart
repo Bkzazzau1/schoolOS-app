@@ -10,7 +10,6 @@ import '../../driver/domain/driver_morning_run_models.dart';
 import '../domain/transport_models.dart';
 import '../domain/transport_rider_assignment_models.dart';
 import '../domain/transport_route_management_models.dart';
-import 'transport_repository.dart';
 import 'transport_route_management_repository.dart';
 
 class TransportRiderAssignmentRepository {

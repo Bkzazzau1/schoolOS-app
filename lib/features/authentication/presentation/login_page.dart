@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_services.dart';
+import '../../../core/network/api_exceptions.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
@@ -27,6 +28,7 @@ class _LoginPageState extends State<LoginPage> {
   final _identityController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _busy = false;
 
   static const _demoMemberships = <SchoolMembership>[
     SchoolMembership(
@@ -107,6 +109,7 @@ class _LoginPageState extends State<LoginPage> {
                         setState(() => _obscurePassword = !_obscurePassword);
                       },
                       onSubmit: _submit,
+                      backend: widget.services.usesBackend,
                     ),
                   ],
                 ),
@@ -135,6 +138,7 @@ class _LoginPageState extends State<LoginPage> {
                             );
                           },
                           onSubmit: _submit,
+                          backend: widget.services.usesBackend,
                         ),
                       ),
                     ),
@@ -149,27 +153,72 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _busy) return;
 
-    // Foundation-only flow. Real credentials and memberships will come from
-    // the SchoolOS authentication API. Keeping this explicit prevents mock
-    // authentication from leaking into the production data layer later.
-    await widget.services.schoolSession.setMemberships(_demoMemberships);
-    if (!mounted) return;
-
-    if (_demoMemberships.length == 1) {
-      await _openMembershipHome(context, _demoMemberships.single);
+    final auth = widget.services.auth;
+    if (auth == null) {
+      // No backend configured: the built-in demo, exactly as before.
+      await widget.services.schoolSession.setMemberships(_demoMemberships);
+      if (!mounted) return;
+      _chooseSchool(_demoMemberships);
       return;
     }
 
+    setState(() => _busy = true);
+    try {
+      final profile = await auth.signIn(
+        _identityController.text,
+        _passwordController.text,
+      );
+      if (!mounted) return;
+      if (profile.memberships.isEmpty) {
+        await auth.signOut();
+        _showError(
+          'You are signed in, but not connected to any school yet. '
+          'Ask your school office to send you an invitation.',
+        );
+        return;
+      }
+      _chooseSchool(profile.memberships);
+    } on ApiOfflineException {
+      _showError(
+        'Could not reach SchoolOS. Check your connection and try again.',
+      );
+    } on ApiException catch (error) {
+      // A wrong email or a wrong password get the same words, so the screen
+      // never tells anyone which of the two was wrong.
+      _showError(
+        error.statusCode == 401
+            ? 'The email or password is not correct.'
+            : error.message,
+      );
+    } on SessionExpiredException catch (error) {
+      _showError(error.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _chooseSchool(List<SchoolMembership> memberships) {
+    if (memberships.length == 1) {
+      _openMembershipHome(context, memberships.single);
+      return;
+    }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (context) => SchoolSelectionPage(
-          memberships: _demoMemberships,
+          memberships: memberships,
           onSelected: (membership) => _openMembershipHome(context, membership),
         ),
       ),
     );
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openMembershipHome(
@@ -255,8 +304,11 @@ class _LoginCard extends StatelessWidget {
     required this.obscurePassword,
     required this.onTogglePassword,
     required this.onSubmit,
+    this.backend = false,
   });
 
+  /// A backend is configured: real sign-in, and no demo panel.
+  final bool backend;
   final GlobalKey<FormState> formKey;
   final List<SchoolMembership> demoMemberships;
   static const _demoUsername = 'demo';
@@ -303,13 +355,17 @@ class _LoginCard extends StatelessWidget {
                 controller: identityController,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Username, email or phone',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
+                decoration: InputDecoration(
+                  labelText: backend
+                      ? 'Email address'
+                      : 'Username, email or phone',
+                  prefixIcon: const Icon(Icons.person_outline_rounded),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Enter your username, email or phone';
+                    return backend
+                        ? 'Enter your email address'
+                        : 'Enter your username, email or phone';
                   }
                   return null;
                 },
@@ -351,75 +407,77 @@ class _LoginCard extends StatelessWidget {
                   child: Text('Sign in'),
                 ),
               ),
-              const SizedBox(height: 14),
-              Text(
-                'Demo mode: use the sample details below, or any non-empty username and password.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              if (!backend) ...[
+                const SizedBox(height: 14),
+                Text(
+                  'Demo mode: use the sample details below, or any non-empty username and password.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: theme.colorScheme.outlineVariant),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Try the demo',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const SelectableText('Username: $_demoUsername'),
-                    const SelectableText('Password: $_demoPassword'),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        identityController.text = _demoUsername;
-                        passwordController.text = _demoPassword;
-                      },
-                      icon: const Icon(Icons.edit_note_rounded),
-                      label: const Text('Use demo details'),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Available demo roles',
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Sign in, then choose a school and role. These details work for all roles below.',
-                    ),
-                    const SizedBox(height: 8),
-                    for (final membership in demoMemberships)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              membership.roleLabel,
-                              style: theme.textTheme.labelLarge,
-                            ),
-                            Text(
-                              membership.schoolName,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Try the demo',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                  ],
+                      const SizedBox(height: 8),
+                      const SelectableText('Username: $_demoUsername'),
+                      const SelectableText('Password: $_demoPassword'),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          identityController.text = _demoUsername;
+                          passwordController.text = _demoPassword;
+                        },
+                        icon: const Icon(Icons.edit_note_rounded),
+                        label: const Text('Use demo details'),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Available demo roles',
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Sign in, then choose a school and role. These details work for all roles below.',
+                      ),
+                      const SizedBox(height: 8),
+                      for (final membership in demoMemberships)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                membership.roleLabel,
+                                style: theme.textTheme.labelLarge,
+                              ),
+                              Text(
+                                membership.schoolName,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

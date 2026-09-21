@@ -3,7 +3,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/app/app_services.dart';
 import 'package:schoolos_app/core/appearance/school_appearance_controller.dart';
+import 'package:schoolos_app/core/auth/auth_repository.dart';
+import 'package:schoolos_app/core/network/api_config.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
+import 'package:schoolos_app/core/sync/sync_engine.dart';
 import 'package:schoolos_app/core/sync/sync_mutation.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/core/tenancy/school_session_store.dart';
@@ -26,6 +29,14 @@ class _DemoDatabase implements LocalDatabase {
 }
 
 class _DemoServices implements AppServices {
+  @override
+  final apiConfig = const ApiConfig('');
+  @override
+  final AuthRepository? auth = null;
+  @override
+  final SyncEngine? syncEngine = null;
+  @override
+  bool get usesBackend => false;
   @override
   final localDatabase = _DemoDatabase();
   @override

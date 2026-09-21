@@ -18,7 +18,21 @@ class SyncPushResult {
   final String? message;
 }
 
-/// Network boundary implemented later by the SchoolOS Django/DRF client.
+/// Thrown by a transport when the change could not be delivered *yet* (no
+/// signal, server down, sign-in expired). It is not a refusal: the change stays
+/// in the queue and the run stops, to be tried again later.
+class SyncRetryLater implements Exception {
+  const SyncRetryLater(this.reason, {this.needsSignIn = false});
+
+  final String reason;
+  final bool needsSignIn;
+
+  @override
+  String toString() => reason;
+}
+
+/// Network boundary between the sync engine and the SchoolOS backend
+/// (`HttpSyncTransport`).
 ///
 /// Keeping transport separate from the sync engine means offline persistence,
 /// conflict handling and retry behavior can be tested without HTTP.
