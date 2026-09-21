@@ -367,7 +367,9 @@ class TransportIncidentDefectControlRepository {
       membershipId: manager.id,
       entityType: entityType,
       entityId: record.entityId,
-      operation: SyncOperation.update,
+      operation: record.serverVersion == null
+          ? SyncOperation.create
+          : SyncOperation.update,
       payload: payload,
       baseVersion: record.serverVersion,
     );
