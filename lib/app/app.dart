@@ -11,6 +11,7 @@ import '../features/proprietor/presentation/proprietor_workspace_page.dart';
 import '../features/teacher/presentation/teacher_workspace_page.dart';
 import '../shared/models/school_membership.dart';
 import '../core/sync/sync_scope.dart';
+import '../features/proprietor/data/owner_access_scope.dart';
 import 'app_services.dart';
 import 'sync_status_banner.dart';
 
@@ -146,6 +147,10 @@ class SchoolOsApp extends StatelessWidget {
             final notifications = services.notifications;
             Widget tree = scoped;
             if (access != null) tree = AccessScope(access: access, child: tree);
+            final ownerAccess = services.ownerAccess;
+            if (ownerAccess != null) {
+              tree = OwnerAccessScope(repository: ownerAccess, child: tree);
+            }
             if (notifications != null) {
               tree = NotificationsScope(notifications: notifications, child: tree);
             }

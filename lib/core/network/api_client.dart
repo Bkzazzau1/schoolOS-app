@@ -34,8 +34,18 @@ class ApiClient {
   Future<Object?> get(String path, {Map<String, String>? query}) =>
       _send('GET', path, query: query);
 
-  Future<Object?> post(String path, {Object? body, bool authenticated = true}) =>
-      _send('POST', path, body: body, authenticated: authenticated);
+  Future<Object?> post(
+    String path, {
+    Object? body,
+    Map<String, String>? query,
+    bool authenticated = true,
+  }) => _send('POST', path, query: query, body: body, authenticated: authenticated);
+
+  Future<Object?> put(String path, {Object? body, Map<String, String>? query}) =>
+      _send('PUT', path, query: query, body: body);
+
+  Future<Object?> delete(String path, {Map<String, String>? query}) =>
+      _send('DELETE', path, query: query);
 
   Future<Object?> _send(
     String method,
@@ -75,9 +85,13 @@ class ApiClient {
     }
     final uri = _config.uri(path, query);
     try {
-      final future = method == 'GET'
-          ? _http.get(uri, headers: headers)
-          : _http.post(uri, headers: headers, body: jsonEncode(body ?? const {}));
+      final encoded = jsonEncode(body ?? const {});
+      final future = switch (method) {
+        'GET' => _http.get(uri, headers: headers),
+        'DELETE' => _http.delete(uri, headers: headers),
+        'PUT' => _http.put(uri, headers: headers, body: encoded),
+        _ => _http.post(uri, headers: headers, body: encoded),
+      };
       return await future.timeout(timeout);
     } on TimeoutException {
       throw const ApiOfflineException('The server took too long to answer.');

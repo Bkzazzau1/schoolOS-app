@@ -1,4 +1,7 @@
 import '../../notifications/presentation/notifications_bell.dart';
+import '../data/owner_access_controller.dart';
+import '../data/owner_access_scope.dart';
+import 'owner_access_page.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
@@ -104,11 +107,24 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _OwnerNavItem('structure', 'Structure & Leadership', Icons.account_tree_rounded),
     _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined),
     _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined),
+    _OwnerNavItem('access', 'Access & Activities', Icons.admin_panel_settings_outlined),
   ];
 
   /// The screens the owner allows this person (all of them until their access is known).
-  List<_OwnerNavItem> get _navigation =>
-      visibleScreens('owner', _allNavigation, (item) => item.key);
+  List<_OwnerNavItem> get _navigation {
+    final items = visibleScreens('owner', _allNavigation, (item) => item.key);
+    // Deciding access needs the server, so the screen exists only when there is one.
+    if (OwnerAccessScope.maybeOf(context) != null) return items;
+    return [for (final item in items) if (item.key != 'access') item];
+  }
+
+  OwnerAccessController? _accessController;
+
+  OwnerAccessController? _ownerAccess() {
+    final repository = OwnerAccessScope.maybeOf(context);
+    if (repository == null) return null;
+    return _accessController ??= OwnerAccessController(repository: repository, owner: widget.membership);
+  }
 
   @override
   void initState() {
@@ -633,6 +649,9 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           onDashboard: () => setState(() => _activeModule = 'overview'),
           onAppearanceChanged: _refreshPendingCount,
         ),
+      'access' => _ownerAccess() == null
+          ? const SizedBox.shrink()
+          : OwnerAccessPage(controller: _ownerAccess()!),
       'school-life' => ProprietorSchoolLifePage(
           schoolName: widget.membership.schoolName,
           onDashboard: () => setState(() => _activeModule = 'overview'),

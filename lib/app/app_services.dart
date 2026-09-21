@@ -11,6 +11,7 @@ import '../core/sync/http_sync_transport.dart';
 import '../core/sync/round_follow_up.dart';
 import '../core/sync/sync_coordinator.dart';
 import '../core/sync/sync_engine.dart';
+import '../features/proprietor/data/owner_access_repository.dart';
 import '../core/sync/sync_puller.dart';
 import '../core/tenancy/school_session_controller.dart';
 import '../shared/models/school_membership.dart';
@@ -27,6 +28,7 @@ class AppServices {
     this.syncCoordinator,
     this.access,
     this.notifications,
+    this.ownerAccess,
   });
 
   final LocalDatabase localDatabase;
@@ -49,6 +51,9 @@ class AppServices {
 
   /// The person's inbox. Null without a backend.
   final NotificationsController? notifications;
+
+  /// The owner's calls for deciding who sees which screen. Null without a backend.
+  final OwnerAccessRepository? ownerAccess;
 
   bool get usesBackend => auth != null;
 
@@ -89,6 +94,7 @@ class AppServices {
     SyncCoordinator? syncCoordinator;
     AccessController? access;
     NotificationsController? notifications;
+    OwnerAccessRepository? ownerAccess;
     if (apiConfig.enabled) {
       final tokens = SecureTokenStore();
       final api = ApiClient(config: apiConfig, tokens: tokens);
@@ -110,6 +116,7 @@ class AppServices {
         await schoolSession.clear();
       }
 
+      ownerAccess = OwnerAccessRepository(api: api);
       access = AccessController(api: api, store: localDatabase);
       notifications = NotificationsController(api: api, store: localDatabase);
       syncCoordinator = SyncCoordinator(
@@ -137,6 +144,7 @@ class AppServices {
       syncCoordinator: syncCoordinator,
       access: access,
       notifications: notifications,
+      ownerAccess: ownerAccess,
     );
     final active = schoolSession.activeMembership;
     if (active != null) await services.beginSchool(active);

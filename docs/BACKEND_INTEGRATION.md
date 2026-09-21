@@ -93,17 +93,36 @@ typing in it could wipe their text. Each screen opts in with the mixin above, re
 Tests: `test/core/access_and_notifications_test.dart` (17) and `test/access_menus_and_inbox_test.dart` (15, including a real
 driver workspace hiding and showing screens as access changes).
 
+## Done (step 5): the owner's Access & Activities screen
+
+Owner workspace, **Access & Activities** (shown only when there is a server; deciding access needs one). Every change goes
+to the server first and is then read back, so what the owner sees is what the server holds.
+
+| Tab | What the owner can do |
+| --- | --- |
+| **People** | Search everyone. Open a person to see every screen with why they have it ("role default", "given by you until...", "being taken away after their next sync, and by..."). A switch gives or takes away a screen; a lock replaces it for landing screens and the access screen itself. **Reset** puts them back on their role's setting. **Move to someone else...** hands a screen to another person in one step |
+| **Roles** | What each role gets by default. Tap a role, tick or untick screens (landing screens stay on), Save (asks first and says how many people it affects), or Reset to the built-in screens |
+| **Waiting** | Blocks that have not taken effect yet, with the latest date, and a Cancel |
+| **History** | Who changed what, in sentences |
+
+Giving a screen that shows money or personal information warns first. Taking one away asks **after they next sync**
+(recommended; their app sends unsent work first) or **right now**, plus a note and an optional end date. A refusal from
+the server ("A landing screen cannot be taken away.") is shown in its own words. Offline, the screen says so and can try again.
+
+Files: `features/proprietor/domain/owner_access_models.dart`, `data/owner_access_repository.dart`,
+`data/owner_access_controller.dart`, `presentation/owner_access_*.dart`. `ApiClient` gained `put`, `delete` and query
+parameters on `post`. Tests: `test/owner_access_screen_test.dart` (28), including the exact request each button sends.
+
 ## Not done yet (next)
 
 1. **The general dashboard** (staff and students, `general.*`) still uses the app's fixed role list, not the owner's decisions.
 2. **Deleting a blocked activity's local data.** The contract asks for it; the app hides the screen but keeps the encrypted
    records, because there is no map from an activity to the record types it uses yet.
 3. **Enforcing a block inside a screen that is already open** (the menu redraws; an open page stays until the person leaves it).
-4. **The owner's Access & Activities screen** (roles, per-person grants and blocks, reassign, audit).
-5. **Opt content screens in** to `SyncRefresh`, module by module (read-only lists first).
-6. **"Send mine anyway" for a conflict.**
-7. **Losing one school but keeping others**: the banner sends the person through sign-in again.
-8. Everything in `schoolOS_backend/docs/APP_CHANGES.md` sections B to H, feature by feature.
+4. **Opt content screens in** to `SyncRefresh`, module by module (read-only lists first).
+5. **"Send mine anyway" for a conflict.**
+6. **Losing one school but keeping others**: the banner sends the person through sign-in again.
+7. Everything in `schoolOS_backend/docs/APP_CHANGES.md` sections B to H, feature by feature.
 
 ## Known problems that are not from this work
 

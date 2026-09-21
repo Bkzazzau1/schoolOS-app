@@ -4,6 +4,7 @@ import 'package:schoolos_app/app/app_services.dart';
 import 'package:schoolos_app/app/sync_status_banner.dart';
 import 'package:schoolos_app/core/access/access_controller.dart';
 import 'package:schoolos_app/core/appearance/school_appearance_controller.dart';
+import 'package:schoolos_app/features/proprietor/data/owner_access_repository.dart';
 import 'package:schoolos_app/core/notifications/notifications_controller.dart';
 import 'package:schoolos_app/core/auth/auth_repository.dart';
 import 'package:schoolos_app/core/auth/token_store.dart';
@@ -70,6 +71,8 @@ class _BackendServices implements AppServices {
   bool get usesBackend => true;
   @override
   final AccessController? access = null;
+  @override
+  final OwnerAccessRepository? ownerAccess = null;
   @override
   final NotificationsController? notifications = null;
   @override
