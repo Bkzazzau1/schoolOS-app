@@ -54,6 +54,10 @@ class _DemoServices implements AppServices {
   Future<void> beginSchool(SchoolMembership membership) async {}
   @override
   Future<void> endSession() async {}
+
+  /// Fields added to AppServices later are optional; a fake answers null for them.
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
   @override
   bool get usesBackend => false;
   @override

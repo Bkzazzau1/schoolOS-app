@@ -71,7 +71,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
     if (_navigation.any((item) => item.key == widget.initialPage)) {
       _activeKey = widget.initialPage;
     }
-    _concessions = FinanceConcessionsRepository(
+    _concessions = FinanceConcessionsRepository(confirm: ServerConfirmScope.maybeOf(context), 
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );

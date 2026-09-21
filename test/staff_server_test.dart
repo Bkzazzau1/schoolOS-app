@@ -182,6 +182,56 @@ void main() {
     });
   });
 
+  group('anyone else proposing staff, with a server', () {
+    Future<void> propose(StaffProposalRepository proposals) => proposals.propose(
+          name: 'Aisha Bello', roleTitle: 'Teacher', systemRole: 'teacher', workArea: 'Primary',
+          phone: '08039990001', nin: '99999999991', gross: 150000, deductions: 10000, email: 'aisha@school.ng',
+        );
+
+    StaffProposalRepository asPrincipal(void Function() whenSyncing) {
+      server = FakeServer((r) async => jsonResponse({}));
+      api = StaffServerApi(api: apiFor(server), afterChange: () async => whenSyncing());
+      return StaffProposalRepository(database: db, session: session, remote: api);
+    }
+
+    test('a refusal (a phone number that belongs to someone else) is shown at once and nothing is left stuck', () async {
+      await session.selectSchool(principal);
+      final proposals = asPrincipal(() {
+        for (final item in db.syncQueueItems(tenantId: owner.schoolId)) {
+          db.markMutationSyncing(item.id);
+          db.markMutationFailed(item.id, 'That phone number already belongs to Musa Ibrahim.');
+        }
+      });
+      await expectLater(
+        propose(proposals),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('already belongs to Musa Ibrahim'))),
+      );
+      expect(db.syncQueueItems(tenantId: owner.schoolId), isEmpty);
+      expect(await db.getLocalRecords(tenantId: owner.schoolId, entityType: 'staff_proposal'), isEmpty);
+      expect(server.requests, isEmpty);                                    // only the owner approves
+    });
+
+    test('an accepted proposal stays as a pending proposal for the owner to decide', () async {
+      await session.selectSchool(principal);
+      final proposals = asPrincipal(() {
+        for (final item in db.syncQueueItems(tenantId: owner.schoolId)) {
+          db.markMutationSyncing(item.id);
+          db.markMutationSynced(item.id, serverVersion: 1);
+        }
+      });
+      await propose(proposals);
+      final saved = await db.getLocalRecords(tenantId: owner.schoolId, entityType: 'staff_proposal');
+      expect((saved.length, saved.single.payload['status']), (1, 'pending'));
+      expect(server.requests, isEmpty);
+    });
+
+    test('offline it is queued and sent when there is a connection', () async {
+      await session.selectSchool(principal);
+      await propose(asPrincipal(() {}));
+      expect((await db.pendingMutations(tenantId: owner.schoolId)).length, 1);
+    });
+  });
+
   group('the owner adding staff directly, with a server', () {
     Future<void> add(StaffProposalRepository proposals) => proposals.propose(
           name: 'Aisha Bello', roleTitle: 'Teacher', systemRole: 'teacher', workArea: 'Primary',

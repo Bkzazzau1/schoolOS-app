@@ -1,3 +1,4 @@
+import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
 import '../../administrator/domain/administrator_staff_models.dart';
@@ -322,7 +323,7 @@ class _OwnerPayrollPageState extends State<OwnerPayrollPage> {
             ),
             const SizedBox(height: 16),
             PayrollBatchPanel(
-              repository: PayrollBatchRepository(
+              repository: PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), 
                 database: widget.repository.database,
                 session: widget.repository.session,
               ),

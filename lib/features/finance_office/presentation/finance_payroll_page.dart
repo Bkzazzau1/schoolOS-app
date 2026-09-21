@@ -1,3 +1,4 @@
+import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/data/staff_server_api.dart';
 import 'package:flutter/material.dart';
 
@@ -82,7 +83,7 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
     final held = _rows.where((row) => row.needsAttendanceReview).toList();
     final readyValue = ready.fold<int>(0, (sum, row) => sum + row.net);
     try {
-      await PayrollBatchRepository(
+      await PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), 
         database: widget.localDatabase,
         session: widget.schoolSession,
       ).prepare(PayrollBatchRepository.periodFor(DateTime.now()), ready);
@@ -143,7 +144,7 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
           onStaffAdded: _load,
         ),
         PayrollBatchPanel(
-          repository: PayrollBatchRepository(
+          repository: PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), 
             database: widget.localDatabase,
             session: widget.schoolSession,
           ),

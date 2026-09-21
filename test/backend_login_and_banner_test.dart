@@ -85,6 +85,10 @@ class _BackendServices implements AppServices {
 
   @override
   Future<void> endSession() async {}
+
+  /// Fields added to AppServices later are optional; a fake answers null for them.
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }
 
 const _twoSchools = {

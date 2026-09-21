@@ -130,11 +130,12 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
   @override
   void initState() {
     super.initState();
-    _concessionRepository = ConcessionRepository(
+    _concessionRepository = ConcessionRepository(confirm: ServerConfirmScope.maybeOf(context), 
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
     _structureRepository = ProprietorStructureRepository(
+      confirm: ServerConfirmScope.maybeOf(context),
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );

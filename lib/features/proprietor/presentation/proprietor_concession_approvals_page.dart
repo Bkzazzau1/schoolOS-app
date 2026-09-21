@@ -89,6 +89,12 @@ class _ProprietorConcessionApprovalsPageState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${request.student} · ${status == ConcessionStatus.approved ? 'approved' : 'declined'} and queued for sync.')),
       );
+    } catch (error) {
+      // The school refused it (or a note is missing): say so, and show what the school holds.
+      await _load();
+      if (!mounted) return;
+      final message = error is StateError ? error.message : error is ArgumentError ? '${error.message}' : error.toString();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

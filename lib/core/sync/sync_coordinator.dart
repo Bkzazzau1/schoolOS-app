@@ -76,6 +76,7 @@ class SyncCoordinator extends ChangeNotifier with WidgetsBindingObserver {
   Duration? _backoff;
   Timer? _periodic;
   Timer? _pending;
+  Future<void>? _inFlight;
 
   SyncStatus get status => _status;
   SyncRunSummary? get lastSummary => _lastSummary;
@@ -134,12 +135,20 @@ class SyncCoordinator extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Runs a round now (or as soon as the one in progress ends).
-  Future<void> syncNow() async {
-    if (!_started || _blocked) return;
+  ///
+  /// The future completes when the round has finished. Asked while a round is going, it
+  /// arranges for another round to follow and completes when that one has finished, so a
+  /// screen that just queued a change can wait until the server has seen it.
+  Future<void> syncNow() {
+    if (!_started || _blocked) return Future.value();
     if (_running) {
       _again = true;
-      return;
+      return _inFlight ?? Future.value();
     }
+    return _inFlight = _runRounds();
+  }
+
+  Future<void> _runRounds() async {
     _running = true;
     _pending?.cancel();
     _pending = null;

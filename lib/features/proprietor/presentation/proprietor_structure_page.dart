@@ -93,6 +93,22 @@ class _ProprietorStructurePageState extends State<ProprietorStructurePage> {
     });
   }
 
+  Future<void> _setUp() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _notice = null;
+    });
+    final result = await widget.repository.setUpStandardStructure();
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _notice = result.message;
+    });
+    widget.onStructureChanged();
+    await _load();
+  }
+
   Future<void> _appoint() async {
     if (_saving || _snapshot == null) return;
     setState(() {
@@ -143,6 +159,9 @@ class _ProprietorStructurePageState extends State<ProprietorStructurePage> {
   Widget build(BuildContext context) {
     if (_loading || _snapshot == null) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (_snapshot!.needsSetup) {
+      return _SetUpCard(schoolName: widget.schoolName, saving: _saving, notice: _notice, onSetUp: _setUp);
     }
 
     return LayoutBuilder(
@@ -213,6 +232,55 @@ class _ProprietorStructurePageState extends State<ProprietorStructurePage> {
           ],
         );
       },
+    );
+  }
+}
+
+/// Shown with a school server when nothing has been set up on it yet.
+class _SetUpCard extends StatelessWidget {
+  const _SetUpCard({required this.schoolName, required this.saving, required this.onSetUp, this.notice});
+
+  final String schoolName;
+  final bool saving;
+  final String? notice;
+  final VoidCallback onSetUp;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_tree_rounded, size: 44),
+              const SizedBox(height: 14),
+              Text('Set up $schoolName\'s structure', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800), textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              const Text(
+                'The school\'s sections and leadership have not been set up yet. Start from the standard sections '
+                '(Nursery, Primary and Secondary, each with a head), then rename them and appoint your people.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: saving ? null : onSetUp,
+                icon: saving
+                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.auto_fix_high_rounded),
+                label: const Text('Use the standard sections'),
+              ),
+              if (notice != null) ...[
+                const SizedBox(height: 16),
+                Text(notice!, textAlign: TextAlign.center, style: TextStyle(color: theme.colorScheme.error)),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

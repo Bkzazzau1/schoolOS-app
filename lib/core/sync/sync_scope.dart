@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../access/access_controller.dart';
 import '../notifications/notifications_controller.dart';
+import 'server_confirm.dart';
 import 'sync_coordinator.dart';
 
 /// Makes the [SyncCoordinator] available to every screen, so none of them has
@@ -132,4 +133,18 @@ mixin AccessAware<T extends StatefulWidget> on State<T> {
     _accessController?.removeListener(_accessChanged);
     super.dispose();
   }
+}
+
+/// Makes [ServerConfirm] available to the screens that change money or access.
+/// Absent on demo data, where there is no server to refuse anything.
+class ServerConfirmScope extends InheritedWidget {
+  const ServerConfirmScope({super.key, required this.confirm, required super.child});
+
+  final ServerConfirm confirm;
+
+  static ServerConfirm? maybeOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<ServerConfirmScope>()?.confirm;
+
+  @override
+  bool updateShouldNotify(ServerConfirmScope oldWidget) => confirm != oldWidget.confirm;
 }

@@ -18,6 +18,14 @@ class LocalDatabase implements SyncStore {
   final PayloadCipher _cipher;
   final String? _databasePath;
 
+  /// True when the app talks to a school server. Many screens fill an empty list with sample records
+  /// (so the demo has something to show). With a server those samples would look like the school's
+  /// real data, and could never be accepted by it, so they are not written at all.
+  ///
+  /// A sample is recognisable: it is not an edit waiting to be sent, and it was never downloaded (it
+  /// has no server version). The app's own local-only records (their type starts with `_`) are not samples.
+  static bool blockDemoSeeds = false;
+
   /// Called whenever there is new work in the outbox, so the app can send it
   /// soon without every screen having to ask.
   void Function()? onMutationQueued;
@@ -151,6 +159,7 @@ class LocalDatabase implements SyncStore {
     bool isDirty = false,
   }) async {
     _requireTenant(tenantId);
+    if (blockDemoSeeds && !isDirty && serverVersion == null && !entityType.startsWith('_')) return;
     final encryptedPayload = await _cipher.encryptJson(payload);
     final now = DateTime.now().toUtc().toIso8601String();
 

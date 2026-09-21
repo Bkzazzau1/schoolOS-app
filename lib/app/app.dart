@@ -154,6 +154,8 @@ class SchoolOsApp extends StatelessWidget {
             final notifications = services.notifications;
             Widget tree = scoped;
             if (access != null) tree = AccessScope(access: access, child: tree);
+            final serverConfirm = services.serverConfirm;
+            if (serverConfirm != null) tree = ServerConfirmScope(confirm: serverConfirm, child: tree);
             final staffServer = services.staffServer;
             if (staffServer != null) tree = StaffServerScope(api: staffServer, child: tree);
             final ownerAccess = services.ownerAccess;

@@ -1,4 +1,5 @@
 import '../../../core/database/local_database.dart';
+import '../../../core/sync/server_confirm.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
@@ -56,7 +57,12 @@ class PayrollBatch {
 /// queues the instruction; a salary is never marked Paid here because Paid
 /// needs real bank or payment evidence.
 class PayrollBatchRepository {
-  PayrollBatchRepository({required this.database, required this.session});
+  PayrollBatchRepository({required this.database, required this.session, this.confirm});
+
+  /// Set when there is a server. Every step is then sent at once and the server's answer is shown
+  /// (only the owner or someone authorised may approve; a different person must approve; the
+  /// salaries must still match). Null on demo data, where the device decides alone.
+  final ServerConfirm? confirm;
 
   final LocalDatabase database;
   final SchoolSessionController session;
@@ -159,6 +165,9 @@ class PayrollBatchRepository {
 
   Future<void> reject(String period, String reason) async {
     final member = await _require('approve', 'reject payroll batches');
+    if (confirm != null && reason.trim().isEmpty) {
+      throw ArgumentError('Say why the batch is rejected.');
+    }
     await _existingBatch(member, period, PayrollBatchStatus.prepared);
     await _transition(member, period, {
       'status': PayrollBatchStatus.rejected.name,
@@ -215,5 +224,6 @@ class PayrollBatchRepository {
       payload: withStamp,
       baseVersion: existing?.serverVersion,
     );
+    await confirm?.afterQueued(member.schoolId, entityType, period);
   }
 }

@@ -234,21 +234,21 @@ class StaffProposalRepository {
       'proposedAt': DateTime.now().toUtc().toIso8601String(),
     });
     // The owner's own additions need no one else's approval.
-    if (member.role == SchoolRole.proprietor) {
-      if (remote != null) {
-        await _approveOwnersOwnOnServer(member, id);
-      } else {
-        await approve(id);
-      }
+    if (remote != null) {
+      // Send it now, so a refusal (a phone number or NIN that belongs to someone else) is
+      // shown here rather than found later in the Sync Center.
+      final stillWaiting = await _sendAndCheck(member, id);
+      // The owner's own additions need no one else's approval, once the server has the proposal.
+      if (member.role == SchoolRole.proprietor && !stillWaiting) await approve(id);
+    } else if (member.role == SchoolRole.proprietor) {
+      await approve(id);
     }
   }
 
-  /// With a server the proposal must get there before it can be approved, and the
-  /// server may refuse it (a phone number or NIN that belongs to someone else). So:
-  /// send it, and if the server refused it say why and take the stuck copy off this
-  /// device; if it could not be sent yet (offline) it stays queued, and the owner
-  /// approves it from the list once it has arrived.
-  Future<void> _approveOwnersOwnOnServer(SchoolMembership member, String id) async {
+  /// Sends the proposal just queued and reports what the server said. If it refused, the reason is
+  /// thrown and the stuck copy is taken off this device. Returns true when it could not be sent yet
+  /// (offline): it stays queued, and the owner approves it from the list once it has arrived.
+  Future<bool> _sendAndCheck(SchoolMembership member, String id) async {
     await remote!.afterChange?.call();
     final items = database
         .syncQueueItems(tenantId: member.schoolId)
@@ -260,8 +260,7 @@ class StaffProposalRepository {
         throw StateError(item.lastError ?? 'The school refused this proposal.');
       }
     }
-    if (items.isNotEmpty) return; // still waiting to be sent
-    await approve(id);
+    return items.isNotEmpty;
   }
 
   Future<SchoolMembership> _requireApprover() async {

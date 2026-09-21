@@ -71,7 +71,10 @@ void main() {
     );
   }
 
-  setUp(() => runner = FakeRunner());
+  setUp(() {
+    runner = FakeRunner();
+    coordinator = null;          // never dispose an earlier test's coordinator twice
+  });
   tearDown(() => coordinator?.dispose());
 
   test('starting runs a round at once and notes when it finished', () async {
@@ -326,6 +329,8 @@ void main() {
     expect(runner.rounds, greaterThan(rounds));
   });
 
+  syncNowIsAwaitable();
+
   test('screens can listen for changes', () async {
     runner.fallback = () => summary(pulled: 3);
     final sync = make();
@@ -335,5 +340,42 @@ void main() {
     await pause();
     expect(heard, greaterThan(0));
     expect(sync.changes, 1);
+  });
+}
+
+// Added with ServerConfirm: syncNow can be awaited.
+void syncNowIsAwaitable() {
+  test('syncNow completes only when the round it asked for has finished', () async {
+    final runner = FakeRunner()..hold = Completer<void>();
+    final sync = SyncCoordinator(runner: runner, observeLifecycle: false, interval: const Duration(minutes: 5), debounce: tick)..start();
+    await pause(20);
+    expect(runner.rounds, 1);                       // the first round is running, held
+
+    var done = false;
+    final asked = sync.syncNow().then((_) => done = true);      // asked while it runs
+    await pause(20);
+    expect(done, isFalse);                                      // still waiting
+    runner.hold!.complete();
+    await asked;
+    expect(runner.rounds, 2);                                   // a second round followed and finished
+    sync.dispose();
+  });
+
+  test('syncNow when nothing is running starts a round and waits for it', () async {
+    final runner = FakeRunner();
+    final sync = SyncCoordinator(runner: runner, observeLifecycle: false, interval: const Duration(minutes: 5), debounce: tick)..start();
+    await pause();
+    final before = runner.rounds;
+    await sync.syncNow();
+    expect(runner.rounds, before + 1);
+    sync.dispose();
+  });
+
+  test('syncNow when stopped or signed out returns at once', () async {
+    final runner = FakeRunner();
+    final sync = SyncCoordinator(runner: runner, observeLifecycle: false, interval: const Duration(minutes: 5), debounce: tick);
+    await sync.syncNow();                                       // never started
+    expect(runner.rounds, 0);
+    sync.dispose();
   });
 }

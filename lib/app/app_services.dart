@@ -8,6 +8,7 @@ import '../core/network/api_config.dart';
 import '../core/security/payload_cipher.dart';
 import '../core/notifications/notifications_controller.dart';
 import '../core/sync/http_sync_transport.dart';
+import '../core/sync/server_confirm.dart';
 import '../core/sync/round_follow_up.dart';
 import '../core/sync/sync_coordinator.dart';
 import '../core/sync/sync_engine.dart';
@@ -31,6 +32,7 @@ class AppServices {
     this.notifications,
     this.ownerAccess,
     this.staffServer,
+    this.serverConfirm,
   });
 
   final LocalDatabase localDatabase;
@@ -59,6 +61,9 @@ class AppServices {
 
   /// Approving proposals, invitations and staff registration, decided by the server. Null without a backend.
   final StaffServerApi? staffServer;
+
+  /// Sends a just-queued change and reports the server's refusal at once. Null without a backend.
+  final ServerConfirm? serverConfirm;
 
   bool get usesBackend => auth != null;
 
@@ -101,6 +106,9 @@ class AppServices {
     NotificationsController? notifications;
     OwnerAccessRepository? ownerAccess;
     StaffServerApi? staffServer;
+    ServerConfirm? serverConfirm;
+    // With a school server, sample records must never appear as the school's own data.
+    LocalDatabase.blockDemoSeeds = apiConfig.enabled;
     if (apiConfig.enabled) {
       final tokens = SecureTokenStore();
       final api = ApiClient(config: apiConfig, tokens: tokens);
@@ -122,6 +130,7 @@ class AppServices {
         await schoolSession.clear();
       }
 
+      serverConfirm = ServerConfirm(database: localDatabase, syncNow: () async => await syncCoordinator?.syncNow());
       ownerAccess = OwnerAccessRepository(api: api);
       staffServer = StaffServerApi(api: api, afterChange: () async => await syncCoordinator?.syncNow());
       access = AccessController(api: api, store: localDatabase);
@@ -153,6 +162,7 @@ class AppServices {
       notifications: notifications,
       ownerAccess: ownerAccess,
       staffServer: staffServer,
+      serverConfirm: serverConfirm,
     );
     final active = schoolSession.activeMembership;
     if (active != null) await services.beginSchool(active);

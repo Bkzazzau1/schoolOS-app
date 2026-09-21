@@ -300,7 +300,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),
-        payrollBatches: PayrollBatchRepository(
+        payrollBatches: PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), 
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),

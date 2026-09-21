@@ -130,24 +130,33 @@ Found on the way: a text-field controller disposed while its dialog was still an
 Fixed in the new card. The older dialogs in `staff_proposals_ui.dart` do the same (`deductions.dispose()`, `note.dispose()`
 straight after `showDialog`) and should be moved to dialogs that own their controllers.
 
+## Done (step 7): money and structure (checklist sections D, E and F)
+
+**Answers at the moment of the action.** `ServerConfirm` (`lib/core/sync/server_confirm.dart`): after a screen queues a
+change it sends it and reports back. Accepted: nothing to say. Refused: the change is dropped, the school's version comes
+back onto the device, and the server's own words are shown. Not sent yet (offline) or a conflict: it stays queued and is
+shown as waiting. `SyncCoordinator.syncNow()` now waits for the round in progress (and the one it triggers), which makes
+this possible.
+
+| Feature | What changed |
+| --- | --- |
+| **Payroll batches** (E) | Every step (prepare, approve, reject, instruct) is sent at once. Refusals such as "A different person must approve a batch you prepared" or "The salary for X changed after this batch was prepared" are shown, and the batch goes back to what the school holds. Rejecting needs a reason |
+| **Scholarships and discounts** (F) | A request gets a number no other device can pick (time-based, not "count plus 41"), so two devices cannot collide. A request or decision the server refuses is reported and left nothing behind. A decline needs a reason. No sample requests are made up |
+| **Structure** (D) | With a school server and nothing on it yet, the owner sees **Set up the structure** and taps **Use the standard sections**: sections are created first, then their leadership posts, stopping at the first refusal. Appointments and replacing a head are sent at once (the appointment first, then the section). |
+| **Proposals** | Everyone's proposal is sent at once, so a refusal (a phone number that belongs to someone else) is shown when proposing, not later in the Sync Center |
+| **Sample records** | With a school server the local database refuses to write sample records (`LocalDatabase.blockDemoSeeds`): a record that is not an edit and was never downloaded. This stops about 57 screens from showing made-up staff, students and requests as the school's own. Screens for modules not connected yet therefore show empty lists, honestly |
+
+Tests: `test/money_server_test.dart` (10), `test/structure_server_test.dart` (10), `test/core/server_confirm_test.dart` (6),
+more in `test/staff_server_test.dart` (27) and the coordinator tests.
+
 ## Not done yet (next)
 
-1. **Opening the link from the email on a phone.** There is no Android project in this repository (only Windows), so App
-   Links cannot be registered yet. Until then people paste the link, or use the web page the same link opens.
-2. **Proposal errors at the moment of proposing.** A proposal is still sent through the queue, so a refused one (duplicate
-   phone) shows in the Sync Center; only the owner's direct add reports it at once.
-3. **Old dialogs' controllers** (see above).
-4. **Opt content screens in** to `SyncRefresh`, module by module (read-only lists first).
-5. **"Send mine anyway" for a conflict.**
-6. **Losing one school but keeping others**: the banner sends the person through sign-in again.
-7. Everything in `schoolOS_backend/docs/APP_CHANGES.md` sections B to H, feature by feature.
-
-## Known problems that are not from this work
-
-- 47 tests fail, and none of them is from this work: 40 in the Teacher module (wrong expected figures), 6 in
-  `demo_login_navigation_test.dart` and 1 in `finance_fee_structure_feature_test.dart`. The last seven are a layout
-  overflow (a row 109 px too wide in a shared widget at the test screen size). They were hidden while the app did not
-  compile. They fail the same way with the original login page.
-- **Fixed:** the login screen's brand header overflowed on narrow screens (a `Column` in a `Row` without `Expanded`).
-- **Fixed:** the backend now has the `driver` role (workspace screens, staff role, school-life access), and the app's
-  delegated-approver roles include it.
+1. **Reload-on-sync for read-only lists** and content screens (see step 3): notices, events, staff lists.
+2. **Screens whose modules have no server rules yet** (students, attendance, results, fee collection, campuses) still use
+   device data, and now show empty lists instead of samples when a server is configured. They need their own backend
+   features first.
+3. **School life** (checklist G2): community comments and reactions must become their own records; the noticeboard's read
+   count is the server's now.
+4. **Dashboards** (G): the owner overview and finance screens should read `dashboards/schools/<id>/owner/` and `/finance/`.
+5. Opening invitation links on a phone (no Android project yet), the older dialogs' controller disposal, "send mine anyway"
+   for conflicts, the general dashboard's access, and deleting a blocked screen's local data.

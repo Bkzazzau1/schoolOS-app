@@ -1,4 +1,7 @@
 import '../../../core/database/local_database.dart';
+import 'dart:math';
+
+import '../../../core/sync/server_confirm.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
@@ -16,8 +19,12 @@ class FinanceConcessionsRepository {
   FinanceConcessionsRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    this.confirm,
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession;
+
+  /// Set when there is a server: a request is then sent at once and a refusal is shown. Null on demo data.
+  final ServerConfirm? confirm;
 
   // Shared with the Proprietor concession approval queue. A Finance request
   // must be visible to the Proprietor offline before any server sync occurs.
@@ -33,7 +40,8 @@ class FinanceConcessionsRepository {
       entityType: entityType,
     );
 
-    if (records.isEmpty) {
+    // With a server, demo requests would be made up and could never be decided.
+    if (records.isEmpty && confirm == null) {
       for (final request in financeConcessionSeed) {
         await _localDatabase.upsertLocalRecord(
           tenantId: membership.schoolId,
@@ -102,9 +110,13 @@ class FinanceConcessionsRepository {
     }
 
     final existing = await load();
-    final nextNumber = existing.requests.length + 41;
-    final id = 'CNC-2026-${nextNumber.toString().padLeft(3, '0')}';
     final now = DateTime.now();
+    final nextNumber = existing.requests.length + 41;
+    // With a server, several devices raise requests, so the number must not depend on how many this
+    // device holds: two would pick the same one. A time-based number cannot collide.
+    final id = confirm != null
+        ? 'CNC-${now.year}-${now.microsecondsSinceEpoch.toRadixString(36).toUpperCase()}-${Random.secure().nextInt(1 << 16).toRadixString(36).toUpperCase()}'
+        : 'CNC-2026-${nextNumber.toString().padLeft(3, '0')}';
     const months = <String>[
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -144,6 +156,12 @@ class FinanceConcessionsRepository {
       operation: SyncOperation.create,
       payload: request.toJson(),
     );
+    try {
+      await confirm?.afterQueued(membership.schoolId, entityType, request.id);
+    } on StateError catch (refused) {
+      // The school did not accept it (for example the amount is more than the fee): nothing was created.
+      return FinanceConcessionActionResult(success: false, message: refused.message);
+    }
 
     return FinanceConcessionActionResult(
       success: true,
