@@ -3,7 +3,8 @@ enum AdministratorAttendanceEventStatus {
   late('Late'),
   checkedOut('Checked out'),
   unknownScan('Unknown scan'),
-  offlineSynced('Offline synced');
+  offlineSynced('Offline synced'),
+  excused('Excused');
 
   const AdministratorAttendanceEventStatus(this.label);
   final String label;
@@ -41,6 +42,9 @@ class AdministratorAttendanceEvent {
     required this.method,
     required this.status,
     required this.parentState,
+    this.date = '',
+    this.note = '',
+    this.entityKey = '',
   });
 
   final String time;
@@ -51,7 +55,45 @@ class AdministratorAttendanceEvent {
   final AdministratorAttendanceEventStatus status;
   final String parentState;
 
-  String get entityId => '$time-$student';
+  /// The school day (yyyy-MM-dd). Empty for the old sample events.
+  final String date;
+
+  /// Why this event exists when it was not a scan (a correction, a manual check-in, an identified scan).
+  final String note;
+
+  /// The record's storage key, kept when the event is changed so the same record is updated.
+  final String entityKey;
+
+  String get entityId => entityKey.isEmpty ? '$time-$student' : entityKey;
+
+  bool get isUnknown => status == AdministratorAttendanceEventStatus.unknownScan;
+
+  /// The student was at school (arrived, late, left again, or arrived while offline).
+  bool get countsAsPresent =>
+      status == AdministratorAttendanceEventStatus.checkedIn ||
+      status == AdministratorAttendanceEventStatus.late ||
+      status == AdministratorAttendanceEventStatus.checkedOut ||
+      status == AdministratorAttendanceEventStatus.offlineSynced;
+
+  AdministratorAttendanceEvent copyWith({
+    String? student,
+    String? className,
+    AdministratorAttendanceEventStatus? status,
+    String? method,
+    String? note,
+  }) =>
+      AdministratorAttendanceEvent(
+        time: time,
+        student: student ?? this.student,
+        className: className ?? this.className,
+        device: device,
+        method: method ?? this.method,
+        status: status ?? this.status,
+        parentState: parentState,
+        date: date,
+        note: note ?? this.note,
+        entityKey: entityId,
+      );
 
   Map<String, Object?> toJson() => {
         'time': time,
@@ -61,6 +103,9 @@ class AdministratorAttendanceEvent {
         'method': method,
         'status': status.label,
         'parentState': parentState,
+        'date': date,
+        'note': note,
+        'entityKey': entityKey,
       };
 
   factory AdministratorAttendanceEvent.fromJson(Map<String, Object?> json) {
@@ -72,6 +117,9 @@ class AdministratorAttendanceEvent {
       method: json['method'] as String? ?? '',
       status: AdministratorAttendanceEventStatus.fromLabel(json['status'] as String?),
       parentState: json['parentState'] as String? ?? '',
+      date: json['date'] as String? ?? '',
+      note: json['note'] as String? ?? '',
+      entityKey: json['entityKey'] as String? ?? '',
     );
   }
 }
@@ -137,6 +185,10 @@ class AdministratorAttendanceCorrection {
     required this.className,
     required this.requestedChange,
     required this.evidence,
+    this.status = 'Pending',
+    this.decidedBy = '',
+    this.decidedAt = '',
+    this.decisionNote = '',
   });
 
   final String id;
@@ -145,12 +197,40 @@ class AdministratorAttendanceCorrection {
   final String requestedChange;
   final String evidence;
 
+  /// Pending, Approved or Declined. A decision keeps who made it, when and why.
+  final String status;
+  final String decidedBy;
+  final String decidedAt;
+  final String decisionNote;
+
+  bool get isPending => status == 'Pending';
+
+  /// What the day's record becomes if this is approved: the words after the arrow ("Absent → Present" gives "Present").
+  String get target => requestedChange.contains('→') ? requestedChange.split('→').last.trim() : '';
+
+  AdministratorAttendanceCorrection decided({required bool approved, required String by, required String note}) =>
+      AdministratorAttendanceCorrection(
+        id: id,
+        student: student,
+        className: className,
+        requestedChange: requestedChange,
+        evidence: evidence,
+        status: approved ? 'Approved' : 'Declined',
+        decidedBy: by,
+        decidedAt: DateTime.now().toUtc().toIso8601String(),
+        decisionNote: note,
+      );
+
   Map<String, Object?> toJson() => {
         'id': id,
         'student': student,
         'className': className,
         'requestedChange': requestedChange,
         'evidence': evidence,
+        'status': status,
+        'decidedBy': decidedBy,
+        'decidedAt': decidedAt,
+        'decisionNote': decisionNote,
       };
 
   factory AdministratorAttendanceCorrection.fromJson(Map<String, Object?> json) {
@@ -160,6 +240,10 @@ class AdministratorAttendanceCorrection {
       className: json['className'] as String? ?? '',
       requestedChange: json['requestedChange'] as String? ?? '',
       evidence: json['evidence'] as String? ?? '',
+      status: json['status'] as String? ?? 'Pending',
+      decidedBy: json['decidedBy'] as String? ?? '',
+      decidedAt: json['decidedAt'] as String? ?? '',
+      decisionNote: json['decisionNote'] as String? ?? '',
     );
   }
 }
@@ -181,4 +265,4 @@ const administratorAttendanceDeviceBoundary =
     'The website exposes Register device but no provisioning workflow. Native must not invent credentials, trust enrollment or hardware authorization; device registration remains a dedicated authorized setup flow.';
 
 const administratorAttendanceCorrectionBoundary =
-    'Review on this page is operational review only. A correction must retain requester, approver, reason, timestamp and evidence in the authoritative audit workflow before the daily ledger is changed.';
+    'Approving a correction records who asked, who approved, the reason and the time in the authoritative audit workflow, and adds the correction to the day without erasing the original scan.';

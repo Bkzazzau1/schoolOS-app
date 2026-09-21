@@ -344,6 +344,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       return AdministratorAttendancePage(
         schoolName: widget.membership.schoolName,
         repository: _attendanceRepository,
+        students: _studentsRepository,
       );
     }
 

@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+import '../../proprietor/presentation/owner_dialogs.dart';
 import '../data/administrator_attendance_demo_data.dart';
+import '../data/administrator_attendance_desk.dart';
 import '../data/administrator_attendance_repository.dart';
+import '../data/administrator_students_repository.dart';
 import '../domain/administrator_attendance_models.dart';
+import '../domain/administrator_students_models.dart';
+import 'administrator_attendance_dialogs.dart';
 
 class AdministratorAttendancePage extends StatefulWidget {
   const AdministratorAttendancePage({
     super.key,
     required this.schoolName,
     required this.repository,
+    required this.students,
   });
 
   final String schoolName;
   final AdministratorAttendanceRepository repository;
+  final AdministratorStudentsRepository students;
 
   @override
   State<AdministratorAttendancePage> createState() =>
@@ -20,7 +28,12 @@ class AdministratorAttendancePage extends StatefulWidget {
 }
 
 class _AdministratorAttendancePageState
-    extends State<AdministratorAttendancePage> {
+    extends State<AdministratorAttendancePage> with SyncRefresh<AdministratorAttendancePage> {
+  @override
+  void onSynced() => _load();
+
+  AttendanceDesk? _desk;
+  List<AdministratorStudentRecord> _expected = const [];
   bool _loading = true;
   String? _error;
   String _filter = 'All';
@@ -41,9 +54,13 @@ class _AdministratorAttendancePageState
       _error = null;
     });
     try {
-      final snapshot = await widget.repository.load();
+      final register = (await widget.students.load()).students;
+      final expected = [for (final s in register) if (s.status != AdministratorStudentStatus.transferredOut) s];
+      final snapshot = await widget.repository.load(students: expected);
       if (!mounted) return;
       setState(() {
+        _expected = expected;
+        _desk = buildAttendanceDesk(students: expected, events: snapshot.events, corrections: snapshot.corrections);
         _events = snapshot.events;
         _devices = snapshot.devices;
         _corrections = snapshot.corrections;
@@ -92,9 +109,37 @@ class _AdministratorAttendancePageState
     );
   }
 
-  void _reviewCorrection(AdministratorAttendanceCorrection correction) {
+  void _say(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _finish(AdministratorAttendanceActionResult result) async {
+    _say(result.message);
+    if (result.success) await _load();
+  }
+
+  Future<void> _checkInByHand() async {
+    final here = {for (final e in _events) if (!e.isUnknown) e.student.trim().toLowerCase()};
+    final options = [for (final s in _expected) if (!here.contains(s.name.trim().toLowerCase())) s];
+    final student = await askStudent(context, title: 'Check a student in', action: 'Check in', students: options,
+        explanation: 'For a student the gate did not scan. After 08:00 they are marked late.');
+    if (student == null) return;
+    await _finish(await widget.repository.checkIn(student));
+  }
+
+  Future<void> _identify(AdministratorAttendanceEvent scan) async {
+    final here = {for (final e in _events) if (!e.isUnknown) e.student.trim().toLowerCase()};
+    final options = [for (final s in _expected) if (!here.contains(s.name.trim().toLowerCase())) s];
+    final student = await askStudent(context, title: 'Who is this?', action: 'Identify', students: options,
+        explanation: 'The device could not match this ${scan.method.toLowerCase()} scan at ${scan.time}. Choose the student only if you are sure.');
+    if (student == null) return;
+    await _finish(await widget.repository.identifyUnknown(scan, student));
+  }
+
+  Future<void> _reviewCorrection(AdministratorAttendanceCorrection correction) async {
     if (!(_permissions?.canReviewCorrections ?? false)) return;
-    showDialog<void>(
+    final decision = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('${correction.id} · ${correction.student}'),
@@ -107,19 +152,30 @@ class _AdministratorAttendancePageState
               _InfoRow(label: 'Class', value: correction.className),
               _InfoRow(label: 'Requested', value: correction.requestedChange),
               _InfoRow(label: 'Evidence', value: correction.evidence),
+              _InfoRow(label: 'Status', value: correction.status),
+              if (correction.decisionNote.isNotEmpty) _InfoRow(label: 'Reason', value: correction.decisionNote),
               const SizedBox(height: 14),
               const _Notice(text: administratorAttendanceCorrectionBoundary),
             ],
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+          if (correction.isPending) ...[
+            TextButton(key: const ValueKey('correction-decline'), onPressed: () => Navigator.of(context).pop('decline'), child: const Text('Decline')),
+            FilledButton(key: const ValueKey('correction-approve'), onPressed: () => Navigator.of(context).pop('approve'), child: const Text('Approve')),
+          ],
         ],
       ),
     );
+    if (decision == null || !mounted) return;
+    if (decision == 'approve') {
+      await _finish(await widget.repository.decideCorrection(correction, approve: true));
+    } else {
+      final reason = await askReason(context, title: 'Decline ${correction.id}', action: 'Decline', label: 'Why (required)');
+      if (reason == null) return;
+      await _finish(await widget.repository.decideCorrection(correction, approve: false, note: reason));
+    }
   }
 
   @override
@@ -148,9 +204,10 @@ class _AdministratorAttendancePageState
               schoolName: widget.schoolName,
               onExport: _exportToday,
               onRegisterDevice: _registerDevice,
+              onCheckIn: (_permissions?.canReviewCorrections ?? false) ? _checkInByHand : null,
             ),
             const SizedBox(height: 18),
-            const _Kpis(),
+            _Kpis(desk: _desk!),
             const SizedBox(height: 16),
             const _FlowCard(),
             const SizedBox(height: 16),
@@ -163,6 +220,7 @@ class _AdministratorAttendancePageState
                       events: _filteredEvents,
                       filter: _filter,
                       onFilterChanged: (value) => setState(() => _filter = value),
+                      onIdentify: (_permissions?.canReviewCorrections ?? false) ? _identify : null,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -174,24 +232,25 @@ class _AdministratorAttendancePageState
                 events: _filteredEvents,
                 filter: _filter,
                 onFilterChanged: (value) => setState(() => _filter = value),
+                onIdentify: (_permissions?.canReviewCorrections ?? false) ? _identify : null,
               ),
               const SizedBox(height: 16),
               _DevicesCard(devices: _devices),
             ],
             const SizedBox(height: 16),
             if (wide)
-              const Row(
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _SectionsCard()),
-                  SizedBox(width: 16),
-                  Expanded(child: _ExceptionsCard()),
+                  Expanded(child: _SectionsCard(desk: _desk!)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _ExceptionsCard(desk: _desk!)),
                 ],
               )
             else ...[
-              const _SectionsCard(),
+              _SectionsCard(desk: _desk!),
               const SizedBox(height: 16),
-              const _ExceptionsCard(),
+              _ExceptionsCard(desk: _desk!),
             ],
             const SizedBox(height: 16),
             _CorrectionsCard(
@@ -213,11 +272,13 @@ class _Header extends StatelessWidget {
     required this.schoolName,
     required this.onExport,
     required this.onRegisterDevice,
+    this.onCheckIn,
   });
 
   final String schoolName;
   final VoidCallback onExport;
   final VoidCallback onRegisterDevice;
+  final VoidCallback? onCheckIn;
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +308,7 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Monitor device events, student check-in/check-out, late arrivals, offline sync and documented corrections from one operational view. · $schoolName',
+                'Today\'s check-ins, late arrivals, who has not arrived, scans to identify and documented corrections. · $schoolName',
               ),
             ],
           ),
@@ -255,6 +316,13 @@ class _Header extends StatelessWidget {
         Wrap(
           spacing: 8,
           children: [
+            if (onCheckIn != null)
+              FilledButton.icon(
+                key: const ValueKey('attendance-checkin'),
+                onPressed: onCheckIn,
+                icon: const Icon(Icons.how_to_reg_outlined),
+                label: const Text('Check a student in'),
+              ),
             OutlinedButton.icon(
               onPressed: onExport,
               icon: const Icon(Icons.download_outlined),
@@ -273,16 +341,18 @@ class _Header extends StatelessWidget {
 }
 
 class _Kpis extends StatelessWidget {
-  const _Kpis();
+  const _Kpis({required this.desk});
+
+  final AttendanceDesk desk;
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      ('Present today', '623', '96.1% of expected students'),
-      ('Late arrivals', '27', 'Across all sections'),
-      ('Absent / not checked in', '25', 'Requires normal follow-up'),
-      ('Active devices', '4 / 5', '1 device currently offline'),
-      ('Queued events', '42', 'Waiting for device sync'),
+    final items = [
+      ('Present today', '${desk.present}', desk.expected == 0 ? 'No students on the register' : '${desk.rate}% of ${desk.expected} expected students'),
+      ('Late arrivals', '${desk.late}', 'After 08:00'),
+      ('Absent / not checked in', '${desk.absent}', 'Requires normal follow-up'),
+      ('Excused', '${desk.excused}', 'Approved by correction'),
+      ('Scans to identify', '${desk.unknownScans}', desk.unknownScans == 0 ? 'None waiting' : 'A person must choose the student'),
     ];
     return Wrap(
       spacing: 10,
@@ -334,7 +404,7 @@ class _FlowCard extends StatelessWidget {
               'How hardware attendance reaches SchoolOS',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
             ),
-            const Text('Prototype architecture for gate terminals and attendance devices.'),
+            const Text('How gate terminals will reach SchoolOS once hardware is connected.'),
             const SizedBox(height: 14),
             Wrap(
               spacing: 10,
@@ -375,15 +445,17 @@ class _EventsCard extends StatelessWidget {
     required this.events,
     required this.filter,
     required this.onFilterChanged,
+    this.onIdentify,
   });
 
   final List<AdministratorAttendanceEvent> events;
   final String filter;
   final ValueChanged<String> onFilterChanged;
+  final ValueChanged<AdministratorAttendanceEvent>? onIdentify;
 
   @override
   Widget build(BuildContext context) {
-    const filters = ['All', 'Checked in', 'Late', 'Offline synced', 'Unknown scan'];
+    const filters = ['All', 'Checked in', 'Late', 'Excused', 'Offline synced', 'Unknown scan'];
     return Card(
       elevation: 0,
       child: Padding(
@@ -397,8 +469,8 @@ class _EventsCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Live attendance events', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-                      Text('Latest device activity for the school day.'),
+                      Text('Attendance today', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                      Text('Check-ins for the school day, from devices and the front desk.'),
                     ],
                   ),
                 ),
@@ -412,11 +484,12 @@ class _EventsCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
+            if (events.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No attendance recorded yet today.')),
             for (final item in events)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(item.student, style: const TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text('${item.className} · ${item.method}\n${item.device}'),
+                subtitle: Text('${item.className} · ${item.method}\n${item.device}${item.note.isEmpty ? '' : '\n${item.note}'}'),
                 isThreeLine: true,
                 trailing: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -425,6 +498,12 @@ class _EventsCard extends StatelessWidget {
                     Text(item.time, style: const TextStyle(fontWeight: FontWeight.w900)),
                     Text(item.status.label),
                     Text('Parent: ${item.parentState}', style: Theme.of(context).textTheme.bodySmall),
+                    if (item.isUnknown && onIdentify != null)
+                      TextButton(
+                        key: const ValueKey('attendance-identify'),
+                        onPressed: () => onIdentify!(item),
+                        child: const Text('Identify'),
+                      ),
                   ],
                 ),
               ),
@@ -449,7 +528,7 @@ class _DevicesCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Device health', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            const Text('Connectivity and event-sync status.'),
+            const Text('Sample devices. Gate hardware is not connected yet, so these are examples.'),
             const SizedBox(height: 10),
             for (final item in devices)
               ListTile(
@@ -467,7 +546,9 @@ class _DevicesCard extends StatelessWidget {
 }
 
 class _SectionsCard extends StatelessWidget {
-  const _SectionsCard();
+  const _SectionsCard({required this.desk});
+
+  final AttendanceDesk desk;
 
   @override
   Widget build(BuildContext context) {
@@ -479,9 +560,10 @@ class _SectionsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Attendance by section', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            const Text('Current school-day picture from synchronized records.'),
+            const Text('Today, from the check-ins and the student register.'),
             const SizedBox(height: 12),
-            for (final item in administratorAttendanceSections) ...[
+            if (desk.sections.isEmpty) const Text('No students on the register.'),
+            for (final item in desk.sections) ...[
               Row(
                 children: [
                   SizedBox(width: 90, child: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w800))),
@@ -493,7 +575,7 @@ class _SectionsCard extends StatelessWidget {
               const SizedBox(height: 3),
               Padding(
                 padding: const EdgeInsets.only(left: 90, bottom: 10),
-                child: Text('${item.present} present · ${item.late} late · ${item.absent} absent'),
+                child: Text('${item.present} present · ${item.late} late · ${item.absent} absent of ${item.expected}'),
               ),
             ],
           ],
@@ -504,10 +586,20 @@ class _SectionsCard extends StatelessWidget {
 }
 
 class _ExceptionsCard extends StatelessWidget {
-  const _ExceptionsCard();
+  const _ExceptionsCard({required this.desk});
+
+  final AttendanceDesk desk;
 
   @override
   Widget build(BuildContext context) {
+    final items = <(String, String, String)>[
+      if (desk.unknownScans > 0)
+        ('${desk.unknownScans} scan${desk.unknownScans == 1 ? '' : 's'} to identify', 'A device could not match the credential.', 'Review manually; never guess the student identity.'),
+      if (desk.pendingCorrections > 0)
+        ('${desk.pendingCorrections} correction request${desk.pendingCorrections == 1 ? '' : 's'}', 'Evidence conflicts with today\'s record.', 'Review with audit trail.'),
+      if (desk.absent > 0)
+        ('${desk.absent} not checked in', desk.absentNames.take(5).join(', ') + (desk.absent > 5 ? ' and ${desk.absent - 5} more' : ''), 'Follow up in the normal way. Nobody is marked absent for a reason from a scan alone.'),
+    ];
     return Card(
       elevation: 0,
       child: Padding(
@@ -518,22 +610,19 @@ class _ExceptionsCard extends StatelessWidget {
             const Text('Exceptions requiring attention', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
             const Text('Hardware data should be trusted, but not blindly.'),
             const SizedBox(height: 12),
-            for (final entry in administratorAttendanceExceptions) ...[
-              Builder(builder: (context) {
-                final parts = entry.split('|');
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(parts[0], style: const TextStyle(fontWeight: FontWeight.w900)),
-                      Text(parts[1]),
-                      Text(parts[2], style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ),
-                );
-              }),
-            ],
+            if (items.isEmpty) const Text('Nothing needs attention.'),
+            for (final entry in items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(entry.$1, style: const TextStyle(fontWeight: FontWeight.w900)),
+                    Text(entry.$2),
+                    Text(entry.$3, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -568,11 +657,12 @@ class _CorrectionsCard extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text('${item.id} · ${item.student}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text('${item.className} · ${item.requestedChange}\n${item.evidence}'),
+                subtitle: Text('${item.className} · ${item.requestedChange}\n${item.evidence}${item.isPending ? '' : '\n${item.status}${item.decisionNote.isEmpty ? '' : ': ${item.decisionNote}'}'}'),
                 isThreeLine: true,
                 trailing: TextButton(
+                  key: ValueKey('correction-${item.id}'),
                   onPressed: canReview ? () => onReview(item) : null,
-                  child: const Text('Review'),
+                  child: Text(item.isPending ? 'Review' : 'View'),
                 ),
               ),
           ],

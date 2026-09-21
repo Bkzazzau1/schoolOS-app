@@ -287,3 +287,17 @@ a list of usual documents; it starts as missing) and move it along: **Mark recei
 pending, reason required). Every step is appended to the document's history (who, when, why) and nothing is deleted. The
 dashboard's "records tasks" follow these changes. Files are not stored yet. The demo school has documents in every state for
 students, families and staff. Tests: `test/administrator_records_actions_test.dart`.
+
+## Administrator: Attendance Desk now works
+
+The desk (`administrator_attendance_desk.dart`, `administrator_attendance_repository.dart`) works out the day from the scans and
+the student register: present, late (after 08:00), excused, and who has not arrived, overall and by section (Early Years,
+Primary, Secondary, from the class name). The administrator can **check a student in by hand** (front desk; late after 08:00),
+**identify a scan the device could not match** by choosing the student (never guessed), and **approve or decline correction
+requests** (Present, Late or Excused). A decision keeps who decided, when and why, and adds a correction to the day without
+erasing the original scan; declining needs a reason. Students on the register with no arrival and no excuse are the "not
+checked in" list, followed up in the normal way.
+
+The demo school gets a morning of gate scans for today (deterministic: about nine in ten arrive, a few late, some absent, one
+scan to identify); a school server blocks these, since real devices supply the scans. The device list is labelled as sample:
+gate hardware is not connected. Tests: `test/administrator_attendance_actions_test.dart`.
