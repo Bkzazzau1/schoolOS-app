@@ -1,3 +1,4 @@
+import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
@@ -54,7 +55,7 @@ class ParentWorkspacePage extends StatefulWidget {
   State<ParentWorkspacePage> createState() => _ParentWorkspacePageState();
 }
 
-class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
+class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefresh<ParentWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
 
@@ -131,6 +132,9 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> {
     }
     setState(() => _activeKey = key);
   }
+
+  @override
+  void onSynced() => _refreshPendingCount();
 
   void _refreshPendingCount() {
     final count = widget.localDatabase.pendingCount(

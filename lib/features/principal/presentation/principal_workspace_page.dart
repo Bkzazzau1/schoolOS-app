@@ -1,3 +1,4 @@
+import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
@@ -49,7 +50,7 @@ class PrincipalWorkspacePage extends StatefulWidget {
   @override State<PrincipalWorkspacePage> createState() => _PrincipalWorkspacePageState();
 }
 
-class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
+class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with SyncRefresh<PrincipalWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   late final PrincipalTeachersRepository _teachers;
@@ -83,6 +84,9 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> {
 
   PrincipalNavItem get _activeItem => principalNavigation.firstWhere((e) => e.key == _activeKey, orElse: () => principalNavigation.first);
   void _select(String key) { if (principalNavigation.any((e) => e.key == key)) setState(() => _activeKey = key); }
+  @override
+  void onSynced() => _refreshPendingCount();
+
   void _refreshPendingCount() { final count = widget.localDatabase.pendingCount(tenantId: widget.membership.schoolId); if (mounted) setState(() => _pendingSyncCount = count); }
 
   Future<void> _openSyncCenter() async {

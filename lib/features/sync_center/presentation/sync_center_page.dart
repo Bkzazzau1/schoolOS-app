@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/database/local_database.dart';
+import '../../../core/sync/sync_coordinator.dart';
 import '../../../core/sync/sync_mutation.dart';
+import '../../../core/sync/sync_scope.dart';
 import '../../../shared/models/school_membership.dart';
 
 class SyncCenterPage extends StatefulWidget {
@@ -20,11 +22,29 @@ class SyncCenterPage extends StatefulWidget {
 
 class _SyncCenterPageState extends State<SyncCenterPage> {
   List<SyncQueueItem> _items = const [];
+  SyncCoordinator? _coordinator;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The queue changes as syncing goes on, so it is read again on every step.
+    final coordinator = SyncScope.maybeOf(context);
+    if (coordinator == _coordinator) return;
+    _coordinator?.removeListener(_load);
+    _coordinator = coordinator;
+    coordinator?.addListener(_load);
+  }
+
+  @override
+  void dispose() {
+    _coordinator?.removeListener(_load);
+    super.dispose();
   }
 
   void _load() {
@@ -44,11 +64,45 @@ class _SyncCenterPageState extends State<SyncCenterPage> {
     );
     _load();
 
+    _coordinator?.requestSync(immediately: true);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('The failed change has been placed back in the sync queue.'),
       ),
     );
+  }
+
+  Future<void> _discard(SyncQueueItem item) async {
+    final conflict = item.isConflict;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(conflict ? "Use the school's version?" : 'Discard this change?'),
+        content: Text(
+          conflict
+              ? 'Someone else changed this record first. Your change will be dropped and the school\'s version will replace it on this device.'
+              : 'The school refused this change. It will be dropped and the school\'s version will be used on this device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep it'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(conflict ? "Use the school's version" : 'Discard'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    widget.localDatabase.discardMutation(
+      tenantId: widget.membership.schoolId,
+      mutationId: item.id,
+    );
+    _load();
+    _coordinator?.requestSync(immediately: true);
   }
 
   @override
@@ -96,7 +150,9 @@ class _SyncCenterPageState extends State<SyncCenterPage> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          _SyncStatusCard(coordinator: _coordinator),
+          const SizedBox(height: 16),
           Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -131,12 +187,13 @@ class _SyncCenterPageState extends State<SyncCenterPage> {
               _SyncQueueCard(
                 item: item,
                 onRetry: item.canQueueRetry ? () => _queueRetry(item) : null,
+                onDiscard: item.status == SyncMutationStatus.failed ? () => _discard(item) : null,
               ),
               const SizedBox(height: 10),
             ],
           const SizedBox(height: 12),
           Text(
-            'A conflict means the cloud record changed after the offline copy was downloaded. SchoolOS keeps the local change instead of overwriting the cloud silently. A comparison/resolution screen will be connected when the sync API returns the server conflict snapshot.',
+            'A conflict means the school\'s record changed after your copy was downloaded. SchoolOS never overwrites the school\'s record silently: you can keep waiting, or use the school\'s version. Comparing the two side by side is not available yet.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -145,6 +202,92 @@ class _SyncCenterPageState extends State<SyncCenterPage> {
       ),
     );
   }
+}
+
+/// Where syncing stands, in words, with a button to sync right now.
+class _SyncStatusCard extends StatelessWidget {
+  const _SyncStatusCard({required this.coordinator});
+
+  final SyncCoordinator? coordinator;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final coordinator = this.coordinator;
+    if (coordinator == null) {
+      return Card(
+        elevation: 0,
+        child: ListTile(
+          leading: const Icon(Icons.science_outlined),
+          title: const Text('Demo data'),
+          subtitle: const Text('This copy of SchoolOS is not connected to a school server.'),
+        ),
+      );
+    }
+
+    return ListenableBuilder(
+      listenable: coordinator,
+      builder: (context, _) {
+        final status = coordinator.status;
+        final (icon, title) = switch (status) {
+          SyncStatus.idle => (
+              Icons.cloud_done_outlined,
+              coordinator.lastSyncedAt == null
+                  ? 'Not synced yet'
+                  : 'Up to date · last synced ${_formatTime(coordinator.lastSyncedAt!.toLocal())}',
+            ),
+          SyncStatus.syncing => (Icons.sync_rounded, 'Syncing...'),
+          SyncStatus.offline => (Icons.cloud_off_rounded, 'Offline'),
+          SyncStatus.needsSignIn => (Icons.lock_clock_outlined, 'Your sign-in has ended'),
+          SyncStatus.lostAccess => (Icons.block_rounded, 'No access to this school'),
+          SyncStatus.error => (Icons.error_outline_rounded, 'Something went wrong'),
+        };
+        final canSync = status != SyncStatus.syncing &&
+            status != SyncStatus.needsSignIn &&
+            status != SyncStatus.lostAccess;
+
+        return Card(
+          elevation: 0,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(icon, color: theme.colorScheme.primary),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      if (coordinator.message != null) ...[
+                        const SizedBox(height: 4),
+                        Text(coordinator.message!, style: theme.textTheme.bodySmall),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: canSync ? coordinator.syncNow : null,
+                  icon: const Icon(Icons.sync_rounded, size: 18),
+                  label: const Text('Sync now'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+String _formatTime(DateTime value) {
+  final minute = value.minute.toString().padLeft(2, '0');
+  final hour = value.hour.toString().padLeft(2, '0');
+  return '$hour:$minute';
 }
 
 class _CountChip extends StatelessWidget {
@@ -208,10 +351,12 @@ class _SyncQueueCard extends StatelessWidget {
   const _SyncQueueCard({
     required this.item,
     required this.onRetry,
+    this.onDiscard,
   });
 
   final SyncQueueItem item;
   final VoidCallback? onRetry;
+  final VoidCallback? onDiscard;
 
   @override
   Widget build(BuildContext context) {
@@ -287,12 +432,23 @@ class _SyncQueueCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (onRetry != null) ...[
+            if (onRetry != null || onDiscard != null) ...[
               const SizedBox(width: 12),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.replay_rounded, size: 18),
-                label: const Text('Retry'),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (onRetry != null)
+                    OutlinedButton.icon(
+                      onPressed: onRetry,
+                      icon: const Icon(Icons.replay_rounded, size: 18),
+                      label: const Text('Retry'),
+                    ),
+                  if (onDiscard != null)
+                    TextButton(
+                      onPressed: onDiscard,
+                      child: Text(item.isConflict ? "Use school's version" : 'Discard'),
+                    ),
+                ],
               ),
             ],
           ],

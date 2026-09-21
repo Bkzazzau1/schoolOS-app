@@ -249,6 +249,50 @@ void main() {
     );
   });
 
+  group('giving up on a refused change', () {
+    test('a new record the server never accepted is removed from this device', () async {
+      await db.upsertLocalRecord(tenantId: tenant, entityType: 'school_event', entityId: 'A', payload: {'v': 1}, isDirty: true);
+      final id = await queue('A', {'v': 1}, op: SyncOperation.create);
+      refuse(id);
+      db.discardMutation(tenantId: tenant, mutationId: id);
+      expect(db.syncQueueItems(tenantId: tenant), isEmpty);
+      expect(await db.getLocalRecord(tenantId: tenant, entityType: 'school_event', entityId: 'A'), isNull);
+    });
+
+    test('a record the school already has stops counting as edited, and is downloaded again', () async {
+      await db.upsertLocalRecord(tenantId: tenant, entityType: 'school_event', entityId: 'A', payload: {'v': 'mine'}, serverVersion: 3, isDirty: true);
+      await db.writeSyncCursor(tenantId: tenant, membershipId: membership, cursor: 40);
+      final id = await queue('A', {'v': 'mine'}, base: 3);
+      refuse(id);
+
+      db.discardMutation(tenantId: tenant, mutationId: id);
+      final record = (await db.getLocalRecord(tenantId: tenant, entityType: 'school_event', entityId: 'A'))!;
+      expect((record.isDirty, record.serverVersion), (false, 3));
+      expect(await db.readSyncCursor(tenantId: tenant, membershipId: membership), 0);   // read the school's copy again
+    });
+
+    test('only refused changes can be discarded, and a later edit of the record is left alone', () async {
+      final waiting = await queue('A', {'v': 1}, op: SyncOperation.create);
+      db.discardMutation(tenantId: tenant, mutationId: waiting);
+      expect((await pending()).length, 1);                     // still waiting: not refused, so not discardable
+
+      final refused = await queue('B', {'v': 1}, op: SyncOperation.create);
+      refuse(refused);
+      db.markMutationSyncing(waiting);
+      db.markMutationPending(waiting);
+      final later = await queue('A', {'v': 2}, base: 1);         // an edit queued behind the one in flight
+      db.discardMutation(tenantId: tenant, mutationId: refused);
+      expect((await pending()).map((m) => m.id), [waiting, later]);
+    });
+
+    test('a change from another school cannot be discarded', () async {
+      final id = await queue('A', {'v': 1});
+      refuse(id);
+      db.discardMutation(tenantId: 'another-school', mutationId: id);
+      expect(db.syncQueueItems(tenantId: tenant).length, 1);
+    });
+  });
+
   group('downloaded state', () {
     test(
       'the cursor is kept for each school and membership, and survives a rewrite',

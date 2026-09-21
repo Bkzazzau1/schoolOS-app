@@ -1,3 +1,4 @@
+import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
@@ -43,7 +44,7 @@ class DriverWorkspacePage extends StatefulWidget {
   State<DriverWorkspacePage> createState() => _DriverWorkspacePageState();
 }
 
-class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
+class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefresh<DriverWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
 
@@ -124,6 +125,9 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> {
     if (!_navigation.any((item) => item.key == key) || key == _activeKey) return;
     setState(() => _activeKey = key);
   }
+
+  @override
+  void onSynced() => _refreshPendingCount();
 
   void _refreshPendingCount() {
     final count = widget.localDatabase.pendingCount(

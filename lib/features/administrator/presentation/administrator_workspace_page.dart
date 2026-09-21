@@ -1,3 +1,4 @@
+import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/data/owner_staff_profile_repository.dart';
 import '../../proprietor/data/payroll_batch_repository.dart';
 import '../../proprietor/data/staff_proposal_repository.dart';
@@ -57,8 +58,7 @@ class AdministratorWorkspacePage extends StatefulWidget {
       _AdministratorWorkspacePageState();
 }
 
-class _AdministratorWorkspacePageState
-    extends State<AdministratorWorkspacePage> {
+class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage> with SyncRefresh<AdministratorWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   AdmissionApplicant? _registrationApplicant;
@@ -123,6 +123,9 @@ class _AdministratorWorkspacePageState
     );
     _refreshPendingCount();
   }
+
+  @override
+  void onSynced() => _refreshPendingCount();
 
   void _refreshPendingCount() {
     final count = widget.localDatabase.pendingCount(

@@ -85,6 +85,15 @@ void main() {
     expect(sync.lastSummary!.synced, 2);
   });
 
+  test('changes made by others are counted apart from this device own work', () async {
+    runner.answers.addAll([() => summary(synced: 2), () => summary(pulled: 1)]);
+    final sync = make(interval: const Duration(milliseconds: 40))..start();
+    await pause(30);
+    expect((sync.changes, sync.remoteChanges), (1, 0));      // it only sent something
+    await pause(80);
+    expect((sync.changes, sync.remoteChanges), (2, 1));      // now someone else's work arrived
+  });
+
   test('a round that found nothing does not count as a change', () async {
     final sync = make()..start();
     await pause();

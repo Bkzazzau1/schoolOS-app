@@ -30,7 +30,8 @@ existing test runs on that path. With a value, the login screen asks for an emai
 | Login screen | `lib/features/authentication/presentation/login_page.dart` | Real sign-in when a backend is set: email field, plain error messages, "not connected to any school yet" message, no demo panel |
 
 Tests: `test/core/` (74 tests) cover each layer with a fake server, in-memory storage and, for the queue rules, real SQLite;
-`test/backend_login_and_banner_test.dart` covers the login screen and banner (9 tests).
+`test/backend_login_and_banner_test.dart` covers the login screen and banner (9 tests), and
+`test/sync_center_and_scope_test.dart` the Sync Center, scope and mixin (10 tests).
 
 ## Fixed on the way
 
@@ -64,11 +65,25 @@ rules could lose work once a real server was involved. Now:
 The database can now run in tests (`databasePath: ':memory:'`), so these rules are tested against real SQLite
 (`test/core/local_database_queue_test.dart`).
 
+## Done (step 3): Sync Center and reacting to new data
+
+| Piece | File | What it does |
+| --- | --- | --- |
+| Scope | `lib/core/sync/sync_scope.dart` | `SyncScope` gives every screen the coordinator (absent on demo data) |
+| Reload hook | `SyncRefresh` mixin | A screen adds `with SyncRefresh<MyPage>` and `void onSynced() => _load();`. It runs after a round that sent changes or brought in others' changes, never after an idle round, and never once the screen is gone |
+| Sync Center | `lib/features/sync_center/presentation/sync_center_page.dart` | Live status card (up to date and when, syncing, offline, sign-in ended, no access, problem), "Sync now", the queue refreshing as syncing goes on, **Retry** for a refused change, and **Discard** (for a conflict: "Use school's version"), each asking first |
+| Discard | `LocalDatabase.discardMutation` | Drops a refused change. A record the school never accepted is removed from the device; otherwise it stops counting as edited here and the download position is reset so the school's copy is read again |
+| Workspace badges | the 8 workspace pages and the dashboard | The pending-changes badge now updates after every sync (`with SyncRefresh`) |
+| Counter | `SyncCoordinator.remoteChanges` | Counts rounds that brought in someone else's work, apart from `changes` |
+
+Content screens are **not** reloaded automatically. Most load once when they open, and replacing a screen while someone is
+typing in it could wipe their text. Each screen opts in with the mixin above, reloading only what is safe to replace.
+
 ## Not done yet (next)
 
-1. **Sync Center screen**: show `SyncCoordinator` status, last sync time and counts, and a "Sync now" button; let a person
-   retry or discard a refused change (it lists them already).
-2. **Screens reload when new data arrives**: they read the local database when they open. Listen to `coordinator.changes`.
+1. **Opt content screens in** to `SyncRefresh`, module by module (read-only lists first: notices, events, staff lists).
+2. **"Send mine anyway" for a conflict.** Today a conflict can only be kept waiting or resolved with the school's version,
+   because the refused change does not remember the school's version number it lost to.
 3. **Losing one school but keeping others**: the banner sends the person through sign-in again; a school picker would be gentler.
 4. **Access** (`access/me/`, hiding screens, the blocking flow) and the **notifications inbox**.
 5. Everything in `schoolOS_backend/docs/APP_CHANGES.md` sections B to H, feature by feature.

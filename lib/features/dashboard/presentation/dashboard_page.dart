@@ -1,3 +1,4 @@
+import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/data/staff_onboarding_repository.dart';
 import '../../proprietor/presentation/staff_onboarding_page.dart';
 import 'package:flutter/material.dart';
@@ -42,7 +43,7 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends State<DashboardPage> with SyncRefresh<DashboardPage> {
   int _selectedIndex = 0;
   int _pendingSyncCount = 0;
   late final AttendanceRepository _attendanceRepository;
@@ -81,6 +82,9 @@ class _DashboardPageState extends State<DashboardPage> {
     );
     _refreshPendingCount();
   }
+
+  @override
+  void onSynced() => _refreshPendingCount();
 
   void _refreshPendingCount() {
     final active = widget.schoolSession.requireActiveMembership();

@@ -350,17 +350,19 @@ class LocalDatabase implements SyncStore {
   /// written with six decimals so that ordering by text is ordering by time.
   String _nextQueueTime() {
     var time = DateTime.now().toUtc();
-    final latest = _db
-        .select('SELECT MAX(created_at) AS latest FROM sync_outbox;')
-        .first['latest'] as String?;
+    final latest =
+        _db
+                .select('SELECT MAX(created_at) AS latest FROM sync_outbox;')
+                .first['latest']
+            as String?;
     if (latest != null) {
       final last = DateTime.parse(latest);
       if (!time.isAfter(last)) time = last.add(const Duration(microseconds: 1));
     }
     return time.toIso8601String().replaceFirstMapped(
-          RegExp(r'\.(\d{3})Z$'),
-          (match) => '.${match[1]}000Z',
-        );
+      RegExp(r'\.(\d{3})Z$'),
+      (match) => '.${match[1]}000Z',
+    );
   }
 
   Future<List<SyncMutation>> pendingMutations({
@@ -387,6 +389,43 @@ class LocalDatabase implements SyncStore {
       mutations.add(await _decodeMutation(row));
     }
     return mutations;
+  }
+
+  /// Gives up on a change the server refused (or that conflicted), so the
+  /// school's version stands.
+  ///
+  /// The change leaves the queue. If it was a new record the server never
+  /// accepted, the local copy is removed; otherwise the copy stops counting as
+  /// edited here, and the download position is reset so the server's version of
+  /// it (skipped while it was being edited here) is read again.
+  void discardMutation({required String tenantId, required String mutationId}) {
+    _requireTenant(tenantId);
+    final rows = _db.select(
+      'SELECT entity_type, entity_id FROM sync_outbox WHERE id = ? AND tenant_id = ? AND status = ?;',
+      [mutationId, tenantId, 'failed'],
+    );
+    if (rows.isEmpty) return;
+    final type = rows.first['entity_type'] as String;
+    final id = rows.first['entity_id'] as String;
+
+    _db.execute('DELETE FROM sync_outbox WHERE id = ?;', [mutationId]);
+    final others = _db.select(
+      'SELECT 1 FROM sync_outbox WHERE tenant_id = ? AND entity_type = ? AND entity_id = ? LIMIT 1;',
+      [tenantId, type, id],
+    );
+    if (others.isNotEmpty) {
+      return; // a later edit of the same record is still waiting
+    }
+
+    _db.execute(
+      'DELETE FROM local_records WHERE tenant_id = ? AND entity_type = ? AND entity_id = ? AND server_version IS NULL;',
+      [tenantId, type, id],
+    );
+    _db.execute(
+      'UPDATE local_records SET is_dirty = 0 WHERE tenant_id = ? AND entity_type = ? AND entity_id = ?;',
+      [tenantId, type, id],
+    );
+    _db.execute('DELETE FROM sync_cursors WHERE tenant_id = ?;', [tenantId]);
   }
 
   List<SyncQueueItem> syncQueueItems({

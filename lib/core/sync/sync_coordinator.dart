@@ -63,6 +63,7 @@ class SyncCoordinator extends ChangeNotifier with WidgetsBindingObserver {
   DateTime? _lastSyncedAt;
   String? _message;
   int _changes = 0;
+  int _remoteChanges = 0;
 
   bool _started = false;
   bool _running = false;
@@ -81,6 +82,9 @@ class SyncCoordinator extends ChangeNotifier with WidgetsBindingObserver {
   /// Goes up whenever a round brought in or sent something, so a screen can
   /// listen for it and reload what it shows.
   int get changes => _changes;
+
+  /// Goes up only when a round brought in changes made by someone else (or on another device).
+  int get remoteChanges => _remoteChanges;
 
   /// Begins keeping in step. Safe to call again (for instance after signing in).
   void start() {
@@ -167,6 +171,7 @@ class SyncCoordinator extends ChangeNotifier with WidgetsBindingObserver {
         _backoff = null;
         _lastSyncedAt = DateTime.now();
         if (summary.synced > 0 || summary.pulled > 0) _changes += 1;
+        if (summary.pulled > 0) _remoteChanges += 1;
         final problem = summary.pullError;
         _setStatus(
           problem == null ? SyncStatus.idle : SyncStatus.error,

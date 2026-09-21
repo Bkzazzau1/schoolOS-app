@@ -1,3 +1,4 @@
+import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
@@ -49,7 +50,7 @@ class FinanceOfficeWorkspacePage extends StatefulWidget {
       _FinanceOfficeWorkspacePageState();
 }
 
-class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage> {
+class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage> with SyncRefresh<FinanceOfficeWorkspacePage> {
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   late final FinanceConcessionsRepository _concessions;
@@ -76,6 +77,9 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
     if (!financeOfficeNavigation.any((item) => item.key == key)) return;
     setState(() => _activeKey = key);
   }
+
+  @override
+  void onSynced() => _refreshPendingCount();
 
   void _refreshPendingCount() {
     final count = widget.localDatabase.pendingCount(

@@ -1,3 +1,4 @@
+import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
@@ -82,7 +83,7 @@ class ProprietorWorkspacePage extends StatefulWidget {
   State<ProprietorWorkspacePage> createState() => _ProprietorWorkspacePageState();
 }
 
-class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
+class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with SyncRefresh<ProprietorWorkspacePage> {
   int _pendingSyncCount = 0;
   String _activeModule = 'overview';
   late final ConcessionRepository _concessionRepository;
@@ -117,6 +118,9 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> {
     );
     _refreshPendingCount();
   }
+
+  @override
+  void onSynced() => _refreshPendingCount();
 
   void _refreshPendingCount() {
     final count = widget.localDatabase.pendingCount(
