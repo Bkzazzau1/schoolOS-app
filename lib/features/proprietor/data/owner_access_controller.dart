@@ -3,18 +3,21 @@ import 'package:flutter/foundation.dart';
 import '../../../core/network/api_exceptions.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/owner_access_models.dart';
-import 'owner_access_repository.dart';
+import 'owner_access_source.dart';
 
 /// What the Access & Activities screen shows, and the changes it makes.
 ///
 /// Everything is read from the server, and every change goes to the server first
 /// and is then read back, so what the owner sees is what the server holds.
 class OwnerAccessController extends ChangeNotifier {
-  OwnerAccessController({required OwnerAccessRepository repository, required SchoolMembership owner})
+  OwnerAccessController({required OwnerAccessSource repository, required SchoolMembership owner})
       : _repository = repository,
         _owner = owner;
 
-  final OwnerAccessRepository _repository;
+  final OwnerAccessSource _repository;
+
+  /// The owner can give people extra roles here (the demo only).
+  bool get supportsExtraRoles => _repository.supportsExtraRoles;
   final SchoolMembership _owner;
 
   AccessCatalogData? catalog;
@@ -75,7 +78,7 @@ class OwnerAccessController extends ChangeNotifier {
 
   /// Runs one change, then reads everything back. Returns null on success, or the
   /// words to show the owner when the change was refused or could not be sent.
-  Future<String?> change(Future<void> Function(OwnerAccessRepository repository, SchoolMembership owner) action) async {
+  Future<String?> change(Future<void> Function(OwnerAccessSource repository, SchoolMembership owner) action) async {
     try {
       await action(_repository, _owner);
     } catch (error) {
@@ -89,6 +92,7 @@ class OwnerAccessController extends ChangeNotifier {
     if (error is ApiOfflineException) return 'You need a connection to change who can see what. Try again when you are online.';
     if (error is SessionExpiredException) return 'Your sign-in has ended. Sign in again to continue.';
     if (error is ApiException) return error.message;
+    if (error is StateError) return error.message;
     return 'Something went wrong. Please try again.';
   }
 }

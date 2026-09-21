@@ -1,15 +1,15 @@
 import 'package:flutter/widgets.dart';
 
-import 'owner_access_repository.dart';
+import 'owner_access_source.dart';
 
 /// Makes the owner's access calls available to the owner workspace. Absent on
 /// demo data, where there is no server to decide access on.
 class OwnerAccessScope extends InheritedWidget {
   const OwnerAccessScope({super.key, required this.repository, required super.child});
 
-  final OwnerAccessRepository repository;
+  final OwnerAccessSource repository;
 
-  static OwnerAccessRepository? maybeOf(BuildContext context) =>
+  static OwnerAccessSource? maybeOf(BuildContext context) =>
       context.getInheritedWidgetOfExactType<OwnerAccessScope>()?.repository;
 
   @override

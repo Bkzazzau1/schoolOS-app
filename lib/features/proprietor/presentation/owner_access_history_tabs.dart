@@ -93,6 +93,8 @@ String describeChange(AccessChangeEntry entry, AccessCatalogData? catalog) {
     'reassign' => 'Moved $screen to $person$withNote',
     'role_set' => 'Changed the screens for ${roleLabel(entry.role)}'
         '${_list(entry.detail['added'], 'added')}${_list(entry.detail['removed'], 'removed')}',
+    'role_added' => 'Gave $person the ${roleLabel(entry.role).toLowerCase()} role',
+    'role_removed' => 'Took the ${roleLabel(entry.role).toLowerCase()} role from $person',
     'role_reset' => 'Put ${roleLabel(entry.role)} back on the built-in screens',
     _ => 'Changed access',
   };

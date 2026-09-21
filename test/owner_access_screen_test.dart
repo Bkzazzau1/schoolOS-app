@@ -183,7 +183,8 @@ void main() {
       expect(controller.loaded, isFalse);
       expect(controller.loadError, contains('need a connection'));
       expect(OwnerAccessController.describe(const SessionExpiredException()), contains('sign-in has ended'));
-      expect(OwnerAccessController.describe(StateError('x')), contains('Something went wrong'));
+      expect(OwnerAccessController.describe(StateError('x')), 'x');
+      expect(OwnerAccessController.describe(Object()), contains('Something went wrong'));
     });
 
     test('waiting blocks are worked out from the people', () async {

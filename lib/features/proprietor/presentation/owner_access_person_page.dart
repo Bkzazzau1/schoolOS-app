@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/owner_access_controller.dart';
 import '../domain/owner_access_models.dart';
 import 'owner_access_dialogs.dart';
+import 'owner_access_extra_roles.dart';
 
 /// One person's access: every screen, grouped, with what they have and why.
 ///
@@ -38,6 +39,7 @@ class OwnerAccessPersonPage extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
+              if (controller.supportsExtraRoles) ExtraRolesSection(controller: controller, person: person),
               for (final group in catalog.groups) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),

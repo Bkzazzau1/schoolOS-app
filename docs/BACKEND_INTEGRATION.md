@@ -160,3 +160,24 @@ more in `test/staff_server_test.dart` (27) and the coordinator tests.
 4. **Dashboards** (G): the owner overview and finance screens should read `dashboards/schools/<id>/owner/` and `/finance/`.
 5. Opening invitation links on a phone (no Android project yet), the older dialogs' controller disposal, "send mine anyway"
    for conflicts, the general dashboard's access, and deleting a blocked screen's local data.
+
+## Step 8: the owner's access system works in the demo too
+
+With no server, `LocalOwnerAccess` (`lib/features/proprietor/data/local_owner_access.dart`) does what the server does for
+who-sees-what, with the same rules, and keeps the owner's decisions on the device. The Access & Activities screen and the
+menus use it through two small interfaces (`OwnerAccessSource`, `AccessView`), so they do not know which one they have.
+
+- The demo has twelve sample people (`lib/app/demo_people.dart`): owner, administrator, finance officer, principal, two
+  teachers, support staff, two parents, a student, a driver, and a teacher at a second school. The demo login offers all of
+  them, so you can decide something as the owner and then sign in as that person.
+- The owner can change what a role sees, give or take a screen for one person, move a screen, and **give a person an extra
+  role** (for example a teacher who is also a parent). An extra role is another membership (`<person>#<role>`) that the person
+  can switch to. Everything is kept and comes back after a restart.
+- Rules: the owner cannot lock themselves out, the owner role cannot be given away, landing screens cannot be taken
+  from anyone, and screens that are not in the catalog are never hidden.
+- The app-side catalog is generated from the backend (`lib/core/access/access_catalog_data.dart`); regenerate it when the
+  backend catalog changes.
+- With a school server the roles are still given through invitations; the extra-role controls appear only in the demo.
+
+Tests: `test/local_owner_access_test.dart` (10), `test/demo_extra_roles_test.dart`.
+Not done: a test that every menu key in the app is in the catalog; a "demo data" banner on the access screen.

@@ -143,19 +143,19 @@ class SchoolOsApp extends StatelessWidget {
             ),
           ),
           builder: (context, child) {
+            if (child == null) return const SizedBox.shrink();
             final coordinator = services.syncCoordinator;
-            if (coordinator == null || child == null) {
-              return child ?? const SizedBox.shrink();
-            }
-            final scoped = SyncScope(
-              coordinator: coordinator,
-              child: SyncStatusBanner(
-                coordinator: coordinator,
-                onSignInAgain: () => _signInAgain(services),
-                child: child,
-              ),
-            );
-            final access = services.access;
+            final Widget scoped = coordinator == null
+                ? child
+                : SyncScope(
+                    coordinator: coordinator,
+                    child: SyncStatusBanner(
+                      coordinator: coordinator,
+                      onSignInAgain: () => _signInAgain(services),
+                      child: child,
+                    ),
+                  );
+            final access = services.accessView;
             final notifications = services.notifications;
             Widget tree = scoped;
             if (access != null) tree = AccessScope(access: access, child: tree);

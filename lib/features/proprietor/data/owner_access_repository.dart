@@ -1,6 +1,7 @@
 import '../../../core/network/api_client.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/owner_access_models.dart';
+import 'owner_access_source.dart';
 
 /// The owner's calls for deciding who sees which screen. They need a connection
 /// (unlike most of the app): what the owner decides here is the server's
@@ -8,33 +9,49 @@ import '../domain/owner_access_models.dart';
 ///
 /// A refused change (`400 access_error`) comes back as an `ApiException` whose
 /// message is written for the owner and is safe to show.
-class OwnerAccessRepository {
+class OwnerAccessRepository implements OwnerAccessSource {
   OwnerAccessRepository({required ApiClient api}) : _api = api;
 
   final ApiClient _api;
+
+  @override
+  bool get supportsExtraRoles => false;
+
+  @override
+  Future<void> addRole(SchoolMembership owner, String personId, String role) =>
+      throw UnsupportedError('Roles are given through invitations when there is a school server.');
+
+  @override
+  Future<void> removeRole(SchoolMembership owner, String personId, String role) =>
+      throw UnsupportedError('Roles are given through invitations when there is a school server.');
 
   String _base(SchoolMembership owner) => 'owner/schools/${owner.schoolId}/access';
 
   Map<String, String> _who(SchoolMembership owner) => {'membership': owner.id};
 
+  @override
   Future<AccessCatalogData> loadCatalog(SchoolMembership owner) async {
     final data = await _api.get('${_base(owner)}/catalog/', query: _who(owner));
     return AccessCatalogData.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
+  @override
   Future<List<RoleAccess>> loadRoles(SchoolMembership owner) async {
     final data = await _api.get('${_base(owner)}/roles/', query: _who(owner)) as Map;
     return [for (final r in (data['roles'] as List)) RoleAccess.fromJson(Map<String, dynamic>.from(r as Map))];
   }
 
+  @override
   Future<void> setRole(SchoolMembership owner, String role, Set<String> activities) async {
     await _api.put('${_base(owner)}/roles/$role/', body: {'activities': activities.toList()..sort()}, query: _who(owner));
   }
 
+  @override
   Future<void> resetRole(SchoolMembership owner, String role) async {
     await _api.delete('${_base(owner)}/roles/$role/', query: _who(owner));
   }
 
+  @override
   Future<List<PersonAccess>> loadPeople(SchoolMembership owner) async {
     final data = await _api.get('${_base(owner)}/people/', query: _who(owner)) as Map;
     return [for (final p in (data['people'] as List)) PersonAccess.fromJson(Map<String, dynamic>.from(p as Map))];
@@ -44,6 +61,7 @@ class OwnerAccessRepository {
   ///
   /// A block waits for the person's next sync by default, so the app can send
   /// their unsent work first; [immediately] makes it take effect at once.
+  @override
   Future<void> setOverride(
     SchoolMembership owner,
     String membershipId,
@@ -66,11 +84,13 @@ class OwnerAccessRepository {
   }
 
   /// Put the person back on their role's default for this activity (also cancels a waiting block).
+  @override
   Future<void> clearOverride(SchoolMembership owner, String membershipId, String activity) async {
     await _api.delete('${_base(owner)}/people/$membershipId/activities/$activity/', query: _who(owner));
   }
 
   /// Move an activity from one person to another in one step.
+  @override
   Future<void> reassign(
     SchoolMembership owner, {
     required String activity,
@@ -92,6 +112,7 @@ class OwnerAccessRepository {
     );
   }
 
+  @override
   Future<List<AccessChangeEntry>> loadHistory(SchoolMembership owner, {int limit = 100}) async {
     final data = await _api.get('${_base(owner)}/audit/', query: {..._who(owner), 'limit': '$limit'}) as Map;
     return [for (final c in (data['changes'] as List)) AccessChangeEntry.fromJson(Map<String, dynamic>.from(c as Map))];

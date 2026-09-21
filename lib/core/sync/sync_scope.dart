@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../access/access_controller.dart';
+import '../access/access_view.dart';
 import '../notifications/notifications_controller.dart';
 import 'server_confirm.dart';
 import 'sync_coordinator.dart';
@@ -70,9 +70,9 @@ mixin SyncRefresh<T extends StatefulWidget> on State<T> {
 class AccessScope extends InheritedWidget {
   const AccessScope({super.key, required this.access, required super.child});
 
-  final AccessController access;
+  final AccessView access;
 
-  static AccessController? maybeOf(BuildContext context) =>
+  static AccessView? maybeOf(BuildContext context) =>
       context.getInheritedWidgetOfExactType<AccessScope>()?.access;
 
   @override
@@ -101,7 +101,7 @@ class NotificationsScope extends InheritedWidget {
 /// The screen list is redrawn whenever the person's access changes. While access
 /// is not known (demo data, or before the first answer) every screen is shown.
 mixin AccessAware<T extends StatefulWidget> on State<T> {
-  AccessController? _accessController;
+  AccessView? _accessController;
 
   @override
   void didChangeDependencies() {

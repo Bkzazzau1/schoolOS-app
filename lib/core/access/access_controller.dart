@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../shared/models/school_membership.dart';
 import '../network/api_client.dart';
 import '../sync/sync_store.dart';
+import 'access_view.dart';
 
 /// A block the owner has made that is not in force yet. The person keeps the
 /// activity until the app has sent its unsent work for it (and says so), or until
@@ -57,7 +58,7 @@ class AccessSnapshot {
 /// the menus are right offline too. Until it is known (demo data, or before the
 /// first answer) nothing is hidden: hiding a menu item is only a convenience, and
 /// the server refuses the data itself.
-class AccessController extends ChangeNotifier {
+class AccessController extends ChangeNotifier implements AccessView {
   AccessController({required ApiClient api, required SyncStore store})
       : _api = api,
         _store = store;
@@ -73,11 +74,13 @@ class AccessController extends ChangeNotifier {
   AccessSnapshot? get snapshot => _snapshot;
 
   /// True once the person's access has been read (from the server or the device).
+  @override
   bool get known => _snapshot != null;
 
   List<AccessBlock> get blocking => _snapshot?.blocking ?? const [];
 
   /// May the person use this screen? `true` while access is not known.
+  @override
   bool allows(String activity) => _snapshot == null || _snapshot!.activities.contains(activity);
 
   /// Loads what was kept on the device for this membership (a different

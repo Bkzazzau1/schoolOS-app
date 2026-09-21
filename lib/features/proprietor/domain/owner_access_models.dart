@@ -122,7 +122,11 @@ class PersonAccess {
     required this.role,
     required this.activities,
     required this.overrides,
+    this.extraRoles = const [],
   });
+
+  /// Roles the owner gave them besides their main one (the demo only).
+  final List<String> extraRoles;
 
   final String membershipId;
   final String email;
@@ -150,6 +154,7 @@ class PersonAccess {
           for (final o in (json['overrides'] as List? ?? const []))
             AccessOverride.fromJson(Map<String, dynamic>.from(o as Map)),
         ],
+        extraRoles: [for (final r in (json['extraRoles'] as List? ?? const [])) r as String],
       );
 }
 

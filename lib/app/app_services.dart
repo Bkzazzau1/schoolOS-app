@@ -13,7 +13,10 @@ import '../core/sync/round_follow_up.dart';
 import '../core/sync/sync_coordinator.dart';
 import '../core/sync/sync_engine.dart';
 import '../features/alumni/data/alumni_server_api.dart';
+import '../core/access/access_view.dart';
+import '../features/proprietor/data/local_owner_access.dart';
 import '../features/proprietor/data/owner_access_repository.dart';
+import '../features/proprietor/data/owner_access_source.dart';
 import '../features/proprietor/data/staff_server_api.dart';
 import '../core/sync/sync_puller.dart';
 import '../core/tenancy/school_session_controller.dart';
@@ -32,6 +35,7 @@ class AppServices {
     this.access,
     this.notifications,
     this.ownerAccess,
+    this.localAccess,
     this.staffServer,
     this.alumniServer,
     this.serverConfirm,
@@ -47,7 +51,13 @@ class AppServices {
   final SyncCoordinator? syncCoordinator;
   final AccessController? access;
   final NotificationsController? notifications;
-  final OwnerAccessRepository? ownerAccess;
+  final OwnerAccessSource? ownerAccess;
+
+  /// Who-sees-what for the demo (no server): the same rules, kept on the device.
+  final LocalOwnerAccess? localAccess;
+
+  /// What decides the menus: the server's answer, or the demo's decisions.
+  AccessView? get accessView => access ?? localAccess;
   final StaffServerApi? staffServer;
   final AlumniServerApi? alumniServer;
   final ServerConfirm? serverConfirm;
@@ -88,10 +98,11 @@ class AppServices {
     SyncCoordinator? syncCoordinator;
     AccessController? access;
     NotificationsController? notifications;
-    OwnerAccessRepository? ownerAccess;
+    OwnerAccessSource? ownerAccess;
     StaffServerApi? staffServer;
     AlumniServerApi? alumniServer;
     ServerConfirm? serverConfirm;
+    LocalOwnerAccess? localAccess;
     LocalDatabase.blockDemoSeeds = apiConfig.enabled;
     if (apiConfig.enabled) {
       final tokens = SecureTokenStore();
@@ -138,6 +149,10 @@ class AppServices {
         ).call,
       );
       localDatabase.onMutationQueued = syncCoordinator.requestSync;
+    } else {
+      localAccess = LocalOwnerAccess(store: localDatabase, session: schoolSession);
+      ownerAccess = localAccess;
+      await localAccess.restore();
     }
 
     final services = AppServices._(
@@ -151,6 +166,7 @@ class AppServices {
       access: access,
       notifications: notifications,
       ownerAccess: ownerAccess,
+      localAccess: localAccess,
       staffServer: staffServer,
       alumniServer: alumniServer,
       serverConfirm: serverConfirm,

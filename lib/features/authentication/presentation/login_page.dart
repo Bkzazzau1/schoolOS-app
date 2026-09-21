@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_services.dart';
+import '../../../app/demo_people.dart';
 import '../../../app/open_home.dart';
 import '../../../core/network/api_exceptions.dart';
 import '../../invitations/presentation/invitation_accept_page.dart';
@@ -23,51 +24,6 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _busy = false;
-
-  static const _demoMemberships = <SchoolMembership>[
-    SchoolMembership(
-      id: 'membership-proprietor-001',
-      schoolId: 'school-brightgate',
-      schoolName: 'BrightGate Academy',
-      role: SchoolRole.proprietor,
-    ),
-    SchoolMembership(
-      id: 'membership-administrator-001',
-      schoolId: 'school-brightgate',
-      schoolName: 'BrightGate Academy',
-      role: SchoolRole.administrator,
-    ),
-    SchoolMembership(
-      id: 'membership-finance-001',
-      schoolId: 'school-brightgate',
-      schoolName: 'BrightGate Academy',
-      role: SchoolRole.accountant,
-    ),
-    SchoolMembership(
-      id: 'membership-principal-001',
-      schoolId: 'school-brightgate',
-      schoolName: 'BrightGate Academy',
-      role: SchoolRole.principal,
-    ),
-    SchoolMembership(
-      id: 'membership-teacher-001',
-      schoolId: 'school-al-hikma',
-      schoolName: 'Al-Hikma Academy',
-      role: SchoolRole.teacher,
-    ),
-    SchoolMembership(
-      id: 'membership-parent-001',
-      schoolId: 'school-brightgate',
-      schoolName: 'BrightGate Academy',
-      role: SchoolRole.parent,
-    ),
-    SchoolMembership(
-      id: 'membership-driver-001',
-      schoolId: 'school-brightgate',
-      schoolName: 'BrightGate Academy',
-      role: SchoolRole.driver,
-    ),
-  ];
 
   @override
   void dispose() {
@@ -94,7 +50,7 @@ class _LoginPageState extends State<LoginPage> {
                     const _BrandHeader(compact: true),
                     const SizedBox(height: 40),
                     _LoginCard(
-                      demoMemberships: _demoMemberships,
+                      demoMemberships: demoMemberships,
                       formKey: _formKey,
                       identityController: _identityController,
                       passwordController: _passwordController,
@@ -122,7 +78,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 460),
                         child: _LoginCard(
-                          demoMemberships: _demoMemberships,
+                          demoMemberships: demoMemberships,
                           formKey: _formKey,
                           identityController: _identityController,
                           passwordController: _passwordController,
@@ -154,9 +110,9 @@ class _LoginPageState extends State<LoginPage> {
     final auth = widget.services.auth;
     if (auth == null) {
       // No backend configured: the built-in demo, exactly as before.
-      await widget.services.schoolSession.setMemberships(_demoMemberships);
+      await widget.services.schoolSession.setMemberships(widget.services.localAccess?.memberships ?? demoMemberships);
       if (!mounted) return;
-      _chooseSchool(_demoMemberships);
+      _chooseSchool(widget.services.localAccess?.memberships ?? demoMemberships);
       return;
     }
 
