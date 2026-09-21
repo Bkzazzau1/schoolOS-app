@@ -278,3 +278,12 @@ cancels student changes, and the student register follows them:
 - The demo school now has 20 students in real classes (`administrator_demo_school.dart`) and lifecycle records that refer only
   to students that exist.
 Tests: `test/administrator_lifecycle_actions_test.dart`.
+
+## Administrator: Records & Documents now work
+
+`AdministratorRecordsRepository` lets the records office track a document ("Track a document": student, family or staff, from
+a list of usual documents; it starts as missing) and move it along: **Mark received** (missing to pending), **Verify**
+(pending to verified), **Send back** (pending to missing, reason required), **Issue** (a draft letter), **Reopen** (verified to
+pending, reason required). Every step is appended to the document's history (who, when, why) and nothing is deleted. The
+dashboard's "records tasks" follow these changes. Files are not stored yet. The demo school has documents in every state for
+students, families and staff. Tests: `test/administrator_records_actions_test.dart`.

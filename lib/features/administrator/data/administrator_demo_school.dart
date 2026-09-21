@@ -1,4 +1,5 @@
 import '../domain/administrator_lifecycle_models.dart';
+import '../domain/administrator_records_models.dart';
 import '../domain/administrator_students_models.dart';
 
 // The demo school: enough students, in enough classes, to show the desk working. They sit beside the four students of the
@@ -70,4 +71,29 @@ const administratorLifecycleDemoExtras = <AdministratorLifecycleRecord>[
     requestedAt: '2026-09-15T09:00:00Z',
     note: 'Guardian asked for the science class',
   ),
+];
+
+AdministratorDocumentRecord _doc(String n, String document, String owner, AdministratorRecordStatus status, {String kind = 'Student', String received = 'Sep 2026'}) =>
+    AdministratorDocumentRecord(
+      id: 'REC-DEMO-$n',
+      document: document,
+      recordOwner: owner,
+      status: status,
+      received: status == AdministratorRecordStatus.missing || status == AdministratorRecordStatus.draft ? '—' : received,
+      visibility: 'Restricted',
+      kind: kind,
+    );
+
+/// Documents for the demo students and staff: some verified, some waiting, some still to arrive.
+final administratorRecordsDemoExtras = <AdministratorDocumentRecord>[
+  _doc('01', 'Birth certificate', 'Ahmed Yusuf', AdministratorRecordStatus.missing),
+  _doc('02', 'Birth certificate', 'Zainab Yusuf', AdministratorRecordStatus.verified),
+  _doc('03', 'Previous school report', 'Halima Sani', AdministratorRecordStatus.verified),
+  _doc('04', 'Guardian ID', 'Mrs. Amina Yusuf family', AdministratorRecordStatus.pending, kind: 'Family'),
+  _doc('05', 'Immunisation record', 'Bilal Kabir', AdministratorRecordStatus.pending),
+  _doc('06', 'Passport photograph', 'Ruth John', AdministratorRecordStatus.missing),
+  _doc('07', 'Transfer letter', 'Maimuna Bello', AdministratorRecordStatus.draft),
+  _doc('08', 'Staff qualification', 'Mrs. Grace Musa', AdministratorRecordStatus.verified, kind: 'Staff'),
+  _doc('09', 'Staff ID', 'Mr. Daniel John', AdministratorRecordStatus.pending, kind: 'Staff'),
+  _doc('10', 'Staff qualification', 'Mr. Peter James', AdministratorRecordStatus.missing, kind: 'Staff'),
 ];

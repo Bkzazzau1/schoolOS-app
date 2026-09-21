@@ -74,8 +74,8 @@ void main() {
   test('records boundaries prevent broad visibility and invented workflows', () {
     expect(administratorRecordsVisibilityBoundary, contains('minimum-necessary'));
     expect(administratorRecordsVisibilityBoundary, contains('does not make it visible'));
-    expect(administratorRecordsReviewBoundary, contains('read-only'));
-    expect(administratorRecordsReviewBoundary, contains('document editing'));
-    expect(administratorRecordsReviewBoundary, contains('wider sharing'));
+    expect(administratorRecordsReviewBoundary, contains('nothing is deleted'));
+    expect(administratorRecordsReviewBoundary, contains('history'));
+    expect(administratorRecordsReviewBoundary, contains('shared more widely'));
   });
 }

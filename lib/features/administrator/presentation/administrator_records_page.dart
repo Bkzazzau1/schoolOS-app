@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+import '../../proprietor/presentation/owner_dialogs.dart';
 import '../data/administrator_records_repository.dart';
 import '../domain/administrator_records_models.dart';
+import 'administrator_records_dialogs.dart';
 
 class AdministratorRecordsPage extends StatefulWidget {
   const AdministratorRecordsPage({
@@ -18,7 +21,10 @@ class AdministratorRecordsPage extends StatefulWidget {
       _AdministratorRecordsPageState();
 }
 
-class _AdministratorRecordsPageState extends State<AdministratorRecordsPage> {
+class _AdministratorRecordsPageState extends State<AdministratorRecordsPage> with SyncRefresh<AdministratorRecordsPage> {
+  @override
+  void onSynced() => _load();
+
   bool _loading = true;
   String? _error;
   List<AdministratorDocumentRecord> _records = const [];
@@ -52,37 +58,81 @@ class _AdministratorRecordsPageState extends State<AdministratorRecordsPage> {
     }
   }
 
-  void _review(AdministratorDocumentRecord record) {
+  void _say(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _finish(AdministratorRecordActionResult result) async {
+    _say(result.message);
+    if (result.success) await _load();
+  }
+
+  Future<void> _newDocument() async {
+    final choice = await askNewDocument(context);
+    if (choice == null) return;
+    await _finish(await widget.repository.add(owner: choice.owner, document: choice.document, kind: choice.kind));
+  }
+
+  Future<void> _review(AdministratorDocumentRecord record) async {
     if (!(_permissions?.canReviewRestrictedMetadata ?? false)) return;
-    showDialog<void>(
+    final action = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(record.document),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 540),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ReviewRow(label: 'Record owner', value: record.recordOwner),
-              _ReviewRow(label: 'Status', value: record.status.label),
-              _ReviewRow(label: 'Received', value: record.received),
-              _ReviewRow(label: 'Visibility', value: record.visibility),
-              const SizedBox(height: 12),
-              const _BoundaryBox(text: administratorRecordsVisibilityBoundary),
-              const SizedBox(height: 8),
-              const _BoundaryBox(text: administratorRecordsReviewBoundary),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ReviewRow(label: 'Record owner', value: record.recordOwner),
+                _ReviewRow(label: 'Kind', value: record.kind),
+                _ReviewRow(label: 'Status', value: record.status.label),
+                _ReviewRow(label: 'Received', value: record.received),
+                _ReviewRow(label: 'Visibility', value: record.visibility),
+                if (record.history.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('History', style: TextStyle(fontWeight: FontWeight.w900)),
+                  for (final h in record.history)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('${(h['at'] as String? ?? '').split('T').first} · ${h['action']}${(h['note'] as String? ?? '').isEmpty ? '' : ': ${h['note']}'}'),
+                    ),
+                ],
+                const SizedBox(height: 12),
+                const _BoundaryBox(text: administratorRecordsVisibilityBoundary),
+                const SizedBox(height: 8),
+                const _BoundaryBox(text: administratorRecordsReviewBoundary),
+              ],
+            ),
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+          for (final a in AdministratorRecordsRepository.actionsFor(record.status))
+            FilledButton(
+              key: ValueKey('record-action-$a'),
+              onPressed: () => Navigator.of(context).pop(a),
+              child: Text(a),
+            ),
         ],
       ),
     );
+    if (action == null || !mounted) return;
+    var note = '';
+    if (action == 'Send back' || action == 'Reopen') {
+      final reason = await askReason(
+        context,
+        title: '$action: ${record.document}',
+        action: action,
+        label: 'Why (required)',
+      );
+      if (reason == null) return;
+      note = reason;
+    }
+    await _finish(await widget.repository.act(record, action, note: note));
   }
 
   @override
@@ -113,6 +163,18 @@ class _AdministratorRecordsPageState extends State<AdministratorRecordsPage> {
           padding: EdgeInsets.all(wide ? 28 : 16),
           children: [
             _Header(schoolName: widget.schoolName),
+            if (_permissions?.canReviewRestrictedMetadata ?? false) ...[
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  key: const ValueKey('record-new'),
+                  onPressed: _newDocument,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Track a document'),
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             if (wide)
               _WideRegister(
