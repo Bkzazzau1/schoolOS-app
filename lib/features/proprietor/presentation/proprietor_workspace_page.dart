@@ -64,7 +64,10 @@ import 'owner_jobs_page.dart';
 import 'owner_payroll_page.dart';
 import 'owner_staff_profiles_page.dart';
 import '../data/owner_attention_repository.dart';
+import '../../administrator/data/administrator_admissions_repository.dart';
+import '../../administrator/data/administrator_students_repository.dart';
 import '../data/owner_campuses.dart';
+import '../data/owner_enrollment.dart';
 import '../data/owner_finance_overview.dart';
 import '../data/owner_reports.dart';
 import '../data/owner_staff_overview.dart';
@@ -551,6 +554,11 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _selectModule(key);
   }
 
+  OwnerEnrollmentRepository _enrollmentRepository() => OwnerEnrollmentRepository(
+        students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+        admissions: AdministratorAdmissionsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      );
+
   OwnerReportsRepository _reportsRepository() {
     final profiles = OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession);
     return OwnerReportsRepository(
@@ -562,6 +570,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
         session: widget.schoolSession,
       ),
       attention: _attentionRepository(),
+      enrollment: _enrollmentRepository(),
     );
   }
 
@@ -668,6 +677,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           onDecisionSaved: _refreshPendingCount,
         ),
       'enrollment' => ProprietorEnrollmentPage(
+          repository: _enrollmentRepository(),
           schoolName: widget.membership.schoolName,
           onActionRequested: _selectModule,
         ),

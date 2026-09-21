@@ -1,4 +1,5 @@
 import '../domain/proprietor_ai_models.dart';
+import 'owner_enrollment.dart';
 import 'owner_reports.dart';
 
 /// Answers the owner's questions from the school's real records (the same ones the reports use), on this device.
@@ -24,7 +25,11 @@ class ProprietorAiService {
       return _noData(question, 'fee collection', 'The Finance role has not recorded fees or payments yet.');
     }
     if (_any(q, ['enrol', 'retention', 'admission', 'applicant', 'intake'])) {
-      return _noData(question, 'enrollment', 'Admissions and student records are not in yet.');
+      final e = facts.enrollment;
+      if (e == null || e.empty) {
+        return _noData(question, 'enrollment', 'Admissions and student records are not in yet.');
+      }
+      return _enrollment(question, e);
     }
     if (_any(q, ['result', 'academic', 'performance', 'exam', 'grade'])) {
       return _noData(question, 'academic results', 'Teachers have not recorded results yet.');
@@ -146,6 +151,19 @@ class ProprietorAiService {
       interpretation: '"Review" only means a staff file in that section is incomplete. It is not a judgement of the leader.',
     );
   }
+
+  ProprietorAiResponse _enrollment(String question, OwnerEnrollment e) => ProprietorAiResponse(
+        question: question,
+        answer: '${e.activeStudents} students are on the register and ${e.applications} applications are open, with ${e.accepted} offers accepted.',
+        evidence: [
+          for (final k in e.kpis) '${k.label}: ${k.value} (${k.note}).',
+          for (final r in e.sections) '${r.section}: ${r.activeStudents} students, ${r.applications} applications, ${r.accepted} accepted.',
+          for (final w in e.watch) '${w.title}.',
+        ],
+        interpretation:
+            'These are counts from the register and the admissions pipeline. Retention and trends are not recorded, so nothing is said '
+            'about them, and demand is a planning signal, not a reason to accept more places.',
+      );
 
   ProprietorAiResponse _notAvailable(String question) {
     final missing = facts.unavailable.toList();

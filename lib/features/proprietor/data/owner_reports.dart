@@ -1,4 +1,5 @@
 import 'owner_attention_repository.dart';
+import 'owner_enrollment.dart';
 import 'owner_finance_overview.dart';
 import 'owner_staff_overview.dart';
 
@@ -31,7 +32,11 @@ class OwnerReports {
     required this.staff,
     required this.finance,
     required this.attention,
+    this.enrollment,
   });
+
+  /// Null when enrollment could not be read.
+  final OwnerEnrollment? enrollment;
 
   final List<ReportDoc> docs;
   final DateTime generatedOn;
@@ -54,6 +59,7 @@ OwnerReports buildOwnerReports({
   required OwnerFinanceOverview finance,
   required OwnerAttention attention,
   required DateTime now,
+  OwnerEnrollment? enrollment,
 }) {
   final docs = <ReportDoc>[
     ReportDoc(
@@ -107,11 +113,29 @@ OwnerReports buildOwnerReports({
       coverage: 'Billing, collections, outstanding fees and aging',
       unavailableReason: 'The Finance role has not recorded fees or payments yet.',
     ),
-    const ReportDoc(
-      title: 'Enrollment & retention',
-      coverage: 'Applications, admissions, active students and retention',
-      unavailableReason: 'Admissions and student records are not in yet.',
-    ),
+    if (enrollment == null || enrollment.empty)
+      const ReportDoc(
+        title: 'Enrollment & admissions',
+        coverage: 'Applications, offers, registered students and the register',
+        unavailableReason: 'No students or applications have been recorded yet.',
+      )
+    else
+      ReportDoc(
+        title: 'Enrollment & admissions',
+        coverage: 'Applications, offers, registered students and the register',
+        sections: [
+          ReportSection('Figures', [for (final k in enrollment.kpis) '${k.label}: ${k.value} (${k.note})']),
+          ReportSection('By section', [
+            for (final r in enrollment.sections)
+              '${r.section}: ${r.activeStudents} students, ${r.applications} applications, ${r.offers} offers, ${r.accepted} accepted, ${r.registered} registered',
+          ]),
+          ReportSection('Worth a look', [
+            if (enrollment.watch.isEmpty) 'Nothing stands out.',
+            for (final w in enrollment.watch) '${w.title}. ${w.detail}',
+          ]),
+          const ReportSection('Not available yet', ['Retention and the enrollment trend need students recorded across earlier terms.']),
+        ],
+      ),
     const ReportDoc(
       title: 'Academic & attendance',
       coverage: 'Results and attendance by section',
@@ -123,7 +147,7 @@ OwnerReports buildOwnerReports({
       unavailableReason: 'These are recorded by other roles and are not in yet.',
     ),
   ];
-  return OwnerReports(docs: docs, generatedOn: now, staff: staff, finance: finance, attention: attention);
+  return OwnerReports(docs: docs, generatedOn: now, staff: staff, finance: finance, attention: attention, enrollment: enrollment);
 }
 
 String _date(DateTime d) =>
@@ -174,18 +198,21 @@ class OwnerReportsRepository {
     required this.staff,
     required this.finance,
     required this.attention,
+    this.enrollment,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
   final OwnerStaffOverviewRepository staff;
   final OwnerFinanceOverviewRepository finance;
   final OwnerAttentionRepository attention;
+  final OwnerEnrollmentRepository? enrollment;
   final DateTime Function() _clock;
 
   Future<OwnerReports> load() async => buildOwnerReports(
         staff: await staff.load(),
         finance: await finance.load(),
         attention: await attention.load(),
+        enrollment: await enrollment?.load(),
         now: _clock(),
       );
 }

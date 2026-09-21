@@ -317,3 +317,12 @@ Applicant to student now runs as one connected flow (`administrator_admissions_r
 
 The admissions page's numbers are now counted from the applicants (they were fixed sample figures). Tests:
 `test/administrator_admissions_flow_test.dart`.
+
+## Owner: Enrollment & Admissions is real (the owner side is complete)
+
+`OwnerEnrollmentRepository` (`lib/features/proprietor/data/owner_enrollment.dart`) counts students by section from the register (a
+student who left is not active) and applications, offers, acceptances and registrations from the admissions pipeline (closed
+applications excluded). "Worth a look" says what is waiting (accepted children to register, applications waiting on documents,
+the busiest section). Retention and the enrollment trend need records from earlier terms, so they are shown as not available.
+The reports gain a real "Enrollment & admissions" report, the AI answers enrollment questions from it, and the enrollment brief
+export is built from it. Every owner screen is now either real or clearly labelled. Tests: `test/owner_enrollment_test.dart`.
