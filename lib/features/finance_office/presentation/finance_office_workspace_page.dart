@@ -1,3 +1,6 @@
+import '../../administrator/data/administrator_students_repository.dart';
+import '../../proprietor/data/concession_repository.dart';
+import '../data/finance_ledger_repository.dart';
 import '../../../core/appearance/school_logo.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
@@ -60,6 +63,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   late final FinanceConcessionsRepository _concessions;
+  late final FinanceLedgerRepository _ledger;
 
   FinanceOfficeNavItem get _activeItem => _navigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -75,6 +79,16 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
     _concessions = FinanceConcessionsRepository(confirm: ServerConfirmScope.maybeOf(context), 
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+    );
+    _ledger = FinanceLedgerRepository(
+      database: widget.localDatabase,
+      session: widget.schoolSession,
+      students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      concessions: ConcessionRepository(
+        confirm: ServerConfirmScope.maybeOf(context),
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+      ),
     );
     _refreshPendingCount();
   }
@@ -154,7 +168,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
             schoolName: widget.membership.schoolName,
             onNavigate: _select,
           ),
-        'fee-structure' => const FinanceFeeStructurePage(),
+        'fee-structure' => FinanceFeeStructurePage(ledger: _ledger, onChanged: _refreshPendingCount),
         'scholarships' => FinanceConcessionsPage(
             repository: _concessions,
             onMutationQueued: _refreshPendingCount,
@@ -164,8 +178,8 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'store' => const FinanceStorePage(),
         'mandates' => const FinanceMandatesPage(),
         'debt-aging' => const FinanceDebtAgingPage(),
-        'receipts' => const FinanceReceiptsPage(),
-        'accounts' => const FinanceFamilyAccountsPage(),
+        'receipts' => FinanceReceiptsPage(ledger: _ledger, schoolName: widget.membership.schoolName, onChanged: _refreshPendingCount),
+        'accounts' => FinanceFamilyAccountsPage(ledger: _ledger, onChanged: _refreshPendingCount),
         'reconciliation' => const FinanceReconciliationPage(),
         'expenses' => const FinanceCashflowPage(),
         'payroll' => FinancePayrollPage(

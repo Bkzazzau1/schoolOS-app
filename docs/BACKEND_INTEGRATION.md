@@ -326,3 +326,24 @@ applications excluded). "Worth a look" says what is waiting (accepted children t
 the busiest section). Retention and the enrollment trend need records from earlier terms, so they are shown as not available.
 The reports gain a real "Enrollment & admissions" report, the AI answers enrollment questions from it, and the enrollment brief
 export is built from it. Every owner screen is now either real or clearly labelled. Tests: `test/owner_enrollment_test.dart`.
+
+## Finance Officer (role 3): audit and the billing core
+
+Audit of the 16 screens: only **Scholarships & Discounts** (concessions) and **Payroll Handoff** (payroll batches) were real. The
+other fourteen showed fixed sample figures and saved nothing.
+
+The billing core is now real (`finance_billing.dart`, `finance_ledger_repository.dart`, `finance_ledger_models.dart`):
+
+- **Fee Structure**: charges per section and term (tuition, levies...), edited by the finance office or the owner; a change re-bills
+  every student in that section. Validated: named, unique charges, amounts above zero.
+- **Student Accounts**: every student on the register is billed their section fees, less approved scholarships and discounts (from
+  the concession approvals), less payments. Payments are recorded here: cash, bank transfer or POS (transfer and POS need a
+  reference, a reference cannot be used twice), never more than what is owed.
+- **Receipts**: every payment has a numbered receipt (RCT-000001...). A mistaken payment is voided with a reason, kept in the
+  list and no longer counted as paid; nothing is edited or deleted.
+- The demo school starts with default fees and a spread of payments (about half paid in full, three in ten part, the rest none),
+  which a school server blocks.
+
+Still sample: Smart Collections, Fee Reminders, School Store, Payment Mandates, Outstanding & Aging, Reconciliation, Expenses &
+Income, Reports, Finance AI and the dashboard. Next: Outstanding & Aging, Reminders, the dashboard and the owner's finance
+numbers from this ledger. Tests: `test/finance_ledger_test.dart`, `test/finance_pages_test.dart`.

@@ -1,504 +1,154 @@
 import 'package:flutter/material.dart';
 
-import '../data/finance_receipts_demo_data.dart';
-import '../domain/finance_receipts_models.dart';
+import '../../../core/sync/sync_scope.dart';
+import '../../proprietor/domain/concession_request.dart';
+import '../../proprietor/presentation/owner_dialogs.dart';
+import '../data/finance_ledger_repository.dart';
+import '../domain/finance_ledger_models.dart';
 
+/// Every payment received, newest first, each with its numbered receipt. A payment recorded by mistake is voided with a
+/// reason; it is never deleted.
 class FinanceReceiptsPage extends StatefulWidget {
-  const FinanceReceiptsPage({super.key});
+  const FinanceReceiptsPage({super.key, required this.ledger, required this.schoolName, this.onChanged});
+
+  final FinanceLedgerRepository ledger;
+  final String schoolName;
+  final VoidCallback? onChanged;
 
   @override
   State<FinanceReceiptsPage> createState() => _FinanceReceiptsPageState();
 }
 
-class _FinanceReceiptsPageState extends State<FinanceReceiptsPage> {
-  FinanceReceipt _selected = financeReceipts.first;
+class _FinanceReceiptsPageState extends State<FinanceReceiptsPage> with SyncRefresh<FinanceReceiptsPage> {
+  List<Payment> _payments = const [];
+  String _search = '';
+  bool _showVoided = true;
+  bool _loading = true;
+  String? _error;
 
-  void _documentAction(String action) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$action is a non-financial prototype document action until native print/export integration is connected.',
-        ),
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void onSynced() => _load();
+
+  Future<void> _load() async {
+    try {
+      // Opening accounts first puts the demo school's payments in place.
+      await widget.ledger.accounts();
+      final payments = await widget.ledger.allPayments();
+      if (!mounted) return;
+      setState(() {
+        _payments = payments;
+        _loading = false;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = '$error';
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  String _receiptText(Payment p) => [
+        widget.schoolName,
+        'PAYMENT RECEIPT ${p.receiptNumber}',
+        'Date: ${p.receivedAt.split('T').first}',
+        'Student: ${p.studentName} (${p.className})',
+        'Term: ${p.term}',
+        'Amount: ${formatNaira(p.amount)}',
+        'Paid by: ${p.method}${p.reference.isEmpty ? '' : ' (ref ${p.reference})'}',
+        if (p.isVoided) 'VOIDED: ${p.voidedReason}',
+      ].join('\n');
+
+  Future<void> _open(Payment p) async {
+    final action = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(p.receiptNumber),
+        content: SelectableText(_receiptText(p)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          if (!p.isVoided) TextButton(key: const ValueKey('receipt-void'), onPressed: () => Navigator.pop(context, 'void'), child: const Text('Void payment')),
+        ],
       ),
     );
+    if (action != 'void' || !mounted) return;
+    final reason = await askReason(context, title: 'Void ${p.receiptNumber}?', action: 'Void payment', label: 'Why (required)');
+    if (reason == null) return;
+    final result = await widget.ledger.voidPayment(p, reason);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) {
+      widget.onChanged?.call();
+      await _load();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)));
+    final theme = Theme.of(context);
+    final q = _search.trim().toLowerCase();
+    final shown = [
+      for (final p in _payments)
+        if ((_showVoided || !p.isVoided) &&
+            (q.isEmpty || p.studentName.toLowerCase().contains(q) || p.receiptNumber.toLowerCase().contains(q) || p.reference.toLowerCase().contains(q)))
+          p,
+    ];
+    final valid = _payments.where((p) => !p.isVoided);
+    final total = valid.fold<int>(0, (n, p) => n + p.amount);
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       children: [
-        _Header(
-          onExport: () => _documentAction('Export register'),
-          onPrint: () => _documentAction('Print selected'),
-        ),
-        const SizedBox(height: 18),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final register = _ReceiptRegister(
-              selected: _selected,
-              onSelected: (receipt) => setState(() => _selected = receipt),
-            );
-            final preview = _ReceiptPreview(receipt: _selected);
-            if (constraints.maxWidth < 930) {
-              return Column(
-                children: [
-                  register,
-                  const SizedBox(height: 18),
-                  preview,
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 4, child: register),
-                const SizedBox(width: 18),
-                Expanded(flex: 6, child: preview),
-              ],
-            );
-          },
-        ),
+        Text('FINANCE OFFICE · RECEIPTS', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900, color: theme.colorScheme.primary)),
+        const SizedBox(height: 6),
+        Text('Receipts', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+        const SizedBox(height: 6),
+        Text('${valid.length} receipts worth ${formatNaira(total)}. Record new payments from Student Accounts.'),
         const SizedBox(height: 14),
-        _BoundaryCallout(text: financeReceiptIssuanceBoundary),
-        const SizedBox(height: 10),
-        _BoundaryCallout(text: financeReceiptMutationBoundary),
-        const SizedBox(height: 10),
-        _BoundaryCallout(text: financeReceiptPrototypeBoundary),
-      ],
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.onExport, required this.onPrint});
-
-  final VoidCallback onExport;
-  final VoidCallback onPrint;
-
-  @override
-  Widget build(BuildContext context) {
-    final heading = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'COLLECTION RECORDS · RECEIPTS',
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w900,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Receipts Register',
-          style: Theme.of(context)
-              .textTheme
-              .headlineMedium
-              ?.copyWith(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Every confirmed term-account credit creates a traceable receipt for Finance and the linked parent.',
-        ),
-      ],
-    );
-
-    final actions = Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        OutlinedButton(
-          onPressed: onExport,
-          child: const Text('Export register'),
-        ),
-        FilledButton(
-          onPressed: onPrint,
-          child: const Text('Print selected'),
-        ),
-      ],
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 760) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              heading,
-              const SizedBox(height: 14),
-              actions,
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(child: heading),
-            const SizedBox(width: 18),
-            actions,
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _ReceiptRegister extends StatelessWidget {
-  const _ReceiptRegister({
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final FinanceReceipt selected;
-  final ValueChanged<FinanceReceipt> onSelected;
-
-  @override
-  Widget build(BuildContext context) => _CardShell(
-        title: 'Recent receipts',
-        subtitle: 'Confirmed collections posted to student ledgers.',
-        child: Column(
-          children: [
-            for (final receipt in financeReceipts)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: _ReceiptListButton(
-                  receipt: receipt,
-                  selected: selected.number == receipt.number,
-                  onTap: () => onSelected(receipt),
-                ),
+            SizedBox(
+              width: 320,
+              child: TextField(
+                key: const ValueKey('receipts-search'),
+                onChanged: (v) => setState(() => _search = v),
+                decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), labelText: 'Search name, receipt or reference', isDense: true),
               ),
+            ),
+            FilterChip(
+              label: const Text('Show voided'),
+              selected: _showVoided,
+              onSelected: (v) => setState(() => _showVoided = v),
+            ),
           ],
         ),
-      );
-}
-
-class _ReceiptListButton extends StatelessWidget {
-  const _ReceiptListButton({
-    required this.receipt,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final FinanceReceipt receipt;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(13),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      receipt.student,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    financeReceiptMoney(receipt.amount),
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text('${receipt.className} · ${receipt.date}'),
-              const SizedBox(height: 5),
-              Text(
-                receipt.number,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReceiptPreview extends StatelessWidget {
-  const _ReceiptPreview({required this.receipt});
-
-  final FinanceReceipt receipt;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ReceiptBrand(),
-              const Divider(height: 30),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Expanded(child: Text('Receipt No.')),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        receipt.number,
-                        style: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 4),
-                      _ConfirmedChip(status: receipt.status),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              _DetailGrid(receipt: receipt),
-              const SizedBox(height: 18),
-              _BalanceSummary(receipt: receipt),
-              const SizedBox(height: 18),
-              Text(
-                'System-generated SchoolOS prototype receipt · linked automatically to the student fee ledger.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-      );
-}
-
-class _ReceiptBrand extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const CircleAvatar(child: Text('S')),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  financeReceiptSchoolName,
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
-                ),
-                SizedBox(height: 2),
-                Text(financeReceiptCampusLine),
-              ],
+        const SizedBox(height: 12),
+        if (shown.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No receipts.')),
+        for (final p in shown)
+          Card(
+            key: ValueKey('receipt-${p.receiptNumber}'),
+            elevation: 0,
+            child: ListTile(
+              onTap: () => _open(p),
+              title: Text('${p.receiptNumber} · ${p.studentName}', style: TextStyle(fontWeight: FontWeight.w800, decoration: p.isVoided ? TextDecoration.lineThrough : null)),
+              subtitle: Text('${p.className} · ${p.receivedAt.split('T').first} · ${p.method}${p.reference.isEmpty ? '' : ' · ${p.reference}'}${p.isVoided ? '\nVoided: ${p.voidedReason}' : ''}'),
+              isThreeLine: p.isVoided,
+              trailing: Text(formatNaira(p.amount), style: const TextStyle(fontWeight: FontWeight.w900)),
             ),
           ),
-          const SizedBox(width: 12),
-          Text(
-            'PAYMENT RECEIPT',
-            style: Theme.of(context)
-                .textTheme
-                .labelLarge
-                ?.copyWith(fontWeight: FontWeight.w900),
-          ),
-        ],
-      );
-}
-
-class _DetailGrid extends StatelessWidget {
-  const _DetailGrid({required this.receipt});
-
-  final FinanceReceipt receipt;
-
-  @override
-  Widget build(BuildContext context) {
-    final details = <(String, String)>[
-      ('Student', receipt.student),
-      ('Admission No.', receipt.admissionNumber),
-      ('Class', receipt.className),
-      ('Term', financeReceiptTerm),
-      ('Amount paid', financeReceiptMoney(receipt.amount)),
-      ('Payment method', receipt.method),
-      ('Transaction ref', receipt.transactionReference),
-      ('Payment date', receipt.date),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth >= 620
-            ? (constraints.maxWidth - 12) / 2
-            : constraints.maxWidth;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final detail in details)
-              SizedBox(
-                width: width,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        detail.$1,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        detail.$2,
-                        style: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+      ],
     );
   }
-}
-
-class _BalanceSummary extends StatelessWidget {
-  const _BalanceSummary({required this.receipt});
-
-  final FinanceReceipt receipt;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <(String, String)>[
-      ('Previous balance', financeReceiptMoney(receipt.previousBalance)),
-      ('Payment received', '- ${financeReceiptMoney(receipt.amount)}'),
-      ('New balance', financeReceiptMoney(receipt.newBalance)),
-    ];
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .38),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 560) {
-            return Column(
-              children: [
-                for (final item in items)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(item.$1)),
-                        Text(
-                          item.$2,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(items[i].$1),
-                      const SizedBox(height: 4),
-                      Text(
-                        items[i].$2,
-                        style: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                    ],
-                  ),
-                ),
-                if (i < items.length - 1) const SizedBox(width: 12),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ConfirmedChip extends StatelessWidget {
-  const _ConfirmedChip({required this.status});
-
-  final FinanceReceiptStatus status;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(
-          status.label,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-        ),
-      );
-}
-
-class _CardShell extends StatelessWidget {
-  const _CardShell({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
-
-  final String title;
-  final String subtitle;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 4),
-              Text(subtitle),
-              const SizedBox(height: 14),
-              child,
-            ],
-          ),
-        ),
-      );
-}
-
-class _BoundaryCallout extends StatelessWidget {
-  const _BoundaryCallout({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .45),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Text(text),
-      );
 }

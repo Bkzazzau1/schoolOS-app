@@ -1,8 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_family_accounts_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/domain/finance_family_accounts_models.dart';
-import 'package:schoolos_app/features/finance_office/presentation/finance_family_accounts_page.dart';
 
 void main() {
   test('four sample students are grouped into three family accounts', () {
@@ -72,39 +70,5 @@ void main() {
   test('family money formatter uses Nigerian grouping', () {
     expect(financeFamilyMoney(330000), '₦330,000');
     expect(financeFamilyMoney(100000), '₦100,000');
-  });
-
-  testWidgets('selecting another family changes the account and linked children', (tester) async {
-    tester.view.physicalSize = const Size(1200, 1200);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: FinanceFamilyAccountsPage())),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('1047263815'), findsWidgets);
-    await tester.tap(find.text('Alhaji Sani Ibrahim').first);
-    await tester.pumpAndSettle();
-    expect(find.text('1047263823'), findsWidgets);
-    expect(find.text('Ibrahim Sani'), findsWidgets);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Student & Family Accounts renders on phone without exceptions', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: FinanceFamilyAccountsPage())),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Student & Family Accounts'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 }
