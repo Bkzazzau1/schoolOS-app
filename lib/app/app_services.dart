@@ -49,10 +49,7 @@ class AppServices {
   final NotificationsController? notifications;
   final OwnerAccessRepository? ownerAccess;
   final StaffServerApi? staffServer;
-
-  /// Alumni identity, profile and school-verification calls. Null without a backend.
   final AlumniServerApi? alumniServer;
-
   final ServerConfirm? serverConfirm;
 
   bool get usesBackend => auth != null;
@@ -124,7 +121,10 @@ class AppServices {
         api: api,
         afterChange: () async => await syncCoordinator?.syncNow(),
       );
-      alumniServer = AlumniServerApi(api: api);
+      alumniServer = AlumniServerApi(
+        api: api,
+        schoolSession: schoolSession,
+      );
       access = AccessController(api: api, store: localDatabase);
       notifications = NotificationsController(api: api, store: localDatabase);
       syncCoordinator = SyncCoordinator(
