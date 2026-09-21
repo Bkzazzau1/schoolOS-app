@@ -91,7 +91,7 @@ class TransportVehicleReadinessRepository {
       for (final record in defects) {
         final payload = record.payload;
         if ((payload['routeId'] as String? ?? '') != route.id ||
-            (payload['serviceDate'] as String? ?? '') != today) {
+            (payload['vehicle'] as String? ?? '') != route.vehicle) {
           continue;
         }
         final status = (payload['status'] as String? ?? '').toLowerCase();
@@ -168,7 +168,7 @@ class TransportVehicleReadinessRepository {
       final blocking = await _openBlockingDefects(
         manager.schoolId,
         cleanRouteId,
-        _todayKey(),
+        route.vehicle,
       );
       if (blocking > 0) {
         return TransportActionResult(
@@ -263,7 +263,7 @@ class TransportVehicleReadinessRepository {
     final blocking = await _openBlockingDefects(
       member.schoolId,
       routeId,
-      _todayKey(),
+      route.vehicle,
     );
     if (blocking > 0) {
       throw StateError(
@@ -343,7 +343,7 @@ class TransportVehicleReadinessRepository {
   Future<int> _openBlockingDefects(
     String tenantId,
     String routeId,
-    String serviceDate,
+    String vehicle,
   ) async {
     final records = await _localDatabase.getLocalRecords(
       tenantId: tenantId,
@@ -353,7 +353,7 @@ class TransportVehicleReadinessRepository {
     for (final record in records) {
       final payload = record.payload;
       if ((payload['routeId'] as String? ?? '') != routeId ||
-          (payload['serviceDate'] as String? ?? '') != serviceDate) {
+          (payload['vehicle'] as String? ?? '') != vehicle) {
         continue;
       }
       final status = (payload['status'] as String? ?? '').toLowerCase();
