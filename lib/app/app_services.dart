@@ -138,15 +138,20 @@ class AppServices {
       );
       access = AccessController(api: api, store: localDatabase);
       notifications = NotificationsController(api: api, store: localDatabase);
+      final followUp = RoundFollowUp(
+        access: access,
+        notifications: notifications,
+        unsent: _LocalUnsentWork(localDatabase),
+        activeMembership: () => schoolSession.activeMembership,
+      );
       syncCoordinator = SyncCoordinator(
         runner: syncEngine,
         auth: auth,
-        afterRound: RoundFollowUp(
-          access: access,
-          notifications: notifications,
-          unsent: _LocalUnsentWork(localDatabase),
-          activeMembership: () => schoolSession.activeMembership,
-        ).call,
+        afterRound: (summary) async {
+          await followUp.call(summary);
+          // The owner may have changed the school's colours or logo on another device.
+          await schoolAppearance.reload();
+        },
       );
       localDatabase.onMutationQueued = syncCoordinator.requestSync;
     } else {

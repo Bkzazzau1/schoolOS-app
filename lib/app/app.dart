@@ -1,3 +1,4 @@
+import '../core/appearance/school_appearance_controller.dart';
 import 'package:flutter/material.dart';
 
 import '../features/administrator/presentation/administrator_workspace_page.dart';
@@ -40,6 +41,7 @@ class SchoolOsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     DashboardPage.appSchoolAppearance = services.schoolAppearance;
+    SchoolAppearanceController.shared = services.schoolAppearance;
 
     return AnimatedBuilder(
       animation: services.schoolAppearance,

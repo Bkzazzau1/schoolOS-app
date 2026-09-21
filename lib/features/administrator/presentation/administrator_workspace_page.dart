@@ -1,3 +1,4 @@
+import '../../../core/appearance/school_logo.dart';
 import '../../proprietor/data/staff_server_api.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
@@ -781,10 +782,7 @@ class _SchoolTitle extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Text(membership.schoolName.characters.first.toUpperCase()),
-        ),
+        SchoolLogo(schoolName: membership.schoolName),
         const SizedBox(width: 10),
         Flexible(
           child: Column(

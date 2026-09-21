@@ -219,3 +219,17 @@ Tests: `test/proprietor_reports_test.dart`, `test/owner_reports_page_test.dart`.
 `lib/features/proprietor/data/owner_campuses.dart` groups the school's sections by campus and counts classes, staff,
 teachers, leaders and incomplete files per campus. Students, attendance and fees are shown as "Not recorded". The made-up
 "planned campus" was removed (the app has no such record). Tests: `test/proprietor_campus_test.dart`.
+
+## Owner: school colours and logo
+
+The owner chooses the school's look on School Appearance: 24 ready-made colour themes, or any two colours of their own (pick
+from swatches or type a #RRGGBB code), and a school logo picked from the device. Colours that would be hard to read (a main
+colour too light for white text, an accent too close to it) are refused with a plain explanation. The logo is shrunk to at
+most 256 px and about 140 KB, kept in the school's appearance record, and shown next to the school name in the owner,
+administrator and dashboard workspaces. It is saved on the device at once and shared with the school on the next sync; the
+app reloads the appearance after each sync round, so a change made on another device shows up.
+
+Backend: `apps/structure/appearance.py` accepts the new theme ids, `custom` with `primaryArgb`/`accentArgb`, and a PNG or JPEG
+`logo` (base64, at most 200,000 characters, within the 256 KB sync payload cap). Tests: `test/school_theme_test.dart`,
+`test/school_appearance_test.dart`, backend `apps.structure`.
+Not done: logo on the login page and on the remaining workspaces' title bars (teacher, parent, finance, principal, driver).

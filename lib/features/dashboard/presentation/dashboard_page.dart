@@ -1,3 +1,4 @@
+import '../../../core/appearance/school_logo.dart';
 import '../../proprietor/data/staff_server_api.dart';
 import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/data/staff_onboarding_repository.dart';
@@ -458,12 +459,7 @@ class _SchoolMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return CircleAvatar(
-      backgroundColor: scheme.primaryContainer,
-      foregroundColor: scheme.onPrimaryContainer,
-      child: Text(membership.schoolName.characters.first.toUpperCase()),
-    );
+    return SchoolLogo(schoolName: membership.schoolName, appearance: DashboardPage.appSchoolAppearance);
   }
 }
 
