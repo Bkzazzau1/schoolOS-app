@@ -1,3 +1,4 @@
+import '../../../core/appearance/school_logo.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
@@ -398,7 +399,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
                         ? _FamilyIdentityCard(
                             schoolName: widget.membership.schoolName,
                           )
-                        : const _SchoolMark(),
+                        : SchoolLogo(schoolName: widget.membership.schoolName),
                   ),
                   if (extended)
                     const Padding(
@@ -652,7 +653,7 @@ class _FamilyIdentityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const _SchoolMark(),
+        SchoolLogo(schoolName: schoolName),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -675,19 +676,6 @@ class _FamilyIdentityCard extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SchoolMark extends StatelessWidget {
-  const _SchoolMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      child: const Text('S', style: TextStyle(fontWeight: FontWeight.w900)),
     );
   }
 }

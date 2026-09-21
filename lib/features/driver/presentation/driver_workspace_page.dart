@@ -1,3 +1,4 @@
+import '../../../core/appearance/school_logo.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
@@ -448,7 +449,7 @@ class _DriverIdentityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const CircleAvatar(child: Icon(Icons.directions_bus_outlined)),
+        SchoolLogo(schoolName: schoolName),
         const SizedBox(width: 10),
         Expanded(
           child: Column(

@@ -909,7 +909,7 @@ class _OwnerBrand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final mark = Container(
+    final plainMark = Container(
       width: 44,
       height: 44,
       decoration: BoxDecoration(
@@ -918,6 +918,15 @@ class _OwnerBrand extends StatelessWidget {
       ),
       child: Icon(Icons.school_rounded, color: theme.colorScheme.onPrimary),
     );
+    // The school's own logo replaces the plain mark once the owner has chosen one.
+    final appearance = SchoolAppearanceController.shared;
+    final Widget mark = appearance == null
+        ? plainMark
+        : ListenableBuilder(
+            listenable: appearance,
+            builder: (context, _) =>
+                appearance.logo == null ? plainMark : SchoolLogo(schoolName: '', size: 44, appearance: appearance),
+          );
     if (!extended) return mark;
     return Row(
       children: [

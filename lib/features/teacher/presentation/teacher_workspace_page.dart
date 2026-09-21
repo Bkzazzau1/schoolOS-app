@@ -1,3 +1,4 @@
+import '../../../core/appearance/school_logo.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
@@ -285,13 +286,13 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: extended
-                        ? const ListTile(
+                        ? ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(child: Text('S')),
-                            title: Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)),
-                            subtitle: Text('Teacher Portal'),
+                            leading: SchoolLogo(schoolName: widget.membership.schoolName),
+                            title: const Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)),
+                            subtitle: const Text('Teacher Portal'),
                           )
-                        : const CircleAvatar(child: Text('S')),
+                        : SchoolLogo(schoolName: widget.membership.schoolName),
                   ),
                   if (extended)
                     Padding(

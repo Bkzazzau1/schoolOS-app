@@ -232,4 +232,4 @@ app reloads the appearance after each sync round, so a change made on another de
 Backend: `apps/structure/appearance.py` accepts the new theme ids, `custom` with `primaryArgb`/`accentArgb`, and a PNG or JPEG
 `logo` (base64, at most 200,000 characters, within the 256 KB sync payload cap). Tests: `test/school_theme_test.dart`,
 `test/school_appearance_test.dart`, backend `apps.structure`.
-Not done: logo on the login page and on the remaining workspaces' title bars (teacher, parent, finance, principal, driver).
+The logo also shows in the teacher, parent, finance, principal and driver side panels and the owner's side mark. Not done: the login page (no school is chosen yet there).

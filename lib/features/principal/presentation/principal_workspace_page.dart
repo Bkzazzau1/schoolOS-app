@@ -1,3 +1,4 @@
+import '../../../core/appearance/school_logo.dart';
 import '../../proprietor/data/staff_server_api.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../../core/sync/sync_scope.dart';
@@ -155,7 +156,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
     final extended = constraints.maxWidth >= 1180;
     return Scaffold(body: Row(children: [
       SafeArea(child: Container(width: extended ? 282 : 88, decoration: BoxDecoration(border: Border(right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant))), child: Column(children: [
-        Padding(padding: const EdgeInsets.all(16), child: extended ? const ListTile(contentPadding: EdgeInsets.zero, leading: CircleAvatar(child: Text('S')), title: Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: Text('Principal Portal')) : const CircleAvatar(child: Text('S'))),
+        Padding(padding: const EdgeInsets.all(16), child: extended ? ListTile(contentPadding: EdgeInsets.zero, leading: SchoolLogo(schoolName: widget.membership.schoolName), title: const Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: const Text('Principal Portal')) : SchoolLogo(schoolName: widget.membership.schoolName)),
         if (extended) Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 12), child: Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('ACTIVE LEADERSHIP SCOPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)), const Text(principalCampusLabel, style: TextStyle(fontSize: 12))])))),
         Expanded(child: ListView(children: [for (final item in _navigation) ListTile(selected: item.key == _activeKey, selectedTileColor: Theme.of(context).colorScheme.primaryContainer, leading: Icon(_iconFor(item.key)), title: extended ? Text(item.label) : null, trailing: extended && item.key == 'ai' ? const Chip(label: Text('AI')) : null, onTap: () => _select(item.key))])),
         if (extended) Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Secondary section health', style: TextStyle(fontSize: 12)), const Text('86%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)), const LinearProgressIndicator(value: .86), const SizedBox(height: 6), Text('Academics, attendance, staff & compliance', style: Theme.of(context).textTheme.bodySmall)])),
