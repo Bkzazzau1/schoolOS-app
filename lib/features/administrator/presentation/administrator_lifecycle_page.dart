@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
+import '../../alumni/data/alumni_server_api.dart';
+import '../../alumni/presentation/alumni_management_page.dart';
 import '../data/administrator_lifecycle_repository.dart';
 import '../domain/administrator_lifecycle_models.dart';
 
@@ -96,6 +99,22 @@ class _AdministratorLifecyclePageState
     );
   }
 
+  Future<void> _openAlumniManagement() async {
+    final api = AlumniServerScope.maybeOf(context);
+    if (api == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text('${widget.schoolName} · Alumni Management')),
+          body: AlumniManagementPage(
+            manager: api.activeMembership,
+            api: api,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -117,6 +136,13 @@ class _AdministratorLifecyclePageState
       );
     }
 
+    final alumniApi = AlumniServerScope.maybeOf(context);
+    final access = AccessScope.maybeOf(context);
+    final canManageAlumni = alumniApi != null &&
+        (access == null ||
+            !access.known ||
+            access.allows('administrator.alumni'));
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 980;
@@ -124,6 +150,10 @@ class _AdministratorLifecyclePageState
           padding: EdgeInsets.all(wide ? 28 : 16),
           children: [
             _Header(schoolName: widget.schoolName),
+            if (canManageAlumni) ...[
+              const SizedBox(height: 16),
+              _AlumniLifecycleCard(onOpen: _openAlumniManagement),
+            ],
             const SizedBox(height: 18),
             if (wide)
               _WideRegister(
@@ -158,6 +188,48 @@ class _AdministratorLifecyclePageState
       },
     );
   }
+}
+
+class _AlumniLifecycleCard extends StatelessWidget {
+  const _AlumniLifecycleCard({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.workspace_premium_outlined, size: 30),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Alumni transition & verification',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      'Create a separate Alumni membership from an existing Student account, review former-student evidence, and verify or return profiles for correction. Historical Student records are not overwritten.',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: onOpen,
+                icon: const Icon(Icons.verified_user_outlined),
+                label: const Text('Open Alumni'),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _Header extends StatelessWidget {
@@ -279,7 +351,10 @@ class _LifecycleDataRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(record.id, style: const TextStyle(fontWeight: FontWeight.w900)),
+            child: Text(
+              record.id,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
           ),
           Expanded(child: Text(record.studentName)),
           Expanded(child: Text(record.workflow)),
@@ -378,7 +453,10 @@ class _DetailRow extends StatelessWidget {
         children: [
           SizedBox(width: 100, child: Text(label)),
           Expanded(
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
