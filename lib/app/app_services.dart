@@ -12,6 +12,7 @@ import '../core/sync/server_confirm.dart';
 import '../core/sync/round_follow_up.dart';
 import '../core/sync/sync_coordinator.dart';
 import '../core/sync/sync_engine.dart';
+import '../features/alumni/data/alumni_server_api.dart';
 import '../features/proprietor/data/owner_access_repository.dart';
 import '../features/proprietor/data/staff_server_api.dart';
 import '../core/sync/sync_puller.dart';
@@ -32,6 +33,7 @@ class AppServices {
     this.notifications,
     this.ownerAccess,
     this.staffServer,
+    this.alumniServer,
     this.serverConfirm,
   });
 
@@ -40,42 +42,27 @@ class AppServices {
   final SchoolAppearanceController schoolAppearance;
   final ApiConfig apiConfig;
 
-  /// Sign-in against the SchoolOS backend. Null when no backend is configured
-  /// (the app then runs on its demo data, as before).
   final AuthRepository? auth;
-
-  /// Sends queued changes to the backend and downloads what changed. Null without a backend.
   final SyncEngine? syncEngine;
-
-  /// Keeps the device and the school in step (sending, downloading, retrying). Null without a backend.
   final SyncCoordinator? syncCoordinator;
-
-  /// Which screens the person may use, as the owner decided. Null without a backend (everything is shown).
   final AccessController? access;
-
-  /// The person's inbox. Null without a backend.
   final NotificationsController? notifications;
-
-  /// The owner's calls for deciding who sees which screen. Null without a backend.
   final OwnerAccessRepository? ownerAccess;
-
-  /// Approving proposals, invitations and staff registration, decided by the server. Null without a backend.
   final StaffServerApi? staffServer;
 
-  /// Sends a just-queued change and reports the server's refusal at once. Null without a backend.
+  /// Alumni identity, profile and school-verification calls. Null without a backend.
+  final AlumniServerApi? alumniServer;
+
   final ServerConfirm? serverConfirm;
 
   bool get usesBackend => auth != null;
 
-  /// A school has been chosen (after sign-in, or when the app opens on one):
-  /// load what is kept on the device for it, and start keeping in step.
   Future<void> beginSchool(SchoolMembership membership) async {
     await access?.restore(membership);
     await notifications?.restore(membership);
     syncCoordinator?.start();
   }
 
-  /// The person signed out: forget what belonged to them and stop syncing.
   Future<void> endSession() async {
     syncCoordinator?.stop();
     access?.clear();
@@ -106,8 +93,8 @@ class AppServices {
     NotificationsController? notifications;
     OwnerAccessRepository? ownerAccess;
     StaffServerApi? staffServer;
+    AlumniServerApi? alumniServer;
     ServerConfirm? serverConfirm;
-    // With a school server, sample records must never appear as the school's own data.
     LocalDatabase.blockDemoSeeds = apiConfig.enabled;
     if (apiConfig.enabled) {
       final tokens = SecureTokenStore();
@@ -124,15 +111,20 @@ class AppServices {
         puller: SyncPuller(api: api, store: localDatabase),
       );
 
-      // A school chosen on an earlier visit is only usable while the sign-in
-      // that chose it is still here. Without it, start at the login screen.
       if (schoolSession.hasActiveSchool && !await auth.hasSession()) {
         await schoolSession.clear();
       }
 
-      serverConfirm = ServerConfirm(database: localDatabase, syncNow: () async => await syncCoordinator?.syncNow());
+      serverConfirm = ServerConfirm(
+        database: localDatabase,
+        syncNow: () async => await syncCoordinator?.syncNow(),
+      );
       ownerAccess = OwnerAccessRepository(api: api);
-      staffServer = StaffServerApi(api: api, afterChange: () async => await syncCoordinator?.syncNow());
+      staffServer = StaffServerApi(
+        api: api,
+        afterChange: () async => await syncCoordinator?.syncNow(),
+      );
+      alumniServer = AlumniServerApi(api: api);
       access = AccessController(api: api, store: localDatabase);
       notifications = NotificationsController(api: api, store: localDatabase);
       syncCoordinator = SyncCoordinator(
@@ -145,8 +137,6 @@ class AppServices {
           activeMembership: () => schoolSession.activeMembership,
         ).call,
       );
-      // Every screen queues its changes through the database, so hearing about
-      // them here means no screen has to remember to ask for a sync.
       localDatabase.onMutationQueued = syncCoordinator.requestSync;
     }
 
@@ -162,6 +152,7 @@ class AppServices {
       notifications: notifications,
       ownerAccess: ownerAccess,
       staffServer: staffServer,
+      alumniServer: alumniServer,
       serverConfirm: serverConfirm,
     );
     final active = schoolSession.activeMembership;
