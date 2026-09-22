@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
+import '../../administrator/data/administrator_staff_attendance_repository.dart';
+import '../../administrator/domain/administrator_staff_attendance_models.dart' show StaffAttendanceReviewStatus;
 import '../../proprietor/data/owner_payroll_repository.dart';
 import '../../proprietor/data/payroll_batch_repository.dart';
 import '../../proprietor/data/staff_proposal_repository.dart';
@@ -42,28 +44,33 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
     _load();
   }
 
-  /// Salaries come from the owner's payroll records. Attendance context is
-  /// only carried over where the sample attendance data matches by name;
-  /// anyone without verified attendance is held out of the batch.
+  /// Salaries come from the owner's payroll records. Attendance context comes from the real
+  /// staff attendance register, matched by real staff id (not name, and not a fixed sample
+  /// list) — anyone with no real attendance record on file is honestly held out of the batch
+  /// for review, rather than silently defaulting to a fabricated "ready" state.
   Future<void> _load() async {
     final view = await loadPayrollForMember(
       widget.localDatabase,
       widget.schoolSession,
     );
+    final attendance = await AdministratorStaffAttendanceRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    ).load();
     final rows = <FinancePayrollRow>[];
     for (final p in view.profiles) {
-      final match = financePayrollRows.where((r) => r.name == p.name).firstOrNull;
+      final match = attendance.records.where((r) => r.id == p.staffId).firstOrNull;
       rows.add(FinancePayrollRow(
         staffId: p.staffId,
         name: p.name,
-        expectedDays: match?.expectedDays ?? 0,
-        presentDays: match?.presentDays ?? 0,
-        leaveDays: match?.leaveDays ?? 0,
-        unexplainedDays: match?.unexplainedDays ?? 0,
+        expectedDays: match?.expected ?? 0,
+        presentDays: match?.present ?? 0,
+        leaveDays: match?.leave ?? 0,
+        unexplainedDays: match?.unexplained ?? 0,
         gross: p.gross,
         deductions: p.deductions,
         net: p.net,
-        status: match?.status ?? FinancePayrollStatus.attendanceReview,
+        status: match?.status == StaffAttendanceReviewStatus.ready ? FinancePayrollStatus.ready : FinancePayrollStatus.attendanceReview,
       ));
     }
     if (mounted) {
