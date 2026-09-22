@@ -4,6 +4,24 @@ import '../data/administrator_staff_attendance_demo_data.dart';
 import '../data/administrator_staff_attendance_repository.dart';
 import '../domain/administrator_staff_attendance_models.dart';
 
+/// Real headline figures computed from the real staff attendance records this period, replacing
+/// a fixed "64 staff" KPI row that was disconnected from the real (4-person) register.
+List<StaffAttendanceKpi> _realKpis(List<StaffAttendanceRecord> records) {
+  final expected = records.fold<int>(0, (sum, r) => sum + r.expected);
+  final present = records.fold<int>(0, (sum, r) => sum + r.present);
+  final late = records.fold<int>(0, (sum, r) => sum + r.late);
+  final unexplained = records.fold<int>(0, (sum, r) => sum + r.unexplained);
+  final ready = records.where((r) => r.payrollReady).length;
+  final rate = expected == 0 ? 0 : (present * 100 / expected).round();
+  return [
+    StaffAttendanceKpi('Staff on record', '${records.length}', 'This attendance period'),
+    StaffAttendanceKpi('Attendance rate', '$rate%', '$present of $expected expected days'),
+    StaffAttendanceKpi('Late arrivals', '$late', 'Across the period'),
+    StaffAttendanceKpi('Unexplained absences', '$unexplained', 'Need HR/admin review'),
+    StaffAttendanceKpi('Payroll-ready', '$ready / ${records.length}', '${records.length - ready} records held for review'),
+  ];
+}
+
 class AdministratorStaffAttendancePage extends StatefulWidget {
   const AdministratorStaffAttendancePage({
     super.key,
@@ -140,7 +158,7 @@ class _AdministratorStaffAttendancePageState
               onSend: _sendSummary,
             ),
             const SizedBox(height: 18),
-            _KpiGrid(items: administratorStaffAttendanceKpis),
+            _KpiGrid(items: _realKpis(snapshot.records)),
             const SizedBox(height: 16),
             _FlowCard(items: administratorStaffAttendanceFlow),
             const SizedBox(height: 16),

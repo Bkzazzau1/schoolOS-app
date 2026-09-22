@@ -158,6 +158,12 @@ class _QueueCard extends StatelessWidget {
               'Current operations queue',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
             ),
+            const SizedBox(height: 4),
+            Text(
+              'Sample counts only: not yet wired to real Transport, Meals or Visitors records, and there is no way '
+              'here to mark a task done. Open those workspaces directly for real, current figures.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 12),
             for (final task in tasks)
               Padding(

@@ -9,10 +9,10 @@ const administratorWebsiteSeed = AdministratorWebsiteSettings(
 );
 
 const administratorWebsiteDomain = 'brightgateacademy.ng';
-const administratorWebsiteApplications = 131;
-const administratorWebsitePublishedNotices = 8;
-const administratorWebsiteLastUpdate = 'Today';
 
+// Real application and published-notice counts are tracked for real on the Admissions and
+// Notices screens; this settings/preview screen does not duplicate them with a disconnected
+// fixed number.
 const administratorWebsiteKpis = <AdministratorWebsiteKpi>[
   AdministratorWebsiteKpi(
     label: 'Domain',
@@ -23,21 +23,6 @@ const administratorWebsiteKpis = <AdministratorWebsiteKpi>[
     label: 'Admissions',
     value: 'Open',
     detail: '2026/2027 intake',
-  ),
-  AdministratorWebsiteKpi(
-    label: 'Applications',
-    value: '131',
-    detail: 'From website',
-  ),
-  AdministratorWebsiteKpi(
-    label: 'Published notices',
-    value: '8',
-    detail: 'Public website content',
-  ),
-  AdministratorWebsiteKpi(
-    label: 'Last update',
-    value: administratorWebsiteLastUpdate,
-    detail: 'Prototype content state',
   ),
 ];
 

@@ -462,6 +462,7 @@ class _TaskCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
             ),
+            Text('Sample counts only: not yet wired to the real student and record registers.', style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 12),
             for (final task in tasks)
               Padding(

@@ -42,15 +42,6 @@ void main() {
     );
   });
 
-  test('website KPI values are preserved exactly', () {
-    expect(administratorStaffAttendanceKpis, hasLength(5));
-    expect(administratorStaffAttendanceKpis[0].value, '64');
-    expect(administratorStaffAttendanceKpis[1].value, '61');
-    expect(administratorStaffAttendanceKpis[2].value, '6');
-    expect(administratorStaffAttendanceKpis[3].value, '2');
-    expect(administratorStaffAttendanceKpis[4].value, '62 / 64');
-  });
-
   test('three exact attendance hardware devices are preserved', () {
     expect(administratorStaffAttendanceDevices, hasLength(3));
     expect(

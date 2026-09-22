@@ -72,14 +72,6 @@ const administratorStaffAttendanceDevices = <StaffAttendanceDevice>[
   ),
 ];
 
-const administratorStaffAttendanceKpis = <StaffAttendanceKpi>[
-  StaffAttendanceKpi('Expected staff today', '64', 'All active staff'),
-  StaffAttendanceKpi('Present', '61', 'Hardware + reviewed records'),
-  StaffAttendanceKpi('Late arrivals', '6', 'Informational until reviewed'),
-  StaffAttendanceKpi('Attendance exceptions', '2', 'Need HR/admin review'),
-  StaffAttendanceKpi('Payroll-ready', '62 / 64', '2 records held for review'),
-];
-
 const administratorStaffAttendanceFlow = <List<String>>[
   ['1. Staff scan', 'Face · NFC · authorized device'],
   ['2. Attendance ledger', 'Arrival, departure, late, absent'],

@@ -14,12 +14,12 @@ void main() {
     expect(administratorWebsiteSeed.admissionSession, '2026/2027');
   });
 
-  test('website manager preserves headline KPI values', () {
+  test('website manager preserves headline KPI values without a disconnected fixed count', () {
     expect(administratorWebsiteDomain, 'brightgateacademy.ng');
-    expect(administratorWebsiteApplications, 131);
-    expect(administratorWebsitePublishedNotices, 8);
-    expect(administratorWebsiteLastUpdate, 'Today');
-    expect(administratorWebsiteKpis, hasLength(5));
+    // Real application and published-notice counts belong to the real Admissions and Notices
+    // screens; this settings/preview screen no longer duplicates them with a fixed number.
+    expect(administratorWebsiteKpis, hasLength(2));
+    expect(administratorWebsiteKpis.map((k) => k.label), ['Domain', 'Admissions']);
   });
 
   test('all five public website sections are published', () {

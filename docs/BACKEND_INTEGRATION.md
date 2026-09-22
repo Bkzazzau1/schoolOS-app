@@ -1186,3 +1186,48 @@ role's scope and deserve their own audit pass — `demo_people.dart` in particul
 with that Principal's own Profile screen defaulting to blank).
 
 Full suite after this fix: 1141 passing, same 8 pre-existing unrelated failures, zero regressions.
+
+## Administrator: remaining screens audited (Operations, Staff Attendance, Students, Website)
+
+Finished the audit of every Administrator screen. Records, Notices, Staff and Attendance Desk were already solid;
+Admissions and Registration were fixed in an earlier commit this pass. This closes out the rest.
+
+**Staff Attendance — a real fix.** `administratorStaffAttendanceKpis` showed a fixed "Expected staff today: 64 ·
+Present: 61 · Payroll-ready: 62 / 64" — completely disconnected from the real 4-person staff register the same
+screen's own ledger displays below it, and `expected`/`present` on each real record are period (monthly) counts, not
+a daily headcount, so the KPI didn't even match its own label semantically. Replaced with `_realKpis()`, computed
+live from the real loaded `records`: real staff-on-record count, a real attendance-rate percentage
+(`present/expected`), real summed late/unexplained counts, and a real payroll-ready ratio. The same fix already
+applied to Admissions' KPI row (compute from the real loaded list, not a fixed constant) and Registration's sibling
+dropdown (trust the real detection logic already in the repository) — a pattern repeating enough this pass to be
+worth naming: **a fixed KPI sitting beside a real, small seed list is the reliable tell that it was never actually
+wired up.**
+
+**Website — the same disconnected-KPI bug, this time removed rather than rebuilt.** `administratorWebsiteApplications
+= 131` and `administratorWebsitePublishedNotices = 8` repeated the exact fabricated "131" from the now-removed
+Admissions KPI, live-rendered on the Website settings/preview screen. Real counts exist for both (Admissions,
+Notices), but wiring two more repositories into a settings-preview page for a low-prominence summary card wasn't
+worth the added coupling; removed the two KPI entries instead, with a comment pointing to where the real counts
+actually live. The grid now shows only what's real: the fixed domain string and the admissions open/closed toggle
+(already live from the real settings record).
+
+**Operations and Students — labelled, not rebuilt.** Both show fixed illustrative task counts
+(`administratorOperationsWebsiteSeed`'s "3 students"/"4 today"/etc.; `administratorFamilyTasks`/
+`administratorRecordQualityTasks`'s "7 profiles missing one document"/etc.) with no names attached and, for
+Operations, no action methods at all — a permanently static queue. Real source modules exist for some of this
+(Transport, Meals and Visitors are all real feature modules elsewhere in the app; Records already tracks real
+per-person document status), but a full integration means reconciling mismatched semantics across three unrelated
+modules (Meals currently models menu planning, not per-student enrollment) and was judged too large for this pass.
+Added an honest, visible label to both cards instead ("Sample counts only: not yet wired to real records") rather
+than silently leaving a fabricated-looking number in place — consistent with the pinned instruction to label what
+isn't real rather than fake it, while flagging the real integration as a good candidate for its own focused pass.
+
+Tests: `test/administrator_staff_attendance_feature_test.dart` and `test/administrator_website_feature_test.dart`
+updated for the removed constants. Full suite: 1140 passing, same 8 pre-existing unrelated failures, zero
+regressions.
+
+---
+
+**This completes the Administrator role audit.** Every Administrator screen now shows real data wherever a real
+source exists, an honest visible label wherever a fixed placeholder remains for a documented reason, and no more
+KPIs disconnected from the real records sitting right below them.
