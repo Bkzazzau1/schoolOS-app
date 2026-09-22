@@ -47,7 +47,9 @@ const administratorLifecycleDemoExtras = <AdministratorLifecycleRecord>[
     toClass: 'JSS 1',
     requestedAt: '2026-08-20T09:00:00Z',
     completedAt: '2026-09-01T10:00:00Z',
-    approvedBy: 'Mr. Ibrahim Danladi (Principal)',
+    // Sample history only: no real Principal identity exists anywhere in the app to name here
+    // (see the Principal role's Profile screen), so this records the role, not an invented person.
+    approvedBy: 'Principal',
   ),
   AdministratorLifecycleRecord(
     id: 'LC-DEMO-002',

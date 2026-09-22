@@ -323,7 +323,6 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
               const Text('ACTIVE LEADERSHIP SCOPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
               const SizedBox(height: 4),
               const Text('Secondary School', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-              const Text('Kaduna Campus · Principal: Mr. Ibrahim Danladi'),
               const SizedBox(height: 8),
               Text(principalAssignmentScopeBoundary, style: Theme.of(context).textTheme.bodySmall),
             ],
@@ -332,10 +331,14 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
       );
 
   Widget _sectionCards(BuildContext context, bool compact) {
+    // No real leadership-directory source is visible from this Principal scope (Nursery and
+    // Primary leadership are separate, unrelated memberships), so this shows only the real
+    // section names and which one is this Principal's active scope, not an invented leader
+    // name or class count.
     const sections = [
-      ('NURSERY', 'Nursery / Early Years', 'Head Teacher', 'Mrs. Mary Daniel', '3 configured classes', false),
-      ('PRIMARY', 'Primary School', 'Headmistress', 'Mrs. Hauwa Sule', '6 configured classes', false),
-      ('SECONDARY', 'Secondary School', 'Principal', 'Mr. Ibrahim Danladi', '6 configured classes', true),
+      ('NURSERY', 'Nursery / Early Years', false),
+      ('PRIMARY', 'Primary School', false),
+      ('SECONDARY', 'Secondary School', true),
     ];
     final cards = sections
         .map((section) => Card(
@@ -348,14 +351,13 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
                     Text(section.$1, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 4),
                     Text(section.$2, style: const TextStyle(fontWeight: FontWeight.w900)),
-                    Text('${section.$3} · ${section.$4}'),
-                    Text(section.$5, style: Theme.of(context).textTheme.bodySmall),
+                    Text(section.$3 ? 'Your active scope' : 'Outside this leadership scope', style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 6),
                     Text(
-                      section.$6 ? 'Your active scope' : 'Managed by ${section.$3}',
+                      section.$3 ? 'Your active scope' : 'Not accessible from here',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        color: section.$6 ? Theme.of(context).colorScheme.primary : null,
+                        color: section.$3 ? Theme.of(context).colorScheme.primary : null,
                       ),
                     ),
                   ],

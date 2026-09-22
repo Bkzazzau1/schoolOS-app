@@ -1155,5 +1155,34 @@ detection logic.
 Tests: `test/administrator_admissions_test.dart` and `test/administrator_registration_feature_test.dart` updated for
 both removals. Full suite: 1141 passing, the same 8 pre-existing unrelated failures, zero regressions.
 
-Still to audit in this role: Attendance Desk (beyond the corrections fix already done), Lifecycle, Notices,
-Operations, Records, Staff, Staff Attendance, Students, Website.
+Still to audit in this role: Attendance Desk (beyond the corrections fix already done), Notices, Operations,
+Records, Staff, Staff Attendance, Students, Website.
+
+## Cross-cutting: a fabricated fixed "Principal" name found and fixed in two more places
+
+While auditing Administrator's Lifecycle screen, found a real promotion record's seed history attributing
+`approvedBy: 'Mr. Ibrahim Danladi (Principal)'` — the exact fixed fake Principal name already removed from the
+Principal role's Profile screen this session (`administrator_lifecycle_demo_data.dart`'s
+`administratorLifecycleDemoExtras`, shared with Students via `administrator_demo_school.dart`). Now the record
+honestly names the role only (`'Principal'`), not an invented person, matching the note already left on the
+Principal Profile fix.
+
+That search also surfaced a genuine miss from the Principal Assignments fix earlier this session: an "Active
+leadership scope" banner and a three-section card row (`_scopeBanner`/`_sectionCards` in
+`principal_assignments_page.dart`) were never touched during that fix and still showed the fabricated "Kaduna
+Campus", plus invented leaders for Nursery and Primary ("Mrs. Mary Daniel", "Mrs. Hauwa Sule") and the same fake
+Principal name for Secondary — none from any real source, and Nursery/Primary aren't even in this Principal's real
+scope. Fixed the same way as everywhere else this session: no real per-section leadership-directory source is
+visible from this Principal's membership, so the cards now show only the real section names and which one is this
+Principal's active scope, dropping every invented name and class count.
+
+**Not fixed, flagged for a future pass:** this fake Principal name (and matching fake names for every other demo
+role) also seeds `lib/app/demo_people.dart` (the demo login picker's "who you're signing in as" list) and, at the
+same severity as the Assignments miss, the Owner/Proprietor role's own `proprietor_structure_demo_data.dart` (the
+real, editable `ProprietorStructureRepository` starts pre-filled with these same invented names rather than the
+blank-until-entered pattern established for Principal's own Profile). Both are legitimately out of the Administrator
+role's scope and deserve their own audit pass — `demo_people.dart` in particular needs a product decision first
+(the demo login screen currently promises "sign in as Mr. Ibrahim Danladi, the Principal," which is now inconsistent
+with that Principal's own Profile screen defaulting to blank).
+
+Full suite after this fix: 1141 passing, same 8 pre-existing unrelated failures, zero regressions.
