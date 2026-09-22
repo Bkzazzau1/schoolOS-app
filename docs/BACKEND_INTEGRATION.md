@@ -961,3 +961,36 @@ illustrative sample tasks. A leftover legacy-seeded thread record cannot be revi
 Tests: `test/principal_communication_feature_test.dart` covers the honestly-empty fresh inbox, a real queued
 announcement round-tripping correctly, rejection of unconnected audiences and blank content, unconfirmed external
 delivery, refusal to reply to a legacy record, and membership/school isolation of outgoing content.
+
+## Principal: Performance
+
+The old page was a pure scorecard mockup: eight metrics with invented current/previous/target values, a fabricated
+5-term trend table, a fabricated class-health ranking, four fabricated "priorities", and a fixed AI summary citing
+specific numbers ("Lesson-plan compliance +5 pts") none of which existed. There was no repository at all — the page
+rendered a constant directly.
+
+**Real source:** a new `PrincipalPerformanceRepository` is a pure roll-up of repositories every other Principal
+screen already made real this session — it computes nothing independently, so it can never drift from what those
+screens show. Six indicators are now computed live: academic average and syllabus coverage and assessment
+completion (from `PrincipalAcademicsRepository`), student attendance (a weighted real rate from
+`PrincipalAttendanceRepository`'s real per-class figures), teacher attendance (the mean of real
+`OwnerStaffProfileRepository.attendanceRate` values across real Secondary teaching staff), and resolved incidents
+(from `PrincipalIncidentsRepository`'s real recorded cases). Each metric's `current` is `int?` — `null`, not an
+invented number, until that source has real evidence. `target` stays a fixed school policy goal (a reference value,
+not a measurement, the same category as a subject picker list). "Class health" now lists the real Secondary classes
+with their real academic average (nullable) and real attendance, sorted by real average instead of an invented
+score/trend/status.
+
+**No real source — left honest:** the fixed 5-term trend table is gone; nothing in the app stores a term-end
+snapshot, so there is no real history to show, and the page says so plainly instead of a period/comparison selector
+that would silently do nothing. "Priorities" needs human judgement over a pattern that nothing infers automatically,
+so it is always honestly empty. The AI summary is a "Not available yet" explanation instead of a fabricated
+narrative with invented supporting numbers. `overallHealth`, `evaluatedIndicators` and `belowTargetIndicators` are
+all computed only over indicators that actually have evidence, so a fresh demo school reads as partially recorded
+rather than a misleading fixed 94%.
+
+Tests: `test/principal_performance_feature_test.dart` checks which indicators already have real evidence in a fresh
+demo school (attendance and syllabus have deterministic real demo sources; academic average, assessment completion
+and resolved incidents do not until something is actually recorded), that a real assessment record raises the real
+academic-average metric and its matching class-health row together, that real recorded incidents raise the real
+resolved-incidents metric, and permission restriction for non-principal roles.

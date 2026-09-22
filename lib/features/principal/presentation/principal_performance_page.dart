@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/school_membership.dart';
-import '../data/principal_performance_demo_data.dart';
+import '../data/principal_performance_repository.dart';
 import '../domain/principal_performance_models.dart';
 
 class PrincipalPerformancePage extends StatefulWidget {
   const PrincipalPerformancePage({
     super.key,
     required this.membership,
+    required this.repository,
     required this.onNavigate,
   });
 
   final SchoolMembership membership;
+  final PrincipalPerformanceRepository repository;
   final ValueChanged<String> onNavigate;
 
   @override
@@ -19,27 +21,52 @@ class PrincipalPerformancePage extends StatefulWidget {
 }
 
 class _PrincipalPerformancePageState extends State<PrincipalPerformancePage> {
-  String _period = principalPerformancePeriods.first;
-  String _comparison = principalPerformanceComparisons.first;
+  PrincipalPerformanceSnapshot? _snapshot;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final snapshot = await widget.repository.load();
+      if (!mounted) return;
+      setState(() {
+        _snapshot = snapshot;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = '$error');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     if (widget.membership.role != SchoolRole.principal) {
       return const Center(child: Text('School Performance is restricted to the active Principal membership.'));
     }
+    if (_error != null) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(_error!),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: _load, child: const Text('Retry')),
+        ]),
+      );
+    }
+    final snapshot = _snapshot;
+    if (snapshot == null) return const Center(child: CircularProgressIndicator());
 
-    final snapshot = principalPerformanceSnapshot;
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         _Header(onNavigate: widget.onNavigate),
         const SizedBox(height: 16),
-        _Controls(
-          period: _period,
-          comparison: _comparison,
-          onPeriodChanged: (value) => setState(() => _period = value),
-          onComparisonChanged: (value) => setState(() => _comparison = value),
-        ),
+        _CurrentTermNotice(),
         const SizedBox(height: 16),
         _Hero(snapshot: snapshot),
         const SizedBox(height: 16),
@@ -47,30 +74,17 @@ class _PrincipalPerformancePageState extends State<PrincipalPerformancePage> {
         const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
-            final trend = _Trend(snapshot: snapshot);
             final health = _ClassHealth(snapshot: snapshot, onNavigate: widget.onNavigate);
-            return constraints.maxWidth >= 980
-                ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: trend), const SizedBox(width: 16), Expanded(child: health)])
-                : Column(children: [trend, const SizedBox(height: 16), health]);
-          },
-        ),
-        const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
             final priorities = _Priorities(snapshot: snapshot, onNavigate: widget.onNavigate);
-            final ai = _AiSummary(onNavigate: widget.onNavigate);
             return constraints.maxWidth >= 980
-                ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: priorities), const SizedBox(width: 16), Expanded(child: ai)])
-                : Column(children: [priorities, const SizedBox(height: 16), ai]);
+                ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: health), const SizedBox(width: 16), Expanded(child: priorities)])
+                : Column(children: [health, const SizedBox(height: 16), priorities]);
           },
         ),
         const SizedBox(height: 16),
-        _Reporting(
-          period: _period,
-          comparison: _comparison,
-          snapshot: snapshot,
-          onNavigate: widget.onNavigate,
-        ),
+        _AiSummary(onNavigate: widget.onNavigate),
+        const SizedBox(height: 16),
+        _Reporting(snapshot: snapshot),
       ],
     );
   }
@@ -93,7 +107,7 @@ class _Header extends StatelessWidget {
               SizedBox(height: 4),
               Text('School Performance', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28)),
               SizedBox(height: 4),
-              Text('Executive academic and operational scorecard across the current school term.'),
+              Text('A live scorecard rolled up from the real Academics, Attendance, Teachers and Incidents records.'),
             ]),
           ),
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -105,47 +119,24 @@ class _Header extends StatelessWidget {
       );
 }
 
-class _Controls extends StatelessWidget {
-  const _Controls({required this.period, required this.comparison, required this.onPeriodChanged, required this.onComparisonChanged});
-  final String period;
-  final String comparison;
-  final ValueChanged<String> onPeriodChanged;
-  final ValueChanged<String> onComparisonChanged;
+class _CurrentTermNotice extends StatelessWidget {
+  const _CurrentTermNotice();
 
   @override
   Widget build(BuildContext context) => Card(
         elevation: 0,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Wrap(spacing: 24, runSpacing: 14, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            _Selector(label: 'Reporting period', value: period, values: principalPerformancePeriods, onChanged: onPeriodChanged),
-            _Selector(label: 'Compare with', value: comparison, values: principalPerformanceComparisons, onChanged: onComparisonChanged),
-            SizedBox(width: 280, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(period, style: const TextStyle(fontWeight: FontWeight.w900)), const Text('Prototype term analytics · current campus', style: TextStyle(fontSize: 12))])),
+          child: Row(children: [
+            const Icon(Icons.info_outline),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'This scorecard reflects the current term only. Nothing in the app stores a snapshot at the end of a term yet, so a previous-term or same-term-last-year comparison is not available.',
+              ),
+            ),
           ]),
         ),
-      );
-}
-
-class _Selector extends StatelessWidget {
-  const _Selector({required this.label, required this.value, required this.values, required this.onChanged});
-  final String label;
-  final String value;
-  final List<String> values;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 230,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          DropdownButton<String>(
-            value: value,
-            isExpanded: true,
-            items: [for (final item in values) DropdownMenuItem(value: item, child: Text(item))],
-            onChanged: (next) { if (next != null) onChanged(next); },
-          ),
-        ]),
       );
 }
 
@@ -155,15 +146,30 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Wrap(spacing: 12, runSpacing: 12, children: [
-        SizedBox(width: 330, child: Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Overall school health'),
-          Text('${snapshot.overallHealth}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 42)),
-          const Text('Good · improving', style: TextStyle(fontWeight: FontWeight.w900)),
-          const SizedBox(height: 8),
-          const Text('Most monitored indicators are moving positively, but targeted intervention is still required in a small number of classes and operational areas.'),
-        ])))),
-        _SummaryCard('Improving indicators', '${snapshot.improvingIndicators} / ${snapshot.metrics.length}', 'Compared with previous term'),
-        _SummaryCard('Below target', '${snapshot.belowTargetIndicators}', 'Indicators not yet at school target'),
+        SizedBox(
+          width: 330,
+          child: Card(
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Overall school health'),
+                Text(
+                  snapshot.overallHealth == null ? 'Not recorded' : '${snapshot.overallHealth}',
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 42),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  snapshot.overallHealth == null
+                      ? 'No indicator has real evidence recorded yet.'
+                      : 'Mean progress toward target across indicators with real evidence recorded so far.',
+                ),
+              ]),
+            ),
+          ),
+        ),
+        _SummaryCard('Indicators with evidence', '${snapshot.evaluatedIndicators} / ${snapshot.metrics.length}', 'Have at least one real record'),
+        _SummaryCard('Below target', '${snapshot.belowTargetIndicators}', 'Of the indicators with evidence'),
         _SummaryCard('Priority issues', '${snapshot.priorities.length}', 'Requires principal follow-up'),
       ]);
 }
@@ -187,7 +193,7 @@ class _Metrics extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Core performance indicators', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            const Text('Current term versus previous term and school target.'),
+            const Text('Current term against school target. Indicators with no real record yet show "Not recorded".'),
             const SizedBox(height: 12),
             Wrap(spacing: 10, runSpacing: 10, children: [for (final metric in snapshot.metrics) _MetricCard(metric: metric, onTap: () => onNavigate(metric.routeKey))]),
           ]),
@@ -211,34 +217,18 @@ class _MetricCard extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [Expanded(child: Text(metric.label, style: const TextStyle(fontWeight: FontWeight.w800))), Text('${metric.delta >= 0 ? '+' : ''}${metric.delta}${metric.suffix}', style: TextStyle(fontWeight: FontWeight.w900, color: metric.delta >= 0 ? Colors.green : Theme.of(context).colorScheme.error))]),
+                Text(metric.label, style: const TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
-                Text('${metric.current}${metric.suffix}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 26)),
-                Text('Previous ${metric.previous}${metric.suffix} · Target ${metric.target}${metric.suffix}', style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  metric.hasEvidence ? '${metric.current}${metric.suffix}' : 'Not recorded',
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 26),
+                ),
+                Text('Target ${metric.target}${metric.suffix}', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 8),
                 LinearProgressIndicator(value: metric.targetProgress),
               ]),
             ),
           ),
-        ),
-      );
-}
-
-class _Trend extends StatelessWidget {
-  const _Trend({required this.snapshot});
-  final PrincipalPerformanceSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Term trend', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            const Text('How the school has moved across recent terms.'),
-            const SizedBox(height: 10),
-            SingleChildScrollView(scrollDirection: Axis.horizontal, child: DataTable(columns: const [DataColumn(label: Text('Term')), DataColumn(label: Text('Academics')), DataColumn(label: Text('Attendance')), DataColumn(label: Text('Teachers')), DataColumn(label: Text('Operations'))], rows: [for (final row in snapshot.termTrend) DataRow(cells: [DataCell(Text(row.term)), DataCell(Text('${row.academics}%')), DataCell(Text('${row.attendance}%')), DataCell(Text('${row.teacher}%')), DataCell(Text('${row.operations}%'))])])),
-          ]),
         ),
       );
 }
@@ -254,9 +244,31 @@ class _ClassHealth extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Class health ranking', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)), Text('Combined academic, attendance and delivery indicators.')])), TextButton(onPressed: () => onNavigate('academics'), child: const Text('Open academics'))]),
+            Row(children: [
+              const Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Class health', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                  Text('Real academic average and today\'s real attendance, per Secondary class.'),
+                ]),
+              ),
+              TextButton(onPressed: () => onNavigate('academics'), child: const Text('Open academics')),
+            ]),
             const SizedBox(height: 8),
-            for (final row in snapshot.classHealth) ListTile(contentPadding: EdgeInsets.zero, title: Text(row.className, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(row.status), trailing: SizedBox(width: 92, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [Text('${row.score}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)), const SizedBox(width: 10), Text('${row.trend >= 0 ? '+' : ''}${row.trend}', style: TextStyle(fontWeight: FontWeight.w900, color: row.trend >= 0 ? Colors.green : Theme.of(context).colorScheme.error))]))),
+            if (snapshot.classHealth.isEmpty) const Text('No Secondary classes match this school yet.'),
+            for (final row in snapshot.classHealth)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(row.className, style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(row.average == null ? 'No assessment evidence recorded yet' : 'Academic average'),
+                trailing: SizedBox(
+                  width: 140,
+                  child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                    Text(row.average == null ? '—' : '${row.average}%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    const SizedBox(width: 10),
+                    Text('${row.attendance}% att.', style: Theme.of(context).textTheme.bodySmall),
+                  ]),
+                ),
+              ),
           ]),
         ),
       );
@@ -276,6 +288,8 @@ class _Priorities extends StatelessWidget {
             const Text('Principal priorities', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
             const Text('Areas requiring human review or intervention.'),
             const SizedBox(height: 10),
+            if (snapshot.priorities.isEmpty)
+              const Text('Not available yet. Flagging a genuine leadership priority needs human judgement over a pattern; nothing in the app infers one automatically. Review Academics, Attendance and Incidents directly for the real underlying figures.'),
             for (final item in snapshot.priorities) ListTile(contentPadding: EdgeInsets.zero, leading: Chip(label: Text(item.severity)), title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text('${item.area}\n${item.detail}'), isThreeLine: true, trailing: TextButton(onPressed: () => onNavigate(item.routeKey), child: const Text('Review'))),
           ]),
         ),
@@ -296,11 +310,7 @@ class _AiSummary extends StatelessWidget {
             const SizedBox(height: 4),
             const Text('What the scorecard means', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
             const SizedBox(height: 8),
-            const Text(principalPerformanceAiSummary),
-            const SizedBox(height: 12),
-            const _Evidence('Strongest improvement', 'Lesson-plan compliance +5 pts'),
-            const _Evidence('Most urgent weakness', 'JSS 2B combined health'),
-            const _Evidence('Management posture', 'Targeted support'),
+            const Text('Not available yet. A written summary needs enough recorded evidence across indicators to say something real; ask Principal AI directly once more indicators have real data.'),
             const SizedBox(height: 10),
             TextButton(onPressed: () => onNavigate('ai'), child: const Text('Ask Principal AI about this scorecard')),
           ]),
@@ -308,19 +318,9 @@ class _AiSummary extends StatelessWidget {
       );
 }
 
-class _Evidence extends StatelessWidget {
-  const _Evidence(this.label, this.value);
-  final String label, value;
-  @override
-  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [Expanded(child: Text(label)), Text(value, style: const TextStyle(fontWeight: FontWeight.w900))]));
-}
-
 class _Reporting extends StatelessWidget {
-  const _Reporting({required this.period, required this.comparison, required this.snapshot, required this.onNavigate});
-  final String period;
-  final String comparison;
+  const _Reporting({required this.snapshot});
   final PrincipalPerformanceSnapshot snapshot;
-  final ValueChanged<String> onNavigate;
 
   Future<void> _preview(BuildContext context) async {
     await showDialog<void>(
@@ -329,17 +329,19 @@ class _Reporting extends StatelessWidget {
         title: const Text('Print-ready School Performance scorecard'),
         content: SizedBox(
           width: 620,
-          child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(period, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-            Text('Comparison: $comparison'),
-            const SizedBox(height: 12),
-            Text('Overall school health: ${snapshot.overallHealth}', style: const TextStyle(fontWeight: FontWeight.w900)),
-            Text('Improving indicators: ${snapshot.improvingIndicators}/${snapshot.metrics.length}'),
-            Text('Below target: ${snapshot.belowTargetIndicators}'),
-            Text('Priority issues: ${snapshot.priorities.length}'),
-            const Divider(),
-            for (final metric in snapshot.metrics) Text('${metric.label}: ${metric.current}${metric.suffix} · Previous ${metric.previous}${metric.suffix} · Target ${metric.target}${metric.suffix}'),
-          ])),
+          child: SingleChildScrollView(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Current term', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+              const SizedBox(height: 12),
+              Text('Overall school health: ${snapshot.overallHealth ?? 'Not recorded'}', style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text('Indicators with evidence: ${snapshot.evaluatedIndicators}/${snapshot.metrics.length}'),
+              Text('Below target: ${snapshot.belowTargetIndicators}'),
+              Text('Priority issues: ${snapshot.priorities.length}'),
+              const Divider(),
+              for (final metric in snapshot.metrics)
+                Text('${metric.label}: ${metric.hasEvidence ? '${metric.current}${metric.suffix}' : 'Not recorded'} · Target ${metric.target}${metric.suffix}'),
+            ]),
+          ),
         ),
         actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
       ),
@@ -353,12 +355,7 @@ class _Reporting extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Wrap(alignment: WrapAlignment.spaceBetween, spacing: 16, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.center, children: [
             const SizedBox(width: 520, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Management reporting', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)), Text('Use these views for principal review meetings and later proprietor-level reporting.')])),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              OutlinedButton(onPressed: () => onNavigate('results'), child: const Text('Academic reports')),
-              OutlinedButton(onPressed: () => onNavigate('attendance'), child: const Text('Attendance report')),
-              OutlinedButton(onPressed: () => onNavigate('teachers'), child: const Text('Teacher overview')),
-              FilledButton.icon(onPressed: () => _preview(context), icon: const Icon(Icons.print_outlined), label: const Text('Print scorecard')),
-            ]),
+            FilledButton.icon(onPressed: () => _preview(context), icon: const Icon(Icons.print_outlined), label: const Text('Print scorecard')),
           ]),
         ),
       );

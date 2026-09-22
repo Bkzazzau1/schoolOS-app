@@ -1,68 +1,155 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/principal/data/principal_performance_demo_data.dart';
-import 'package:schoolos_app/features/principal/domain/principal_performance_models.dart';
+import 'package:schoolos_app/core/database/local_database.dart';
+import 'package:schoolos_app/core/security/payload_cipher.dart';
+import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_attendance_repository.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
+import 'package:schoolos_app/features/principal/data/principal_academics_repository.dart';
+import 'package:schoolos_app/features/principal/data/principal_assignments_repository.dart';
+import 'package:schoolos_app/features/principal/data/principal_attendance_repository.dart';
+import 'package:schoolos_app/features/principal/data/principal_incidents_repository.dart';
+import 'package:schoolos_app/features/principal/data/principal_performance_repository.dart';
+import 'package:schoolos_app/features/principal/domain/principal_incidents_models.dart';
+import 'package:schoolos_app/features/proprietor/data/owner_staff_profile_repository.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart' show teacherAssessmentRegisterEntityType;
+import 'package:schoolos_app/features/teacher/domain/teacher_assessment_models.dart';
+import 'package:schoolos_app/shared/models/school_membership.dart';
+
+import 'core/backend_test_support.dart';
+import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+
+const principal = SchoolMembership(id: 'm-principal', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.principal);
+const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
 
 void main() {
-  test('performance snapshot preserves exact website scorecard', () {
-    const snapshot = principalPerformanceSnapshot;
-    expect(snapshot.metrics.length, 8);
-    expect(snapshot.termTrend.length, 5);
-    expect(snapshot.classHealth.length, 6);
-    expect(snapshot.priorities.length, 4);
-    expect(snapshot.overallHealth, 94);
-    expect(snapshot.improvingIndicators, 8);
-    expect(snapshot.belowTargetIndicators, 8);
-  });
+  LocalDatabase? db;
+  late SchoolSessionController session;
+  late PrincipalPerformanceRepository performance;
 
-  test('core metric values and targets match website', () {
-    final academic = principalPerformanceMetrics.firstWhere((item) => item.label == 'Academic average');
-    final attendance = principalPerformanceMetrics.firstWhere((item) => item.label == 'Student attendance');
-    final lessonPlans = principalPerformanceMetrics.firstWhere((item) => item.label == 'Lesson-plan compliance');
-    final incidents = principalPerformanceMetrics.firstWhere((item) => item.label == 'Resolved incidents');
+  Future<void> setUpSchool([SchoolMembership who = principal]) async {
+    final database = LocalDatabase(cipher: PayloadCipher(secureStorage: MemorySecureStorage()), databasePath: ':memory:');
+    await database.initialize();
+    db = database;
+    session = SchoolSessionController(store: FakeSessionStore());
+    await session.setMemberships([principal, teacher]);
+    await session.selectSchool(who);
+    final students = AdministratorStudentsRepository(localDatabase: database, schoolSession: session);
+    final assignments = PrincipalAssignmentsRepository(
+      localDatabase: database,
+      schoolSession: session,
+      students: students,
+      staff: OwnerStaffProfileRepository(database: database, session: session),
+    );
+    final attendance = PrincipalAttendanceRepository(
+      localDatabase: database,
+      schoolSession: session,
+      students: students,
+      attendance: AdministratorAttendanceRepository(localDatabase: database, schoolSession: session),
+    );
+    final academics = PrincipalAcademicsRepository(
+      localDatabase: database,
+      schoolSession: session,
+      students: students,
+      assignments: assignments,
+      attendance: attendance,
+    );
+    final incidents = PrincipalIncidentsRepository(localDatabase: database, schoolSession: session);
+    performance = PrincipalPerformanceRepository(
+      localDatabase: database,
+      schoolSession: session,
+      academics: academics,
+      attendance: attendance,
+      incidents: incidents,
+      staff: OwnerStaffProfileRepository(database: database, session: session),
+    );
+  }
 
-    expect((academic.current, academic.previous, academic.target), (72, 69, 75));
-    expect((attendance.current, attendance.previous, attendance.target), (92, 90, 95));
-    expect((lessonPlans.current, lessonPlans.previous, lessonPlans.target), (89, 84, 95));
-    expect(lessonPlans.delta, 5);
-    expect((incidents.current, incidents.previous, incidents.target), (81, 74, 90));
-  });
+  tearDown(() => db?.close());
 
-  test('class health preserves strongest and weakest website rows', () {
-    final jss3a = principalClassHealth.firstWhere((item) => item.className == 'JSS 3A');
-    final jss2b = principalClassHealth.firstWhere((item) => item.className == 'JSS 2B');
-    expect((jss3a.score, jss3a.trend, jss3a.status), (91, 7, 'Strong'));
-    expect((jss2b.score, jss2b.trend, jss2b.status), (64, -7, 'Needs attention'));
-  });
-
-  test('term trend ends on current term exact values', () {
-    final current = principalPerformanceTrend.last;
-    expect(current.term, '1st Term 2026/27');
-    expect((current.academics, current.attendance, current.teacher, current.operations), (72, 92, 94, 85));
-  });
-
-  test('principal priorities remain human-review links', () {
-    expect(principalPerformancePriorities.map((item) => item.title), containsAll([
-      'JSS 2B intervention',
-      'Science staffing continuity',
-      'Report release backlog',
-      'Guardian engagement',
-    ]));
-    expect(principalPerformancePriorities.where((item) => item.severity == 'High').length, 2);
-    expect(principalPerformancePriorities.every((item) => item.routeKey.isNotEmpty), isTrue);
-  });
-
-  test('period and comparison options preserve website order', () {
-    expect(principalPerformancePeriods, ['1st Term 2026/27', '3rd Term 2025/26', '2nd Term 2025/26']);
-    expect(principalPerformanceComparisons, ['Previous term', 'Same term last year', 'School target']);
-  });
-
-  test('target progress is bounded and scorecard remains descriptive', () {
-    for (final PrincipalPerformanceMetric metric in principalPerformanceMetrics) {
-      expect(metric.targetProgress, inInclusiveRange(0.0, 1.0));
-      expect(metric.improving, isTrue);
-      expect(metric.belowTarget, isTrue);
+  test('a fresh demo school only shows evidence for indicators with an always-real source', () async {
+    await setUpSchool();
+    final snapshot = await performance.load();
+    // Student/teacher attendance and syllabus coverage are already backed by real deterministic
+    // demo data (today's gate scans, a default staff attendance record, the fixed approved
+    // scheme's baked-in progress) the same way other Principal screens already treat as real.
+    // Academic average, assessment completion and resolved incidents have no evidence until a
+    // teacher or the principal actually records something, so they stay honestly unevaluated.
+    const alwaysReal = {'Student attendance', 'Teacher attendance', 'Syllabus coverage'};
+    expect(snapshot.overallHealth, isNotNull);
+    expect(snapshot.evaluatedIndicators, alwaysReal.length);
+    expect(snapshot.priorities, isEmpty, reason: 'flagging a real priority needs human judgement nothing in the app produces automatically');
+    for (final metric in snapshot.metrics) {
+      expect(metric.hasEvidence, alwaysReal.contains(metric.label), reason: metric.label);
     }
-    expect(principalPerformanceAiSummary, contains('targeted intervention'));
-    expect(principalPerformanceAiSummary, isNot(contains('automatic')));
+  });
+
+  test('class health lists every real Secondary class with no invented score', () async {
+    await setUpSchool();
+    final snapshot = await performance.load();
+    expect(snapshot.classHealth.map((c) => c.className).toSet(), {'JSS 1', 'JSS 2', 'JSS 2A', 'JSS 2B', 'JSS 3A', 'SS1A', 'SS2A', 'SS2B', 'SS3A'});
+    for (final row in snapshot.classHealth) {
+      expect(row.average, isNull);
+      expect(row.attendance, inInclusiveRange(0, 100));
+    }
+  });
+
+  test('a real assessment record raises the real academic-average metric and its class row', () async {
+    await setUpSchool();
+    const item = TeacherAssessmentRegisterItem(
+      id: 'ASM-1',
+      title: 'Mid-term test',
+      className: 'JSS 2B',
+      maximumScore: 100,
+      entered: 2,
+      total: 2,
+      average: 80,
+      state: TeacherAssessmentRegisterState.inProgress,
+    );
+    await db!.upsertLocalRecord(tenantId: principal.schoolId, entityType: teacherAssessmentRegisterEntityType, entityId: item.id, payload: item.toJson());
+    final snapshot = await performance.load();
+    final metric = snapshot.metrics.firstWhere((m) => m.label == 'Academic average');
+    expect(metric.hasEvidence, isTrue);
+    expect(metric.current, 80);
+    expect(snapshot.classHealth.firstWhere((c) => c.className == 'JSS 2B').average, 80);
+  });
+
+  test('real recorded incidents raise the real resolved-incidents metric', () async {
+    await setUpSchool();
+    Future<void> record(String id, PrincipalIncidentStatus status) => db!.upsertLocalRecord(
+          tenantId: principal.schoolId,
+          entityType: 'principal_recorded_incident_case',
+          entityId: id,
+          payload: PrincipalIncident(
+            id: id,
+            title: 'Recorded concern',
+            category: PrincipalIncidentCategory.property,
+            severity: PrincipalIncidentSeverity.low,
+            status: status,
+            person: 'Reported by staff',
+            context: 'JSS 2A',
+            reportedBy: principal.id,
+            owner: principal.id,
+            reportedAt: '2026-09-22',
+            location: 'Classroom',
+            guardianContact: PrincipalGuardianContact.notRequired,
+            evidenceCount: 0,
+            summary: 'A staff-entered report.',
+            nextAction: 'Review evidence',
+          ).toJson(),
+        );
+    await record('case-1', PrincipalIncidentStatus.resolved);
+    await record('case-2', PrincipalIncidentStatus.open);
+    final snapshot = await performance.load();
+    final metric = snapshot.metrics.firstWhere((m) => m.label == 'Resolved incidents');
+    expect(metric.hasEvidence, isTrue);
+    expect(metric.current, 50);
+  });
+
+  test('a non-principal membership sees a fully empty scorecard', () async {
+    await setUpSchool(teacher);
+    final snapshot = await performance.load();
+    expect(snapshot.metrics, isEmpty);
+    expect(snapshot.classHealth, isEmpty);
+    expect(snapshot.priorities, isEmpty);
   });
 }

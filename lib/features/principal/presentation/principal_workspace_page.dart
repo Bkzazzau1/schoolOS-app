@@ -21,6 +21,7 @@ import '../data/principal_attendance_repository.dart';
 import '../data/principal_communication_repository.dart';
 import '../data/principal_dashboard_demo_data.dart';
 import '../data/principal_incidents_repository.dart';
+import '../data/principal_performance_repository.dart';
 import '../data/principal_profile_repository.dart';
 import '../data/principal_results_repository.dart';
 import '../data/principal_students_repository.dart';
@@ -73,6 +74,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
   late final PrincipalCommunicationRepository _communication;
   late final PrincipalIncidentsRepository _incidents;
   late final PrincipalProfileRepository _profile;
+  late final PrincipalPerformanceRepository _performance;
 
   @override
   void initState() {
@@ -112,6 +114,14 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
     _communication = PrincipalCommunicationRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _incidents = PrincipalIncidentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _profile = PrincipalProfileRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _performance = PrincipalPerformanceRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+      academics: _academics,
+      attendance: _attendance,
+      incidents: _incidents,
+      staff: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession),
+    );
     _refreshPendingCount();
   }
 
@@ -154,7 +164,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
         'communication' => PrincipalCommunicationPage(repository: _communication, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'incidents' => PrincipalIncidentsPage(repository: _incidents, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'ai' => PrincipalAIPage(membership: widget.membership, onNavigate: _select),
-        'performance' => PrincipalPerformancePage(membership: widget.membership, onNavigate: _select),
+        'performance' => PrincipalPerformancePage(membership: widget.membership, repository: _performance, onNavigate: _select),
         'profile' => PrincipalProfilePage(repository: _profile, schoolName: widget.membership.schoolName, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         _ => _UpcomingPrincipalFeature(item: _activeItem, onDashboard: () => _select('dashboard')),
       };
