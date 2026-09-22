@@ -48,7 +48,10 @@ void main() {
     );
     expect(registrationRelationships, ['Father', 'Mother', 'Guardian']);
     expect(registrationFamilyAccounts, hasLength(2));
-    expect(registrationSiblingLinks, hasLength(2));
+    // A real sibling is detected automatically from the guardian's phone number (see
+    // AdministratorRegistrationRepository._save), so this stays the single honest default
+    // rather than a fixed list naming a specific real student.
+    expect(registrationSiblingLinks, ['No existing sibling']);
   });
 
   test('serialization preserves identity guardian status and source handoff', () {

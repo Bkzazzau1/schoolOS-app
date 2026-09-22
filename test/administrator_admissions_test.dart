@@ -21,20 +21,6 @@ void main() {
     );
   });
 
-  test('admissions headline metrics match the website', () {
-    expect(administratorAdmissionsKpis, hasLength(5));
-    expect(
-      administratorAdmissionsKpis.map((item) => '${item.label}:${item.value}'),
-      [
-        'Applications:131',
-        'Awaiting documents:17',
-        'Screening queue:24',
-        'Offers issued:100',
-        'Accepted:79',
-      ],
-    );
-  });
-
   test('six controlled stage labels preserve website ordering', () {
     expect(
       AdmissionStage.values.map((stage) => stage.label),

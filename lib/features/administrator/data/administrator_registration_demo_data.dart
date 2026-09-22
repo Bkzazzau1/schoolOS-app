@@ -35,7 +35,8 @@ const registrationFamilyAccounts = <String>[
   'Create new family account',
   'FAM-BGA-0042 · Abdullahi Yusuf',
 ];
-const registrationSiblingLinks = <String>[
-  'No existing sibling',
-  'Maryam Abdullahi · JSS 2A',
-];
+// A real sibling is detected automatically during save, by matching the guardian's phone
+// number against other real registration records (see AdministratorRegistrationRepository._save).
+// This field is only ever the honest default: it is not a selectable claim about a specific,
+// real, named student.
+const registrationSiblingLinks = <String>['No existing sibling'];

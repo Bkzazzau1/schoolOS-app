@@ -1,33 +1,5 @@
 import '../domain/administrator_admissions_models.dart';
 
-const administratorAdmissionsKpis = <AdmissionKpi>[
-  AdmissionKpi(
-    label: 'Applications',
-    value: '131',
-    detail: 'Current admission cycle',
-  ),
-  AdmissionKpi(
-    label: 'Awaiting documents',
-    value: '17',
-    detail: 'Parent follow-up',
-  ),
-  AdmissionKpi(
-    label: 'Screening queue',
-    value: '24',
-    detail: 'Assessment/interview',
-  ),
-  AdmissionKpi(
-    label: 'Offers issued',
-    value: '100',
-    detail: 'Across all sections',
-  ),
-  AdmissionKpi(
-    label: 'Accepted',
-    value: '79',
-    detail: 'Ready for registration',
-  ),
-];
-
 const administratorAdmissionsWebsiteSeed = <AdmissionApplicant>[
   AdmissionApplicant(
     reference: 'BGA-ADM-26094',

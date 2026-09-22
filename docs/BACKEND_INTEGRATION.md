@@ -1125,3 +1125,35 @@ decision appearing in activity, and permission restriction for non-principal rol
 Academics, Results, Incidents, Approvals, Communication, Performance, Profile, AI, Timetable, Dashboard) plus the
 workspace shell now show real data wherever a real source exists in the app, and an honest, clearly-explained empty
 state everywhere one does not.
+
+## Administrator (role 2 revisited): audit pass after Principal
+
+With Principal done, returned to Administrator for a full audit, screen by screen. Unlike Principal, most of this
+role was already built correctly the first time — `AdministratorOverview` (the Dashboard's real KPI/queue roll-up
+from the real student/admissions/records/lifecycle/staff repositories) and the admissions pipeline's stage
+management were already solid, real, and demo-safe. This pass found and fixed the smaller gaps that remained.
+
+**Workspace shell:** `administratorCampusLabel` ("Kaduna Campus · Whole-school administration") and
+`administratorAcademicYear` ("2026/2027 · Term 1") were fixed, invented values shown in the sidebar and header on
+every Administrator screen — the same "no real campus/branch record or academic-term calendar exists anywhere in
+the app" gap already found and documented on the Principal role's Profile and Performance screens. Replaced with a
+single honest `administratorScopeLabel` ("Whole-school administration").
+
+**Admissions:** `administratorAdmissionsKpis`, a fixed five-metric set ("Applications: 131", "Offers issued: 100"
+…), was dead code — `AdministratorAdmissionsPage` already computes its real KPI row from the real loaded applicant
+list (`applicants.length`, `at(AdmissionStage.screening)`, etc.), so the fixed constant was never actually shown and
+was silently disconnected from the real 5-applicant seed. Removed, along with its dead test.
+
+**Registration:** `registrationSiblingLinks`, a fixed two-item dropdown, offered "Maryam Abdullahi · JSS 2A" — a
+real, currently-enrolled student — as a selectable "sibling link" on a brand-new registration, with nothing checking
+whether the two people were actually related. The repository already has a genuinely real sibling-detection
+mechanism (`AdministratorRegistrationRepository._save` matches the new guardian's phone number against every other
+real registration record and refuses/links accordingly), which makes the fixed dropdown both redundant and
+dishonest. Trimmed to its one honest default, `['No existing sibling']`, with a comment pointing to the real
+detection logic.
+
+Tests: `test/administrator_admissions_test.dart` and `test/administrator_registration_feature_test.dart` updated for
+both removals. Full suite: 1141 passing, the same 8 pre-existing unrelated failures, zero regressions.
+
+Still to audit in this role: Attendance Desk (beyond the corrections fix already done), Lifecycle, Notices,
+Operations, Records, Staff, Staff Attendance, Students, Website.
