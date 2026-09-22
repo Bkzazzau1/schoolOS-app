@@ -442,3 +442,32 @@ empty (a teacher with no assigned classes, or an assigned class with nobody enro
 `.first` on a list that could now be empty. Both show an honest "nothing yet" message instead.
 
 Tests: `test/teacher_students_roster_test.dart`.
+
+## Teacher: Syllabus reports against real assigned classes, and never becomes editable by the teacher
+
+The scheme of work (topics, weeks, planned lessons) is set by the Principal or the Head of section, not by the teacher —
+this was an explicit correction from the school owner. `TeacherSyllabusRepository` already had the right permission model
+(`canReportCoverage: true`, `canEditApprovedScheme: false`) before this change, and that did not change. What changed is
+which classes the tracker shows: it now intersects the teacher's real assigned classes (from `TeacherRoster`) with the
+classes that have an uploaded scheme, so a class the teacher is not really assigned to never appears, and an assigned class
+with no scheme yet shows an honest "not uploaded yet" message instead of an empty grid. `markStatus` rejects reporting
+coverage for a class outside that intersection as defense in depth, even if a caller somehow has a row for it. Coverage
+percentage and "behind pace" status are now computed live from the actual rows and any teacher-reported progress
+(`coverageOf`/`isBehind` on `TeacherSyllabusSnapshot`), replacing a fixed lookup table that could drift from the real data.
+
+Fixed in passing: the demo scheme used the class name "SS 1A" (with a space) while the real student register and roster use
+"SS1A" (no space) — a silent mismatch that would have made that class's syllabus rows disappear once filtering by the real
+roster was added. Renamed the demo data to match, the same fix already applied once this session to a duplicate demo
+student name.
+
+Also fixed a pre-existing, systemic bug found while testing this: ten places across the Teacher module's reload/retry
+buttons wrote `setState(() => _future = widget.repository.load())` — an arrow-body closure whose expression value is the
+`Future` the assignment produces. Flutter's debug-mode `setState` explicitly rejects a callback that returns a `Future`
+(`State.setState` asserts on it), so every retry/reload action after the first load crashed in debug and test builds (not
+release, where the assertion is stripped). Fixed by switching to a block body (`setState(() { _future = ...; })`) at all
+ten sites: `teacher_ai_page.dart`, `teacher_attendance_page.dart`, `teacher_classes_page.dart`,
+`teacher_learning_progress_page.dart`, `teacher_lesson_plans_page.dart`, `teacher_messages_page.dart`,
+`teacher_students_page.dart`, `teacher_syllabus_page.dart`, `teacher_timetable_page.dart` (two sites). This alone fixed one
+of the 19 previously-failing tests ("mark complete records teacher progress...").
+
+Tests: `test/teacher_syllabus_roster_test.dart`.

@@ -41,7 +41,9 @@ class _TeacherLearningProgressPageState
           }
           if (snapshot.hasError || !snapshot.hasData) {
             return _ErrorState(onRetry: () {
-              setState(() => _future = widget.repository.load());
+              setState(() {
+                _future = widget.repository.load();
+              });
             });
           }
           return _content(snapshot.data!);

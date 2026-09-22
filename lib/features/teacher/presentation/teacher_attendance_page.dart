@@ -41,7 +41,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
   }
 
   void _reload() {
-    setState(() => _future = widget.repository.load());
+    setState(() {
+      _future = widget.repository.load();
+    });
   }
 
   Future<void> _apply(

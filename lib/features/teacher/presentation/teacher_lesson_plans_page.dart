@@ -131,7 +131,9 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
         if (snapshot.hasError || !snapshot.hasData) {
           return Center(
             child: FilledButton.icon(
-              onPressed: () => setState(() => _future = widget.repository.load()),
+              onPressed: () => setState(() {
+                _future = widget.repository.load();
+              }),
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry lesson plans'),
             ),

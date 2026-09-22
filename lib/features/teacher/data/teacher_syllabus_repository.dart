@@ -3,23 +3,43 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_syllabus_models.dart';
+import 'teacher_roster.dart';
 import 'teacher_syllabus_demo_data.dart';
 
 class TeacherSyllabusSnapshot {
   const TeacherSyllabusSnapshot({
     required this.rows,
+    required this.classes,
     required this.progress,
     required this.events,
     required this.permissions,
   });
 
   final List<TeacherSyllabusRow> rows;
+
+  /// The teacher's real assigned classes that have a scheme of work uploaded (by the Principal or the Head of the
+  /// section). A real assigned class with no scheme yet is not offered here, rather than showing an empty scheme.
+  final List<String> classes;
+
   final Map<String, TeacherSyllabusProgressRecord> progress;
   final List<TeacherSyllabusProgressEvent> events;
   final TeacherSyllabusPermissions permissions;
 
   TeacherSyllabusStatus effectiveStatus(TeacherSyllabusRow row) =>
       progress[row.id]?.reportedStatus ?? row.approvedStatus;
+
+  /// Whether any row of [className] is behind where the scheme expects it to be.
+  bool isBehind(String className) => rows
+      .where((row) => row.className == className)
+      .any((row) => effectiveStatus(row) == TeacherSyllabusStatus.behind);
+
+  /// The share of [className]'s topics reported complete, as a whole percentage.
+  int coverageOf(String className) {
+    final rows = this.rows.where((row) => row.className == className).toList();
+    if (rows.isEmpty) return 0;
+    final done = rows.where((row) => effectiveStatus(row) == TeacherSyllabusStatus.completed).length;
+    return (done * 100 / rows.length).round();
+  }
 }
 
 class TeacherSyllabusActionResult {
@@ -38,14 +58,17 @@ class TeacherSyllabusRepository {
   TeacherSyllabusRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required TeacherRoster roster,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _roster = roster;
 
   static const _progressType = 'teacher_syllabus_progress';
   static const _eventType = 'teacher_syllabus_progress_event';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final TeacherRoster _roster;
 
   TeacherSyllabusPermissions permissionsFor(SchoolMembership membership) {
     final teacher = membership.role == SchoolRole.teacher;
@@ -58,8 +81,17 @@ class TeacherSyllabusRepository {
     );
   }
 
+  /// The names of the teacher's real assigned classes that a scheme of work has been uploaded for.
+  Future<Set<String>> _classesWithScheme(SchoolMembership membership) async {
+    final assigned = {for (final c in await _roster.assignedClasses(membership)) c.className};
+    return {for (final row in teacherSyllabusRows) row.className}.intersection(assigned);
+  }
+
   Future<TeacherSyllabusSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
+    final classes = await _classesWithScheme(membership);
+    final rows = [for (final row in teacherSyllabusRows) if (classes.contains(row.className)) row];
+
     final progressRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _progressType,
@@ -72,16 +104,19 @@ class TeacherSyllabusRepository {
     final progress = <String, TeacherSyllabusProgressRecord>{};
     for (final record in progressRecords) {
       final parsed = TeacherSyllabusProgressRecord.fromJson(record.payload);
+      if (!classes.contains(parsed.className)) continue;
       progress[parsed.id] = parsed;
     }
 
     final events = eventRecords
         .map((record) => TeacherSyllabusProgressEvent.fromJson(record.payload))
+        .where((event) => rows.any((row) => row.id == event.recordId))
         .toList(growable: false)
       ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
 
     return TeacherSyllabusSnapshot(
-      rows: teacherSyllabusRows,
+      rows: rows,
+      classes: classes.toList()..sort(),
       progress: progress,
       events: events,
       permissions: permissionsFor(membership),
@@ -105,6 +140,12 @@ class TeacherSyllabusRepository {
       return const TeacherSyllabusActionResult(
         success: false,
         message: 'Teachers can only report a topic as completed or in progress from this workspace.',
+      );
+    }
+    if (!(await _classesWithScheme(membership)).contains(row.className)) {
+      return const TeacherSyllabusActionResult(
+        success: false,
+        message: 'This class is not in your assigned scheme of work.',
       );
     }
 

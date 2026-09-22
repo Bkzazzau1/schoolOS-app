@@ -8,7 +8,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 void main() {
   test('Syllabus preserves exact four classes and thirty-two website rows', () {
-    expect(teacherSyllabusClassOptions, ['JSS 2A', 'JSS 2B', 'JSS 3A', 'SS 1A']);
+    expect(teacherSyllabusClassOptions, ['JSS 2A', 'JSS 2B', 'JSS 3A', 'SS1A']);
     expect(teacherSyllabusRows, hasLength(32));
     for (final className in teacherSyllabusClassOptions) {
       expect(
@@ -23,14 +23,14 @@ void main() {
       'JSS 2A': 72,
       'JSS 2B': 68,
       'JSS 3A': 81,
-      'SS 1A': 64,
+      'SS1A': 64,
     });
     expect(teacherSyllabusPacingLabel('JSS 2B'), 'Behind');
     expect(teacherSyllabusPacingHint('JSS 2B'), '2 lessons behind expected pace');
     expect(teacherSyllabusPacingLabel('JSS 2A'), 'On track');
     expect(teacherSyllabusNextTopic('JSS 2A'), 'Word Problems');
     expect(teacherSyllabusNextTopic('JSS 3A'), 'Variation');
-    expect(teacherSyllabusNextTopic('SS 1A'), 'Graphs');
+    expect(teacherSyllabusNextTopic('SS1A'), 'Graphs');
   });
 
   test('JSS 2A exact website rows and lesson totals remain intact', () {
@@ -157,7 +157,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Syllabus Tracker'), findsOneWidget);
-    expect(find.text('72%'), findsOneWidget);
+    expect(find.text('50%'), findsOneWidget);
     expect(find.text('Word Problems'), findsWidgets);
 
     await tester.tap(find.byType(DropdownButtonFormField<String>).first);
@@ -165,7 +165,7 @@ void main() {
     await tester.tap(find.text('JSS 2B').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('68%'), findsOneWidget);
+    expect(find.text('50%'), findsOneWidget);
     expect(find.text('Pacing alert'), findsOneWidget);
     expect(find.text('Plan recovery lesson'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -277,6 +277,7 @@ class _FakeSyllabusRepository implements TeacherSyllabusRepository {
   @override
   Future<TeacherSyllabusSnapshot> load() async => TeacherSyllabusSnapshot(
         rows: teacherSyllabusRows,
+        classes: teacherSyllabusClassOptions,
         progress: Map<String, TeacherSyllabusProgressRecord>.from(progress),
         events: List<TeacherSyllabusProgressEvent>.from(events),
         permissions: permissionsFor(

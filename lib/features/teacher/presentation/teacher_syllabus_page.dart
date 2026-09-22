@@ -23,7 +23,7 @@ class TeacherSyllabusPage extends StatefulWidget {
 class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
   late Future<TeacherSyllabusSnapshot> _future;
   final _search = TextEditingController();
-  String _className = teacherSyllabusClassOptions.first;
+  String? _className;
   String _query = '';
   String? _notice;
 
@@ -40,7 +40,9 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
   }
 
   void _reload() {
-    setState(() => _future = widget.repository.load());
+    setState(() {
+      _future = widget.repository.load();
+    });
   }
 
   Future<void> _mark(
@@ -75,8 +77,23 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
         }
 
         final data = snapshot.requireData;
+        if (data.classes.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'No scheme of work has been uploaded yet for your assigned classes. The Principal or the Head of section uploads it.',
+              ),
+            ),
+          );
+        }
+        if (_className == null || !data.classes.contains(_className)) {
+          _className = data.classes.first;
+        }
+        final className = _className!;
+        final behind = data.isBehind(className);
         final classRows = data.rows
-            .where((row) => row.className == _className)
+            .where((row) => row.className == className)
             .toList(growable: false);
         final visible = classRows
             .where(
@@ -106,7 +123,9 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
               ],
               const SizedBox(height: 16),
               _Hero(
-                className: _className,
+                className: className,
+                classOptions: data.classes,
+                coverage: data.coverageOf(className),
                 onClassChanged: (value) {
                   if (value == null) return;
                   setState(() {
@@ -127,12 +146,12 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
                   _Stat(label: 'Planned lessons', value: '$plannedLessons', hint: 'visible weeks'),
                   _Stat(
                     label: 'Pacing status',
-                    value: teacherSyllabusPacingLabel(_className),
-                    hint: 'AI-assisted check',
+                    value: behind ? 'Behind' : 'On track',
+                    hint: 'From the reported coverage',
                   ),
                 ],
               ),
-              if (_className == 'JSS 2B') ...[
+              if (behind) ...[
                 const SizedBox(height: 16),
                 _PacingAlert(onNavigate: widget.onNavigate),
               ],
@@ -150,7 +169,7 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
                 builder: (context, constraints) {
                   final cards = [
                     _AiInsight(
-                      className: _className,
+                      className: className,
                       onNavigate: widget.onNavigate,
                     ),
                     const _Controls(),
@@ -218,13 +237,20 @@ class _Topbar extends StatelessWidget {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.className, required this.onClassChanged});
+  const _Hero({
+    required this.className,
+    required this.classOptions,
+    required this.coverage,
+    required this.onClassChanged,
+  });
   final String className;
+  final List<String> classOptions;
+  final int coverage;
   final ValueChanged<String?> onClassChanged;
 
   @override
   Widget build(BuildContext context) {
-    final progress = teacherSyllabusProgressByClass[className] ?? 0;
+    final progress = coverage;
     return Card(
       elevation: 0,
       child: Padding(
@@ -237,11 +263,11 @@ class _Hero extends StatelessWidget {
             SizedBox(
               width: 230,
               child: DropdownButtonFormField<String>(
-              isExpanded: true,
+                isExpanded: true,
                 initialValue: className,
                 decoration: const InputDecoration(labelText: 'Selected class'),
                 items: [
-                  for (final item in teacherSyllabusClassOptions)
+                  for (final item in classOptions)
                     DropdownMenuItem(value: item, child: Text(item)),
                 ],
                 onChanged: onClassChanged,

@@ -69,7 +69,9 @@ class _TeacherClassesPageState extends State<TeacherClassesPage> {
                   }
                   if (snapshot.hasError || !snapshot.hasData) {
                     return _ErrorCard(
-                      onRetry: () => setState(() => _future = widget.repository.load()),
+                      onRetry: () => setState(() {
+                        _future = widget.repository.load();
+                      }),
                     );
                   }
                   return _ClassesContent(

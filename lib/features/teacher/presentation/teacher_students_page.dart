@@ -113,7 +113,9 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
         }
         if (asyncSnapshot.hasError || !asyncSnapshot.hasData) {
           return _ErrorState(onRetry: () {
-            setState(() => _future = widget.repository.load());
+            setState(() {
+              _future = widget.repository.load();
+            });
           });
         }
 

@@ -1,13 +1,13 @@
 import '../domain/teacher_syllabus_models.dart';
 
-const teacherSyllabusClassOptions = <String>['JSS 2A', 'JSS 2B', 'JSS 3A', 'SS 1A'];
+const teacherSyllabusClassOptions = <String>['JSS 2A', 'JSS 2B', 'JSS 3A', 'SS1A'];
 const teacherSyllabusCurrentWeek = 6;
 
 const teacherSyllabusProgressByClass = <String, int>{
   'JSS 2A': 72,
   'JSS 2B': 68,
   'JSS 3A': 81,
-  'SS 1A': 64,
+  'SS1A': 64,
 };
 
 const teacherSyllabusRows = <TeacherSyllabusRow>[
@@ -38,20 +38,20 @@ const teacherSyllabusRows = <TeacherSyllabusRow>[
   TeacherSyllabusRow(className: 'JSS 3A', week: 7, topic: 'Variation', approvedStatus: TeacherSyllabusStatus.upcoming, plannedLessons: 3),
   TeacherSyllabusRow(className: 'JSS 3A', week: 8, topic: 'Statistics Review', approvedStatus: TeacherSyllabusStatus.upcoming, plannedLessons: 2),
 
-  TeacherSyllabusRow(className: 'SS 1A', week: 1, topic: 'Sets', approvedStatus: TeacherSyllabusStatus.completed, plannedLessons: 3),
-  TeacherSyllabusRow(className: 'SS 1A', week: 2, topic: 'Surds', approvedStatus: TeacherSyllabusStatus.completed, plannedLessons: 3),
-  TeacherSyllabusRow(className: 'SS 1A', week: 3, topic: 'Indices', approvedStatus: TeacherSyllabusStatus.completed, plannedLessons: 3),
-  TeacherSyllabusRow(className: 'SS 1A', week: 4, topic: 'Functions', approvedStatus: TeacherSyllabusStatus.inProgress, plannedLessons: 3),
-  TeacherSyllabusRow(className: 'SS 1A', week: 5, topic: 'Functions', approvedStatus: TeacherSyllabusStatus.current, plannedLessons: 3),
-  TeacherSyllabusRow(className: 'SS 1A', week: 6, topic: 'Graphs', approvedStatus: TeacherSyllabusStatus.upcoming, plannedLessons: 3),
-  TeacherSyllabusRow(className: 'SS 1A', week: 7, topic: 'Sequences and Series', approvedStatus: TeacherSyllabusStatus.upcoming, plannedLessons: 3),
-  TeacherSyllabusRow(className: 'SS 1A', week: 8, topic: 'Revision', approvedStatus: TeacherSyllabusStatus.upcoming, plannedLessons: 2),
+  TeacherSyllabusRow(className: 'SS1A', week: 1, topic: 'Sets', approvedStatus: TeacherSyllabusStatus.completed, plannedLessons: 3),
+  TeacherSyllabusRow(className: 'SS1A', week: 2, topic: 'Surds', approvedStatus: TeacherSyllabusStatus.completed, plannedLessons: 3),
+  TeacherSyllabusRow(className: 'SS1A', week: 3, topic: 'Indices', approvedStatus: TeacherSyllabusStatus.completed, plannedLessons: 3),
+  TeacherSyllabusRow(className: 'SS1A', week: 4, topic: 'Functions', approvedStatus: TeacherSyllabusStatus.inProgress, plannedLessons: 3),
+  TeacherSyllabusRow(className: 'SS1A', week: 5, topic: 'Functions', approvedStatus: TeacherSyllabusStatus.current, plannedLessons: 3),
+  TeacherSyllabusRow(className: 'SS1A', week: 6, topic: 'Graphs', approvedStatus: TeacherSyllabusStatus.upcoming, plannedLessons: 3),
+  TeacherSyllabusRow(className: 'SS1A', week: 7, topic: 'Sequences and Series', approvedStatus: TeacherSyllabusStatus.upcoming, plannedLessons: 3),
+  TeacherSyllabusRow(className: 'SS1A', week: 8, topic: 'Revision', approvedStatus: TeacherSyllabusStatus.upcoming, plannedLessons: 2),
 ];
 
 String teacherSyllabusNextTopic(String className) => switch (className) {
       'JSS 2A' || 'JSS 2B' => 'Word Problems',
       'JSS 3A' => 'Variation',
-      'SS 1A' => 'Graphs',
+      'SS1A' => 'Graphs',
       _ => '',
     };
 

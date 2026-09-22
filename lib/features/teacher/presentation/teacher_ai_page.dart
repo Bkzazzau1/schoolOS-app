@@ -75,7 +75,9 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
           }
           if (snapshot.hasError || !snapshot.hasData) {
             return _ErrorState(
-              onRetry: () => setState(() => _future = widget.repository.load()),
+              onRetry: () => setState(() {
+                _future = widget.repository.load();
+              }),
             );
           }
           final permissions = snapshot.data!.permissions;

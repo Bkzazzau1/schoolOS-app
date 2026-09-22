@@ -44,7 +44,11 @@ class _TeacherTimetablePageState extends State<TeacherTimetablePage> {
     if (!mounted) return;
     if (result.success) widget.onMutationQueued();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
-    if (result.success) setState(() => _future = widget.repository.load());
+    if (result.success) {
+      setState(() {
+        _future = widget.repository.load();
+      });
+    }
   }
 
   @override
@@ -61,7 +65,9 @@ class _TeacherTimetablePageState extends State<TeacherTimetablePage> {
             title: 'Could not open timetable',
             detail: '${snapshot.error}',
             actionLabel: 'Retry',
-            onAction: () => setState(() => _future = widget.repository.load()),
+            onAction: () => setState(() {
+              _future = widget.repository.load();
+            }),
           );
         }
         final data = snapshot.requireData;

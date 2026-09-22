@@ -94,7 +94,9 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
                     const Text('Messages could not be loaded.'),
                     const SizedBox(height: 12),
                     FilledButton(
-                      onPressed: () => setState(() => _future = widget.repository.load()),
+                      onPressed: () => setState(() {
+                        _future = widget.repository.load();
+                      }),
                       child: const Text('Try again'),
                     ),
                   ],
