@@ -1049,3 +1049,29 @@ path are reference/policy content, not evidence about a specific person or class
 Tests: `test/principal_ai_feature_test.dart` rewritten to confirm no response ever contains a percentage or other
 fabricated statistic, that every response is honest about not being connected to a real model, and that keyword
 routing sends each kind of question toward the correct real screen.
+
+## Principal: Timetable
+
+The old page seeded a fixed weekly lesson grid attaching specific days, times, rooms and workload numbers to named
+teachers — including "Mrs. Amina Yusuf", a real Secondary teacher — plus a fabricated "clash" and "uncovered lesson"
+narrative and hard-coded "186 lessons this week / 38 today" KPIs that were not even read from the seeded data.
+
+**No real per-period schedule exists anywhere:** unlike the other fixes this session, there was no real source to
+switch to. A real teaching assignment (`PrincipalAssignmentsRepository`) records a class, a subject and a weekly
+period *count* — never a day, a time slot or a room. There is no school-wide bell-schedule or room-booking system
+anywhere in the app. Inventing plausible-looking days/times/rooms even for a generic, non-real-named teacher would
+still fabricate an operational fact (this class meets Monday 8:00–8:40) nothing verifies, so the entire lesson grid,
+room-utilization panel and schedule-exception workflow are now honestly absent, with a clear explanation, the same
+"no real source" treatment already used for Academics' risk queue and Performance's term trend. `setExceptionHandled`
+now always honestly refuses: there is nothing real yet to handle.
+
+**Real and buildable — built:** teacher workload. `PrincipalTimetableRepository` now sums each real Secondary
+teacher's real weekly periods directly from `PrincipalAssignmentsRepository`'s real assignment records, bucketed
+against a fixed weekly-period target (Light/Balanced/Heavy — a deterministic bucket of a real number, not an
+invented judgement, the same pattern used for attendance/academic status elsewhere). This replaces the fixed
+five-teacher workload table that named real and invented staff with invented lesson counts.
+
+Tests: `test/principal_timetable_feature_test.dart` rewritten against the real repository: a fresh school has no
+schedule, room use or exceptions; real teacher workload lists the real Secondary teachers at zero periods; real
+teaching assignments raise that specific teacher's real period count and cross the fixed target into "Heavy";
+handling an exception is honestly refused; and permission restriction for non-principal roles.

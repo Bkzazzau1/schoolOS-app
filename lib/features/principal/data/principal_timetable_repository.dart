@@ -1,8 +1,8 @@
 import '../../../core/database/local_database.dart';
-import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/principal_timetable_models.dart';
+import 'principal_assignments_repository.dart';
 import 'principal_timetable_demo_data.dart';
 
 class PrincipalTimetableSnapshot {
@@ -15,8 +15,16 @@ class PrincipalTimetableSnapshot {
     required this.permissions,
   });
 
+  /// Always empty: no real per-period class schedule is recorded anywhere in the app yet
+  /// (real teaching assignments track a weekly period count, not which day or time a class
+  /// meets), so there is nothing real to show in a lesson grid.
   final List<PrincipalTimetableLesson> lessons;
+
+  /// Each real Secondary teacher's real weekly periods, summed from real teaching
+  /// assignments, bucketed against a fixed target.
   final List<PrincipalTeacherLoad> teacherLoads;
+
+  /// Always empty: no real source records which room a class uses.
   final List<PrincipalRoomUtilization> roomUse;
   final List<PrincipalTimetableExceptionState> exceptionStates;
   final List<PrincipalTimetableExceptionEvent> exceptionEvents;
@@ -37,21 +45,25 @@ class PrincipalTimetableActionResult {
   final String message;
 }
 
+String _loadStatus(int periods) {
+  if (periods > principalTimetableWeeklyPeriodsTarget) return 'Heavy';
+  if (periods < principalTimetableWeeklyPeriodsTarget) return 'Light';
+  return 'Balanced';
+}
+
 class PrincipalTimetableRepository {
+  /// [localDatabase] is accepted for constructor consistency with every other Principal
+  /// repository, even though this one is a pure read-side roll-up of real assignment data and
+  /// never touches the local database directly.
   PrincipalTimetableRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+    required PrincipalAssignmentsRepository assignments,
+  })  : _schoolSession = schoolSession,
+        _assignments = assignments;
 
-  static const _lessonType = 'principal_timetable_lesson';
-  static const _teacherLoadType = 'principal_timetable_teacher_load';
-  static const _roomType = 'principal_timetable_room_use';
-  static const _exceptionStateType = 'principal_timetable_exception_state';
-  static const _exceptionEventType = 'principal_timetable_exception_event';
-
-  final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final PrincipalAssignmentsRepository _assignments;
 
   PrincipalTimetablePermissions permissionsFor(SchoolMembership membership) => PrincipalTimetablePermissions(
         canViewSecondaryTimetable: membership.role == SchoolRole.principal,
@@ -62,31 +74,33 @@ class PrincipalTimetableRepository {
 
   Future<PrincipalTimetableSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
+    final permissions = permissionsFor(membership);
+    if (!permissions.canViewSecondaryTimetable) {
+      return PrincipalTimetableSnapshot(lessons: const [], teacherLoads: const [], roomUse: const [], exceptionStates: const [], exceptionEvents: const [], permissions: permissions);
+    }
 
-    final lessonRecords = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _lessonType);
-    final teacherRecords = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _teacherLoadType);
-    final roomRecords = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _roomType);
-    final stateRecords = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _exceptionStateType);
-    final eventRecords = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _exceptionEventType);
-
-    final lessons = lessonRecords.map((record) => PrincipalTimetableLesson.fromJson(record.payload)).toList(growable: false)
-      ..sort((a, b) => a.id.compareTo(b.id));
-    final teacherLoads = teacherRecords.map((record) => PrincipalTeacherLoad.fromJson(record.payload)).toList(growable: false)
-      ..sort((a, b) => _teacherOrder(a.name).compareTo(_teacherOrder(b.name)));
-    final roomUse = roomRecords.map((record) => PrincipalRoomUtilization.fromJson(record.payload)).toList(growable: false)
-      ..sort((a, b) => _roomOrder(a.room).compareTo(_roomOrder(b.room)));
-    final exceptionStates = stateRecords.map((record) => PrincipalTimetableExceptionState.fromJson(record.payload)).toList(growable: false);
-    final exceptionEvents = eventRecords.map((record) => PrincipalTimetableExceptionEvent.fromJson(record.payload)).toList(growable: false)
-      ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    final assignmentsSnapshot = await _assignments.load();
+    final periodsByTeacher = <String, int>{};
+    for (final assignment in assignmentsSnapshot.assignments) {
+      periodsByTeacher.update(assignment.teacherId, (value) => value + assignment.periodsPerWeek, ifAbsent: () => assignment.periodsPerWeek);
+    }
+    final teacherLoads = [
+      for (final teacher in assignmentsSnapshot.teachers)
+        PrincipalTeacherLoad(
+          name: teacher.name,
+          lessons: periodsByTeacher[teacher.id] ?? 0,
+          target: principalTimetableWeeklyPeriodsTarget,
+          status: _loadStatus(periodsByTeacher[teacher.id] ?? 0),
+        ),
+    ]..sort((a, b) => a.name.compareTo(b.name));
 
     return PrincipalTimetableSnapshot(
-      lessons: lessons,
+      lessons: const [],
       teacherLoads: teacherLoads,
-      roomUse: roomUse,
-      exceptionStates: exceptionStates,
-      exceptionEvents: exceptionEvents,
-      permissions: permissionsFor(membership),
+      roomUse: const [],
+      exceptionStates: const [],
+      exceptionEvents: const [],
+      permissions: permissions,
     );
   }
 
@@ -98,98 +112,9 @@ class PrincipalTimetableRepository {
     if (!permissionsFor(membership).canHandleExceptions) {
       return const PrincipalTimetableActionResult(success: false, message: 'This membership cannot handle Secondary timetable exceptions.');
     }
-
-    final lessonRecord = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _lessonType,
-      entityId: lessonId,
-    );
-    if (lessonRecord == null) {
-      return const PrincipalTimetableActionResult(success: false, message: 'Timetable lesson not found.');
-    }
-    final lesson = PrincipalTimetableLesson.fromJson(lessonRecord.payload);
-    if (!lesson.isException) {
-      return const PrincipalTimetableActionResult(success: false, message: 'Scheduled lessons do not require exception handling.');
-    }
-
-    final now = DateTime.now().toUtc().toIso8601String();
-    final state = PrincipalTimetableExceptionState(
-      lessonId: lessonId,
-      handled: handled,
-      updatedByMembershipId: membership.id,
-      updatedAt: now,
-    );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _exceptionStateType,
-      entityId: lessonId,
-      payload: state.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _exceptionStateType,
-      entityId: lessonId,
-      operation: SyncOperation.update,
-      payload: state.toJson(),
-    );
-
-    final event = PrincipalTimetableExceptionEvent(
-      id: '$lessonId-${DateTime.now().microsecondsSinceEpoch}',
-      lessonId: lessonId,
-      action: handled ? PrincipalTimetableExceptionAction.handled : PrincipalTimetableExceptionAction.reopened,
-      actorMembershipId: membership.id,
-      occurredAt: now,
-    );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _exceptionEventType,
-      entityId: event.id,
-      payload: event.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _exceptionEventType,
-      entityId: event.id,
-      operation: SyncOperation.create,
-      payload: event.toJson(),
-    );
-
-    return PrincipalTimetableActionResult(
-      success: true,
-      message: handled
-          ? 'Exception marked handled offline and queued for synchronization. The lesson schedule itself was not changed.'
-          : 'Exception reopened offline and queued for synchronization.',
+    return const PrincipalTimetableActionResult(
+      success: false,
+      message: 'No real timetable exceptions exist yet to handle: no real class-period schedule is recorded anywhere in the app.',
     );
   }
-
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    if ((await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _lessonType)).isEmpty) {
-      for (final lesson in principalTimetableLessons) {
-        await _localDatabase.upsertLocalRecord(tenantId: membership.schoolId, entityType: _lessonType, entityId: lesson.id, payload: lesson.toJson());
-      }
-    }
-    if ((await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _teacherLoadType)).isEmpty) {
-      for (final teacher in principalTeacherLoads) {
-        await _localDatabase.upsertLocalRecord(tenantId: membership.schoolId, entityType: _teacherLoadType, entityId: teacher.name, payload: teacher.toJson());
-      }
-    }
-    if ((await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _roomType)).isEmpty) {
-      for (final room in principalRoomUtilization) {
-        await _localDatabase.upsertLocalRecord(tenantId: membership.schoolId, entityType: _roomType, entityId: room.room, payload: room.toJson());
-      }
-    }
-    if ((await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _exceptionStateType)).isEmpty) {
-      for (final lesson in principalTimetableLessons.where((item) => item.isException)) {
-        final state = PrincipalTimetableExceptionState(lessonId: lesson.id, handled: false);
-        await _localDatabase.upsertLocalRecord(tenantId: membership.schoolId, entityType: _exceptionStateType, entityId: lesson.id, payload: state.toJson());
-      }
-    }
-  }
-
-  int _teacherOrder(String name) => principalTeacherLoads.indexWhere((item) => item.name == name);
-  int _roomOrder(String room) => principalRoomUtilization.indexWhere((item) => item.room == room);
 }

@@ -210,13 +210,6 @@ class PrincipalTimetablePermissions {
   final bool canManagePrimary;
 }
 
-const principalTimetablePermissions = PrincipalTimetablePermissions(
-  canViewSecondaryTimetable: true,
-  canHandleExceptions: true,
-  canEditScheduleDirectly: false,
-  canManagePrimary: false,
-);
-
 const principalTimetableAuthorityBoundary =
     'Principal timetable oversight is limited to Secondary School. Primary and Early Years scheduling remain outside this workspace.';
 
