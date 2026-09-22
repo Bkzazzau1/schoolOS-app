@@ -29,6 +29,12 @@ class TeacherWeeklyLearningActionResult {
   final TeacherWeeklyLearningUpdate? update;
 }
 
+/// The local record entity type real weekly learning updates are stored under, exposed for the same
+/// reason as [teacherAssessmentRegisterEntityType]: a role with a legitimate real read of this evidence
+/// below the teacher's own screen (Parent's Weekly Learning, which needs the real class-level narrative
+/// a teacher has actually queued or published) can read it directly without a teacher's own scope.
+const teacherWeeklyLearningUpdateEntityType = 'teacher_weekly_learning_update';
+
 class TeacherWeeklyLearningRepository {
   TeacherWeeklyLearningRepository({
     required LocalDatabase localDatabase,
@@ -36,7 +42,7 @@ class TeacherWeeklyLearningRepository {
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession;
 
-  static const _updateType = 'teacher_weekly_learning_update';
+  static const _updateType = teacherWeeklyLearningUpdateEntityType;
   static const _eventType = 'teacher_weekly_learning_event';
 
   final LocalDatabase _localDatabase;

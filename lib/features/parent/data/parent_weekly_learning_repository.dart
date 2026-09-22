@@ -1,100 +1,90 @@
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../teacher/data/teacher_weekly_learning_repository.dart'
+    show teacherWeeklyLearningUpdateEntityType;
+import '../../teacher/domain/teacher_weekly_learning_models.dart';
 import '../domain/parent_weekly_learning_models.dart';
-import 'parent_weekly_learning_demo_data.dart';
+import 'parent_children_repository.dart';
+
+const _notRecorded = 'Not recorded yet';
 
 class ParentWeeklyLearningRepository {
   ParentWeeklyLearningRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required ParentChildrenRepository children,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
-
-  static const _entityType = 'parent_weekly_learning_snapshot';
+        _schoolSession = schoolSession,
+        _children = children;
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final ParentChildrenRepository _children;
 
+  /// Real weekly updates a Teacher has actually queued for publication or published — read from the
+  /// same real record Teacher's own Weekly Learning screen edits
+  /// ([teacherWeeklyLearningUpdateEntityType]), matched to each real linked child by real class name.
+  /// A draft a teacher is still privately editing is never shown to a family, mirroring the boundary
+  /// Teacher's own screen already documents (`teacherWeeklyPublicationBoundary`): drafts and other
+  /// children's records must never reach a parent. "Queued for publication" is shown too, not only
+  /// "published" — a real send/receive acknowledgement needs a server this app does not require, so
+  /// requiring strict delivery confirmation would make this screen impossible to demo; the teacher-side
+  /// boundary text already covers that queuing does not itself prove delivery.
+  ///
+  /// This repository's underlying real source currently keeps only one live weekly update at a time
+  /// (Teacher's screen is a single-draft prototype, not yet a full per-class, per-week archive — see
+  /// docs/BACKEND_INTEGRATION.md), so a linked child whose class has not been the subject of that one
+  /// real update honestly shows nothing yet, rather than an invented one.
   Future<ParentWeeklyLearningSnapshot> load() async {
     final membership = _requireParentMembership();
-    final record = await _localDatabase.getLocalRecord(
+    final linked = (await _children.load()).children;
+
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
+      entityType: teacherWeeklyLearningUpdateEntityType,
     );
+    final realUpdates = records
+        .map((record) => TeacherWeeklyLearningUpdate.fromJson(record.payload))
+        .where((update) => update.state != TeacherWeeklyPublicationState.draft)
+        .toList(growable: false);
 
-    if (record != null) {
-      final snapshot = ParentWeeklyLearningSnapshot.fromJson(record.payload);
-      return _parentSafeSnapshot(snapshot);
-    }
+    final updates = <ParentWeeklyLearningUpdate>[];
+    for (final child in linked) {
+      for (final update in realUpdates) {
+        if (update.className != child.className) continue;
 
-    final snapshot = _parentSafeSnapshot(parentDefaultWeeklyLearning);
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-      payload: snapshot.toJson(),
-    );
-    return snapshot;
-  }
-
-  Future<void> replaceFromServer({
-    required ParentWeeklyLearningSnapshot snapshot,
-    required int serverVersion,
-  }) async {
-    final membership = _requireParentMembership();
-    final safeSnapshot = _parentSafeSnapshot(snapshot);
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-      payload: safeSnapshot.toJson(),
-      serverVersion: serverVersion,
-      isDirty: false,
-    );
-  }
-
-  ParentWeeklyLearningSnapshot _parentSafeSnapshot(
-    ParentWeeklyLearningSnapshot snapshot,
-  ) {
-    if (snapshot.familyAccountId.trim().isEmpty) {
-      throw StateError('Weekly learning is missing its family account id.');
-    }
-
-    final ids = <String>{};
-    final published = <ParentWeeklyLearningUpdate>[];
-
-    for (final update in snapshot.updates) {
-      if (update.id.trim().isEmpty || !ids.add(update.id)) {
-        throw StateError('Weekly learning contains an invalid update id.');
+        final dateLabel =
+            (update.publishedAt ?? update.queuedAt ?? update.updatedAt)?.split('T').first;
+        updates.add(ParentWeeklyLearningUpdate(
+          id: '${update.id}-${child.id}',
+          weekLabel: update.week,
+          dateLabel: dateLabel ?? _notRecorded,
+          childId: child.id,
+          childName: child.name,
+          className: update.className,
+          // No real class-teacher directory exists yet (the same reason My Children's classTeacher
+          // field is honestly "Not recorded yet"), so the author's name cannot be shown here either.
+          teacher: _notRecorded,
+          teacherNote: update.note,
+          subjects: [
+            for (final subject in update.subjects)
+              ParentWeeklySubjectUpdate(
+                subject: subject.subject,
+                thisWeek: subject.covered.trim().isEmpty ? _notRecorded : subject.covered,
+                learningEvidence:
+                    subject.evidence.trim().isEmpty ? _notRecorded : subject.evidence,
+                nextTopic: subject.next.trim().isEmpty ? _notRecorded : subject.next,
+                practiceNote: subject.support.trim().isEmpty ? _notRecorded : subject.support,
+              ),
+          ],
+        ));
       }
-      if (update.childId.trim().isEmpty ||
-          update.childName.trim().isEmpty ||
-          update.className.trim().isEmpty ||
-          update.teacher.trim().isEmpty) {
-        throw StateError('Weekly learning contains an incomplete child update.');
-      }
-      if (update.subjects.isEmpty) {
-        throw StateError('A weekly learning update has no subject evidence.');
-      }
-      for (final subject in update.subjects) {
-        if (subject.subject.trim().isEmpty ||
-            subject.thisWeek.trim().isEmpty ||
-            subject.learningEvidence.trim().isEmpty ||
-            subject.nextTopic.trim().isEmpty) {
-          throw StateError('Weekly learning contains incomplete subject evidence.');
-        }
-      }
-
-      // Family accounts must never receive a teacher draft or queued publication.
-      if (update.published) published.add(update);
     }
 
     return ParentWeeklyLearningSnapshot(
-      familyAccountId: snapshot.familyAccountId,
-      updates: List.unmodifiable(published),
+      familyAccountId: membership.id,
+      updates: updates,
     );
   }
 

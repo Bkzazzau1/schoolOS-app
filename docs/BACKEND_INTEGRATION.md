@@ -1466,3 +1466,39 @@ evidence and a real average for the right child only, leaving their sibling in a
 multiple real scores blend into a real average; status is derived from that real average; attendance matches the
 real linked-child attendance; `childById` and the permission check behave correctly. Full suite: 1112 passing, same
 8 pre-existing unrelated failures, zero regressions.
+
+## Parent: Weekly Learning now reads the real teacher-published update, not a fifth fabricated dataset
+
+A fifth independently fabricated dataset for the same two real children: `ParentWeeklyLearningRepository` returned
+fixed weekly narratives crediting two fully invented teacher identities ("Mrs. Amina Yusuf", "Mrs. Khadija Musa"),
+fabricated per-subject coverage, evidence percentages, next topics and practice notes — none of it read from
+anywhere else in the app, and all of it always "published" regardless of any real teacher action.
+
+**Real source:** Teacher's own Weekly Learning screen already has a genuine draft → queue-for-publication → publish
+workflow with real validation (`TeacherWeeklyLearningRepository`), previously write-only from Parent's perspective.
+`load()` now starts from `ParentChildrenRepository`'s real linked children, then reads that same real record
+(`teacherWeeklyLearningUpdateEntityType`, newly exported the same way the teacher assessment types already were),
+excluding anything still in `draft` state — mirroring the boundary Teacher's own screen already documents, that a
+draft or another child's record must never reach a parent — and matching what remains to each linked child by real
+class name. "Queued for publication" is treated as visible, not only "published": a real delivery acknowledgement
+needs a server this app does not require, and requiring one would make the screen permanently empty no matter what
+a teacher does in demo mode, which the teacher-side boundary text already anticipates ("queuing... does not prove"
+delivery, not "must never be shown").
+
+**A known, documented real limitation, not fabrication:** Teacher's Weekly Learning is currently a single-draft
+prototype — one real update record system-wide, for one real class at a time — not yet a full per-class, per-week
+archive. So only a linked child in whichever one class currently holds that real record can ever see a real
+update; every other linked child honestly sees nothing yet, which is correct given the real underlying data, not a
+bug to paper over with invented rows.
+
+**No real source — left honest:** the teacher's display name (`teacher`) has no real class-teacher directory
+behind it, the same reason My Children's `classTeacher` field already reads `'Not recorded yet'`; a blank real
+`support` note (the one teacher-side field `queuePublication` does not require to be non-empty) reads the same way
+rather than as a blank string.
+
+Tests: `test/parent_weekly_learning_feature_test.dart`, the first coverage this repository has had. Confirms a
+fresh family sees no updates while the real teacher record is still a draft; queuing a real update through the
+real `TeacherWeeklyLearningRepository` reaches only the real child whose real class matches it, leaving the sibling
+in a different class with nothing; every subject field is the real teacher-entered text, not a fabricated one; a
+blank real field reads honestly; and the permission check behaves correctly. Full suite: 1116 passing, same 8
+pre-existing unrelated failures, zero regressions.
