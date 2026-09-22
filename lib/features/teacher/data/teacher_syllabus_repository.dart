@@ -54,6 +54,11 @@ class TeacherSyllabusActionResult {
   final TeacherSyllabusProgressRecord? record;
 }
 
+/// The local record entity type real syllabus-coverage progress reports are stored under. Exposed so other
+/// roles that have a legitimate school-wide read of teaching evidence (e.g. Principal's Academics screen) can
+/// read real progress against the fixed approved scheme directly, without a teacher's own assigned-class scope.
+const teacherSyllabusProgressEntityType = 'teacher_syllabus_progress';
+
 class TeacherSyllabusRepository {
   TeacherSyllabusRepository({
     required LocalDatabase localDatabase,
@@ -63,7 +68,7 @@ class TeacherSyllabusRepository {
         _schoolSession = schoolSession,
         _roster = roster;
 
-  static const _progressType = 'teacher_syllabus_progress';
+  static const _progressType = teacherSyllabusProgressEntityType;
   static const _eventType = 'teacher_syllabus_progress_event';
 
   final LocalDatabase _localDatabase;

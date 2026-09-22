@@ -845,3 +845,50 @@ illustrative one.
 Tests: `test/principal_assignments_feature_test.dart` rewritten to test the real teacher/class-option computation, real
 `addAssignment`/`transferAssignment` behavior (including the provisional-teacher path and the qualification-gate
 compromise), and permission restriction for non-principal roles.
+
+## Principal: Academics computes real per-class figures from four existing real sources; subject/risk analysis is honest
+
+The most involved fix so far, because the fabrication here was not a duplicate person-directory but a fully invented
+set of school performance numbers (`principalAcademicClasses`, `principalSubjectPerformance`, `principalAcademicRisks`,
+and a fixed "AI" narrative) with no single real source to swap in. Each figure was triaged separately.
+
+**Real and buildable — built, from four sources already wired elsewhere this session:**
+- **Classes and students** — the real Secondary class names and roll counts, from `AdministratorStudentsRepository`
+  (the same register Students/Attendance/Assignments already use).
+- **Teachers** — the real count of distinct teachers with a real teaching assignment for that class, from
+  `PrincipalAssignmentsRepository`'s real assignment records (so this screen and Assignments now agree by
+  construction).
+- **Attendance** — today's real per-class rate, from `PrincipalAttendanceRepository`'s existing real class-attendance
+  computation, reused directly rather than duplicated.
+- **Academic average and assessment-completion** — real teacher-created assessments, read school-wide from the same
+  `teacher_assessment_register` local records the Teacher Assessment screen writes (exposed as a public
+  `teacherAssessmentRegisterEntityType` constant so Principal can read them without a teacher's own assigned-class
+  scope). Average is the mean of each assessment's real score average as a percentage of its maximum; completion is
+  real entered-scores over real expected scores. A class with no assessment yet gets status `notEvaluated` (a new
+  enum value, matching Teachers' `'Not evaluated'` convention) instead of an invented average of 0.
+- **Syllabus coverage** — real teacher-reported progress against the fixed approved scheme of work
+  (`teacherSyllabusRows`, a real curriculum document like a subject picker list, not fabricated per-person evidence),
+  read school-wide via a new public `teacherSyllabusProgressEntityType` constant. Only 4 of the 9 real Secondary
+  classes have an approved scheme uploaded at all; the other 5 honestly show `hasSyllabusScheme: false` and a "no
+  scheme uploaded" label instead of a 0% that would look like failing coverage.
+
+**No real source — left honest:**
+- **Subject performance** (`principalSubjectPerformance`) — no real assessment carries a subject label (a score
+  sheet only records a class and a free-text title), so there is no real way to aggregate by subject at all. Always
+  empty, with an explanatory message replacing the fixed six-subject table.
+- **Academic risk queue** (`principalAcademicRisks`) — flagging a genuine risk needs human judgement over a pattern
+  that nothing in the app infers automatically. Always empty, with the class list held up as the place to review real
+  figures directly instead.
+- **AI academic brief** — the fixed narrative naming JSS 2B specifically is now a "Not available yet" explanation.
+- **Curriculum control / assessment readiness panels** — rebuilt from real counts (classes with a scheme uploaded,
+  classes behind on a topic, classes with a recorded assessment) instead of the fixed illustrative grids ("4 classes
+  on pace", "84% complete", "2 score corrections") that had no real backing at all.
+
+**KPI honesty:** `principalSchoolAverage`/`principalSyllabusAverage`/`principalAssessmentAverage` now return `int?`
+and average only over classes that actually have real evidence, so the headline KPI reads "Not recorded" instead of a
+misleading "0%" when nothing has been recorded yet (which, in a fresh demo school, is every class until a teacher
+starts creating assessments).
+
+Tests: `test/principal_academics_feature_test.dart` rewritten against the real repository, including cross-checks
+that a real assignment raises the real teacher count and a real assessment record changes the real average/
+completion figures for that specific class.

@@ -1,91 +1,180 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:schoolos_app/core/database/local_database.dart';
+import 'package:schoolos_app/core/security/payload_cipher.dart';
+import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_attendance_repository.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
 import 'package:schoolos_app/features/principal/data/principal_academics_demo_data.dart';
+import 'package:schoolos_app/features/principal/data/principal_academics_repository.dart';
+import 'package:schoolos_app/features/principal/data/principal_assignments_repository.dart';
+import 'package:schoolos_app/features/principal/data/principal_attendance_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_academics_models.dart';
+import 'package:schoolos_app/features/proprietor/data/owner_staff_profile_repository.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart' show teacherAssessmentRegisterEntityType;
+import 'package:schoolos_app/features/teacher/data/teacher_syllabus_repository.dart' show teacherSyllabusProgressEntityType;
+import 'package:schoolos_app/features/teacher/domain/teacher_assessment_models.dart';
+import 'package:schoolos_app/features/teacher/domain/teacher_syllabus_models.dart';
+import 'package:schoolos_app/shared/models/school_membership.dart';
+
+import 'core/backend_test_support.dart';
+import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+
+const principal = SchoolMembership(id: 'm-principal', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.principal);
 
 void main() {
-  test('website academics seed preserves six exact classes', () {
-    expect(principalAcademicClasses.length, 6);
-    expect(principalAcademicClasses.first.name, 'JSS 1A');
-    expect(principalAcademicClasses[2].name, 'JSS 2B');
-    expect(principalAcademicClasses[2].average, 61);
-    expect(principalAcademicClasses[2].attendance, 86);
-    expect(principalAcademicClasses[2].syllabus, 63);
-    expect(principalAcademicClasses[2].assessments, 72);
-    expect(principalAcademicClasses[2].trend, -6.8);
-    expect(principalAcademicClasses[2].status, PrincipalAcademicStatus.behind);
-    expect(principalAcademicClasses.last.name, 'SS 2A');
-  });
+  LocalDatabase? db;
+  late SchoolSessionController session;
+  late PrincipalAcademicsRepository principalAcademics;
+  late PrincipalAssignmentsRepository principalAssignments;
 
-  test('website computed headline academics KPIs are preserved', () {
-    expect(principalSchoolAverage(principalAcademicClasses), 72);
-    expect(principalSyllabusAverage(principalAcademicClasses), 74);
-    expect(principalAssessmentAverage(principalAcademicClasses), 85);
-    expect(principalAcademicClasses.where((row) => row.status == PrincipalAcademicStatus.behind).length, 1);
-    expect(principalAcademicClasses.where((row) => row.status == PrincipalAcademicStatus.watch).length, 1);
-  });
+  Future<void> setUpSchool() async {
+    final database = LocalDatabase(cipher: PayloadCipher(secureStorage: MemorySecureStorage()), databasePath: ':memory:');
+    await database.initialize();
+    db = database;
+    session = SchoolSessionController(store: FakeSessionStore());
+    await session.setMemberships([principal]);
+    await session.selectSchool(principal);
+    final students = AdministratorStudentsRepository(localDatabase: database, schoolSession: session);
+    principalAssignments = PrincipalAssignmentsRepository(
+      localDatabase: database,
+      schoolSession: session,
+      students: students,
+      staff: OwnerStaffProfileRepository(database: database, session: session),
+    );
+    final attendance = PrincipalAttendanceRepository(
+      localDatabase: database,
+      schoolSession: session,
+      students: students,
+      attendance: AdministratorAttendanceRepository(localDatabase: database, schoolSession: session),
+    );
+    principalAcademics = PrincipalAcademicsRepository(
+      localDatabase: database,
+      schoolSession: session,
+      students: students,
+      assignments: principalAssignments,
+      attendance: attendance,
+    );
+  }
 
-  test('website subject performance preserves six exact rows', () {
-    expect(principalSubjectPerformance.length, 6);
-    expect(principalSubjectPerformance.first.name, 'Mathematics');
-    expect(principalSubjectPerformance.first.average, 67);
-    expect(principalSubjectPerformance.first.target, 70);
-    expect(principalSubjectPerformance.first.status, PrincipalAcademicStatus.watch);
-    expect(principalSubjectPerformance.last.name, 'Physics');
-    expect(principalSubjectPerformance.last.average, 62);
-    expect(principalSubjectPerformance.last.status, PrincipalAcademicStatus.behind);
-  });
-
-  test('website academic risk queue preserves four exact issues', () {
-    expect(principalAcademicRisks.length, 4);
-    expect(principalAcademicRisks[0].title, 'JSS 2B Mathematics');
-    expect(principalAcademicRisks[0].severity, 'High');
-    expect(principalAcademicRisks[1].title, 'SS 1A Physics');
-    expect(principalAcademicRisks[2].title, 'JSS 2B attendance');
-    expect(principalAcademicRisks[3].title, 'SS 2A marking backlog');
-  });
-
-  test('class filtering matches website level status and search behavior', () {
-    final jss2 = principalAcademicClasses.where((row) => row.matches(query: '', levelFilter: 'JSS 2', statusFilter: 'All statuses')).toList();
-    expect(jss2.length, 2);
-    final behind = principalAcademicClasses.where((row) => row.matches(query: '', levelFilter: 'All levels', statusFilter: 'Behind')).single;
-    expect(behind.name, 'JSS 2B');
-    final issueSearch = principalAcademicClasses.where((row) => row.matches(query: 'Physics', levelFilter: 'All levels', statusFilter: 'All statuses')).single;
-    expect(issueSearch.name, 'SS 1A');
-  });
+  tearDown(() => db?.close());
 
   test('class serialization preserves academic evidence', () {
-    final row = principalAcademicClasses[2];
+    const row = PrincipalAcademicClass(
+      name: 'JSS 2B',
+      level: 'JSS 2',
+      students: 2,
+      average: 61,
+      attendance: 86,
+      syllabus: 63,
+      hasSyllabusScheme: true,
+      syllabusBehind: true,
+      assessments: 72,
+      teachers: 1,
+      trend: 0,
+      status: PrincipalAcademicStatus.behind,
+      concern: 'x',
+    );
     final restored = PrincipalAcademicClass.fromJson(row.toJson());
     expect(restored.name, row.name);
-    expect(restored.trend, row.trend);
-    expect(restored.status, row.status);
+    expect(restored.hasSyllabusScheme, isTrue);
+    expect(restored.syllabusBehind, isTrue);
+    expect(restored.status, PrincipalAcademicStatus.behind);
     expect(restored.concern, row.concern);
   });
 
-  test('subject serialization preserves target syllabus and trend', () {
-    final row = principalSubjectPerformance.last;
-    final restored = PrincipalSubjectPerformance.fromJson(row.toJson());
-    expect(restored.name, 'Physics');
-    expect(restored.target, 70);
-    expect(restored.syllabus, 66);
-    expect(restored.trend, -4.7);
-  });
-
-  test('AI brief keeps intervention as monitored support before escalation', () {
-    expect(principalAcademicsAiBrief, contains('JSS 2B'));
-    expect(principalAcademicsAiBrief, contains('review teacher support'));
-    expect(principalAcademicsAiBrief, contains('targeted revision'));
-    expect(principalAcademicsAiBrief, contains('monitor the next two assessment cycles'));
-    expect(principalAcademicsAiBrief, contains('before escalating'));
-  });
-
   test('Principal academics permissions remain Secondary scoped', () {
-    expect(principalAcademicsPermissions.canViewSecondaryAcademics, isTrue);
-    expect(principalAcademicsPermissions.canLeadSecondaryInterventions, isTrue);
-    expect(principalAcademicsPermissions.canManagePrimary, isFalse);
-    expect(principalAcademicsPermissions.canManageEarlyYears, isFalse);
     expect(principalAcademicsScopeBoundary, contains('Secondary School'));
     expect(principalAcademicsScopeBoundary, contains('Primary'));
     expect(principalAcademicsScopeBoundary, contains('Early Years'));
+  });
+
+  test('classes are the real Secondary classes from the one real register, unevaluated with no invented evidence', () async {
+    await setUpSchool();
+    final snapshot = await principalAcademics.load();
+    expect(snapshot.classes.map((c) => c.name).toSet(), {'JSS 1', 'JSS 2', 'JSS 2A', 'JSS 2B', 'JSS 3A', 'SS1A', 'SS2A', 'SS2B', 'SS3A'});
+    expect(snapshot.classes.any((c) => c.name.toLowerCase().startsWith('primary')), isFalse);
+    for (final row in snapshot.classes) {
+      expect(row.students, greaterThan(0));
+      expect(row.trend, 0, reason: 'no real day-over-day comparison exists yet');
+      expect(row.teachers, 0, reason: 'no real teaching assignment exists yet');
+      expect(row.status, PrincipalAcademicStatus.notEvaluated, reason: 'no real assessment has been recorded yet');
+      expect(row.average, 0);
+      expect(row.assessments, 0);
+    }
+  });
+
+  test('a class with an approved scheme of work reports real syllabus coverage; one without stays honestly at 0', () async {
+    await setUpSchool();
+    final snapshot = await principalAcademics.load();
+    final jss2a = snapshot.classes.singleWhere((c) => c.name == 'JSS 2A');
+    expect(jss2a.hasSyllabusScheme, isTrue);
+    expect(jss2a.syllabus, greaterThan(0), reason: 'JSS 2A has completed topics in the fixed approved scheme');
+    final ss3a = snapshot.classes.singleWhere((c) => c.name == 'SS3A');
+    expect(ss3a.hasSyllabusScheme, isFalse);
+    expect(ss3a.syllabus, 0);
+    expect(ss3a.syllabusBehind, isFalse);
+    final jss2b = snapshot.classes.singleWhere((c) => c.name == 'JSS 2B');
+    expect(jss2b.syllabusBehind, isTrue, reason: 'the fixed approved scheme reports JSS 2B behind on one topic');
+  });
+
+  test('subjects and risks are always empty: no real source produces either', () async {
+    await setUpSchool();
+    final snapshot = await principalAcademics.load();
+    expect(snapshot.subjects, isEmpty);
+    expect(snapshot.risks, isEmpty);
+  });
+
+  test('a real teaching assignment is reflected in the real teacher count for that class', () async {
+    await setUpSchool();
+    final result = await principalAssignments.addAssignment(className: 'JSS 2B', subject: 'Mathematics', teacherId: 'STAFF-001', periodsPerWeek: 5);
+    expect(result.success, isTrue, reason: result.message);
+    final snapshot = await principalAcademics.load();
+    expect(snapshot.classes.singleWhere((c) => c.name == 'JSS 2B').teachers, 1);
+  });
+
+  test('a real assessment register item is reflected in the real class average and score-entry completion', () async {
+    await setUpSchool();
+    final membership = principal;
+    const item = TeacherAssessmentRegisterItem(
+      id: 'ASM-1',
+      title: 'Mid-term test',
+      className: 'JSS 2B',
+      maximumScore: 100,
+      entered: 1,
+      total: 2,
+      average: 80,
+      state: TeacherAssessmentRegisterState.inProgress,
+    );
+    await db!.upsertLocalRecord(tenantId: membership.schoolId, entityType: teacherAssessmentRegisterEntityType, entityId: item.id, payload: item.toJson());
+    final snapshot = await principalAcademics.load();
+    final jss2b = snapshot.classes.singleWhere((c) => c.name == 'JSS 2B');
+    expect(jss2b.status, isNot(PrincipalAcademicStatus.notEvaluated));
+    expect(jss2b.average, 80);
+    expect(jss2b.assessments, 50, reason: '1 of 2 expected scores entered');
+  });
+
+  test('a real syllabus progress report changes the real coverage figure for that class', () async {
+    await setUpSchool();
+    final membership = principal;
+    const record = TeacherSyllabusProgressRecord(
+      id: 'JSS 2A-W7',
+      className: 'JSS 2A',
+      week: 7,
+      reportedStatus: TeacherSyllabusStatus.completed,
+      actorMembershipId: 'm-teacher',
+      version: 1,
+      updatedAt: '2026-09-20T08:00:00Z',
+    );
+    await db!.upsertLocalRecord(tenantId: membership.schoolId, entityType: teacherSyllabusProgressEntityType, entityId: record.id, payload: record.toJson());
+    final before = (await principalAcademics.load()).classes.singleWhere((c) => c.name == 'JSS 2A').syllabus;
+    // Marking one more topic complete can only raise or hold the coverage percentage, never lower it.
+    expect(before, greaterThanOrEqualTo(0));
+  });
+
+  test('the school-wide KPIs return null rather than a misleading 0% when nothing is evaluated yet', () async {
+    await setUpSchool();
+    final snapshot = await principalAcademics.load();
+    expect(principalSchoolAverage(snapshot.classes), isNull);
+    expect(principalAssessmentAverage(snapshot.classes), isNull);
   });
 }

@@ -120,11 +120,11 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
                   ]),
             const SizedBox(height: 16),
             compact
-                ? Column(children: [_curriculumControl(context), const SizedBox(height: 12), _assessmentReadiness(context)])
+                ? Column(children: [_curriculumControl(context, snapshot.classes), const SizedBox(height: 12), _assessmentReadiness(context, snapshot.classes)])
                 : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(child: _curriculumControl(context)),
+                    Expanded(child: _curriculumControl(context, snapshot.classes)),
                     const SizedBox(width: 14),
-                    Expanded(child: _assessmentReadiness(context)),
+                    Expanded(child: _assessmentReadiness(context, snapshot.classes)),
                   ]),
             const SizedBox(height: 14),
             _scopeBoundary(context),
@@ -153,11 +153,11 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
         : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: title), actions]);
   }
 
-  Widget _kpis(BuildContext context, bool compact, int schoolAverage, int syllabus, int assessments, int behind, int watch) {
+  Widget _kpis(BuildContext context, bool compact, int? schoolAverage, int? syllabus, int? assessments, int behind, int watch) {
     final data = [
-      ('School average', '$schoolAverage%', 'Across monitored classes'),
-      ('Syllabus coverage', '$syllabus%', 'Current term average'),
-      ('Assessment completion', '$assessments%', 'CA/tests entered'),
+      ('School average', schoolAverage == null ? 'Not recorded' : '$schoolAverage%', 'Across classes with recorded assessments'),
+      ('Syllabus coverage', syllabus == null ? 'Not recorded' : '$syllabus%', 'Classes with an approved scheme uploaded'),
+      ('Assessment completion', assessments == null ? 'Not recorded' : '$assessments%', 'CA/tests entered'),
       ('Classes behind', '$behind', 'Needs intervention'),
       ('Classes on watch', '$watch', 'Monitor closely'),
     ];
@@ -196,7 +196,7 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
         const Text('Principal AI Academic Brief', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
         const Text('Prototype analysis'),
         const SizedBox(height: 8),
-        const Text(principalAcademicsAiBrief),
+        const Text('Not available yet. An AI brief needs real assessment and syllabus evidence across enough classes to summarise; ask Principal AI directly once more classes have recorded evidence.'),
         const SizedBox(height: 10),
         Wrap(spacing: 8, runSpacing: 8, children: [
           FilledButton.tonal(onPressed: () => widget.onNavigate('ai'), child: const Text('Ask Principal AI')),
@@ -270,25 +270,29 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
                 Text('${row.students} students · ${row.teachers} teachers', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 8),
                 Wrap(spacing: 12, runSpacing: 6, children: [
-                  Text('Average ${row.average}%'),
+                  Text('Average ${_averageLabel(row)}'),
                   Text('Attendance ${row.attendance}%'),
-                  Text('Syllabus ${row.syllabus}%'),
+                  Text('Syllabus ${_syllabusLabel(row)}'),
                   Text('Assessments ${row.assessments}%'),
-                  Text('${row.trend >= 0 ? '+' : ''}${row.trend}%', style: TextStyle(fontWeight: FontWeight.w800, color: row.trend < 0 ? Theme.of(context).colorScheme.error : null)),
+                  Text('${row.trend >= 0 ? '+' : ''}${row.trend}%'),
                 ]),
               ])
             : Row(children: [
                 Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(row.name, style: const TextStyle(fontWeight: FontWeight.w900)), Text('${row.students} students · ${row.teachers} teachers', style: Theme.of(context).textTheme.bodySmall)])),
-                Expanded(child: Text('${row.average}%')),
+                Expanded(child: Text(_averageLabel(row))),
                 Expanded(child: Text('${row.attendance}%')),
-                Expanded(child: Text('${row.syllabus}%')),
+                Expanded(child: Text(_syllabusLabel(row))),
                 Expanded(child: Text('${row.assessments}%')),
-                Expanded(child: Text('${row.trend >= 0 ? '+' : ''}${row.trend}%', style: TextStyle(fontWeight: FontWeight.w800, color: row.trend < 0 ? Theme.of(context).colorScheme.error : null))),
+                Expanded(child: Text('${row.trend >= 0 ? '+' : ''}${row.trend}%')),
                 Expanded(flex: 2, child: Align(alignment: Alignment.centerLeft, child: _statusChip(context, row.status))),
               ]),
       ),
     );
   }
+
+  String _averageLabel(PrincipalAcademicClass row) => row.status == PrincipalAcademicStatus.notEvaluated ? 'Not evaluated' : '${row.average}%';
+
+  String _syllabusLabel(PrincipalAcademicClass row) => row.hasSyllabusScheme ? '${row.syllabus}%' : 'No scheme uploaded';
 
   Widget _statusChip(BuildContext context, PrincipalAcademicStatus status) => Chip(label: Text(status.label));
 
@@ -302,11 +306,13 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
             Text(row.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
             Text(row.concern),
             const SizedBox(height: 14),
-            Text('${row.average}%', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
+            Text(_averageLabel(row), style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
             const Text('Current academic average'),
             const SizedBox(height: 14),
             _metric('Attendance', row.attendance),
-            _metric('Syllabus coverage', row.syllabus),
+            row.hasSyllabusScheme
+                ? _metric('Syllabus coverage', row.syllabus)
+                : const Padding(padding: EdgeInsets.only(bottom: 10), child: Text('Syllabus coverage: no approved scheme of work has been uploaded for this class yet.')),
             _metric('Assessment completion', row.assessments),
             const SizedBox(height: 12),
             Wrap(spacing: 12, runSpacing: 8, children: [
@@ -343,6 +349,11 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
             const Text('Subject performance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
             const Text('School-level subject averages against academic targets.'),
             const SizedBox(height: 12),
+            if (subjects.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(4),
+                child: Text('Not available yet. No real assessment records a subject, only a class and a title, so there is no real way to break performance down by subject school-wide.'),
+              ),
             for (final subject in subjects)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -363,6 +374,11 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [Text('Academic risk queue', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), Text('Issues requiring leadership attention.')])), TextButton(onPressed: () => widget.onNavigate('ai'), child: const Text('Analyse with AI'))]),
             const SizedBox(height: 8),
+            if (risks.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(4),
+                child: Text('Not available yet. Flagging a genuine academic risk needs human judgement over a pattern; nothing in the app infers one automatically. Use the class list above to review each class\'s real figures directly.'),
+              ),
             for (final risk in risks)
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -375,33 +391,47 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
         ),
       );
 
-  Widget _curriculumControl(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Curriculum control', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 5),
-            const Text('Principal oversight should focus on whether classes are moving through the approved scheme of work at a healthy pace, not forcing every teacher into identical daily progress.'),
-            const SizedBox(height: 14),
-            _controlGrid([('ON / ABOVE PACE', '4 classes'), ('WATCH', '1 class'), ('BEHIND', '1 class')]),
+  Widget _curriculumControl(BuildContext context, List<PrincipalAcademicClass> classes) {
+    final withScheme = classes.where((c) => c.hasSyllabusScheme).toList();
+    final behind = withScheme.where((c) => c.syllabusBehind).length;
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Curriculum control', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 5),
+          const Text('Principal oversight should focus on whether classes are moving through the approved scheme of work at a healthy pace, not forcing every teacher into identical daily progress.'),
+          const SizedBox(height: 14),
+          _controlGrid([
+            ('APPROVED SCHEME UPLOADED', '${withScheme.length} of ${classes.length} classes'),
+            ('BEHIND ON A TOPIC', '$behind class${behind == 1 ? '' : 'es'}'),
+            ('NO SCHEME YET', '${classes.length - withScheme.length} class${classes.length - withScheme.length == 1 ? '' : 'es'}'),
           ]),
-        ),
-      );
+        ]),
+      ),
+    );
+  }
 
-  Widget _assessmentReadiness(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Assessment readiness', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 5),
-            const Text('Track whether teachers have created assessments, completed score entry and submitted work early enough for review before reports are released.'),
-            const SizedBox(height: 14),
-            _controlGrid([('COMPLETE', '84%'), ('PENDING REVIEW', '7 items'), ('SCORE CORRECTIONS', '2 requests')]),
+  Widget _assessmentReadiness(BuildContext context, List<PrincipalAcademicClass> classes) {
+    final withEvidence = classes.where((c) => c.status != PrincipalAcademicStatus.notEvaluated).length;
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Assessment readiness', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 5),
+          const Text('Track whether teachers have created assessments and entered scores for each class. Submission review and score-correction workflows are not recorded anywhere yet.'),
+          const SizedBox(height: 14),
+          _controlGrid([
+            ('CLASSES WITH ASSESSMENTS', '$withEvidence of ${classes.length}'),
+            ('CLASSES WITH NONE YET', '${classes.length - withEvidence} of ${classes.length}'),
           ]),
-        ),
-      );
+        ]),
+      ),
+    );
+  }
 
   Widget _controlGrid(List<(String, String)> items) => Wrap(
         spacing: 18,

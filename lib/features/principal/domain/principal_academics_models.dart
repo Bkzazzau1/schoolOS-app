@@ -1,4 +1,4 @@
-enum PrincipalAcademicStatus { strong, onTrack, watch, behind }
+enum PrincipalAcademicStatus { strong, onTrack, watch, behind, notEvaluated }
 
 extension PrincipalAcademicStatusLabel on PrincipalAcademicStatus {
   String get label => switch (this) {
@@ -6,6 +6,7 @@ extension PrincipalAcademicStatusLabel on PrincipalAcademicStatus {
         PrincipalAcademicStatus.onTrack => 'On track',
         PrincipalAcademicStatus.watch => 'Watch',
         PrincipalAcademicStatus.behind => 'Behind',
+        PrincipalAcademicStatus.notEvaluated => 'Not evaluated',
       };
 
   static PrincipalAcademicStatus fromLabel(String value) => switch (value) {
@@ -13,6 +14,7 @@ extension PrincipalAcademicStatusLabel on PrincipalAcademicStatus {
         'On track' => PrincipalAcademicStatus.onTrack,
         'Watch' => PrincipalAcademicStatus.watch,
         'Behind' => PrincipalAcademicStatus.behind,
+        'Not evaluated' => PrincipalAcademicStatus.notEvaluated,
         _ => throw ArgumentError.value(value, 'value', 'Unknown academic status'),
       };
 }
@@ -25,6 +27,8 @@ class PrincipalAcademicClass {
     required this.average,
     required this.attendance,
     required this.syllabus,
+    required this.hasSyllabusScheme,
+    required this.syllabusBehind,
     required this.assessments,
     required this.teachers,
     required this.trend,
@@ -38,6 +42,14 @@ class PrincipalAcademicClass {
   final int average;
   final int attendance;
   final int syllabus;
+
+  /// Whether an approved scheme of work has been uploaded for this class at all. When `false`, [syllabus] is
+  /// `0` because there is nothing to measure coverage against, not because coverage is genuinely zero.
+  final bool hasSyllabusScheme;
+
+  /// Whether at least one topic in this class's approved scheme is reported behind. Always `false` when
+  /// [hasSyllabusScheme] is `false`.
+  final bool syllabusBehind;
   final int assessments;
   final int teachers;
   final double trend;
@@ -59,6 +71,8 @@ class PrincipalAcademicClass {
         'average': average,
         'attendance': attendance,
         'syllabus': syllabus,
+        'hasSyllabusScheme': hasSyllabusScheme,
+        'syllabusBehind': syllabusBehind,
         'assessments': assessments,
         'teachers': teachers,
         'trend': trend,
@@ -73,6 +87,8 @@ class PrincipalAcademicClass {
         average: json['average']! as int,
         attendance: json['attendance']! as int,
         syllabus: json['syllabus']! as int,
+        hasSyllabusScheme: json['hasSyllabusScheme'] as bool? ?? false,
+        syllabusBehind: json['syllabusBehind'] as bool? ?? false,
         assessments: json['assessments']! as int,
         teachers: json['teachers']! as int,
         trend: (json['trend']! as num).toDouble(),

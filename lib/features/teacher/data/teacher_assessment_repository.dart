@@ -43,6 +43,11 @@ class TeacherAssessmentActionResult {
   final TeacherAssessmentScoreSheet? sheet;
 }
 
+/// The local record entity type real assessment register items are stored under. Exposed so other roles that
+/// have a legitimate school-wide read of teaching evidence (e.g. Principal's Academics screen) can read the
+/// real register directly without needing a teacher's own assigned-class scope.
+const teacherAssessmentRegisterEntityType = 'teacher_assessment_register';
+
 class TeacherAssessmentRepository {
   TeacherAssessmentRepository({
     required LocalDatabase localDatabase,
@@ -52,7 +57,7 @@ class TeacherAssessmentRepository {
         _schoolSession = schoolSession,
         _roster = roster;
 
-  static const _registerType = 'teacher_assessment_register';
+  static const _registerType = teacherAssessmentRegisterEntityType;
   static const _sheetType = 'teacher_assessment_score_sheet';
   static const _eventType = 'teacher_assessment_event';
 
