@@ -396,3 +396,10 @@ submitted registers still lock. Tests: `test/teacher_roster_attendance_test.dart
 Not done yet: My Classes still shows fixed progress/attendance-rate/marking figures (they need the syllabus and assessment
 modules wired to the same roster); Students, Assessments, CBT, Learning Progress and the rest of the Teacher module still use
 their own demo data, unconnected to the attendance register or each other.
+
+## Teacher: My Classes lists real classes and students
+
+`TeacherClassesRepository` now builds "My Classes" from the same roster as attendance: real assigned classes, the real
+student count per class (from the administrator's register), and today's real attendance percentage when a register has
+been taken (0% otherwise, never invented). Syllabus progress, class average and pending marking still show 0 until the
+syllabus and assessment modules are linked to the same class list — the next increment. Tests: `test/teacher_classes_roster_test.dart`.
