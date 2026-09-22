@@ -10,14 +10,18 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_attendance_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
+import '../../awards/data/award_repository.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../events/data/event_repository.dart';
 import '../../finance_office/data/finance_ledger_repository.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
+import '../../meals/data/meal_repository.dart';
 import '../../proprietor/data/concession_repository.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../../teacher/presentation/teacher_workspace_page.dart';
+import '../../transport/data/transport_rider_assignment_repository.dart';
 import '../data/parent_ai_repository.dart';
 import '../data/parent_attendance_repository.dart';
 import '../data/parent_children_repository.dart';
@@ -145,6 +149,11 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
     _schoolLifeRepository = ParentSchoolLifeRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+      children: _childrenRepository,
+      events: EventRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      meals: MealRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      awards: AwardRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      transport: TransportRiderAssignmentRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
     );
     _documentsRepository = ParentDocumentsRepository(
       localDatabase: widget.localDatabase,

@@ -1555,3 +1555,37 @@ family sees a genuinely empty community rather than fabricated posts and trends;
 reload, is credited to "You", and drives the KPI counts honestly; reacting, commenting and following persist and
 feed the comment-count KPI; reporting is idempotent; acting on an unknown post is rejected; and the permission
 check behaves correctly. Full suite: 1127 passing, same 8 pre-existing unrelated failures, zero regressions.
+
+## Parent: School Life now reads five different real modules instead of one fabricated snapshot
+
+`ParentSchoolLifeRepository` fabricated activity enrollments, a school events calendar, transport service codes,
+per-child meal plans and "today's meal", and awards/recognition — all attached to the same two real children, none
+of it read from anywhere real. Unlike every other Parent screen fixed so far, this one did not have one real source
+to redirect to; it needed five, because each sub-section covers a genuinely different real school system:
+
+- **Events** (real, fully wired): the same school-wide `EventRepository` Proprietor manages — upcoming events only.
+- **Transport** (real, per real child): the same real per-student assignment `TransportRiderAssignmentRepository`
+  manages for Administrator, via a new `assignmentForStudent(studentId)` method — safe for a guardian to read their
+  own linked child's assignment without the school-management viewer restriction the repository's own `load()`
+  enforces (a parent's role is never in that allow-list). It ensures the same real initial seed `load()` does, so a
+  parent never sees "unassigned" merely because no manager has opened the Transport screen yet in this session.
+- **Meals** (real, whole-school only): the real weekly menu `MealRepository` manages, matched to today's real
+  weekday. Weekends and any day with no matching real menu row honestly read `'Not recorded yet'`.
+- **Recognition** (real, but currently always empty): real awards from `AwardRepository`, matched to a linked child
+  by name, excluding anything still `internalOnly` — respecting the same real visibility boundary the Awards module
+  itself already enforces, so a proprietor's private draft can never leak to a family. No award in the current real
+  seed names either real linked child, so this section is honestly empty for now; it will show real content the
+  moment a real `schoolAndParents`/`publicShowcase` award actually names one of them, which is not yet reachable
+  through any exposed action (`AwardRepository.addDraft` only ever creates `internalOnly` drafts — there is no real
+  "publish to families" step yet, flagged for a future pass, not routed around here).
+- **Activities and meal plans stay honestly empty — a documented real gap, not fabrication:** the real Activities
+  module only tracks section-level programmes and an aggregate member count, never which specific student is
+  enrolled; Meals is one real whole-school weekly menu, not a per-child plan. Inventing a per-child assignment for
+  either would repeat exactly the mistake this whole audit exists to remove.
+
+Tests: `test/parent_school_life_feature_test.dart`, the first coverage this repository has had. Confirms events
+match the real upcoming school-wide events exactly; transport shows "Active"/"BUS-02" only for the child really
+seeded onto that route and "Not assigned" for the other; today's meal matches the real weekly menu for the real
+current weekday (or reads honestly on a day with no service); activities and meal plans stay empty; recognition is
+empty when no real award names a linked child; and an internal-only award naming a real child still never leaks to
+the family. Full suite: 1134 passing, same 8 pre-existing unrelated failures, zero regressions.

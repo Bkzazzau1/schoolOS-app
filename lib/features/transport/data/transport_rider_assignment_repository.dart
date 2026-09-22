@@ -102,6 +102,24 @@ class TransportRiderAssignmentRepository {
     );
   }
 
+  /// A single real student's current transport assignment, if any — safe for a guardian to read for
+  /// their own linked child, without the school-management viewer restriction [load] enforces for the
+  /// full roster (a parent's own membership role is never in [_canView]). Ensures the same real
+  /// initial seed [load] does, so a parent is never shown "unassigned" merely because no manager has
+  /// opened the Transport screen yet in this session. It is the caller's responsibility to only ever
+  /// look up a student it has already verified is really linked to the active guardian.
+  Future<TransportRiderAssignment?> assignmentForStudent(String studentId) async {
+    final member = _schoolSession.requireActiveMembership();
+    await _ensureInitialAssignments(member.schoolId);
+    final record = await _localDatabase.getLocalRecord(
+      tenantId: member.schoolId,
+      entityType: entityType,
+      entityId: studentId,
+    );
+    if (record == null) return null;
+    return TransportRiderAssignment.fromJson(record.payload);
+  }
+
   Future<List<TransportRiderAssignment>> loadAssignmentsForRoute(
     String routeId,
   ) async {
