@@ -6,8 +6,15 @@ import 'package:schoolos_app/features/teacher/domain/teacher_lesson_plan_models.
 import 'package:schoolos_app/features/teacher/presentation/teacher_lesson_plans_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+const _teacher = SchoolMembership(
+  id: 'teacher-membership',
+  schoolId: 'school-1',
+  schoolName: 'BrightGate Academy',
+  role: SchoolRole.teacher,
+);
+
 void main() {
-  test('lesson plan history preserves exact four website rows', () {
+  test('sample lesson plan rows use the canonical class naming', () {
     expect(teacherLessonPlans, hasLength(4));
     expect(teacherLessonPlans[0].id, 'LP-206');
     expect(teacherLessonPlans[0].className, 'JSS 2A');
@@ -25,18 +32,10 @@ void main() {
     expect(teacherLessonPlans[2].status, TeacherLessonPlanStatus.approved);
 
     expect(teacherLessonPlans[3].id, 'LP-198');
-    expect(teacherLessonPlans[3].className, 'SS 1A');
+    // No space, matching the canonical class naming used by the real student register and roster.
+    expect(teacherLessonPlans[3].className, 'SS1A');
     expect(teacherLessonPlans[3].topic, 'Functions');
     expect(teacherLessonPlans[3].status, TeacherLessonPlanStatus.needsChanges);
-  });
-
-  test('lesson plan term KPIs preserve exact website snapshot', () {
-    expect(teacherLessonPlanTermKpis, [
-      ('This term', '12', 'lesson plans'),
-      ('Approved', '9', '75% approved'),
-      ('Pending', '2', 'awaiting review'),
-      ('Needs changes', '1', 'action required'),
-    ]);
   });
 
   test('AI draft preserves exact website teaching content', () {
@@ -79,12 +78,6 @@ void main() {
 
   test('teacher permissions keep approval with reviewer authority', () {
     final fake = _FakeLessonPlanRepository();
-    const teacher = SchoolMembership(
-      id: 'teacher-membership',
-      schoolId: 'school-1',
-      schoolName: 'BrightGate Academy',
-      role: SchoolRole.teacher,
-    );
     const principal = SchoolMembership(
       id: 'principal-membership',
       schoolId: 'school-1',
@@ -92,7 +85,7 @@ void main() {
       role: SchoolRole.principal,
     );
 
-    final teacherPermissions = fake.permissionsFor(teacher);
+    final teacherPermissions = fake.permissionsFor(_teacher);
     expect(teacherPermissions.canViewAssignedPlans, isTrue);
     expect(teacherPermissions.canEditDrafts, isTrue);
     expect(teacherPermissions.canSubmitForApproval, isTrue);
@@ -173,7 +166,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('lesson plan history search filters website rows', (tester) async {
+  testWidgets('lesson plan history search filters rows, and selecting a row opens it in the editor', (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -195,8 +188,58 @@ void main() {
     await tester.enterText(search, 'LP-198');
     await tester.pump();
 
-    expect(find.text('LP-198'), findsOneWidget);
+    expect(find.text('LP-198'), findsWidgets); // search field text + table cell
     expect(find.text('LP-201'), findsNothing);
+
+    await tester.tap(find.text('LP-198').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Needs changes'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('creating a new plan for a real assigned class opens it for editing', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final fake = _FakeLessonPlanRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TeacherLessonPlansPage(
+            repository: fake,
+            onNavigate: (_) {},
+            onMutationQueued: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.widgetWithText(OutlinedButton, 'New plan'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'New plan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+
+    expect(fake.plans.length, 5);
+    expect(find.textContaining('created as a draft'), findsOneWidget);
+  });
+
+  testWidgets('a teacher with no assigned classes sees an honest empty state, not a crash', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TeacherLessonPlansPage(
+            repository: _EmptyFakeLessonPlanRepository(),
+            onNavigate: (_) {},
+            onMutationQueued: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('No classes are assigned to you yet'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -219,7 +262,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Create lesson plan'), findsOneWidget);
+    expect(find.text('Lesson plan editor'), findsOneWidget);
     expect(find.text('Planning guide'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -228,6 +271,7 @@ void main() {
 class _FakeLessonPlanRepository implements TeacherLessonPlanRepository {
   List<TeacherLessonPlan> plans = List<TeacherLessonPlan>.from(teacherLessonPlans);
   final List<TeacherLessonPlanEvent> events = [];
+  final classOptions = const ['JSS 2A', 'JSS 2B', 'JSS 3A', 'SS1A'];
 
   @override
   TeacherLessonPlanPermissions permissionsFor(SchoolMembership membership) {
@@ -244,16 +288,31 @@ class _FakeLessonPlanRepository implements TeacherLessonPlanRepository {
   @override
   Future<TeacherLessonPlanSnapshot> load() async => TeacherLessonPlanSnapshot(
         plans: plans,
+        classOptions: classOptions,
         events: events,
-        permissions: permissionsFor(
-          const SchoolMembership(
-            id: 'teacher-membership',
-            schoolId: 'school-1',
-            schoolName: 'BrightGate Academy',
-            role: SchoolRole.teacher,
-          ),
-        ),
+        permissions: permissionsFor(_teacher),
       );
+
+  @override
+  Future<TeacherLessonPlanActionResult> createPlan({
+    required String className,
+    required String week,
+    required String topic,
+  }) async {
+    if (!classOptions.contains(className)) {
+      return const TeacherLessonPlanActionResult(success: false, message: 'You are not assigned to this class.');
+    }
+    final plan = TeacherLessonPlan(
+      id: 'LP-NEW-${plans.length + 1}',
+      className: className,
+      week: week,
+      topic: topic,
+      status: TeacherLessonPlanStatus.draft,
+      updatedLabel: 'Draft created · sync pending',
+    );
+    plans = [...plans, plan];
+    return TeacherLessonPlanActionResult(success: true, message: 'New lesson plan created as a draft.', plan: plan);
+  }
 
   @override
   Future<TeacherLessonPlanActionResult> saveDraft({required TeacherLessonPlan plan}) async {
@@ -324,4 +383,35 @@ class _FakeLessonPlanRepository implements TeacherLessonPlanRepository {
   void _replace(TeacherLessonPlan updated) {
     plans = [for (final plan in plans) if (plan.id == updated.id) updated else plan];
   }
+}
+
+class _EmptyFakeLessonPlanRepository implements TeacherLessonPlanRepository {
+  @override
+  TeacherLessonPlanPermissions permissionsFor(SchoolMembership membership) => const TeacherLessonPlanPermissions(
+        canViewAssignedPlans: true,
+        canEditDrafts: true,
+        canSubmitForApproval: true,
+        canApprovePlans: false,
+        canOverrideReviewerStatus: false,
+      );
+
+  @override
+  Future<TeacherLessonPlanSnapshot> load() async => TeacherLessonPlanSnapshot(
+        plans: const [],
+        classOptions: const [],
+        events: const [],
+        permissions: permissionsFor(_teacher),
+      );
+
+  @override
+  Future<TeacherLessonPlanActionResult> createPlan({required String className, required String week, required String topic}) async =>
+      const TeacherLessonPlanActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherLessonPlanActionResult> saveDraft({required TeacherLessonPlan plan}) async =>
+      const TeacherLessonPlanActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherLessonPlanActionResult> submit({required TeacherLessonPlan plan}) async =>
+      const TeacherLessonPlanActionResult(success: false, message: 'Not used in this test.');
 }

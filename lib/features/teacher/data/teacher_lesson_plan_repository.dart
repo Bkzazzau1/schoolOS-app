@@ -4,15 +4,21 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_lesson_plan_models.dart';
 import 'teacher_lesson_plan_demo_data.dart';
+import 'teacher_roster.dart';
 
 class TeacherLessonPlanSnapshot {
   const TeacherLessonPlanSnapshot({
     required this.plans,
+    required this.classOptions,
     required this.events,
     required this.permissions,
   });
 
   final List<TeacherLessonPlan> plans;
+
+  /// The teacher's real assigned classes; a plan can only be created for one of these.
+  final List<String> classOptions;
+
   final List<TeacherLessonPlanEvent> events;
   final TeacherLessonPlanPermissions permissions;
 }
@@ -33,14 +39,17 @@ class TeacherLessonPlanRepository {
   TeacherLessonPlanRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required TeacherRoster roster,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _roster = roster;
 
   static const _planType = 'teacher_lesson_plan';
   static const _eventType = 'teacher_lesson_plan_event';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final TeacherRoster _roster;
 
   TeacherLessonPlanPermissions permissionsFor(SchoolMembership membership) {
     final isTeacher = membership.role == SchoolRole.teacher;
@@ -53,9 +62,15 @@ class TeacherLessonPlanRepository {
     );
   }
 
+  Future<List<String>> _assignedClassNames(SchoolMembership membership) async {
+    final classes = await _roster.assignedClasses(membership);
+    return {for (final c in classes) c.className}.toList()..sort();
+  }
+
   Future<TeacherLessonPlanSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
     await _seedIfNeeded(membership);
+    final assigned = await _assignedClassNames(membership);
 
     final planRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
@@ -68,17 +83,64 @@ class TeacherLessonPlanRepository {
 
     final plans = planRecords
         .map((record) => TeacherLessonPlan.fromJson(record.payload))
+        .where((plan) => assigned.contains(plan.className))
         .toList(growable: false)
       ..sort((a, b) => _planOrder(a.id).compareTo(_planOrder(b.id)));
+    final planIds = {for (final plan in plans) plan.id};
     final events = eventRecords
         .map((record) => TeacherLessonPlanEvent.fromJson(record.payload))
+        .where((event) => planIds.contains(event.planId))
         .toList(growable: false)
       ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
 
     return TeacherLessonPlanSnapshot(
       plans: plans,
+      classOptions: assigned,
       events: events,
       permissions: permissionsFor(membership),
+    );
+  }
+
+  /// Creates a new draft lesson plan for a real assigned class.
+  Future<TeacherLessonPlanActionResult> createPlan({
+    required String className,
+    required String week,
+    required String topic,
+  }) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (!permissionsFor(membership).canEditDrafts) {
+      return const TeacherLessonPlanActionResult(success: false, message: 'This membership cannot create lesson plans.');
+    }
+    if (!(await _assignedClassNames(membership)).contains(className)) {
+      return const TeacherLessonPlanActionResult(success: false, message: 'You are not assigned to this class.');
+    }
+    final plan = TeacherLessonPlan(
+      id: 'LP-${DateTime.now().microsecondsSinceEpoch}',
+      className: className,
+      week: week,
+      topic: topic,
+      status: TeacherLessonPlanStatus.draft,
+      updatedLabel: 'Draft created · sync pending',
+    );
+    await _localDatabase.upsertLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _planType,
+      entityId: plan.id,
+      payload: plan.toJson(),
+      isDirty: true,
+    );
+    await _localDatabase.queueMutation(
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      entityType: _planType,
+      entityId: plan.id,
+      operation: SyncOperation.create,
+      payload: plan.toJson(),
+    );
+    return TeacherLessonPlanActionResult(
+      success: true,
+      message: 'New lesson plan created as a draft.',
+      plan: plan,
     );
   }
 
@@ -91,6 +153,12 @@ class TeacherLessonPlanRepository {
       return const TeacherLessonPlanActionResult(
         success: false,
         message: 'This membership cannot edit Teacher lesson plans.',
+      );
+    }
+    if (!(await _assignedClassNames(membership)).contains(plan.className)) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'This class is not one of your assigned classes.',
       );
     }
 
@@ -143,6 +211,12 @@ class TeacherLessonPlanRepository {
       return const TeacherLessonPlanActionResult(
         success: false,
         message: 'This membership cannot submit Teacher lesson plans.',
+      );
+    }
+    if (!(await _assignedClassNames(membership)).contains(plan.className)) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'This class is not one of your assigned classes.',
       );
     }
 

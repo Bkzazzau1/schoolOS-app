@@ -1,13 +1,5 @@
 import '../domain/teacher_lesson_plan_models.dart';
 
-const teacherLessonPlanTermKpis = <(String, String, String)>[
-  ('This term', '12', 'lesson plans'),
-  ('Approved', '9', '75% approved'),
-  ('Pending', '2', 'awaiting review'),
-  ('Needs changes', '1', 'action required'),
-];
-
-const teacherLessonPlanClasses = <String>['JSS 2A', 'JSS 2B', 'JSS 3A', 'SS 1A'];
 const teacherLessonPlanWeeks = <String>['Week 6', 'Week 7', 'Week 8'];
 const teacherLessonPlanTopics = <String>[
   'Linear Equations',
@@ -42,7 +34,7 @@ const teacherLessonPlans = <TeacherLessonPlan>[
   ),
   TeacherLessonPlan(
     id: 'LP-198',
-    className: 'SS 1A',
+    className: 'SS1A',
     week: 'Week 5',
     topic: 'Functions',
     status: TeacherLessonPlanStatus.needsChanges,

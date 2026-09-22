@@ -557,3 +557,22 @@ unscrolled far-down widget correctly finds nothing. This was a test bug, not an 
 Tests: `test/teacher_learning_progress_roster_test.dart` (new, against the real roster),
 `test/teacher_learning_progress_feature_test.dart` rewritten to drop the invented per-topic evidence and named-student
 assertions.
+
+## Teacher: Lesson Plans can create a new plan, instead of being stuck editing one fixed draft forever
+
+The editor always bound itself to a single hard-coded plan (`plan.id == 'LP-206'`); there was no way for a teacher to
+create a second lesson plan. `TeacherLessonPlanRepository` now has `createPlan(className, week, topic)`, which refuses a
+class the teacher is not really assigned to, and every plan is filtered to the teacher's real assigned classes on load
+and re-checked on save/submit (the same defense-in-depth pattern as Syllabus, Assessments, CBT and Assignments). The page
+now lets a teacher tap any plan in "My lesson plans" to open it in the editor, and the class picker lists real assigned
+classes instead of a fixed `['JSS 2A', 'JSS 2B', 'JSS 3A', 'SS 1A']`. Found and fixed the same "SS 1A" (with a space) vs
+"SS1A" naming mismatch already fixed once this session in Syllabus's demo data. The term KPI strip ("This term: 12",
+"Approved: 9 · 75%", etc.) is now computed from the real plans instead of fixed numbers.
+
+While rewriting the tests, found and fixed the same off-screen `ListView` test issue as Learning Progress in the history
+search test (two widgets matched `find.text('LP-198')` once real interaction was added — the search field's own text and
+the table cell — disambiguated with `.last`).
+
+Tests: `test/teacher_lesson_plans_roster_test.dart` (new, against the real roster), `test/teacher_lesson_plans_feature_test.dart`
+rewritten for the new create/select-plan flow; this also fixed one of the 17 previously-failing tests ("history search
+filters rows").
