@@ -12,13 +12,6 @@ const principalCommunicationChannels = <PrincipalCommunicationChannel>[
   PrincipalCommunicationChannel.whatsApp,
 ];
 
-const principalCommunicationPermissions = PrincipalCommunicationPermissions(
-  canViewSecondaryCommunication: true,
-  canQueueMessages: true,
-  canMessagePrimaryOrEarlyYears: false,
-  canCrossSchoolMessage: false,
-);
-
 const principalQuickReply =
     'Thank you for your response. We will coordinate the next step and keep you informed.';
 const principalAttendanceTemplateSubject = 'Attendance follow-up';

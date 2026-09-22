@@ -7,11 +7,3 @@ const principalApprovalRules = <PrincipalApprovalDetail>[
   PrincipalApprovalDetail(label: 'REPORT RELEASE', value: 'Report cards can be reviewed before school release'),
   PrincipalApprovalDetail(label: 'AUDITABILITY', value: 'Decision, reviewer and comments remain part of the workflow'),
 ];
-
-const principalApprovalPermissions = PrincipalApprovalPermissions(
-  canViewSecondaryApprovals: true,
-  canDecideSecondaryApprovals: true,
-  canReleaseReportsDirectly: false,
-  canRewriteScoresDirectly: false,
-  canManagePrimary: false,
-);

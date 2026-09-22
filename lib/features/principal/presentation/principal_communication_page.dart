@@ -862,6 +862,10 @@ class _FollowUpsCard extends StatelessWidget {
             'Communication tasks created from attendance, academics or staff oversight.',
           ),
           const SizedBox(height: 10),
+          if (items.isEmpty)
+            const Text(
+              'Not available yet. Nothing in the app currently generates a real communication follow-up from attendance, academics or staff oversight, so this list stays honestly empty rather than showing an illustrative task.',
+            ),
           for (final item in items) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -944,6 +948,8 @@ class _AnnouncementsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+          if (items.isEmpty)
+            const Text('No announcements have been sent from this workspace yet.'),
           LayoutBuilder(
             builder: (context, constraints) {
               if (constraints.maxWidth < 780) {

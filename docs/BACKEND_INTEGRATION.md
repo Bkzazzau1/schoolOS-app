@@ -901,7 +901,7 @@ then printed them on invented school letterhead. None of those records represent
 **Real source:** class names and active Secondary student counts now come from the one Administrator student
 register, filtered through `sectionOfClass()` and excluding transferred-out students.
 
-**No real source � left honest:** Teacher assessments contain actual assessment evidence, but do not supply the
+**No real source — left honest:** Teacher assessments contain actual assessment evidence, but do not supply the
 subject/term grading, report preparation, approval and publication records needed for official term reports.
 Reports, review decisions, rankings, signatures, conduct and AI conclusions therefore remain empty; the page links
 to Academics for actual assessment evidence. Legacy seeded report records are deliberately not treated as genuine
@@ -921,7 +921,7 @@ in the Administrator student register. Notes and status changes retain the real 
 The recorded-case namespace is separate from the old seeded records so previously cached allegations cannot
 silently reappear. Unknown classes, Primary/Early Years and other schools are excluded from reads and changes.
 
-**No real source � left honest:** no Secondary disciplinary intake exists elsewhere in the app. The fresh case
+**No real source — left honest:** no Secondary disciplinary intake exists elsewhere in the app. The fresh case
 register and activity are empty, with no AI judgement. Driver transport reports stay in Transport: they do not
 establish disciplinary or safeguarding allegations. Resolved counts now describe recorded cases, not an invented term.
 
@@ -934,6 +934,30 @@ Replaced the fixed APR queue and invented report/score-correction evidence with 
 
 **Real source:** submitted `teacher_lesson_plan` and `teacher_assessment_score_sheet` records must have a matching versioned submission event and belong to a Secondary class in the Administrator student register. Reviews store the Principal membership, timestamp, comment and decision in `principal_submission_review`, with an offline sync mutation. A new source version requires a new review; duplicate and stale decisions are rejected. Teacher marks and publication state are unchanged.
 
-**No real source � left honest:** official report batches and score-correction requests have no connected intake. Old seeded approvals are ignored. Fresh demo schools show an empty queue. Reviewer attribution uses recorded membership IDs, without inventing staff names.
+**No real source — left honest:** official report batches and score-correction requests have no connected intake. Old seeded approvals are ignored. Fresh demo schools show an empty queue. Reviewer attribution uses recorded membership IDs, without inventing staff names.
 
 **Validation:** `test/principal_approvals_feature_test.dart` covers provenance, versioning, class/tenant/role scope, return validation and preservation of marks. `flutter analyze` is clean. Full suite: 1127 passing, the same 8 baseline failures (six demo login navigation, Teacher Assignments phone navigation, Teacher Students phone rendering).
+
+## Principal: Communication
+
+The old inbox showed fabricated guardian/staff conversations, invented delivery and read receipts, fake follow-up
+tasks generated from other modules, and a fixed announcement history — none of it backed by anything the Principal
+had actually sent or received.
+
+**Real source:** announcements the Principal actually sends are saved as real local records
+(`principal_outgoing_communication`, `isDirty: true` + queued for sync) and reloaded from there. Only Secondary
+staff and guardian audiences are accepted — individual, class-guardian and whole-school routing are refused because
+there is no real recipient-resolution source to check them against. External channels (SMS/Email/WhatsApp) are
+queued honestly as unconfirmed; delivery is never claimed until a real channel adapter would confirm it. Outgoing
+records are private to the membership that created them, and are correctly excluded when read from another
+membership or another school.
+
+**No real source — left honest:** there is no real two-way conversation thread anywhere in the app, so the inbox
+always shows "No verified conversations recorded for this Principal" instead of fabricated messages, and replying
+is always honestly refused. Follow-up tasks (previously shown as generated from attendance/academics/staff
+oversight) have no real generator anywhere either, so that list stays empty with an explanatory message rather than
+illustrative sample tasks. A leftover legacy-seeded thread record cannot be revived or replied to.
+
+Tests: `test/principal_communication_feature_test.dart` covers the honestly-empty fresh inbox, a real queued
+announcement round-tripping correctly, rejection of unconnected audiences and blank content, unconfirmed external
+delivery, refusal to reply to a legacy record, and membership/school isolation of outgoing content.
