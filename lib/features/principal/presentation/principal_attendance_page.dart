@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/principal_attendance_demo_data.dart';
 import '../data/principal_attendance_repository.dart';
 import '../domain/principal_attendance_models.dart';
 
@@ -91,11 +90,11 @@ class _PrincipalAttendancePageState extends State<PrincipalAttendancePage> {
             const SizedBox(height: 14),
             _offlineBanner(context, snapshot),
             const SizedBox(height: 14),
-            _kpis(context, compact, openFollowUps),
+            _kpis(context, compact, snapshot, openFollowUps),
             const SizedBox(height: 18),
             compact
-                ? Column(children: [_register(context, true, classRows, staffRows), const SizedBox(height: 14), _trend(context)])
-                : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(flex: 3, child: _register(context, false, classRows, staffRows)), const SizedBox(width: 14), Expanded(flex: 1, child: _trend(context))]),
+                ? Column(children: [_register(context, true, snapshot.classes, classRows, staffRows), const SizedBox(height: 14), _trend(context)])
+                : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(flex: 3, child: _register(context, false, snapshot.classes, classRows, staffRows)), const SizedBox(width: 14), Expanded(flex: 1, child: _trend(context))]),
             const SizedBox(height: 18),
             _scannerSection(context, compact, snapshot),
             const SizedBox(height: 18),
@@ -140,19 +139,25 @@ class _PrincipalAttendancePageState extends State<PrincipalAttendancePage> {
         ),
       );
 
-  Widget _kpis(BuildContext context, bool compact, int openFollowUps) {
+  Widget _kpis(BuildContext context, bool compact, PrincipalAttendanceSnapshot snapshot, int openFollowUps) {
+    final classes = snapshot.classes;
+    final totalStudents = classes.fold<int>(0, (sum, c) => sum + c.total);
+    final presentStudents = classes.fold<int>(0, (sum, c) => sum + c.present);
+    final absentStudents = classes.fold<int>(0, (sum, c) => sum + c.absent);
+    final lateStudents = classes.fold<int>(0, (sum, c) => sum + c.late);
+    final overallRate = totalStudents == 0 ? 0 : (presentStudents * 100 / totalStudents).round();
     final rows = [
-      ('Student attendance', '$principalAttendanceOverallRate%', '$principalAttendancePresentStudents of $principalAttendanceTotalStudents present'),
-      ('Absent students', '$principalAttendanceAbsentStudents', 'Across monitored classes'),
-      ('Late students', '$principalAttendanceLateStudents', 'Requires punctuality follow-up'),
-      ('Staff present', '$principalAttendanceStaffPresent/${principalAttendanceStaff.length}', '$principalAttendanceStaffLate late today'),
+      ('Student attendance', totalStudents == 0 ? 'No students' : '$overallRate%', '$presentStudents of $totalStudents present'),
+      ('Absent students', '$absentStudents', 'Across monitored classes'),
+      ('Late students', '$lateStudents', 'Requires punctuality follow-up'),
+      ('Staff present', 'Not tracked yet', 'No real per-day staff check-in feed yet'),
       ('Open follow-ups', '$openFollowUps', 'Attendance actions'),
     ];
     final cards = rows.map((row) => Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(row.$1), const SizedBox(height: 3), Text(row.$2, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)), Text(row.$3, style: Theme.of(context).textTheme.bodySmall)]))));
     return compact ? Wrap(spacing: 8, runSpacing: 8, children: [for (final card in cards) SizedBox(width: 165, child: card)]) : Row(children: [for (final card in cards) Expanded(child: Padding(padding: const EdgeInsets.only(right: 8), child: card))]);
   }
 
-  Widget _register(BuildContext context, bool compact, List<PrincipalClassAttendance> classes, List<PrincipalStaffAttendance> staff) => Card(
+  Widget _register(BuildContext context, bool compact, List<PrincipalClassAttendance> allClasses, List<PrincipalClassAttendance> classes, List<PrincipalStaffAttendance> staff) => Card(
         elevation: 0,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -172,7 +177,7 @@ class _PrincipalAttendancePageState extends State<PrincipalAttendancePage> {
             Wrap(spacing: 8, runSpacing: 8, children: [
               SizedBox(width: compact ? double.infinity : 240, child: TextField(decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: _students ? 'Search class...' : 'Search staff...', border: const OutlineInputBorder()), onChanged: (value) => setState(() => _query = value))),
               if (_students)
-                DropdownButton<String>(value: _classFilter, items: [const DropdownMenuItem(value: 'All classes', child: Text('All classes')), for (final row in principalAttendanceClasses) DropdownMenuItem(value: row.className, child: Text(row.className))], onChanged: (value) => setState(() => _classFilter = value ?? 'All classes')),
+                DropdownButton<String>(value: _classFilter, items: [const DropdownMenuItem(value: 'All classes', child: Text('All classes')), for (final row in allClasses) DropdownMenuItem(value: row.className, child: Text(row.className))], onChanged: (value) => setState(() => _classFilter = value ?? 'All classes')),
               DropdownButton<String>(
                 value: _statusFilter,
                 items: _students
@@ -180,15 +185,15 @@ class _PrincipalAttendancePageState extends State<PrincipalAttendancePage> {
                     : const [DropdownMenuItem(value: 'All statuses', child: Text('All statuses')), DropdownMenuItem(value: 'Present', child: Text('Present')), DropdownMenuItem(value: 'Absent', child: Text('Absent'))],
                 onChanged: (value) => setState(() => _statusFilter = value ?? 'All statuses'),
               ),
-              DropdownButton<String>(value: _date, items: const [DropdownMenuItem(value: '2026-09-13', child: Text('13 Sep 2026')), DropdownMenuItem(value: '2026-09-12', child: Text('12 Sep 2026'))], onChanged: (value) => setState(() => _date = value ?? _date)),
+              DropdownButton<String>(value: _date, items: const [DropdownMenuItem(value: '2026-09-13', child: Text('Today'))], onChanged: (value) => setState(() => _date = value ?? _date)),
             ]),
             const SizedBox(height: 12),
             if (_students) ...[
               for (final row in classes) _classRow(context, row, compact),
-              if (classes.isEmpty) const Padding(padding: EdgeInsets.all(14), child: Text('No classes match these filters.')),
+              if (classes.isEmpty && allClasses.isEmpty) const Padding(padding: EdgeInsets.all(14), child: Text('No Secondary students are on the register yet.')),
+              if (classes.isEmpty && allClasses.isNotEmpty) const Padding(padding: EdgeInsets.all(14), child: Text('No classes match these filters.')),
             ] else ...[
-              for (final row in staff) _staffRow(context, row),
-              if (staff.isEmpty) const Padding(padding: EdgeInsets.all(14), child: Text('No staff match these filters.')),
+              const Padding(padding: EdgeInsets.all(14), child: Text('No real per-day staff check-in feed exists yet. Staff attendance is tracked as a period average on the Teachers screen instead.')),
             ],
           ]),
         ),
@@ -213,20 +218,6 @@ class _PrincipalAttendancePageState extends State<PrincipalAttendancePage> {
     );
   }
 
-  Widget _staffRow(BuildContext context, PrincipalStaffAttendance row) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(12)),
-        child: Row(children: [
-          CircleAvatar(child: Text(row.name.split(' ').where((part) => part.isNotEmpty).take(2).map((part) => part[0]).join())),
-          const SizedBox(width: 10),
-          Expanded(flex: 2, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(row.name, style: const TextStyle(fontWeight: FontWeight.w900)), Text(row.role, style: Theme.of(context).textTheme.bodySmall)])),
-          Expanded(child: _cell('Status', row.status == PrincipalAttendanceStaffStatus.present ? 'Present' : 'Absent')),
-          Expanded(child: _cell('Check-in', row.checkIn)),
-          Expanded(child: _cell('Punctuality', row.punctuality.label)),
-        ]),
-      );
-
   Widget _trend(BuildContext context) => Card(
         elevation: 0,
         child: Padding(
@@ -235,11 +226,10 @@ class _PrincipalAttendancePageState extends State<PrincipalAttendancePage> {
             const Text('Weekly attendance trend', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
             const Text('Whole-school student attendance across the current week.'),
             const SizedBox(height: 14),
-            for (final item in principalAttendanceWeekTrend)
-              Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [SizedBox(width: 34, child: Text(item.day)), Expanded(child: LinearProgressIndicator(value: item.rate / 100)), const SizedBox(width: 8), Text('${item.rate}%')])),
+            const Text('Not available yet: the real attendance record only keeps today\'s figures, so there is no real day-over-day history to chart yet.'),
             const Divider(height: 22),
             const Text('Principal AI observation', style: TextStyle(fontWeight: FontWeight.w900)),
-            const Text('JSS 2B contributes the largest attendance decline this week. Review repeated-absence cases before the pattern continues into next week.'),
+            const Text('Not available yet: ask Principal AI once real multi-day attendance evidence exists.'),
             const SizedBox(height: 8),
             TextButton(onPressed: () => widget.onNavigate('ai'), child: const Text('Ask Principal AI')),
           ]),
@@ -306,22 +296,25 @@ class _PrincipalAttendancePageState extends State<PrincipalAttendancePage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Follow-up queue', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), Text('Repeated absence, lateness and staff attendance issues requiring action.')])), TextButton(onPressed: () => widget.onNavigate('communication'), child: const Text('Open communication'))]),
             const SizedBox(height: 8),
-            for (final item in snapshot.followUps)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(12)),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Chip(label: Text(item.severity.label)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.person, style: const TextStyle(fontWeight: FontWeight.w900)), Text('${item.type.name} · ${item.classOrRole}'), Text('${item.issue} · ${item.count}')])),
-                  Wrap(spacing: 4, children: [
-                    TextButton(onPressed: () => widget.onNavigate(item.type == PrincipalAttendancePersonType.student ? 'students' : 'teachers'), child: const Text('Open record')),
-                    TextButton(onPressed: () => widget.onNavigate('communication'), child: const Text('Contact')),
-                    FilledButton.tonal(onPressed: item.resolved ? null : () => _resolve(item.id), child: Text(item.resolved ? 'Resolved' : 'Mark resolved')),
+            if (snapshot.followUps.isEmpty)
+              const Text('No real attendance follow-up evidence exists yet: detecting a repeated-absence or repeated-lateness pattern needs multi-day history, and today is all the real record keeps so far.')
+            else
+              for (final item in snapshot.followUps)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(12)),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Chip(label: Text(item.severity.label)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.person, style: const TextStyle(fontWeight: FontWeight.w900)), Text('${item.type.name} · ${item.classOrRole}'), Text('${item.issue} · ${item.count}')])),
+                    Wrap(spacing: 4, children: [
+                      TextButton(onPressed: () => widget.onNavigate(item.type == PrincipalAttendancePersonType.student ? 'students' : 'teachers'), child: const Text('Open record')),
+                      TextButton(onPressed: () => widget.onNavigate('communication'), child: const Text('Contact')),
+                      FilledButton.tonal(onPressed: item.resolved ? null : () => _resolve(item.id), child: Text(item.resolved ? 'Resolved' : 'Mark resolved')),
+                    ]),
                   ]),
-                ]),
-              ),
+                ),
           ]),
         ),
       );

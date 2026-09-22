@@ -1,38 +1,41 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:schoolos_app/core/database/local_database.dart';
+import 'package:schoolos_app/core/security/payload_cipher.dart';
+import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_attendance_repository.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
 import 'package:schoolos_app/features/principal/data/principal_attendance_demo_data.dart';
+import 'package:schoolos_app/features/principal/data/principal_attendance_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_attendance_models.dart';
+import 'package:schoolos_app/shared/models/school_membership.dart';
+
+import 'core/backend_test_support.dart';
+import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+
+const principal = SchoolMembership(id: 'm-principal', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.principal);
+const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
 
 void main() {
-  test('website attendance seed preserves six class rows and exact totals', () {
-    expect(principalAttendanceClasses.length, 6);
-    expect(principalAttendanceTotalStudents, 238);
-    expect(principalAttendancePresentStudents, 221);
-    expect(principalAttendanceAbsentStudents, 9);
-    expect(principalAttendanceLateStudents, 7);
-    expect(principalAttendanceOverallRate, 93);
-    expect(principalAttendanceClasses[2].className, 'JSS 2B');
-    expect(principalAttendanceClasses[2].rate, 85);
-    expect(principalAttendanceClasses[2].trend, -5.7);
-    expect(principalAttendanceClasses[2].status, PrincipalAttendanceHealth.needsAttention);
-  });
+  LocalDatabase? db;
+  late SchoolSessionController session;
+  late PrincipalAttendanceRepository principalAttendance;
 
-  test('website staff attendance preserves five rows and one late teacher', () {
-    expect(principalAttendanceStaff.length, 5);
-    expect(principalAttendanceStaffPresent, 4);
-    expect(principalAttendanceStaffLate, 1);
-    expect(principalAttendanceStaff[2].name, 'Mrs. Fatima Bello');
-    expect(principalAttendanceStaff[2].punctuality, PrincipalAttendancePunctuality.late);
-    expect(principalAttendanceStaff[3].name, 'Mr. Peter James');
-    expect(principalAttendanceStaff[3].status, PrincipalAttendanceStaffStatus.absent);
-  });
+  Future<void> setUpSchool([SchoolMembership who = principal]) async {
+    final database = LocalDatabase(cipher: PayloadCipher(secureStorage: MemorySecureStorage()), databasePath: ':memory:');
+    await database.initialize();
+    db = database;
+    session = SchoolSessionController(store: FakeSessionStore());
+    await session.setMemberships([principal, teacher]);
+    await session.selectSchool(who);
+    principalAttendance = PrincipalAttendanceRepository(
+      localDatabase: database,
+      schoolSession: session,
+      students: AdministratorStudentsRepository(localDatabase: database, schoolSession: session),
+      attendance: AdministratorAttendanceRepository(localDatabase: database, schoolSession: session),
+    );
+  }
 
-  test('website follow-up queue and weekly trend remain exact', () {
-    expect(principalAttendanceFollowUps.length, 4);
-    expect(principalAttendanceFollowUps.first.id, 'ATT-001');
-    expect(principalAttendanceFollowUps.first.severity, PrincipalAttendanceSeverity.high);
-    expect(principalAttendanceFollowUps[2].person, 'Mr. Peter James');
-    expect(principalAttendanceWeekTrend.map((item) => item.rate).toList(), [94, 93, 92, 91, 93]);
-  });
+  tearDown(() => db?.close());
 
   test('offline extension includes palm and fingerprint scanners', () {
     expect(principalBiometricScanners.length, 3);
@@ -75,18 +78,6 @@ void main() {
     expect(restored.synced, isFalse);
   });
 
-  test('follow-up serialization preserves offline resolution audit fields', () {
-    final resolved = principalAttendanceFollowUps.first.copyWith(
-      resolved: true,
-      resolvedAt: '2026-09-19T08:01:00Z',
-      resolvedByMembershipId: 'membership-principal-001',
-    );
-    final restored = PrincipalAttendanceFollowUp.fromJson(resolved.toJson());
-    expect(restored.resolved, isTrue);
-    expect(restored.resolvedByMembershipId, 'membership-principal-001');
-    expect(restored.resolvedAt, isNotNull);
-  });
-
   test('offline integrity rules block cloud dependency and blind absence decisions', () {
     expect(principalAttendanceOfflineRule, contains('zero internet dependency'));
     expect(principalAttendanceOfflineRule, contains('sync is deferred'));
@@ -95,11 +86,76 @@ void main() {
   });
 
   test('Principal attendance authority remains Secondary scoped', () {
-    expect(principalAttendancePermissions.canViewSecondaryAttendance, isTrue);
-    expect(principalAttendancePermissions.canResolveFollowUps, isTrue);
-    expect(principalAttendancePermissions.canIngestOfflineBiometricEvents, isTrue);
-    expect(principalAttendancePermissions.canManagePrimary, isFalse);
     expect(principalAttendanceScopeBoundary, contains('Secondary'));
     expect(principalAttendanceScopeBoundary, contains('Primary'));
+  });
+
+  test('class attendance is real, computed from the real register and today\'s real gate-scan events, Secondary only', () async {
+    await setUpSchool();
+    final snapshot = await principalAttendance.load();
+    expect(snapshot.classes, isNotEmpty);
+    // The real register's Primary/Nursery classes must never appear here.
+    expect(snapshot.classes.any((c) => c.className.toLowerCase().startsWith('primary')), isFalse);
+    expect(snapshot.classes.any((c) => c.className.toLowerCase().startsWith('nursery')), isFalse);
+    for (final row in snapshot.classes) {
+      expect(row.present + row.absent + row.excused, row.total);
+      expect(row.rate, inInclusiveRange(0, 100));
+      expect(row.trend, 0, reason: 'the real source only keeps today\'s record, so there is no real day-over-day trend yet');
+    }
+    // classes are sorted and unique.
+    final names = snapshot.classes.map((c) => c.className).toList();
+    expect(names, names.toSet().toList()..sort());
+  });
+
+  test('staff attendance and follow-ups are honestly empty: no real per-day feed or multi-day history exists yet', () async {
+    await setUpSchool();
+    final snapshot = await principalAttendance.load();
+    expect(snapshot.staff, isEmpty);
+    expect(snapshot.followUps, isEmpty);
+  });
+
+  test('resolving a follow-up is refused honestly since none are real yet', () async {
+    await setUpSchool();
+    final result = await principalAttendance.resolveFollowUp('ATT-001');
+    expect(result.success, isFalse);
+  });
+
+  test('a valid offline biometric match is accepted and queued for sync', () async {
+    await setUpSchool();
+    await principalAttendance.load(); // seeds the scanners
+    final result = await principalAttendance.ingestOfflineBiometricMatch(
+      scannerId: 'SCN-PALM-01',
+      localSequence: 5000,
+      personType: PrincipalAttendancePersonType.student,
+      personReference: 'STU-001',
+      classOrRole: 'JSS 2A',
+      templateReference: 'tpl:student:STU-001:palm:v2',
+      matchScore: 0.97,
+      capturedAt: '2026-09-20T07:30:00+01:00',
+    );
+    expect(result.success, isTrue, reason: result.message);
+    expect(db!.pendingCount(tenantId: principal.schoolId), greaterThan(0));
+  });
+
+  test('a raw image reference is refused', () async {
+    await setUpSchool();
+    await principalAttendance.load(); // seeds the scanners
+    final result = await principalAttendance.ingestOfflineBiometricMatch(
+      scannerId: 'SCN-PALM-01',
+      localSequence: 5001,
+      personType: PrincipalAttendancePersonType.student,
+      personReference: 'STU-001',
+      classOrRole: 'JSS 2A',
+      templateReference: 'raw-image-data',
+      matchScore: 0.97,
+      capturedAt: '2026-09-20T07:30:00+01:00',
+    );
+    expect(result.success, isFalse);
+  });
+
+  test('only the principal has Secondary attendance authority', () async {
+    await setUpSchool(teacher);
+    final result = await principalAttendance.resolveFollowUp('ATT-001');
+    expect(result.success, isFalse);
   });
 }

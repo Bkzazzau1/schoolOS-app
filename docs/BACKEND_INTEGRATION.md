@@ -778,3 +778,32 @@ larger change than this screen's scope.
 Tests: `test/principal_teachers_feature_test.dart` rewritten to test the real repository against the real staff register
 (4 staff, 2 of them real Secondary teachers), covering scope filtering, the honest/empty fields, and the private-note
 write path.
+
+## Principal: Attendance computes real per-class figures; staff/follow-up/trend are honestly empty
+
+A mixed case: some of this screen was genuinely buildable from real data already wired elsewhere this session, and some
+had no real source at all, so it got two different treatments rather than one.
+
+**Real and buildable — built:** `principalAttendanceClasses` was a fixed six-class snapshot. Today's real Secondary class
+attendance is now computed the same way `administrator_attendance_desk.dart`'s `buildAttendanceDesk` already computes
+Administrator's, reusing the same real register (`AdministratorStudentsRepository`) and the same real gate-scan events
+(`AdministratorAttendanceRepository`), just grouped by class instead of section. `trend` is always `0` and `status` is a
+deterministic bucket of the real `rate` (≥95% strong, ≥85% watch, else needs attention) — a computed fact, not an
+invented judgement.
+
+**No real source — left honest:** `principalAttendanceStaff` (a fixed five-teacher list with a fabricated per-day
+check-in time and punctuality, one of them sharing a real staff member's name) had no real equivalent: the only real
+staff-attendance data anywhere is a period average (already used on the Teachers screen), not a real "checked in today"
+feed. `principalAttendanceFollowUps` (repeated-absence/lateness alerts, one naming a real-sounding staff member) had no
+real source either: detecting a real pattern needs multi-day history, and the real attendance source only keeps today's
+record. `principalAttendanceWeekTrend` and its fabricated "Principal AI observation" narrative about JSS 2B had the same
+problem. All three are now honestly empty (`staff: const []`, `followUps: const []`, no trend data), with clear "not
+available yet" messages replacing the invented content instead of an empty-feeling blank space.
+
+**Left alone:** the biometric scanner and event seed content, which was already a reasonable, clearly-labelled sample of
+hardware not yet connected to this demo school, following the same pattern `demoScansFor` already established (a
+plausible synthetic event about a real, registered person, not a fabricated judgement) — added a code comment making
+that intent explicit rather than changing the data.
+
+Tests: `test/principal_attendance_feature_test.dart` rewritten to test the real class-attendance computation against the
+real register and real events, and to confirm staff/follow-ups are honestly empty.

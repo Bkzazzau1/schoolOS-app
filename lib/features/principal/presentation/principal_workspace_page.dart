@@ -8,6 +8,7 @@ import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/data/administrator_attendance_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
@@ -88,7 +89,12 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
       schoolSession: widget.schoolSession,
       students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
     );
-    _attendance = PrincipalAttendanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _attendance = PrincipalAttendanceRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+      students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      attendance: AdministratorAttendanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+    );
     _approvals = PrincipalApprovalsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _results = PrincipalResultsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _timetable = PrincipalTimetableRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
