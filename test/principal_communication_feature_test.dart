@@ -1,88 +1,154 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/principal/data/principal_communication_demo_data.dart';
+import 'package:schoolos_app/core/database/local_database.dart';
+import 'package:schoolos_app/core/security/payload_cipher.dart';
+import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/shared/models/school_membership.dart';
+import 'package:schoolos_app/features/principal/data/principal_communication_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_communication_models.dart';
+import 'core/backend_test_support.dart';
+import 'core/local_database_queue_test.dart' show MemorySecureStorage;
 
+const principal = SchoolMembership(
+  id: 'p',
+  schoolId: 's',
+  schoolName: 'School',
+  role: SchoolRole.principal,
+);
 void main() {
-  test('principal communication preserves exact website seed and KPI state', () {
-    expect(principalCommunicationThreads.length, 4);
-    expect(principalCommunicationThreads.map((item) => item.id).toList(), ['MSG-201', 'MSG-202', 'MSG-203', 'MSG-204']);
-    expect(principalCommunicationThreads.where((item) => item.unread).length, 2);
-    expect(principalRecentAnnouncements.length, 3);
-    expect(principalCommunicationFollowUps.length, 3);
-    expect(principalCommunicationFollowUps.where((item) => item.status == 'Due today').length, 2);
-    expect(principalCommunicationTermAnnouncementCount, 12);
-    expect(principalCommunicationDeliveryRate, 97);
-    expect(principalGuardianResponseRate, 84);
-  });
+  LocalDatabase? db;
+  late SchoolSessionController session;
+  late PrincipalCommunicationRepository repo;
+  Future<void> setup([SchoolMembership member = principal]) async {
+    db = LocalDatabase(
+      cipher: PayloadCipher(secureStorage: MemorySecureStorage()),
+      databasePath: ':memory:',
+    );
+    await db!.initialize();
+    session = SchoolSessionController(store: FakeSessionStore());
+    await session.setMemberships([member]);
+    await session.selectSchool(member);
+    repo = PrincipalCommunicationRepository(
+      localDatabase: db!,
+      schoolSession: session,
+    );
+  }
 
-  test('website audiences and channels are preserved exactly', () {
+  tearDown(() => db?.close());
+
+  Future<PrincipalCommunicationActionResult> queue({
+    PrincipalCommunicationAudience audience =
+        PrincipalCommunicationAudience.staff,
+    String subject = 'Notice',
+    String message = 'Meeting',
+    PrincipalCommunicationChannel channel =
+        PrincipalCommunicationChannel.portal,
+  }) => repo.queueAnnouncement(
+    audience: audience,
+    channel: channel,
+    subject: subject,
+    message: message,
+  );
+  test(
+    'fresh inbox has no fabricated conversations or delivery metrics',
+    () async {
+      await setup();
+      final s = await repo.load();
+      expect(s.threads, isEmpty);
+      expect(s.announcements, isEmpty);
+      expect(s.followUps, isEmpty);
+      expect(s.unreadCount, 0);
+    },
+  );
+  test(
+    'saved announcement reloads with real content and unconfirmed delivery',
+    () async {
+      await setup();
+      expect((await queue()).success, isTrue);
+      final s = await repo.load();
+      expect(s.queuedCount, 1);
+      expect(s.outgoing.single.message, 'Meeting');
+      expect(s.announcements.single.title, 'Notice');
+      expect(s.announcements.single.delivered, 'Not confirmed');
+      expect(s.announcements.single.read, 'Not recorded');
+    },
+  );
+  for (final audience in [
+    PrincipalCommunicationAudience.classGuardians,
+    PrincipalCommunicationAudience.individual,
+    PrincipalCommunicationAudience.wholeSchool,
+  ]) {
+    test('unconnected recipient scope ${audience.name} rejected', () async {
+      await setup();
+      expect((await queue(audience: audience)).success, isFalse);
+      expect((await repo.load()).outgoing, isEmpty);
+    });
+  }
+  test('blank content rejected', () async {
+    await setup();
+    expect((await queue(subject: ' ')).success, isFalse);
+    expect((await queue(message: ' ')).success, isFalse);
+  });
+  test('external channels never claim delivery', () async {
+    await setup();
+    await queue(channel: PrincipalCommunicationChannel.sms);
     expect(
-      principalCommunicationAudiences.map((item) => item.label).toList(),
-      ['Staff', 'Guardians', 'Class Guardians', 'Individual', 'Whole School'],
+      (await repo.load()).outgoing.single.deliveryState,
+      PrincipalDeliveryState.queued,
     );
+  });
+  test('old fabricated inbox record cannot be replied to', () async {
+    await setup();
+    await db!.upsertLocalRecord(
+      tenantId: 's',
+      entityType: 'principal_communication_thread',
+      entityId: 'MSG-201',
+      payload: {'id': 'MSG-201'},
+    );
+    expect((await repo.load()).threads, isEmpty);
     expect(
-      principalCommunicationChannels.map((item) => item.label).toList(),
-      ['Portal', 'SMS', 'Email', 'WhatsApp'],
+      (await repo.queueReply(threadId: 'MSG-201', message: 'Reply')).success,
+      isFalse,
     );
   });
-
-  test('urgent guardian thread and attendance template remain exact', () {
-    final urgent = principalCommunicationThreads.first;
-    expect(urgent.id, 'MSG-201');
-    expect(urgent.title, 'JSS 2B attendance follow-up');
-    expect(urgent.person, 'Guardian C');
-    expect(urgent.context, 'Student Gamma · JSS 2B');
-    expect(urgent.priority, PrincipalCommunicationPriority.urgent);
-    expect(principalAttendanceTemplateSubject, 'Attendance follow-up');
-    expect(principalAttendanceTemplateMessage, contains('recent attendance concerns'));
-  });
-
-  test('recent announcement delivery and read tracking match website', () {
-    final first = principalRecentAnnouncements.first;
-    expect(first.id, 'ANN-61');
-    expect(first.title, 'First Term Mid-Term Review');
-    expect(first.audience, 'Whole School');
-    expect(first.channel, 'Portal + SMS');
-    expect(first.delivered, '97%');
-    expect(first.read, '82%');
-  });
-
-  test('communication records serialize without losing delivery or actor context', () {
-    final thread = PrincipalCommunicationThread.fromJson(principalCommunicationThreads.first.toJson());
-    expect(thread.id, 'MSG-201');
-    expect(thread.priority, PrincipalCommunicationPriority.urgent);
-
-    final outgoing = PrincipalOutgoingCommunication(
-      id: 'announcement-1',
-      kind: PrincipalOutgoingKind.announcement,
-      message: 'School notice',
-      channel: PrincipalCommunicationChannel.sms,
-      deliveryState: PrincipalDeliveryState.queued,
-      sectionScope: 'Secondary',
-      createdByMembershipId: 'MEM-PRINCIPAL-01',
-      createdAt: '2026-09-19T17:50:00Z',
-      audience: PrincipalCommunicationAudience.classGuardians,
-      subject: 'Attendance follow-up',
+  test(
+    'other principal in same school cannot read private outgoing content',
+    () async {
+      await setup();
+      await queue();
+      const other = SchoolMembership(
+        id: 'other',
+        schoolId: 's',
+        schoolName: 'School',
+        role: SchoolRole.principal,
+      );
+      await session.setMemberships([principal, other]);
+      await session.selectSchool(other);
+      expect((await repo.load()).outgoing, isEmpty);
+    },
+  );
+  test('other school cannot read outgoing content', () async {
+    await setup();
+    await queue();
+    const other = SchoolMembership(
+      id: 'other',
+      schoolId: 'other',
+      schoolName: 'Other',
+      role: SchoolRole.principal,
     );
-    final restored = PrincipalOutgoingCommunication.fromJson(outgoing.toJson());
-    expect(restored.kind, PrincipalOutgoingKind.announcement);
-    expect(restored.channel, PrincipalCommunicationChannel.sms);
-    expect(restored.deliveryState, PrincipalDeliveryState.queued);
-    expect(restored.sectionScope, 'Secondary');
-    expect(restored.createdByMembershipId, 'MEM-PRINCIPAL-01');
-    expect(restored.audience, PrincipalCommunicationAudience.classGuardians);
+    await session.setMemberships([principal, other]);
+    await session.selectSchool(other);
+    expect((await repo.load()).outgoing, isEmpty);
   });
-
-  test('privacy and offline boundaries prevent cross-school and false delivery claims', () {
-    expect(principalCommunicationPermissions.canViewSecondaryCommunication, isTrue);
-    expect(principalCommunicationPermissions.canQueueMessages, isTrue);
-    expect(principalCommunicationPermissions.canMessagePrimaryOrEarlyYears, isFalse);
-    expect(principalCommunicationPermissions.canCrossSchoolMessage, isFalse);
-    expect(principalCommunicationPrivacyBoundary, contains('linked guardians'));
-    expect(principalCommunicationPrivacyBoundary, contains('Cross-school'));
-    expect(principalCommunicationOfflineBoundary, contains('queued fully offline'));
-    expect(principalCommunicationOfflineBoundary, contains('never claimed'));
-    expect(principalCommunicationScopeBoundary, contains('Secondary'));
-    expect(principalCommunicationScopeBoundary, contains('Primary and Early Years'));
+  test('nonprincipal cannot queue or read messages', () async {
+    await setup(
+      const SchoolMembership(
+        id: 't',
+        schoolId: 's',
+        schoolName: 'School',
+        role: SchoolRole.teacher,
+      ),
+    );
+    expect((await queue()).success, isFalse);
+    expect((await repo.load()).outgoing, isEmpty);
   });
 }
