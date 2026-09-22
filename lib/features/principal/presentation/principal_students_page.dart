@@ -27,7 +27,7 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
   String _query = '';
   String _classFilter = 'All classes';
   String _riskFilter = 'All statuses';
-  String _selectedId = 'STU-003';
+  String? _selectedId;
   final _noteController = TextEditingController();
   bool _savingNote = false;
 
@@ -54,14 +54,21 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
           _selectedId = snapshot.students.first.id;
         }
       });
-      _noteController.text = await widget.repository.loadLeadershipNote(_selectedId);
+      final selectedId = _selectedId;
+      if (selectedId != null) {
+        _noteController.text = await widget.repository.loadLeadershipNote(selectedId);
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = '$error');
     }
   }
 
-  PrincipalStudentSummary get _selected => _snapshot!.students.firstWhere((item) => item.id == _selectedId);
+  PrincipalStudentSummary? get _selected {
+    final id = _selectedId;
+    if (id == null) return null;
+    return _snapshot!.students.firstWhere((item) => item.id == id, orElse: () => _snapshot!.students.first);
+  }
 
   Future<void> _select(PrincipalStudentSummary student) async {
     setState(() => _selectedId = student.id);
@@ -70,9 +77,9 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
   }
 
   Future<void> _saveNote() async {
-    if (_savingNote) return;
+    if (_savingNote || _selectedId == null) return;
     setState(() => _savingNote = true);
-    final result = await widget.repository.saveLeadershipNote(studentId: _selectedId, note: _noteController.text);
+    final result = await widget.repository.saveLeadershipNote(studentId: _selectedId!, note: _noteController.text);
     if (!mounted) return;
     setState(() => _savingNote = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
@@ -120,8 +127,8 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
           _kpis(context, compact, snapshot.students),
           const SizedBox(height: 18),
           compact
-              ? Column(children: [_directory(context, filtered, true), const SizedBox(height: 14), _selectedCard(context, _selected)])
-              : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(flex: 3, child: _directory(context, filtered, false)), const SizedBox(width: 14), Expanded(flex: 2, child: _selectedCard(context, _selected))]),
+              ? Column(children: [_directory(context, filtered, snapshot.classOptions, true), const SizedBox(height: 14), _selectedCard(context, _selected)])
+              : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(flex: 3, child: _directory(context, filtered, snapshot.classOptions, false)), const SizedBox(width: 14), Expanded(flex: 2, child: _selectedCard(context, _selected))]),
           const SizedBox(height: 18),
           compact
               ? Column(children: [_priorityQueue(context), const SizedBox(height: 14), _aiCard(context)])
@@ -150,8 +157,8 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
 
   Widget _kpis(BuildContext context, bool compact, List<PrincipalStudentSummary> students) {
     final data = [
-      ('Active students', '438', 'Current Secondary section'),
-      ('At risk', '${students.where((s) => s.risk == PrincipalStudentRisk.atRisk).length}', 'Prototype flagged students'),
+      ('Active students', '${students.length}', 'Current Secondary section'),
+      ('At risk', '${students.where((s) => s.risk == PrincipalStudentRisk.atRisk).length}', 'Flagged from real evidence'),
       ('Watch list', '${students.where((s) => s.risk == PrincipalStudentRisk.watch).length}', 'Needs monitoring'),
       ('Attendance risk', '${students.where((s) => s.attendance < 85).length}', 'Below 85%'),
       ('Behaviour flags', '${students.where((s) => s.behaviour == PrincipalStudentBehaviour.needsAttention).length}', 'Needs attention'),
@@ -160,7 +167,7 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
     return compact ? Wrap(spacing: 8, runSpacing: 8, children: [for (final card in cards) SizedBox(width: 160, child: card)]) : Row(children: [for (final card in cards) Expanded(child: Padding(padding: const EdgeInsets.only(right: 8), child: card))]);
   }
 
-  Widget _directory(BuildContext context, List<PrincipalStudentSummary> students, bool compact) => Card(
+  Widget _directory(BuildContext context, List<PrincipalStudentSummary> students, List<String> classOptions, bool compact) => Card(
         elevation: 0,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -169,9 +176,9 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
             const Text('Search, review quickly, or open the complete student record.'),
             const SizedBox(height: 12),
             if (compact)
-              Column(children: [_search(), const SizedBox(height: 8), _classFilterWidget(), const SizedBox(height: 8), _riskFilterWidget()])
+              Column(children: [_search(), const SizedBox(height: 8), _classFilterWidget(classOptions), const SizedBox(height: 8), _riskFilterWidget()])
             else
-              Row(children: [Expanded(child: _search()), const SizedBox(width: 8), SizedBox(width: 160, child: _classFilterWidget()), const SizedBox(width: 8), SizedBox(width: 160, child: _riskFilterWidget())]),
+              Row(children: [Expanded(child: _search()), const SizedBox(width: 8), SizedBox(width: 160, child: _classFilterWidget(classOptions)), const SizedBox(width: 8), SizedBox(width: 160, child: _riskFilterWidget())]),
             const SizedBox(height: 12),
             for (final student in students) _studentRow(context, student),
             if (students.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No students match this filter.')),
@@ -181,10 +188,14 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
 
   Widget _search() => TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search student, ID or class...', border: OutlineInputBorder()), onChanged: (value) => setState(() => _query = value));
 
-  Widget _classFilterWidget() => InputDecorator(
-        decoration: const InputDecoration(labelText: 'Class', border: OutlineInputBorder()),
-        child: DropdownButtonHideUnderline(child: DropdownButton<String>(isExpanded: true, value: _classFilter, items: [for (final item in principalStudentClasses) DropdownMenuItem(value: item, child: Text(item))], onChanged: (value) => setState(() => _classFilter = value ?? 'All classes'))),
-      );
+  Widget _classFilterWidget(List<String> classOptions) {
+    final items = ['All classes', ...classOptions];
+    final value = items.contains(_classFilter) ? _classFilter : 'All classes';
+    return InputDecorator(
+      decoration: const InputDecoration(labelText: 'Class', border: OutlineInputBorder()),
+      child: DropdownButtonHideUnderline(child: DropdownButton<String>(isExpanded: true, value: value, items: [for (final item in items) DropdownMenuItem(value: item, child: Text(item))], onChanged: (value) => setState(() => _classFilter = value ?? 'All classes'))),
+    );
+  }
 
   Widget _riskFilterWidget() => InputDecorator(
         decoration: const InputDecoration(labelText: 'Risk', border: OutlineInputBorder()),
@@ -208,7 +219,17 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
     );
   }
 
-  Widget _selectedCard(BuildContext context, PrincipalStudentSummary student) => Card(
+  Widget _selectedCard(BuildContext context, PrincipalStudentSummary? student) {
+    if (student == null) {
+      return const Card(
+        elevation: 0,
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('No Secondary students match this filter yet.'),
+        ),
+      );
+    }
+    return Card(
         elevation: 0,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -247,26 +268,18 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
           ]),
         ),
       );
+  }
 
-  Widget _priorityQueue(BuildContext context) => Card(
+  Widget _priorityQueue(BuildContext context) => const Card(
         elevation: 0,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Priority intervention queue', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            _priority('At risk', 'Yusuf Bello · JSS 2B', 'Attendance 79%, average 48%, two incidents. Coordinate teacher + guardian intervention.', 'Start follow-up', 'communication'),
-            _priority('Watch', 'Ibrahim Sani · JSS 2A', 'Recent performance decline despite acceptable attendance. Review assessment pattern.', 'Review performance', 'results'),
-            _priority('Stable', 'Abdullahi Umar · SS 1A', 'Overall stable but below target in Physics and Further Mathematics.', 'Check class context', 'academics'),
+            Text('Priority intervention queue', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            SizedBox(height: 8),
+            Text('No real attendance, assessment or incident evidence exists yet to compute a priority queue from. This will populate once that evidence is recorded, and only from real signals for real students — never from an invented risk label.'),
           ]),
         ),
-      );
-
-  Widget _priority(String risk, String title, String detail, String action, String route) => ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: CircleAvatar(child: Text(risk.substring(0, 1))),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-        subtitle: Text(detail),
-        trailing: TextButton(onPressed: () => widget.onNavigate(route), child: Text(action)),
       );
 
   Widget _aiCard(BuildContext context) => Card(
@@ -276,7 +289,7 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Row(children: [CircleAvatar(child: Text('AI')), SizedBox(width: 10), Expanded(child: Text('Principal AI student insight', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)))]),
             const SizedBox(height: 12),
-            const Text('The strongest combined prototype review signal is in JSS 2B. Academic decline and attendance weakness are appearing together, so intervention should consider both learning support and attendance follow-up rather than treating the issues separately.'),
+            const Text('Not available yet: combined academic, attendance and incident evidence for Secondary students is not recorded yet. Ask Principal AI once real evidence exists.'),
             const SizedBox(height: 12),
             Wrap(spacing: 8, children: [OutlinedButton(onPressed: () => widget.onNavigate('ai'), child: const Text('Ask Principal AI')), OutlinedButton(onPressed: () => widget.onNavigate('academics'), child: const Text('Open class analysis'))]),
           ]),

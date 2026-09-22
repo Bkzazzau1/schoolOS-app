@@ -716,3 +716,32 @@ actually still live (devices, flow, boundary text).
 
 Tests: `test/administrator_attendance_feature_test.dart` rewritten; `test/administrator_attendance_actions_test.dart`
 (pre-existing, exercises the real repository end to end) updated for the new correction attribution.
+
+## Principal: Students now shares Administrator's one real register, instead of its own fake duplicate
+
+Starting the Principal role pass (Owner, Administrator and Teacher are done; Principal is next). The first screen audited
+found the most severe issue of the whole project so far: `principal_students_demo_data.dart` maintained its own
+completely separate, fixed directory of six students — three of them (Maryam Abdullahi, Ibrahim Sani, Yusuf Bello) are
+the *same real students* already in Administrator's real register, re-fabricated independently here with invented
+academic scores, attendance percentages, **incident counts, "at risk"/"needs attention" behaviour labels, guardian phone
+numbers and health-record labels**, none of it real and never reconciled with what Administrator actually has on file.
+Yusuf Bello, a real named child, was tagged `atRisk`/`needsAttention` with two fabricated incidents from nothing — and
+the students page itself additionally hard-coded three more named claims directly in a "Priority intervention queue"
+widget ("Yusuf Bello · JSS 2B: Attendance 79%, average 48%, two incidents...").
+
+`PrincipalStudentsRepository` now takes an `AdministratorStudentsRepository` and derives its directory and every profile
+from that one real register — the same source Administrator and, by extension, any future Teacher-side view already
+use — filtered to the Principal's real Secondary-only scope (`_isSecondary`, mirroring `sectionOfClass` in
+`administrator_attendance_desk.dart` so the two leadership views agree on scope) and excluding transferred-out students.
+Every field with no real source (average, attendance, trend, incidents, interventions, and the whole detailed profile:
+admission number, class teacher, date of birth, subjects, attendance breakdown, promotion history, documents, timeline)
+is honestly empty or `'Not recorded yet'` rather than fabricated; risk and behaviour default to neutral (`stable`/`good`)
+rather than inventing a judgement about a real child from nothing. The hard-coded "Priority intervention queue" and the
+"Principal AI student insight" card's fabricated JSS 2B narrative are replaced with honest "not available yet" notes.
+The class filter now lists the real Secondary classes actually represented, instead of a fixed five-class list.
+Leadership notes and lifecycle proposals (the two genuinely real, teacher-authored actions on this screen) were already
+correctly `isDirty: true` and queued for sync, and are unchanged.
+
+Tests: `test/principal_students_feature_test.dart` rewritten to test the real repository against a real, full register
+(16 students across Nursery through SS3, via `administrator_demo_school.dart`), covering Secondary-only scope, the
+zeroed/honest fields, profile access rules, and the leadership-note/lifecycle-proposal write paths.
