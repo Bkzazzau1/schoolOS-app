@@ -23,7 +23,7 @@ class _TeacherLearningProgressPageState
     extends State<TeacherLearningProgressPage> {
   late Future<TeacherLearningProgressSnapshot> _future;
   String _classFilter = 'All classes';
-  String _selectedId = 'STU-001';
+  String? _selectedId;
   String _evidence = 'All evidence';
 
   @override
@@ -51,6 +51,18 @@ class _TeacherLearningProgressPageState
       );
 
   Widget _content(TeacherLearningProgressSnapshot snapshot) {
+    if (snapshot.students.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            snapshot.classOptions.isEmpty
+                ? 'No classes are assigned to you yet. The owner or the administrator assigns classes to teachers.'
+                : 'No students are on the register for your assigned classes yet.',
+          ),
+        ),
+      );
+    }
     final visible = snapshot.students
         .where((student) =>
             _classFilter == 'All classes' || student.className == _classFilter)
@@ -60,7 +72,7 @@ class _TeacherLearningProgressPageState
       orElse: () => visible.isNotEmpty ? visible.first : snapshot.students.first,
     );
 
-    if (selected.id != _selectedId && visible.isNotEmpty) {
+    if (selected.id != _selectedId) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _selectedId != selected.id) {
           setState(() => _selectedId = selected.id);
@@ -73,14 +85,14 @@ class _TeacherLearningProgressPageState
       children: [
         _header(),
         const SizedBox(height: 16),
-        _kpis(),
+        _kpis(snapshot),
         const SizedBox(height: 16),
         _evidenceFlow(),
         const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 920;
-            final directory = _studentDirectory(visible, selected);
+            final directory = _studentDirectory(snapshot, visible, selected);
             final summary = _studentSummary(selected);
             if (!wide) {
               return Column(
@@ -182,38 +194,47 @@ class _TeacherLearningProgressPageState
         ],
       );
 
-  Widget _kpis() => Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          for (final item in teacherLearningProgressKpis)
-            SizedBox(
-              width: 230,
-              child: Card(
-                elevation: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item.$1),
-                      const SizedBox(height: 5),
-                      Text(
-                        item.$2,
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                        ),
+  Widget _kpis(TeacherLearningProgressSnapshot snapshot) {
+    final withEvidence = snapshot.students.where((s) => s.topics.isNotEmpty).length;
+    final kpis = <(String, String, String)>[
+      ('Students tracked', '${snapshot.students.length}', 'Across your assigned classes'),
+      ('Assigned classes', '${snapshot.classOptions.length}', snapshot.classOptions.join(' · ')),
+      ('Evidence sources', '4', 'Classwork · Assignment · Assessment · CBT'),
+      ('Students with topic evidence', '$withEvidence', withEvidence == 0 ? 'None recorded yet' : 'Combined from real modules'),
+    ];
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        for (final item in kpis)
+          SizedBox(
+            width: 230,
+            child: Card(
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.$1),
+                    const SizedBox(height: 5),
+                    Text(
+                      item.$2,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
                       ),
-                      const SizedBox(height: 3),
-                      Text(item.$3, style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(item.$3, style: const TextStyle(fontSize: 12)),
+                  ],
                 ),
               ),
             ),
-        ],
-      );
+          ),
+      ],
+    );
+  }
 
   Widget _evidenceFlow() => Card(
         elevation: 0,
@@ -259,6 +280,7 @@ class _TeacherLearningProgressPageState
       );
 
   Widget _studentDirectory(
+    TeacherLearningProgressSnapshot snapshot,
     List<TeacherLearningStudentEvidence> visible,
     TeacherLearningStudentEvidence selected,
   ) =>
@@ -289,12 +311,7 @@ class _TeacherLearningProgressPageState
                     child: DropdownButtonFormField<String>(
                       initialValue: _classFilter,
                       isExpanded: true,
-                      items: const [
-                        'All classes',
-                        'JSS 2A',
-                        'JSS 2B',
-                        'JSS 3A',
-                      ]
+                      items: ['All classes', ...snapshot.classOptions]
                           .map((value) => DropdownMenuItem(
                                 value: value,
                                 child: Text(value),
@@ -329,8 +346,6 @@ class _TeacherLearningProgressPageState
                               Text(student.name,
                                   style: const TextStyle(fontWeight: FontWeight.w800)),
                               Text('${student.className} · ${student.subject}'),
-                              Text(student.id,
-                                  style: const TextStyle(fontSize: 12)),
                             ],
                           ),
                         ),
@@ -357,6 +372,24 @@ class _TeacherLearningProgressPageState
       );
 
   Widget _studentSummary(TeacherLearningStudentEvidence selected) {
+    if (selected.topics.isEmpty) {
+      return Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(selected.name,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+              Text('${selected.className} · ${selected.subject}'),
+              const SizedBox(height: 12),
+              Text(teacherLearningNoEvidenceNote),
+            ],
+          ),
+        ),
+      );
+    }
     final weakest = selected.weakestTopic;
     final strongest = selected.strongestTopic;
     final suggestion = weakest.trend < 0
@@ -486,33 +519,36 @@ class _TeacherLearningProgressPageState
               const Text(
                   'Compare evidence sources before deciding that a learner has a weak area.'),
               const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('Topic')),
-                    DataColumn(label: Text('Classwork')),
-                    DataColumn(label: Text('Assignment')),
-                    DataColumn(label: Text('Assessment')),
-                    DataColumn(label: Text('CBT')),
-                    DataColumn(label: Text('Combined')),
-                    DataColumn(label: Text('Trend')),
-                  ],
-                  rows: [
-                    for (final topic in selected.topics)
-                      DataRow(cells: [
-                        DataCell(Text(topic.name,
-                            style: const TextStyle(fontWeight: FontWeight.w800))),
-                        DataCell(Text('${topic.classwork}%')),
-                        DataCell(Text('${topic.assignment}%')),
-                        DataCell(Text('${topic.assessment}%')),
-                        DataCell(Text('${topic.cbt}%')),
-                        DataCell(Text('${topic.combined}%')),
-                        DataCell(Text('${topic.trend > 0 ? '+' : ''}${topic.trend}%')),
-                      ]),
-                  ],
+              if (selected.topics.isEmpty)
+                Text(teacherLearningNoEvidenceNote)
+              else
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('Topic')),
+                      DataColumn(label: Text('Classwork')),
+                      DataColumn(label: Text('Assignment')),
+                      DataColumn(label: Text('Assessment')),
+                      DataColumn(label: Text('CBT')),
+                      DataColumn(label: Text('Combined')),
+                      DataColumn(label: Text('Trend')),
+                    ],
+                    rows: [
+                      for (final topic in selected.topics)
+                        DataRow(cells: [
+                          DataCell(Text(topic.name,
+                              style: const TextStyle(fontWeight: FontWeight.w800))),
+                          DataCell(Text('${topic.classwork}%')),
+                          DataCell(Text('${topic.assignment}%')),
+                          DataCell(Text('${topic.assessment}%')),
+                          DataCell(Text('${topic.cbt}%')),
+                          DataCell(Text('${topic.combined}%')),
+                          DataCell(Text('${topic.trend > 0 ? '+' : ''}${topic.trend}%')),
+                        ]),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -552,18 +588,7 @@ class _TeacherLearningProgressPageState
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
               const Text('Supportive next steps generated from current evidence.'),
               const SizedBox(height: 12),
-              for (final action in teacherLearningSupportActions) ...[
-                Text('${action.student} · ${action.topic}',
-                    style: const TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text(action.detail),
-                const SizedBox(height: 6),
-                OutlinedButton(
-                  onPressed: () => widget.onNavigate(action.destination),
-                  child: Text(action.actionLabel),
-                ),
-                const SizedBox(height: 10),
-              ],
+              Text(teacherLearningNoActionsNote),
             ],
           ),
         ),

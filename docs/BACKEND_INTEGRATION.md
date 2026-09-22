@@ -526,3 +526,34 @@ like "286 practice attempts" or "Topics needing review: Fractions · Geometry ·
 
 Tests: `test/teacher_cbt_roster_test.dart` (new, against the real roster), `test/teacher_cbt_feature_test.dart` rewritten
 to drop the named-student assertions and cover the new create-draft flow.
+
+## Teacher: Learning Progress lists real students with an honest "no evidence yet" state
+
+This was the most severely fabricated screen found so far. Every widget on the page depended on a fixed list of four
+"students" — three of whose names (Maryam Abdullahi, Ibrahim Sani, Yusuf Bello) are real students in the demo register,
+not placeholders — each carrying invented per-topic scores across four evidence sources (classwork, assignment,
+assessment, CBT) with a fabricated trend, a hard-coded "declining" or "improving" narrative, and a support-action queue
+that named the same real students with a specific, fabricated recommendation ("Ibrahim Sani · Algebra: Declining across
+assessment and CBT evidence"). None of that evidence exists anywhere in the app: no module currently produces
+topic-tagged classwork, assignment, assessment or CBT results to combine.
+
+`TeacherLearningProgressRepository` is now a thin, honest read: it lists the teacher's real students across their real
+assigned classes (from `TeacherRoster`, deduplicated the same way Students and Assessments already do), with `average: 0`,
+`attendance: 0` and an empty `topics` list for every one of them, because there is no real source for any of that yet. It
+no longer persists anything locally either — with nothing to write, the `LocalDatabase` dependency was removed entirely.
+The subject shown per student now comes from the teacher's real class assignment (`AssignedClass.subject`) instead of a
+fixed `'Mathematics'`. On the page, every place that used to read a student's fabricated topic evidence now shows an
+honest note instead once `topics` is empty (which is always, for now): the class summary, the topic evidence matrix, and
+the support-action queue. The KPI strip is computed from the real roster (students tracked, assigned classes) instead of
+fixed numbers like "150 students tracked" or "7 topics needing review". The model's `weakestTopic`/`strongestTopic`/
+`combined`/`isDeclining` logic is unchanged and still used by the page once real topic evidence exists to feed it.
+
+While rewriting the tests, found and fixed a real, pre-existing bug in the "renders on phone" test (one of the original
+19 known failures): a `ListView(children: [...])` only mounts the children within its viewport's cache extent, so a tall
+page's off-screen widgets are genuinely absent from the element tree until scrolled into view — `find.text(...)` on an
+unscrolled far-down widget correctly finds nothing. This was a test bug, not an app bug; fixed with
+`tester.scrollUntilVisible(...)` before the assertion.
+
+Tests: `test/teacher_learning_progress_roster_test.dart` (new, against the real roster),
+`test/teacher_learning_progress_feature_test.dart` rewritten to drop the invented per-topic evidence and named-student
+assertions.

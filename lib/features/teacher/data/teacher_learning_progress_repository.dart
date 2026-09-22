@@ -1,30 +1,35 @@
-import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_learning_progress_models.dart';
-import 'teacher_learning_progress_demo_data.dart';
+import 'teacher_roster.dart';
 
 class TeacherLearningProgressSnapshot {
   const TeacherLearningProgressSnapshot({
     required this.students,
+    required this.classOptions,
     required this.permissions,
   });
 
   final List<TeacherLearningStudentEvidence> students;
+
+  /// The teacher's real assigned classes.
+  final List<String> classOptions;
+
   final TeacherLearningProgressPermissions permissions;
 }
 
+/// Combines evidence about a teacher's real assigned students. Each student is real, from the school's real
+/// register; their per-topic evidence is empty for now because no module (classwork, assignments, assessments or
+/// CBT) yet produces topic-tagged results to combine, and no evidence is invented in its place.
 class TeacherLearningProgressRepository {
   TeacherLearningProgressRepository({
-    required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+    required TeacherRoster roster,
+  })  : _schoolSession = schoolSession,
+        _roster = roster;
 
-  static const _studentEvidenceType = 'teacher_learning_progress_student';
-
-  final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final TeacherRoster _roster;
 
   TeacherLearningProgressPermissions permissionsFor(SchoolMembership membership) {
     final teacher = membership.role == SchoolRole.teacher;
@@ -41,42 +46,32 @@ class TeacherLearningProgressRepository {
 
   Future<TeacherLearningProgressSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
+    final assignedClasses = await _roster.assignedClasses(membership);
+    final classNames = {for (final c in assignedClasses) c.className}.toList()..sort();
+    final subjectByClass = {for (final c in assignedClasses) c.className: c.subject};
 
-    final records = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _studentEvidenceType,
-    );
-    final parsed = records
-        .map((record) => TeacherLearningStudentEvidence.fromJson(record.payload))
-        .toList(growable: false);
-    final order = {
-      for (var i = 0; i < teacherLearningStudents.length; i++)
-        teacherLearningStudents[i].id: i,
-    };
-    parsed.sort((a, b) =>
-        (order[a.id] ?? 999).compareTo(order[b.id] ?? 999));
+    final seen = <String>{};
+    final students = <TeacherLearningStudentEvidence>[];
+    for (final className in classNames) {
+      for (final student in await _roster.studentsIn(className)) {
+        if (!seen.add(student.id)) continue;
+        students.add(TeacherLearningStudentEvidence(
+          id: student.id,
+          name: student.name,
+          className: student.className,
+          subject: subjectByClass[className] ?? '',
+          average: 0,
+          attendance: 0,
+          topics: const [],
+        ));
+      }
+    }
+    students.sort((a, b) => a.name.compareTo(b.name));
 
     return TeacherLearningProgressSnapshot(
-      students: parsed,
+      students: students,
+      classOptions: classNames,
       permissions: permissionsFor(membership),
     );
-  }
-
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    final existing = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _studentEvidenceType,
-    );
-    if (existing.isNotEmpty) return;
-
-    for (final student in teacherLearningStudents) {
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: _studentEvidenceType,
-        entityId: student.id,
-        payload: student.toJson(),
-      );
-    }
   }
 }

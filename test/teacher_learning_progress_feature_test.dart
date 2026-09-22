@@ -6,74 +6,64 @@ import 'package:schoolos_app/features/teacher/domain/teacher_learning_progress_m
 import 'package:schoolos_app/features/teacher/presentation/teacher_learning_progress_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+const _teacher = SchoolMembership(
+  id: 'teacher-1',
+  schoolId: 'school-1',
+  schoolName: 'BrightGate Academy',
+  role: SchoolRole.teacher,
+);
+
 void main() {
-  test('Learning Progress preserves exact website KPI and evidence flow', () {
-    expect(teacherLearningProgressKpis, hasLength(4));
-    expect(teacherLearningProgressKpis[0],
-        ('Students tracked', '150', 'Across assigned classes'));
-    expect(teacherLearningProgressKpis[1].$2, '4');
-    expect(teacherLearningProgressKpis[2].$2, '7');
-    expect(teacherLearningProgressKpis[3].$2, '12');
+  test('evidence flow and interpretation principles are present and unchanged', () {
     expect(teacherLearningEvidenceFlow, hasLength(5));
     expect(teacherLearningEvidenceFlow.first, ('Classwork', 'Daily understanding'));
     expect(teacherLearningEvidenceFlow.last,
         ('Learning Intelligence', 'Topic trend + next action'));
+    expect(teacherLearningInterpretationPrinciples, hasLength(4));
   });
 
-  test('Learning Progress preserves four website learners and sixteen topic rows', () {
-    expect(teacherLearningStudents, hasLength(4));
-    expect(
-      teacherLearningStudents.fold<int>(0, (sum, student) => sum + student.topics.length),
-      16,
+  test('topic combined evidence and weakest/strongest calculations', () {
+    const student = TeacherLearningStudentEvidence(
+      id: 'stu-1',
+      name: 'Learner One',
+      className: 'JSS 2A',
+      subject: 'Mathematics',
+      average: 0,
+      attendance: 0,
+      topics: [
+        TeacherLearningTopicEvidence(name: 'Fractions', classwork: 58, assignment: 61, assessment: 60, cbt: 62, trend: 3),
+        TeacherLearningTopicEvidence(name: 'Algebra', classwork: 88, assignment: 91, assessment: 89, cbt: 92, trend: 6),
+      ],
     );
-    expect(teacherLearningStudents[0].name, 'Maryam Abdullahi');
-    expect(teacherLearningStudents[0].average, 86);
-    expect(teacherLearningStudents[0].attendance, 96);
-    expect(teacherLearningStudents[1].name, 'Ibrahim Sani');
-    expect(teacherLearningStudents[1].average, 61);
-    expect(teacherLearningStudents[2].name, 'Yusuf Bello');
-    expect(teacherLearningStudents[2].attendance, 79);
-    expect(teacherLearningStudents[3].name, 'Fatima Musa');
-    expect(teacherLearningStudents[3].average, 91);
-  });
+    expect(student.topics[0].combined, 60);
+    expect(student.weakestTopic.name, 'Fractions');
+    expect(student.strongestTopic.name, 'Algebra');
+    expect(student.strongestTopic.combined, 90);
+    expect(student.topics[0].isDeclining, isFalse);
 
-  test('topic combined evidence and weakest strongest calculations match website logic', () {
-    final maryam = teacherLearningStudents[0];
-    expect(maryam.topics[0].combined, 60);
-    expect(maryam.weakestTopic.name, 'Fractions');
-    expect(maryam.strongestTopic.name, 'Algebra');
-    expect(maryam.strongestTopic.combined, 90);
-    expect(maryam.weakestTopic.trend, 3);
-
-    final ibrahim = teacherLearningStudents[1];
-    expect(ibrahim.weakestTopic.name, 'Fractions');
-    expect(ibrahim.topics.first.isDeclining, isTrue);
-    expect(ibrahim.topics.first.trend, -4);
-
-    final yusuf = teacherLearningStudents[2];
-    expect(yusuf.weakestTopic.name, 'Fractions');
-    expect(yusuf.weakestTopic.combined, 40);
-    expect(yusuf.topics.first.trend, -7);
+    const declining = TeacherLearningTopicEvidence(
+      name: 'Geometry', classwork: 40, assignment: 38, assessment: 35, cbt: 37, trend: -4,
+    );
+    expect(declining.isDeclining, isTrue);
   });
 
   test('learning evidence serializes without losing topic-level detail', () {
-    final restored = TeacherLearningStudentEvidence.fromJson(
-      teacherLearningStudents.first.toJson(),
+    const student = TeacherLearningStudentEvidence(
+      id: 'stu-1',
+      name: 'Learner One',
+      className: 'JSS 2A',
+      subject: 'Mathematics',
+      average: 0,
+      attendance: 0,
+      topics: [
+        TeacherLearningTopicEvidence(name: 'Fractions', classwork: 58, assignment: 61, assessment: 60, cbt: 62, trend: 3),
+      ],
     );
-    expect(restored.id, 'STU-001');
-    expect(restored.topics, hasLength(4));
+    final restored = TeacherLearningStudentEvidence.fromJson(student.toJson());
+    expect(restored.id, 'stu-1');
+    expect(restored.topics, hasLength(1));
     expect(restored.topics.first.name, 'Fractions');
     expect(restored.topics.first.cbt, 62);
-    expect(restored.topics[2].assignment, 91);
-  });
-
-  test('support queue preserves exact three supportive next actions', () {
-    expect(teacherLearningSupportActions, hasLength(3));
-    expect(teacherLearningSupportActions[0].student, 'Maryam Abdullahi');
-    expect(teacherLearningSupportActions[0].topic, 'Fractions');
-    expect(teacherLearningSupportActions[0].destination, 'assignments');
-    expect(teacherLearningSupportActions[1].destination, 'lesson-plans');
-    expect(teacherLearningSupportActions[2].destination, 'students');
   });
 
   test('Learning Intelligence governance forbids deterministic child judgments', () {
@@ -89,19 +79,13 @@ void main() {
 
   test('teacher permissions allow review but never ranking diagnosis or decisions', () {
     final fake = _FakeLearningProgressRepository();
-    const teacher = SchoolMembership(
-      id: 'teacher-1',
-      schoolId: 'school-1',
-      schoolName: 'BrightGate Academy',
-      role: SchoolRole.teacher,
-    );
     const parent = SchoolMembership(
       id: 'parent-1',
       schoolId: 'school-1',
       schoolName: 'BrightGate Academy',
       role: SchoolRole.parent,
     );
-    final permissions = fake.permissionsFor(teacher);
+    final permissions = fake.permissionsFor(_teacher);
     expect(permissions.canViewAssignedLearners, isTrue);
     expect(permissions.canViewMultiEvidence, isTrue);
     expect(permissions.canSuggestSupport, isTrue);
@@ -112,8 +96,7 @@ void main() {
     expect(fake.permissionsFor(parent).canViewAssignedLearners, isFalse);
   });
 
-  testWidgets('Learning Progress renders website evidence and Maryam summary',
-      (tester) async {
+  testWidgets('Learning Progress renders real students with an honest no-evidence note, not invented scores', (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -130,18 +113,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Learning Progress & Performance'), findsOneWidget);
-    expect(find.text('150'), findsOneWidget);
-    expect(find.text('Maryam Abdullahi'), findsWidgets);
-    expect(find.text('Main practice area'), findsOneWidget);
-    expect(find.text('Fractions'), findsWidgets);
-    expect(find.text('90%'), findsWidgets);
+    expect(find.text('2'), findsWidgets); // Students tracked + Assigned classes KPIs
+    expect(find.text('Learner One'), findsWidgets);
+    expect(find.textContaining('No classwork, assignment, assessment or CBT evidence'), findsWidgets);
+    expect(find.textContaining('No support actions are suggested yet'), findsOneWidget);
     expect(find.text('Topic evidence matrix'), findsOneWidget);
     expect(find.text('Learning Intelligence rule'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Learning Progress connected actions route to dedicated Teacher modules',
-      (tester) async {
+  testWidgets('Learning Progress connected actions route to dedicated Teacher modules', (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -172,6 +153,23 @@ void main() {
     expect(destination, 'students');
   });
 
+  testWidgets('a teacher with no assigned classes sees an honest empty state, not a crash', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TeacherLearningProgressPage(
+            repository: _EmptyFakeLearningProgressRepository(),
+            onNavigate: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('No classes are assigned to you yet'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Learning Progress renders on phone without exceptions', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -191,6 +189,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Students'), findsWidgets);
+    // The rest of the page is below the fold on a phone viewport, so scroll to it rather than
+    // asserting on unmounted off-screen widgets.
+    await tester.scrollUntilVisible(find.text('Evidence interpretation'), 400);
+    await tester.pumpAndSettle();
     expect(find.text('Evidence interpretation'), findsOneWidget);
     expect(find.text('Teacher action queue'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -198,6 +200,28 @@ void main() {
 }
 
 class _FakeLearningProgressRepository implements TeacherLearningProgressRepository {
+  final students = const [
+    TeacherLearningStudentEvidence(
+      id: 'stu-1',
+      name: 'Learner One',
+      className: 'JSS 2A',
+      subject: 'Mathematics',
+      average: 0,
+      attendance: 0,
+      topics: [],
+    ),
+    TeacherLearningStudentEvidence(
+      id: 'stu-2',
+      name: 'Learner Two',
+      className: 'JSS 2B',
+      subject: 'Mathematics',
+      average: 0,
+      attendance: 0,
+      topics: [],
+    ),
+  ];
+  final classOptions = const ['JSS 2A', 'JSS 2B'];
+
   @override
   TeacherLearningProgressPermissions permissionsFor(SchoolMembership membership) {
     final teacher = membership.role == SchoolRole.teacher;
@@ -213,16 +237,29 @@ class _FakeLearningProgressRepository implements TeacherLearningProgressReposito
   }
 
   @override
-  Future<TeacherLearningProgressSnapshot> load() async =>
-      TeacherLearningProgressSnapshot(
-        students: teacherLearningStudents,
-        permissions: permissionsFor(
-          const SchoolMembership(
-            id: 'teacher-1',
-            schoolId: 'school-1',
-            schoolName: 'BrightGate Academy',
-            role: SchoolRole.teacher,
-          ),
-        ),
+  Future<TeacherLearningProgressSnapshot> load() async => TeacherLearningProgressSnapshot(
+        students: students,
+        classOptions: classOptions,
+        permissions: permissionsFor(_teacher),
+      );
+}
+
+class _EmptyFakeLearningProgressRepository implements TeacherLearningProgressRepository {
+  @override
+  TeacherLearningProgressPermissions permissionsFor(SchoolMembership membership) => const TeacherLearningProgressPermissions(
+        canViewAssignedLearners: true,
+        canViewMultiEvidence: true,
+        canSuggestSupport: true,
+        canPubliclyRankChildren: false,
+        canDiagnoseCondition: false,
+        canMakePromotionDecision: false,
+        canMakePunishmentDecision: false,
+      );
+
+  @override
+  Future<TeacherLearningProgressSnapshot> load() async => TeacherLearningProgressSnapshot(
+        students: const [],
+        classOptions: const [],
+        permissions: permissionsFor(_teacher),
       );
 }
