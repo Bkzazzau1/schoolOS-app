@@ -154,11 +154,11 @@ class _PrincipalProfilePageState extends State<PrincipalProfilePage> {
       }),
       const SizedBox(height: 16),
       LayoutBuilder(builder: (context, constraints) {
-        const activity = _ActivityCard();
-        const identity = _SchoolIdentityCard();
+        final activity = _ActivityCard(items: snapshot.activity);
+        final identity = _SchoolIdentityCard(identity: snapshot.schoolIdentity);
         return constraints.maxWidth >= 980
-            ? const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: activity), SizedBox(width: 16), Expanded(child: identity)])
-            : const Column(children: [activity, SizedBox(height: 16), identity]);
+            ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: activity), const SizedBox(width: 16), Expanded(child: identity)])
+            : Column(children: [activity, const SizedBox(height: 16), identity]);
       }),
     ]);
   }
@@ -209,8 +209,8 @@ class _Overview extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Text('ACTIVE PRINCIPAL PROFILE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-                  Text(account.displayName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                  const Text('Principal · Secondary School · Kaduna Campus'),
+                  Text(account.displayName.isEmpty ? 'Not set yet' : account.displayName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                  const Text('Principal · Secondary School'),
                 ])),
                 const Chip(label: Text('Active')),
               ]),
@@ -218,8 +218,8 @@ class _Overview extends StatelessWidget {
           ),
         ),
         _ContextCard(label: 'ROLE CONTEXT', value: 'Principal', note: 'Secondary School academic and operational leadership'),
-        _ContextCard(label: 'ACTIVE WORKSPACE', value: schoolName, note: principalProfileTermLabel),
-        const _ContextCard(label: 'LAST SIGN-IN', value: principalProfileLastSignIn, note: 'Prototype security activity'),
+        _ContextCard(label: 'ACTIVE WORKSPACE', value: schoolName, note: 'Secondary School'),
+        const _ContextCard(label: 'LAST SIGN-IN', value: 'Not tracked yet', note: 'No sign-in history is recorded yet'),
       ]);
 }
 
@@ -319,7 +319,6 @@ class _WorkspaceCard extends StatelessWidget {
             const Text('Your access is derived from the active school, campus, section and role membership.'),
             const SizedBox(height: 12),
             _Line('School', schoolName),
-            const _Line('Campus', 'Kaduna Campus'),
             const _Line('Section', 'Secondary School'),
             const _Line('Membership', 'Active'),
             const _Line('Role', 'Principal'),
@@ -408,9 +407,9 @@ class _SecurityCard extends StatelessWidget {
             const Text('Security', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
             const Text('Account protection and access history.'),
             const SizedBox(height: 12),
-            _SecurityRow(label: 'Password', value: 'Last changed 42 days ago', action: 'Change password', onTap: () => onNotice('Password-change flow is UI-only in the current prototype.')),
-            _SecurityRow(label: 'Two-step verification', value: 'Recommended', action: 'Set up', onTap: () => onNotice('Two-step verification setup will be connected when authentication is wired.')),
-            _SecurityRow(label: 'Active sessions', value: '1 current session', action: 'Review sessions', onTap: () => onNotice('Session-management controls are UI-only in the current prototype.')),
+            _SecurityRow(label: 'Password', value: 'Not tracked yet', action: 'Change password', onTap: () => onNotice('Password-change flow is UI-only in the current prototype.')),
+            _SecurityRow(label: 'Two-step verification', value: 'Not set up', action: 'Set up', onTap: () => onNotice('Two-step verification setup will be connected when authentication is wired.')),
+            _SecurityRow(label: 'Active sessions', value: 'Not tracked yet', action: 'Review sessions', onTap: () => onNotice('Session-management controls are UI-only in the current prototype.')),
             if (notice != null) ...[const SizedBox(height: 10), Text(notice!, style: const TextStyle(fontWeight: FontWeight.w600))],
           ]),
         ),
@@ -433,7 +432,8 @@ class _SecurityRow extends StatelessWidget {
 }
 
 class _ActivityCard extends StatelessWidget {
-  const _ActivityCard();
+  const _ActivityCard({required this.items});
+  final List<PrincipalProfileActivity> items;
   @override
   Widget build(BuildContext context) => Card(
         elevation: 0,
@@ -441,9 +441,10 @@ class _ActivityCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Recent principal activity', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-            const Text('Prototype audit trail of Secondary School leadership actions.'),
+            const Text('Your own real actions from Incidents, Approvals and Communication.'),
             const SizedBox(height: 10),
-            for (final item in principalProfileRecentActivity)
+            if (items.isEmpty) const Text('No actions have been recorded from this membership yet.'),
+            for (final item in items)
               ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.history), title: Text(item.action, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(item.time)),
           ]),
         ),
@@ -451,7 +452,8 @@ class _ActivityCard extends StatelessWidget {
 }
 
 class _SchoolIdentityCard extends StatelessWidget {
-  const _SchoolIdentityCard();
+  const _SchoolIdentityCard({required this.identity});
+  final PrincipalSchoolIdentity identity;
   @override
   Widget build(BuildContext context) => Card(
         elevation: 0,
@@ -461,10 +463,10 @@ class _SchoolIdentityCard extends StatelessWidget {
             const Text('School identity', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
             const Text('Read-only in the principal portal.'),
             const SizedBox(height: 12),
-            _Line('School', principalSchoolIdentity.name),
-            _Line('Address', principalSchoolIdentity.address),
-            _Line('Phone', principalSchoolIdentity.phone),
-            _Line('Branches', principalSchoolIdentity.branches.join(' · ')),
+            _Line('School', identity.name),
+            _Line('Address', identity.address ?? 'Not recorded yet'),
+            _Line('Phone', identity.phone ?? 'Not recorded yet'),
+            _Line('Branches', identity.branches.isEmpty ? 'Not recorded yet' : identity.branches.join(' · ')),
             const SizedBox(height: 10),
             const Text(principalSchoolIdentityBoundary, style: TextStyle(fontWeight: FontWeight.w600)),
           ]),

@@ -94,22 +94,27 @@ class PrincipalNotificationPreferences {
       );
 }
 
+/// One real action this Principal actually took, drawn from the Incidents, Approvals or
+/// Communication audit trail. [time] is the real ISO timestamp recorded when it happened.
 class PrincipalProfileActivity {
   const PrincipalProfileActivity({required this.time, required this.action});
   final String time;
   final String action;
 }
 
+/// [name] is the real school name from the active membership. Nothing else about the
+/// school's physical identity (address, phone, branches) has a real source anywhere in the
+/// app yet, so those stay `null`/empty rather than inventing a plausible-looking address.
 class PrincipalSchoolIdentity {
   const PrincipalSchoolIdentity({
     required this.name,
-    required this.address,
-    required this.phone,
-    required this.branches,
+    this.address,
+    this.phone,
+    this.branches = const [],
   });
   final String name;
-  final String address;
-  final String phone;
+  final String? address;
+  final String? phone;
   final List<String> branches;
 }
 

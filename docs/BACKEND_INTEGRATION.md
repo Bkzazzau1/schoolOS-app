@@ -994,3 +994,30 @@ demo school (attendance and syllabus have deterministic real demo sources; acade
 and resolved incidents do not until something is actually recorded), that a real assessment record raises the real
 academic-average metric and its matching class-health row together, that real recorded incidents raise the real
 resolved-incidents metric, and permission restriction for non-principal roles.
+
+## Principal: Profile
+
+The account-edit form itself was already real (a genuine editable profile, saved offline and queued for sync), but
+three parts of the surrounding page were fabricated: a default profile pre-filled with a specific invented person
+("Mr. Ibrahim Danladi"), a "recent activity" log naming a real staff member in an action that never happened
+("Reviewed Mrs. Amina Yusuf lesson plan") and a fake incident id, a "School identity" card with an invented address,
+phone and branch list, and a fixed "Last sign-in" timestamp with no real source.
+
+**Real source:** the default account is now blank (empty name/email/phone) rather than a specific invented person,
+so the Principal fills in their own real details the first time they use the screen. "Recent principal activity" is
+now a genuine cross-repository roll-up: `PrincipalProfileRepository` reads this Principal's own real actions from
+the Incidents audit trail, the Approvals decision trail and the Communication outgoing log (all three already real
+from earlier in this audit), filters to entries this specific membership authored, and sorts them newest first. The
+"School identity" card's school name is the real `schoolName` already carried on the active membership.
+
+**No real source — left honest:** the school's address, phone and branch list have no real source anywhere in the
+app (not even on the Owner/Administrator side), so they now show "Not recorded yet" instead of an invented address.
+"Last sign-in" and the Security card's password-age/2FA/session values have no real source either (no sign-in or
+session history is tracked anywhere yet) and now say "Not tracked yet"/"Not set up" instead of a specific invented
+claim.
+
+Tests: `test/principal_profile_feature_test.dart` rewritten against the real repository: a fresh school has no
+activity; a real incident note, a real queued announcement and a real approval decision (built through the actual
+lesson-plan submission and review workflow) each appear in real activity, sorted newest first; activity and outgoing
+content are correctly scoped to the authoring membership, not shared with another principal in the same school; and
+saving the account profile round-trips and queues for sync.

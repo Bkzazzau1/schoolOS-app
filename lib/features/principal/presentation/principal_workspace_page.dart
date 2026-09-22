@@ -113,7 +113,13 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
     _timetable = PrincipalTimetableRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _communication = PrincipalCommunicationRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _incidents = PrincipalIncidentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
-    _profile = PrincipalProfileRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _profile = PrincipalProfileRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+      incidents: _incidents,
+      approvals: _approvals,
+      communication: _communication,
+    );
     _performance = PrincipalPerformanceRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
