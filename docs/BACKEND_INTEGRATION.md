@@ -1323,3 +1323,49 @@ Full suite: 1085 passing, same 8 pre-existing unrelated failures, zero regressio
 ---
 
 **This completes the Finance Office role audit.**
+
+## Parent (role): audit begins with My Children
+
+Unlike Finance Office, every one of Parent's eleven screens already has its own repository, and a first sweep found
+almost no dead code — every constant each `parent_*_demo_data.dart` file exports is genuinely rendered somewhere.
+The problem here is different: each screen's repository is real plumbing (`LocalDatabase`/`SchoolSessionController`)
+wrapped around a single, fully fabricated fixed snapshot, so the *shape* looks real but the *content* never was. And
+because at least three separate screens (Children, Dashboard, Attendance) each keep their own independent fixed
+per-child dataset for the exact same two real students, they don't even agree with each other — Children says
+Maryam Abdullahi's attendance is "96%," Dashboard's own separate fixed snapshot also says "96%" today but would
+drift the moment either one changed, and neither number was ever actually computed from anything.
+
+**Fixed first — My Children, the most foundational screen everything else keys off:** `ParentChildrenRepository`
+returned one hard-coded `parentDefaultChildren` snapshot: real student ids (STU-001 Maryam Abdullahi, PRI-003 Hafsa
+Abdullahi) wrapped in entirely invented attendance/learning percentages, a specific bank account number and payment
+plan, a fabricated event timeline ("Mathematics assessment posted · 88%", "Term fee payment received · ₦60,000"),
+house assignment and class-teacher name.
+
+There is no real guardian-linking workflow anywhere in the app yet (no admin screen assigns a parent membership to
+specific children), so *which* children are linked stays a seed — the same "a real workflow will replace this later"
+pattern already used for Admissions and Registration — now persisted as a real local record via a new
+`replaceLinkedChildren` method a future server sync can call. But every fact *about* each linked child is now
+computed live from the same real sources every other role already uses:
+- Identity, class and section come from `AdministratorStudentsRepository` (the one real register).
+- Attendance is today's real gate-scan status from `AdministratorAttendanceRepository`, matched by name to the real
+  register the same way Principal Attendance already does — never a fabricated running percentage, since the real
+  source only keeps today's record.
+- The real account balance comes from `FinanceLedgerRepository.accounts()` — the same ledger Finance Office uses,
+  so a parent's "amount owed" can never drift from what Finance actually sees.
+
+**No real source — left honest:** admission number, class teacher, house, transport, payment account/plan,
+activities, per-subject progress and the event timeline all have no real source at this summary level (a "form
+teacher" isn't a concept the real assignment data tracks; no house system, transport-to-child link surfaced here, or
+unified event log exists yet) and now read `'Not recorded yet'`/empty instead of an invented specific claim.
+Per-subject learning detail is deferred to the dedicated Learning Progress screen, which needs its own real fix
+rather than duplicating a summary here.
+
+Tests: `test/parent_children_feature_test.dart` — the first test coverage this repository has ever had. Confirms
+linked children are the real register entries, every no-real-source field is honestly labelled, attendance is a
+real status (never a fixed percentage), the balance matches what `FinanceLedgerRepository` independently reports for
+the same student, and permission/validation checks. Full suite: 1092 passing, same 8 pre-existing unrelated
+failures, zero regressions.
+
+Given how large this role is (eleven screens, several already found to disagree with each other about the same real
+children), the remaining ten screens — Dashboard, Learning Progress, Weekly Learning, Attendance, Finance, Messages,
+Discussions, School Life, Documents, AI — are still to come, in the same pattern.

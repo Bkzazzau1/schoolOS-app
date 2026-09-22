@@ -7,9 +7,13 @@ import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/data/administrator_attendance_repository.dart';
+import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../finance_office/data/finance_ledger_repository.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
+import '../../proprietor/data/concession_repository.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
@@ -92,6 +96,14 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
     _childrenRepository = ParentChildrenRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+      students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      attendance: AdministratorAttendanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      ledger: FinanceLedgerRepository(
+        database: widget.localDatabase,
+        session: widget.schoolSession,
+        students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+        concessions: ConcessionRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      ),
     );
     _learningProgressRepository = ParentLearningProgressRepository(
       localDatabase: widget.localDatabase,
