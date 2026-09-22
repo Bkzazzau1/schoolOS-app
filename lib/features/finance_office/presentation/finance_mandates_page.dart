@@ -56,6 +56,10 @@ class _FinanceMandatesPageState extends State<FinanceMandatesPage> {
       padding: const EdgeInsets.all(20),
       children: [
         _Header(onPrototype: _headerPrototype),
+        const SizedBox(height: 12),
+        const _SampleDataBanner(
+          text: 'This screen shows sample payment mandates, not real ones. Finance AI already treats payment mandates as not recorded yet; this screen has no real bank/provider connection either.',
+        ),
         const SizedBox(height: 18),
         const _KpiWrap(),
         const SizedBox(height: 18),
@@ -502,6 +506,26 @@ class _WorkflowStep extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SampleDataBanner extends StatelessWidget {
+  const _SampleDataBanner({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: .35),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.science_outlined, size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600))),
+        ]),
+      );
 }
 
 class _ControlBoundary extends StatelessWidget {

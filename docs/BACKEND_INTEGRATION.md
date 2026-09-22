@@ -1291,3 +1291,35 @@ its still-live assertions. Real coverage for all of this already exists and was 
 `finance_dashboard_test.dart`, `finance_aging_reminders_test.dart`, `finance_reports_ai_reconciliation_test.dart`,
 `finance_pages_test.dart`, `proprietor_finance_test.dart`. Full suite: 1085 passing, same 8 pre-existing unrelated
 failures, zero regressions.
+
+## Finance Office: the four remaining fully-static screens now say so plainly
+
+Followed up on the four screens flagged as "not yet audited": Cashflow, Collections, Mandates and Store. Fee
+Structure and Receipts turned out to already be real (`FinanceLedgerRepository`); Concessions was already real too
+(`FinanceConcessionsRepository`, a genuine seed-then-real-workflow pattern matching Admissions/Lifecycle from the
+Administrator audit, with its own funding-source breakdown already explicitly labelled "sample").
+
+Cashflow, Collections, Mandates and Store are each a fully self-contained `StatefulWidget` with no repository, no
+`LocalDatabase`, at all — every number and row is a fixed constant, and in Collections/Mandates/Store several rows
+name real students from the register (Maryam Abdullahi, Hafsa Abdullahi, Yusuf Bello, Zainab Aliyu) with invented
+bank account numbers, transaction references and payment amounts attached. `finance_facts.dart`'s own
+`FinanceAiService` already treats the school store, expenses/cashflow and payment mandates as intentionally "not
+recorded yet" — this looks like deliberate, acknowledged future scope rather than an oversight, and building four
+real banking/inventory/standing-order integrations from scratch was judged well outside this pass. Each page already
+had a boundary-text disclaimer, but only covering the *action buttons* ("this does not post a real payment"), never
+the *displayed data itself* — a user could scroll through several screens of real-looking student names, account
+numbers and transaction history before reaching a buried footnote that didn't actually address what they'd just
+read.
+
+Added a prominent, plainly-worded banner directly under the header of all four pages — "This screen shows sample
+&lt;family accounts / income and expense entries / payment mandates / store orders&gt;, not real ones," each
+naming the matching `FinanceAiService` boundary where relevant — instead of leaving the fabricated-looking data to
+speak for itself. This is the same proportionate "label it, don't fake a fix" treatment already used for
+Administrator's Operations/Students screens and Principal's Timetable.
+
+No dead code found in any of the four (every constant they export is genuinely rendered); no test changes needed.
+Full suite: 1085 passing, same 8 pre-existing unrelated failures, zero regressions.
+
+---
+
+**This completes the Finance Office role audit.**
