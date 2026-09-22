@@ -327,6 +327,11 @@ class _TrendingView extends StatelessWidget {
           subtitle: 'Topics gaining the most recent posts, comments and reactions.',
           child: Column(
             children: [
+              if (snapshot.trends.isEmpty)
+                Text(
+                  'No real school-wide discussion community exists yet, so there is nothing to rank.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
               for (final item in snapshot.trends)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -344,6 +349,14 @@ class _TrendingView extends StatelessWidget {
           subtitle: 'Aggregate discussion activity only.',
           child: Column(
             children: [
+              if (snapshot.pulse.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Text(
+                    'No real cross-family activity is recorded yet.',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                ),
               for (final item in snapshot.pulse) ...[
                 Row(children: [Expanded(child: Text(item.label)), Text('${item.value}', style: const TextStyle(fontWeight: FontWeight.w800))]),
                 const SizedBox(height: 6),

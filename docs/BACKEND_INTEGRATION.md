@@ -1529,3 +1529,29 @@ family gets exactly one real, empty channel per real linked child rather than a 
 reply is real, survives a reload, and never leaks into a sibling's channel; replying to an unknown channel and an
 empty/overlong body are both rejected; and the permission check behaves correctly. Full suite: 1121 passing, same
 8 pre-existing unrelated failures, zero regressions.
+
+## Parent: Discussions no longer shows a fake community
+
+`ParentDiscussionsRepository` seeded an entire fabricated school community: fixed KPIs ("46 active discussions",
+"183 comments"), five posts from five fully invented parent/teacher identities (again including the already-fake
+"Mrs. Amina Yusuf"), and fabricated "trending topics" and "community pulse" percentages with no real cross-family
+activity behind any of it. `queuePost` compounded this by fabricating the *logged-in guardian's own* identity too,
+crediting every real post the family actually wrote to an invented name, "Alhaji Abdullahi Yusuf", instead of the
+guardian who wrote it. No other role in the app has anything resembling a real discussion/community backend to
+redirect to, unlike Weekly Learning or Messages.
+
+**Real, honest replacement:** `load()` now reads only the real posts this specific family has actually queued on
+this device (there is no real multi-family sync to show anyone else's), computing `activeDiscussions`, `parentPosts`
+and `commentCount` live from those real posts every time instead of a fixed starting number that could drift from
+what is actually displayed. `queuePost` now credits a real post to `'You'`, the same honest convention already
+used for a guardian's own real messages, instead of an invented name. `trends` and `pulse` are honestly empty — no
+real trending-topic or cross-family engagement computation is possible without a real community behind them — and
+the page now says so explicitly instead of silently rendering nothing. The existing real actions (`queueReaction`,
+`queueCommentAction`, `toggleFollow`, `report`) are unchanged in their own validation and now operate on these real
+posts instead of a fabricated set.
+
+Tests: `test/parent_discussions_feature_test.dart`, the first coverage this repository has had. Confirms a fresh
+family sees a genuinely empty community rather than fabricated posts and trends; a queued post is real, survives a
+reload, is credited to "You", and drives the KPI counts honestly; reacting, commenting and following persist and
+feed the comment-count KPI; reporting is idempotent; acting on an unknown post is rejected; and the permission
+check behaves correctly. Full suite: 1127 passing, same 8 pre-existing unrelated failures, zero regressions.

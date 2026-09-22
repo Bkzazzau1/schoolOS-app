@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/parent_discussions_models.dart';
-import 'parent_discussions_demo_data.dart';
 
 class ParentDiscussionsRepository {
   ParentDiscussionsRepository({
@@ -12,7 +11,6 @@ class ParentDiscussionsRepository {
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession;
 
-  static const _snapshotEntityType = 'parent_discussions_snapshot';
   static const _postEntityType = 'parent_discussion_post';
   static const _reactionEntityType = 'parent_discussion_reaction';
   static const _commentEntityType = 'parent_discussion_comment_action';
@@ -22,22 +20,28 @@ class ParentDiscussionsRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
+  /// No real school-wide discussion community exists anywhere in the app (no other role has one
+  /// either), so this reads only the real posts this specific family has actually queued on this
+  /// device — never a fabricated feed of other families' posts, trending topics or engagement
+  /// percentages. `activeDiscussions`/`parentPosts`/`commentCount` are derived live from those real
+  /// posts every time, instead of a fixed starting number, so they can never drift from what is
+  /// actually shown below them.
   Future<ParentDiscussionsSnapshot> load() async {
     final membership = _requireParentMembership();
-    final record = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
+    final posts = await _realPosts(membership);
+
+    return ParentDiscussionsSnapshot(
+      familyAccountId: membership.id,
+      activeDiscussions: posts.length,
+      // Every real post here is guardian-authored; there is no real staff or other-family source.
+      parentPosts: posts.length,
+      commentCount: posts.fold<int>(0, (sum, post) => sum + post.comments),
+      posts: posts,
+      // No real trending-topic or cross-scope engagement computation exists without a real,
+      // multi-family community behind this feed.
+      trends: const [],
+      pulse: const [],
     );
-
-    if (record != null) {
-      final snapshot = ParentDiscussionsSnapshot.fromJson(record.payload);
-      _validateSnapshot(snapshot);
-      return snapshot;
-    }
-
-    await _saveSnapshot(membership, parentDefaultDiscussions);
-    return parentDefaultDiscussions;
   }
 
   Future<ParentDiscussionPost> queuePost({
@@ -62,12 +66,13 @@ class ParentDiscussionsRepository {
       throw ArgumentError.value(body, 'body', 'Discussion messages cannot exceed 4000 characters.');
     }
 
-    final snapshot = await load();
     final now = DateTime.now();
     final id = 'LOCAL-DISC-${membership.id}-${now.toUtc().microsecondsSinceEpoch}';
     final post = ParentDiscussionPost(
       id: id,
-      author: 'Alhaji Abdullahi Yusuf',
+      // No real per-guardian display-name directory exists yet — the same reason Messages already
+      // shows a guardian's own messages as "You" rather than inventing a name.
+      author: 'You',
       scope: scope,
       title: normalizedTitle,
       body: normalizedBody,
@@ -79,7 +84,7 @@ class ParentDiscussionsRepository {
       publicationState: ParentDiscussionPublicationState.queued,
     );
 
-    await _saveSnapshot(membership, snapshot.prependPost(post));
+    await _persistPost(membership, post);
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
@@ -88,7 +93,7 @@ class ParentDiscussionsRepository {
       operation: SyncOperation.create,
       payload: {
         'postId': id,
-        'familyAccountId': snapshot.familyAccountId,
+        'familyAccountId': membership.id,
         'scope': scope.label,
         'title': normalizedTitle,
         'body': normalizedBody,
@@ -102,14 +107,10 @@ class ParentDiscussionsRepository {
 
   Future<void> queueReaction(String postId) async {
     final membership = _requireParentMembership();
-    final snapshot = await load();
-    final post = _requirePost(snapshot, postId);
+    final post = await _requirePost(membership, postId);
     final now = DateTime.now();
 
-    await _saveSnapshot(
-      membership,
-      snapshot.replacePost(post.copyWith(reactions: post.reactions + 1)),
-    );
+    await _persistPost(membership, post.copyWith(reactions: post.reactions + 1));
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
@@ -118,7 +119,7 @@ class ParentDiscussionsRepository {
       operation: SyncOperation.create,
       payload: {
         'postId': post.id,
-        'familyAccountId': snapshot.familyAccountId,
+        'familyAccountId': membership.id,
         'action': 'react',
         'queuedAt': now.toUtc().toIso8601String(),
       },
@@ -127,14 +128,10 @@ class ParentDiscussionsRepository {
 
   Future<void> queueCommentAction(String postId) async {
     final membership = _requireParentMembership();
-    final snapshot = await load();
-    final post = _requirePost(snapshot, postId);
+    final post = await _requirePost(membership, postId);
     final now = DateTime.now();
 
-    await _saveSnapshot(
-      membership,
-      snapshot.replacePost(post.copyWith(comments: post.comments + 1)),
-    );
+    await _persistPost(membership, post.copyWith(comments: post.comments + 1));
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
@@ -143,7 +140,7 @@ class ParentDiscussionsRepository {
       operation: SyncOperation.create,
       payload: {
         'postId': post.id,
-        'familyAccountId': snapshot.familyAccountId,
+        'familyAccountId': membership.id,
         'action': 'comment_interaction',
         'queuedAt': now.toUtc().toIso8601String(),
       },
@@ -152,14 +149,10 @@ class ParentDiscussionsRepository {
 
   Future<bool> toggleFollow(String postId) async {
     final membership = _requireParentMembership();
-    final snapshot = await load();
-    final post = _requirePost(snapshot, postId);
+    final post = await _requirePost(membership, postId);
     final next = !post.followed;
 
-    await _saveSnapshot(
-      membership,
-      snapshot.replacePost(post.copyWith(followed: next)),
-    );
+    await _persistPost(membership, post.copyWith(followed: next));
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
@@ -168,7 +161,7 @@ class ParentDiscussionsRepository {
       operation: SyncOperation.update,
       payload: {
         'postId': post.id,
-        'familyAccountId': snapshot.familyAccountId,
+        'familyAccountId': membership.id,
         'followed': next,
       },
     );
@@ -177,15 +170,11 @@ class ParentDiscussionsRepository {
 
   Future<bool> report(String postId) async {
     final membership = _requireParentMembership();
-    final snapshot = await load();
-    final post = _requirePost(snapshot, postId);
+    final post = await _requirePost(membership, postId);
     if (post.reported) return false;
 
     final now = DateTime.now();
-    await _saveSnapshot(
-      membership,
-      snapshot.replacePost(post.copyWith(reported: true)),
-    );
+    await _persistPost(membership, post.copyWith(reported: true));
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
@@ -194,7 +183,7 @@ class ParentDiscussionsRepository {
       operation: SyncOperation.create,
       payload: {
         'postId': post.id,
-        'familyAccountId': snapshot.familyAccountId,
+        'familyAccountId': membership.id,
         'reason': 'guardian_reported_for_moderation',
         'queuedAt': now.toUtc().toIso8601String(),
       },
@@ -202,71 +191,44 @@ class ParentDiscussionsRepository {
     return true;
   }
 
-  Future<void> replaceFromServer({
-    required ParentDiscussionsSnapshot snapshot,
-    required int serverVersion,
-  }) async {
-    final membership = _requireParentMembership();
-    _validateSnapshot(snapshot);
-    await _localDatabase.upsertLocalRecord(
+  Future<List<ParentDiscussionPost>> _realPosts(SchoolMembership membership) async {
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-      payload: snapshot.toJson(),
-      serverVersion: serverVersion,
-      isDirty: false,
+      entityType: _postEntityType,
     );
+    final posts = <ParentDiscussionPost>[];
+    for (final record in records) {
+      if (record.payload['membershipId'] != membership.id) continue;
+      posts.add(ParentDiscussionPost.fromJson(Map<String, dynamic>.from(record.payload)));
+    }
+    posts.sort((a, b) => b.id.compareTo(a.id)); // newest LOCAL-DISC-...-<microsecond> id first
+    return posts;
   }
 
-  ParentDiscussionPost _requirePost(
-    ParentDiscussionsSnapshot snapshot,
+  Future<ParentDiscussionPost> _requirePost(
+    SchoolMembership membership,
     String postId,
-  ) {
+  ) async {
     final id = postId.trim();
     if (id.isEmpty) {
       throw ArgumentError.value(postId, 'postId', 'Discussion id is required.');
     }
-    final post = snapshot.postById(id);
-    if (post == null) {
-      throw StateError('This discussion is not available to the active family account.');
+    for (final post in await _realPosts(membership)) {
+      if (post.id == id) return post;
     }
-    return post;
+    throw StateError('This discussion is not available to the active family account.');
   }
 
-  Future<void> _saveSnapshot(
-    SchoolMembership membership,
-    ParentDiscussionsSnapshot snapshot,
-  ) async {
-    _validateSnapshot(snapshot);
+  Future<void> _persistPost(SchoolMembership membership, ParentDiscussionPost post) async {
+    final payload = post.toJson()
+      ..addAll(<String, Object?>{'membershipId': membership.id});
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-      payload: snapshot.toJson(),
+      entityType: _postEntityType,
+      entityId: post.id,
+      payload: payload,
+      isDirty: true,
     );
-  }
-
-  void _validateSnapshot(ParentDiscussionsSnapshot snapshot) {
-    if (snapshot.familyAccountId.trim().isEmpty) {
-      throw StateError('Family discussions are missing the family account id.');
-    }
-    final ids = <String>{};
-    for (final post in snapshot.posts) {
-      if (post.id.trim().isEmpty || !ids.add(post.id)) {
-        throw StateError('Family discussions contain an invalid discussion id.');
-      }
-      if (post.author.trim().isEmpty || post.title.trim().isEmpty || post.body.trim().isEmpty) {
-        throw StateError('A family discussion is missing required content.');
-      }
-      if (post.reactions < 0 || post.comments < 0) {
-        throw StateError('Discussion activity counts cannot be negative.');
-      }
-    }
-    for (final item in snapshot.pulse) {
-      if (item.value < 0 || item.value > 100) {
-        throw StateError('Community pulse values must stay between 0 and 100.');
-      }
-    }
   }
 
   SchoolMembership _requireParentMembership() {
