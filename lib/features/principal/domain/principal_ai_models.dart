@@ -1,50 +1,24 @@
-enum PrincipalAIConfidence { high, medium }
-
-extension PrincipalAIConfidenceLabel on PrincipalAIConfidence {
-  String get label => switch (this) {
-        PrincipalAIConfidence.high => 'High',
-        PrincipalAIConfidence.medium => 'Medium',
-      };
-}
-
 class PrincipalAIAction {
   const PrincipalAIAction({required this.label, required this.target});
   final String label;
   final String target;
 }
 
+/// A response from the prototype Principal AI workspace. There is no real reasoning model
+/// connected yet, so this never claims specific evidence or a confidence level — only an
+/// honest answer and real navigation to the screen(s) that hold the actual figures.
 class PrincipalAIInsight {
   const PrincipalAIInsight({
     required this.title,
     required this.answer,
-    required this.evidence,
     required this.actions,
-    required this.confidence,
     required this.scope,
   });
 
   final String title;
   final String answer;
-  final List<String> evidence;
   final List<PrincipalAIAction> actions;
-  final PrincipalAIConfidence confidence;
   final String scope;
-}
-
-class PrincipalAIPrioritySignal {
-  const PrincipalAIPrioritySignal({
-    required this.rank,
-    required this.title,
-    required this.detail,
-    required this.priority,
-    required this.target,
-  });
-
-  final int rank;
-  final String title;
-  final String detail;
-  final String priority;
-  final String target;
 }
 
 class PrincipalAIPermissions {

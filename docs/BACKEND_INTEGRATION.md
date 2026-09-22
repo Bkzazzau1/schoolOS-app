@@ -1021,3 +1021,31 @@ activity; a real incident note, a real queued announcement and a real approval d
 lesson-plan submission and review workflow) each appear in real activity, sorted newest first; activity and outgoing
 content are correctly scoped to the authoring membership, not shared with another principal in the same school; and
 saving the account profile round-trips and queues for sync.
+
+## Principal: AI
+
+The most severe fabrication case in this audit: a "Principal AI" chat with entirely canned, hard-coded answers
+citing specific invented statistics ("JSS 2B average: 61%, trend: -6.8%"), a fabricated priority-issue list, and
+evidence naming a real staff member in a claim that never happened ("Amina Yusuf and Fatima Bello both carry heavy
+workloads") alongside invented students ("Student Gamma"). None of it came from any real record, and there is no
+real reasoning model connected anywhere in this app.
+
+**Approach:** follows the same pattern already established for Teacher's AI workspace this session
+(`teacherAiResponseFor`): a prototype AI answer must never assert a specific invented fact, even one dressed up as
+"mock data" with a disclaimer chip next to it. `resolvePrincipalAIInsight` no longer returns fabricated evidence
+bullets or a fake "confidence" score (both removed from `PrincipalAIInsight` entirely) — it returns an honest answer
+stating plainly that no real reasoning model is connected yet, plus real keyword-based routing to the actual screen
+that holds the genuine figures (Attendance, Teachers, Students, Incidents, Academics, Performance, Approvals,
+Results). Routing to a real screen is genuinely useful and asserts nothing false; a specific invented statistic is
+not, no matter how it is labelled.
+
+**No real source — left honest:** the fabricated "Priority signals" list (`principalAIPrioritySignals`) had no real
+source — the same "needs human judgement" reasoning that emptied Academics' risk queue and Performance's priorities
+applies here too — so that card now explains why and links to Performance for the real figures instead.
+
+**Left alone:** the suggested-question list, the guardrail/production-principle explanatory text and the AI data
+path are reference/policy content, not evidence about a specific person or class, and stayed as they were.
+
+Tests: `test/principal_ai_feature_test.dart` rewritten to confirm no response ever contains a percentage or other
+fabricated statistic, that every response is honest about not being connected to a real model, and that keyword
+routing sends each kind of question toward the correct real screen.

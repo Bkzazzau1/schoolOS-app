@@ -165,23 +165,16 @@ class _ChatCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Row(children: [
-              Expanded(child: Text('Prototype answers use the current SchoolOS mock dataset.', style: Theme.of(context).textTheme.bodySmall)),
+              Expanded(child: Text('Prototype workspace: not yet connected to a real reasoning model.', style: Theme.of(context).textTheme.bodySmall)),
               FilledButton.icon(onPressed: () => onAsk(), icon: const Icon(Icons.auto_awesome_rounded), label: const Text('Ask Principal AI')),
             ]),
             const Divider(height: 28),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('QUESTION', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)), Text(lastQuestion, style: const TextStyle(fontWeight: FontWeight.w800))])),
-              Chip(label: Text('${insight.confidence.label} confidence')),
-            ]),
+            const Text('QUESTION', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
+            Text(lastQuestion, style: const TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 12),
             Text(insight.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
             const SizedBox(height: 6),
             Text(insight.answer),
-            const SizedBox(height: 16),
-            const Text('Evidence used', style: TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 6),
-            for (final evidence in insight.evidence)
-              Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.circle, size: 7), const SizedBox(width: 8), Expanded(child: Text(evidence))])),
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -205,16 +198,11 @@ class _SideColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(children: [
         Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Row(children: [Expanded(child: Text('Priority signals', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20))), Chip(label: Text('Today'))]),
+          const Text('Priority signals', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
           const SizedBox(height: 8),
-          for (final signal in principalAIPrioritySignals)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(child: Text('${signal.rank}')),
-              title: Text(signal.title, style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text(signal.detail),
-              trailing: TextButton(onPressed: () => onNavigate(signal.target), child: const Text('Open')),
-            ),
+          const Text('Not available yet. Ranking a genuine priority needs human judgement over a pattern that nothing in the app infers automatically. Review Performance for the real school-wide figures directly.'),
+          const SizedBox(height: 8),
+          OutlinedButton(onPressed: () => onNavigate('performance'), child: const Text('Open Performance')),
         ]))),
         const SizedBox(height: 12),
         Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

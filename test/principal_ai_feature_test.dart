@@ -1,41 +1,51 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/features/principal/data/principal_ai_demo_data.dart';
-import 'package:schoolos_app/features/principal/domain/principal_ai_models.dart';
 
 void main() {
-  test('principal AI preserves exact website question and priority counts', () {
+  test('suggested question list preserves exact website count and order', () {
     expect(principalAISuggestedQuestions, hasLength(6));
-    expect(principalAIResponses, hasLength(6));
-    expect(principalAIPrioritySignals, hasLength(4));
     expect(principalAISuggestedQuestions.first, 'What needs my attention today?');
-    expect(principalAIPrioritySignals.first.title, 'JSS 2B combined risk');
+    expect(principalAIDefaultQuestion, principalAISuggestedQuestions.first);
   });
 
-  test('today insight preserves exact JSS 2B and approval evidence', () {
+  test('a response never claims specific evidence about a real or invented person', () {
+    for (final question in principalAISuggestedQuestions) {
+      final insight = resolvePrincipalAIInsight(question);
+      // No fabricated per-person or per-class statistic should ever appear in an answer.
+      expect(insight.answer, isNot(contains('%')));
+      expect(insight.title, isNot(contains('%')));
+    }
+  });
+
+  test('a response is honest that no real reasoning model is connected yet', () {
     final insight = resolvePrincipalAIInsight('What needs my attention today?');
-    expect(insight.confidence, PrincipalAIConfidence.high);
-    expect(insight.evidence, contains('JSS 2B average: 61%, trend: -6.8%'));
-    expect(insight.evidence, contains('JSS 2B attendance: 85%, below other monitored classes'));
-    expect(insight.evidence, contains('JSS 2B report batch: awaiting principal approval'));
-    expect(insight.actions.map((e) => e.target), containsAll(['academics', 'attendance', 'approvals']));
+    expect(insight.answer, contains('not connected'));
+    expect(insight.title, 'Not available yet');
   });
 
-  test('teacher support and student risk evidence stay grounded', () {
-    final teachers = resolvePrincipalAIInsight('Which teachers need support?');
-    expect(teachers.evidence, contains('Mr. Peter James attendance: 89%'));
-    expect(teachers.evidence, contains('Lesson plans: 72%'));
-    expect(teachers.evidence, contains('Assessment completion: 69%'));
-
-    final students = resolvePrincipalAIInsight('Which students are at risk?');
-    expect(students.evidence, contains('Student Gamma: average 48%, attendance 79%, trend -8.4%'));
-    expect(students.evidence, contains('Student Gamma: two incidents and two interventions'));
+  test('routing sends attendance questions toward the real Attendance screen', () {
+    final insight = resolvePrincipalAIInsight('How is attendance today?');
+    expect(insight.actions.map((a) => a.target), contains('attendance'));
   });
 
-  test('free-form routing maps to the correct grounded insight family', () {
-    expect(resolvePrincipalAIInsight('Tell me about teacher workload').title, 'Teacher support priorities');
-    expect(resolvePrincipalAIInsight('What is the syllabus coverage problem?').title, 'Syllabus coverage exceptions');
-    expect(resolvePrincipalAIInsight('Compare our term performance').title, 'Term-on-term comparison');
-    expect(resolvePrincipalAIInsight('Something completely different').confidence, PrincipalAIConfidence.medium);
+  test('routing sends teacher questions toward the real Teachers screen', () {
+    final insight = resolvePrincipalAIInsight('Which teachers need support?');
+    expect(insight.actions.map((a) => a.target), contains('teachers'));
+  });
+
+  test('routing sends student and risk questions toward Students and Incidents', () {
+    final insight = resolvePrincipalAIInsight('Which students are at risk?');
+    expect(insight.actions.map((a) => a.target), containsAll(['students', 'incidents']));
+  });
+
+  test('routing sends syllabus questions toward the real Academics screen', () {
+    final insight = resolvePrincipalAIInsight('Which classes are behind on syllabus coverage?');
+    expect(insight.actions.map((a) => a.target), contains('academics'));
+  });
+
+  test('an unrecognised question still returns a real, non-empty set of navigation actions', () {
+    final insight = resolvePrincipalAIInsight('Something completely unrelated to any keyword');
+    expect(insight.actions, isNotEmpty);
   });
 
   test('guardrails keep permission enforcement outside the model', () {
