@@ -392,7 +392,7 @@ class _DirectoryPanel extends StatelessWidget {
                   SizedBox(
                     width: 180,
                     child: DropdownButtonFormField<String>(
-        isExpanded: true,
+                    isExpanded: true,
                       initialValue: classFilter,
                       decoration: const InputDecoration(
                         labelText: 'Class',
@@ -416,7 +416,7 @@ class _DirectoryPanel extends StatelessWidget {
                   SizedBox(
                     width: 180,
                     child: DropdownButtonFormField<String>(
-        isExpanded: true,
+                    isExpanded: true,
                       initialValue: riskFilter,
                       decoration: const InputDecoration(
                         labelText: 'Status',

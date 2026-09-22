@@ -403,7 +403,7 @@ class _LessonBar extends StatelessWidget {
             SizedBox(
               width: 390,
               child: DropdownButtonFormField<String>(
-        isExpanded: true,
+              isExpanded: true,
                 initialValue: current.lesson.id,
                 decoration: const InputDecoration(labelText: 'Scheduled lesson'),
                 items: [

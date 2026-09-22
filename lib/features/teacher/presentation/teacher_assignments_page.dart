@@ -197,7 +197,7 @@ class _TeacherAssignmentsPageState extends State<TeacherAssignmentsPage> {
                 SizedBox(
                   width: 210,
                   child: DropdownButtonFormField<String>(
-        isExpanded: true,
+                  isExpanded: true,
                     initialValue: _draftClass,
                     decoration: const InputDecoration(labelText: 'Class', border: OutlineInputBorder()),
                     items: [for (final item in teacherAssignmentClasses) DropdownMenuItem(value: item, child: Text(item))],
@@ -207,7 +207,7 @@ class _TeacherAssignmentsPageState extends State<TeacherAssignmentsPage> {
                 SizedBox(
                   width: 210,
                   child: DropdownButtonFormField<TeacherAssignmentType>(
-        isExpanded: true,
+                  isExpanded: true,
                     initialValue: _type,
                     decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
                     items: [for (final item in teacherAssignmentTypes) DropdownMenuItem(value: item, child: Text(teacherAssignmentTypeLabel(item)))],
@@ -335,7 +335,7 @@ class _TeacherAssignmentsPageState extends State<TeacherAssignmentsPage> {
       );
 
   Widget _classFilter() => DropdownButtonFormField<String>(
-        isExpanded: true,
+  isExpanded: true,
         initialValue: _selectedClass,
         decoration: const InputDecoration(labelText: 'Class', border: OutlineInputBorder()),
         items: [

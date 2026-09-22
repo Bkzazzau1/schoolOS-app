@@ -247,6 +247,7 @@ class _Header extends StatelessWidget {
             SizedBox(
               width: 190,
               child: DropdownButtonFormField<String>(
+              isExpanded: true,
                 initialValue: filter,
                 decoration: const InputDecoration(labelText: 'Filter'),
                 items: [for (final item in filters) DropdownMenuItem(value: item, child: Text(item))],
@@ -370,7 +371,8 @@ class _RequestForm extends StatelessWidget {
             Wrap(spacing: 12, runSpacing: 12, children: [
               _Field(width: 250, child: TextFormField(controller: student, decoration: const InputDecoration(labelText: 'Student name'), validator: _required)),
               _Field(width: 200, child: TextFormField(controller: className, decoration: const InputDecoration(labelText: 'Class'), validator: _required)),
-              _Field(width: 190, child: DropdownButtonFormField<FinanceConcessionType>(initialValue: type, decoration: const InputDecoration(labelText: 'Type'), items: const [DropdownMenuItem(value: FinanceConcessionType.scholarship, child: Text('Scholarship')), DropdownMenuItem(value: FinanceConcessionType.discount, child: Text('Discount'))], onChanged: (value) { if (value != null) onTypeChanged(value); })),
+              _Field(width: 190, child: DropdownButtonFormField<FinanceConcessionType>(
+        isExpanded: true,initialValue: type, decoration: const InputDecoration(labelText: 'Type'), items: const [DropdownMenuItem(value: FinanceConcessionType.scholarship, child: Text('Scholarship')), DropdownMenuItem(value: FinanceConcessionType.discount, child: Text('Discount'))], onChanged: (value) { if (value != null) onTypeChanged(value); })),
               _Field(width: 210, child: TextFormField(controller: grossFee, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Gross term fee (₦)'), validator: _nonNegative)),
               _Field(width: 220, child: TextFormField(controller: amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Concession amount (₦)'), validator: _nonNegative)),
               _Field(width: 260, child: TextFormField(controller: reason, decoration: const InputDecoration(labelText: 'Reason / sponsor'))),

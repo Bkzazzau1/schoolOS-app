@@ -183,6 +183,7 @@ class _AdministratorNoticesPageState extends State<AdministratorNoticesPage> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<AdministratorNoticeAudience>(
+            isExpanded: true,
               initialValue: _audience,
               decoration: const InputDecoration(labelText: 'Audience'),
               items: [
@@ -197,6 +198,7 @@ class _AdministratorNoticesPageState extends State<AdministratorNoticesPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<AdministratorNoticeType>(
+            isExpanded: true,
               initialValue: _type,
               decoration: const InputDecoration(labelText: 'Type'),
               items: [

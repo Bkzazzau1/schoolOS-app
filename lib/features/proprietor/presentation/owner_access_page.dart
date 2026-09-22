@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/sync/sync_scope.dart';
 import '../data/owner_access_controller.dart';
 import '../domain/owner_access_models.dart';
 import 'owner_access_dialogs.dart';
@@ -21,12 +22,15 @@ class OwnerAccessPage extends StatefulWidget {
   State<OwnerAccessPage> createState() => _OwnerAccessPageState();
 }
 
-class _OwnerAccessPageState extends State<OwnerAccessPage> {
+class _OwnerAccessPageState extends State<OwnerAccessPage> with SyncRefresh<OwnerAccessPage> {
   @override
   void initState() {
     super.initState();
     widget.controller.load();
   }
+
+  @override
+  void onSynced() => widget.controller.load();
 
   @override
   Widget build(BuildContext context) {

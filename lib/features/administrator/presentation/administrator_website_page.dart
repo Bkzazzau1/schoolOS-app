@@ -375,6 +375,7 @@ class _HomepageCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
+          isExpanded: true,
             initialValue: admissionsOpen ? 'open' : 'closed',
             decoration: const InputDecoration(labelText: 'Admissions status'),
             items: const [
@@ -387,6 +388,7 @@ class _HomepageCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
+          isExpanded: true,
             initialValue: admissionSession,
             decoration: const InputDecoration(labelText: 'Admission session'),
             items: const [

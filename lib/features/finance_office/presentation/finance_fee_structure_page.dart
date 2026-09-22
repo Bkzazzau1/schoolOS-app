@@ -85,6 +85,7 @@ class _FinanceFeeStructurePageState extends State<FinanceFeeStructurePage> with 
         SizedBox(
           width: 240,
           child: DropdownButtonFormField<String>(
+          isExpanded: true,
             key: const ValueKey('fee-term'),
             initialValue: _term,
             decoration: const InputDecoration(labelText: 'Term'),

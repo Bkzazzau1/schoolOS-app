@@ -546,6 +546,7 @@ class _StructureWorkspace extends StatelessWidget {
       child: Column(
         children: [
           DropdownButtonFormField<String>(
+          isExpanded: true,
             key: ValueKey('person-$selectedPerson'),
             initialValue: selectedPerson,
             decoration: const InputDecoration(labelText: 'Staff member'),
@@ -554,6 +555,7 @@ class _StructureWorkspace extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<LeadershipLevel>(
+          isExpanded: true,
             key: ValueKey('level-${level.name}'),
             initialValue: level,
             decoration: const InputDecoration(labelText: 'Leadership level'),
@@ -577,6 +579,7 @@ class _StructureWorkspace extends StatelessWidget {
           if (level != LeadershipLevel.sectionHead) ...[
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+            isExpanded: true,
               key: ValueKey('manager-${section.id}-${reportsTo ?? 'none'}'),
               initialValue: possibleManagers.any((m) => m.id == reportsTo) ? reportsTo : null,
               decoration: const InputDecoration(labelText: 'Reports to'),
@@ -647,6 +650,7 @@ class _HeadControl extends StatelessWidget {
           Text(section.leaderName),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
+          isExpanded: true,
             key: ValueKey('head-${section.id}-${section.leaderName}'),
             initialValue: people.contains(section.leaderName) ? section.leaderName : null,
             decoration: const InputDecoration(labelText: 'Replace section head'),

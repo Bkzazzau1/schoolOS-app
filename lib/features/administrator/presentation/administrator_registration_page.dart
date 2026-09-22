@@ -439,6 +439,7 @@ class _AdministratorRegistrationPageState
   }) {
     final safeValue = items.contains(value) ? value : items.first;
     return DropdownButtonFormField<String>(
+    isExpanded: true,
       initialValue: safeValue,
       decoration: InputDecoration(labelText: label),
       items: [

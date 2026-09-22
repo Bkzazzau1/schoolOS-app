@@ -192,6 +192,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
+              isExpanded: true,
                 key: const ValueKey('payment-method'),
                 initialValue: _method,
                 decoration: const InputDecoration(labelText: 'How it was paid'),

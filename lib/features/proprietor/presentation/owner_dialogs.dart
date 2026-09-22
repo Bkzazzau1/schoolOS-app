@@ -284,6 +284,7 @@ class _DocumentDialogState extends State<_DocumentDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<StaffDocumentStatus>(
+            isExpanded: true,
               initialValue: _status,
               decoration: const InputDecoration(labelText: 'Status'),
               items: [

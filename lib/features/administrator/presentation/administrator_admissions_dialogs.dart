@@ -71,6 +71,7 @@ class _NewApplicantDialogState extends State<_NewApplicantDialog> {
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
+                isExpanded: true,
                   key: const ValueKey('applicant-section'),
                   initialValue: _section,
                   decoration: const InputDecoration(labelText: 'Section'),
@@ -101,6 +102,7 @@ class _NewApplicantDialogState extends State<_NewApplicantDialog> {
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
+                isExpanded: true,
                   initialValue: _source,
                   decoration: const InputDecoration(labelText: 'How they applied'),
                   items: const [

@@ -379,6 +379,7 @@ class _QueueCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
+            isExpanded: true,
               initialValue: filter,
               decoration: const InputDecoration(labelText: 'Status'),
               items: const [

@@ -45,6 +45,7 @@ class _NewDocumentDialogState extends State<_NewDocumentDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
+                isExpanded: true,
                   key: const ValueKey('record-kind'),
                   initialValue: _kind,
                   decoration: const InputDecoration(labelText: 'Whose document'),

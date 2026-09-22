@@ -69,6 +69,7 @@ class _RequestDialogState extends State<_RequestDialog> {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
+              isExpanded: true,
                 key: const ValueKey('lifecycle-workflow'),
                 initialValue: _workflow,
                 decoration: const InputDecoration(labelText: 'What is changing'),
