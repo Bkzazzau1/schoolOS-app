@@ -1502,3 +1502,30 @@ real `TeacherWeeklyLearningRepository` reaches only the real child whose real cl
 in a different class with nothing; every subject field is the real teacher-entered text, not a fabricated one; a
 blank real field reads honestly; and the permission check behaves correctly. Full suite: 1116 passing, same 8
 pre-existing unrelated failures, zero regressions.
+
+## Parent: Messages no longer shows a conversation that never happened
+
+`ParentMessagesRepository` returned two fixed threads crediting two fully invented teacher identities (the same
+"Mrs. Amina Yusuf"/"Mrs. Khadija Musa" already fabricated in Weekly Learning) with a complete fabricated back-and-
+forth conversation the guardian never actually had, plus a fabricated "Your September payment receipt is
+available" notification attributed to "School Finance Office" that no real payment event ever produced. Unlike
+earlier screens, there was no real backend to redirect to here: Teacher's own Messages screen was already reviewed
+in this audit and deliberately left as class-wide sample content precisely because it never attributes a fabricated
+message to a specific real student or guardian (see "Teacher: Messages only shows guardian-group channels for real
+assigned classes" above) — reading from it would only relocate the fabrication, not remove it, since it is a group
+broadcast channel, not a per-family conversation.
+
+**Real, honest replacement:** `load()` now builds one real, approved channel per real linked child from
+`ParentChildrenRepository`, scoped to that child's real class (e.g. "JSS 2A class channel"), starting with zero
+messages — never a pre-populated conversation. `queueReply` (already a genuine local-first action, unchanged in
+its own validation) persists each real guardian-authored message per membership and thread, so it reads back
+correctly on the next `load()` instead of only surviving in memory. A thread's preview and unread state are now
+computed from real queued messages instead of a fixed flag: `unread` is always `false` because every real message
+in this repository is guardian-authored, and there is no real school-to-guardian channel yet for anything to have
+gone unread.
+
+Tests: `test/parent_messages_feature_test.dart`, the first coverage this repository has had. Confirms a fresh
+family gets exactly one real, empty channel per real linked child rather than a fabricated conversation; a queued
+reply is real, survives a reload, and never leaks into a sibling's channel; replying to an unknown channel and an
+empty/overlong body are both rejected; and the permission check behaves correctly. Full suite: 1121 passing, same
+8 pre-existing unrelated failures, zero regressions.

@@ -3,42 +3,68 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/parent_messages_models.dart';
-import 'parent_messages_demo_data.dart';
+import 'parent_children_repository.dart';
 
 class ParentMessagesRepository {
   ParentMessagesRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required ParentChildrenRepository children,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _children = children;
 
-  static const _snapshotEntityType = 'parent_messages_snapshot';
   static const _messageEntityType = 'parent_message';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final ParentChildrenRepository _children;
 
+  /// One real, approved communication channel per real linked child, scoped to their real class — never
+  /// a pre-populated conversation that never actually happened. No real school-to-guardian messaging
+  /// system exists anywhere in the app yet (Teacher's own Messages screen is class-wide sample content
+  /// that was never addressed to a specific real family — see docs/BACKEND_INTEGRATION.md), so every
+  /// channel honestly starts with zero messages until the guardian queues a real one with [queueReply].
   Future<ParentMessagesSnapshot> load() async {
     final membership = _requireParentMembership();
-    final record = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-    );
+    final linked = (await _children.load()).children;
 
-    if (record != null) {
-      final snapshot = ParentMessagesSnapshot.fromJson(record.payload);
-      _validateSnapshot(snapshot);
-      return snapshot;
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _messageEntityType,
+    );
+    final queuedByThread = <String, List<ParentMessageItem>>{};
+    for (final record in records) {
+      if (record.payload['membershipId'] != membership.id) continue;
+      final threadId = record.payload['threadId'] as String?;
+      if (threadId == null) continue;
+      queuedByThread
+          .putIfAbsent(threadId, () => [])
+          .add(ParentMessageItem.fromJson(Map<String, dynamic>.from(record.payload)));
     }
 
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-      payload: parentDefaultMessages.toJson(),
-    );
-    return parentDefaultMessages;
+    final threads = <ParentMessageThread>[];
+    for (final child in linked) {
+      final threadId = 'channel-${child.id}';
+      final messages = [...(queuedByThread[threadId] ?? const <ParentMessageItem>[])]
+        ..sort((a, b) => (a.createdAt ?? DateTime(0)).compareTo(b.createdAt ?? DateTime(0)));
+
+      threads.add(ParentMessageThread(
+        id: threadId,
+        participantName: '${child.className} class channel',
+        participantRole: 'Class communication · ${child.className}',
+        childLabel: child.name,
+        preview: messages.isEmpty ? 'No messages yet' : messages.last.body,
+        timeLabel: messages.isEmpty ? '' : messages.last.timeLabel,
+        // Every real message here is guardian-authored — no real school-to-guardian channel exists
+        // yet — so there is nothing school-sent for a guardian to have left unread.
+        unread: false,
+        approvedParticipant: true,
+        messages: messages,
+      ));
+    }
+
+    return ParentMessagesSnapshot(familyAccountId: membership.id, threads: threads);
   }
 
   Future<ParentMessageItem> queueReply({
@@ -84,19 +110,18 @@ class ParentMessagesRepository {
       createdAt: now,
     );
 
-    final updatedThread = thread.copyWith(
-      preview: normalizedBody,
-      timeLabel: 'Queued',
-      unread: false,
-      messages: [...thread.messages, message],
-    );
-    final updatedSnapshot = snapshot.replaceThread(updatedThread);
+    final payload = message.toJson()
+      ..addAll(<String, Object?>{
+        'membershipId': membership.id,
+        'threadId': thread.id,
+      });
 
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-      payload: updatedSnapshot.toJson(),
+      entityType: _messageEntityType,
+      entityId: message.id,
+      payload: payload,
+      isDirty: true,
     );
 
     await _localDatabase.queueMutation(
@@ -119,58 +144,6 @@ class ParentMessagesRepository {
     );
 
     return message;
-  }
-
-  Future<void> replaceFromServer({
-    required ParentMessagesSnapshot snapshot,
-    required int serverVersion,
-  }) async {
-    final membership = _requireParentMembership();
-    _validateSnapshot(snapshot);
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-      payload: snapshot.toJson(),
-      serverVersion: serverVersion,
-      isDirty: false,
-    );
-  }
-
-  void _validateSnapshot(ParentMessagesSnapshot snapshot) {
-    if (snapshot.familyAccountId.trim().isEmpty) {
-      throw StateError('Family messages are missing the family account id.');
-    }
-
-    final threadIds = <String>{};
-    final messageIds = <String>{};
-    for (final thread in snapshot.threads) {
-      if (thread.id.trim().isEmpty || !threadIds.add(thread.id)) {
-        throw StateError('Family messages contain an invalid thread id.');
-      }
-      if (!thread.approvedParticipant) {
-        throw StateError('Family messages contain an unapproved participant.');
-      }
-      if (thread.participantName.trim().isEmpty ||
-          thread.participantRole.trim().isEmpty ||
-          thread.childLabel.trim().isEmpty) {
-        throw StateError('A family message thread is missing participant scope.');
-      }
-
-      for (final message in thread.messages) {
-        if (message.id.trim().isEmpty || !messageIds.add(message.id)) {
-          throw StateError('Family messages contain an invalid message id.');
-        }
-        if (message.body.trim().isEmpty) {
-          throw StateError('Family messages contain an empty message.');
-        }
-        if (message.direction == ParentMessageDirection.guardianToSchool &&
-            message.state == ParentMessageState.received) {
-          throw StateError('A guardian message cannot use the received state.');
-        }
-      }
-    }
   }
 
   SchoolMembership _requireParentMembership() {

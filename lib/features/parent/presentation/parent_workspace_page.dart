@@ -136,6 +136,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
     _messagesRepository = ParentMessagesRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+      children: _childrenRepository,
     );
     _discussionsRepository = ParentDiscussionsRepository(
       localDatabase: widget.localDatabase,
