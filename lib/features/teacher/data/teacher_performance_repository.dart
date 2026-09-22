@@ -3,6 +3,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_performance_models.dart';
 import 'teacher_performance_demo_data.dart';
+import 'teacher_roster.dart';
 
 class TeacherPerformanceSnapshot {
   const TeacherPerformanceSnapshot({
@@ -42,13 +43,16 @@ class TeacherPerformanceRepository implements TeacherPerformanceDataSource {
   TeacherPerformanceRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required TeacherRoster roster,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _roster = roster;
 
   static const _reflectionType = 'teacher_performance_private_reflection';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final TeacherRoster _roster;
 
   @override
   TeacherPerformancePermissions permissionsFor(SchoolMembership membership) {
@@ -75,9 +79,12 @@ class TeacherPerformanceRepository implements TeacherPerformanceDataSource {
         .toList(growable: false)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+    final assigned = {for (final c in await _roster.assignedClasses(membership)) c.className};
+    final classPerformance = teacherClassPerformance.where((item) => assigned.contains(item.name)).toList(growable: false);
+
     return TeacherPerformanceSnapshot(
       metrics: teacherPerformanceMetrics,
-      classPerformance: teacherClassPerformance,
+      classPerformance: classPerformance,
       developmentLog: teacherDevelopmentLog,
       reflections: reflections,
       permissions: permissionsFor(membership),
@@ -109,11 +116,15 @@ class TeacherPerformanceRepository implements TeacherPerformanceDataSource {
       body: trimmed,
       createdAt: now.toIso8601String(),
     );
+    // This is real teacher-authored data, kept device-only on purpose (never queued for sync). isDirty: true
+    // marks it as real, so the demo-seed block (LocalDatabase.blockDemoSeeds) never silently discards it once
+    // a real backend is configured; it just never gets pushed anywhere, which is the intended behavior here.
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: _reflectionType,
       entityId: reflection.id,
       payload: reflection.toJson(),
+      isDirty: true,
     );
 
     return TeacherPerformanceActionResult(

@@ -621,3 +621,28 @@ causes, not one:
    `tester.scrollUntilVisible(...)`.
 
 No new test file was needed for this screen (no roster or class-scoped filtering applies to a teacher's own profile).
+
+## Teacher: Performance fixes a real demo-seed-safety bug, and the same dispose bug as Profile
+
+`addPrivateReflection` writes real, teacher-authored data (a private coaching note) that is deliberately kept
+device-only and never queued for sync — that part was already correct and is unchanged. The bug: it wrote the record
+with `isDirty` left at its default of `false`, which is indistinguishable from seed/sample data to
+`LocalDatabase.blockDemoSeeds`. Once a real backend is configured, `blockDemoSeeds` becomes true, and the guard silently
+discards any write that is not `isDirty: true` or does not carry a `serverVersion` — so a teacher's real, deliberately
+local-only reflection would have been silently thrown away the moment the school went live, exactly the class of bug the
+"audit demo-data safety" pass earlier this session was meant to catch, just inverted: real data being mistaken for a
+seed, rather than a seed leaking out as real. Fixed by passing `isDirty: true` (matching the convention already
+documented for real writes), while still never calling `queueMutation`, so the record persists locally forever without
+ever being pushed anywhere — which is the intended behavior.
+
+Also found and fixed the same `TextEditingController`-disposed-after-`Navigator.pop` bug as Profile in the "add
+reflection" dialog, the same "SS 1A" vs "SS1A" naming mismatch fixed several times already this session, and filtered
+"Assigned-class outcomes" to the teacher's real assigned classes (it previously showed a fixed four-class list regardless
+of who was signed in), which surfaced and fixed a `.last`-on-empty-list crash risk once that list could legitimately be
+empty. The overall performance score, per-metric values (attendance completion, lesson-plan compliance, etc.) and
+development log remain clearly-labelled illustrative coaching content — no real cross-module computation exists yet to
+back them (they would need real per-topic evidence from Syllabus, Assessments and CBT combined, which Learning Progress
+already established isn't available), and the existing UI copy already frames them as such ("in this demo view").
+
+Tests: `test/teacher_performance_roster_test.dart` (new, against the real roster, including a regression test that
+writes a reflection with `blockDemoSeeds` set and confirms it survives).

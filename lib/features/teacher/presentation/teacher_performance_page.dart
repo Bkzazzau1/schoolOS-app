@@ -87,7 +87,9 @@ class _TeacherPerformancePageState extends State<TeacherPerformancePage> {
         ],
       ),
     );
-    controller.dispose();
+    // The dialog's exit transition is still animating and reading this controller for a frame or two
+    // after showDialog's future completes, so disposing it synchronously here throws "used after disposed".
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
     if (body == null) return;
 
     final result = await widget.repository.addPrivateReflection(body);
@@ -354,6 +356,7 @@ class _TeacherPerformancePageState extends State<TeacherPerformancePage> {
               const Text('Assigned-class outcomes', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
               const Text('Context for your teaching—not a claim of sole causation.'),
               const SizedBox(height: 14),
+              if (classes.isEmpty) const Text('No assigned classes yet.'),
               for (final item in classes) ...[
                 Row(
                   children: [

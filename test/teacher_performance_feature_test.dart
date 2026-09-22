@@ -40,7 +40,7 @@ void main() {
         ('JSS 2A', 74, '+3.2%', 94, 72),
         ('JSS 2B', 68, '-1.4%', 91, 68),
         ('JSS 3A', 79, '+6.4%', 96, 81),
-        ('SS 1A', 72, '+1.8%', 93, 64),
+        ('SS1A', 72, '+1.8%', 93, 64),
       ],
     );
     expect(teacherClassPerformance[1].isImproving, isFalse);
@@ -249,6 +249,9 @@ void main() {
 
     expect(find.text('My Performance'), findsOneWidget);
     expect(find.text('Professional focus'), findsOneWidget);
+    // Below the fold on a phone viewport; scroll to it rather than asserting on an unmounted widget.
+    await tester.scrollUntilVisible(find.text('Assigned-class outcomes'), 400);
+    await tester.pumpAndSettle();
     expect(find.text('Assigned-class outcomes'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

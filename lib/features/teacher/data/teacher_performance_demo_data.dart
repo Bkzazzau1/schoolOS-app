@@ -57,7 +57,7 @@ const teacherClassPerformance = <TeacherClassPerformance>[
     syllabusPace: 81,
   ),
   TeacherClassPerformance(
-    name: 'SS 1A',
+    name: 'SS1A',
     average: 72,
     change: '+1.8%',
     attendance: 93,
