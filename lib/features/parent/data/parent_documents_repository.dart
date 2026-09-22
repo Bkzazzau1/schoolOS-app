@@ -2,43 +2,74 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../finance_office/data/finance_ledger_repository.dart';
+import '../../finance_office/domain/finance_ledger_models.dart';
 import '../domain/parent_documents_models.dart';
-import 'parent_documents_demo_data.dart';
+import 'parent_children_repository.dart';
 
 class ParentDocumentsRepository {
   ParentDocumentsRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required ParentChildrenRepository children,
+    required FinanceLedgerRepository ledger,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _children = children,
+        _ledger = ledger;
 
-  static const _snapshotEntityType = 'parent_documents_snapshot';
   static const _consentEntityType = 'parent_consent_response';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final ParentChildrenRepository _children;
+  final FinanceLedgerRepository _ledger;
 
+  /// A family's real payment receipts — read from the same real ledger Finance Office and Parent
+  /// Finance already use — become this family's real documents.
+  ///
+  /// `consentRequests` and `consentHistory` stay honestly empty: no real report-card/PDF generation
+  /// system exists anywhere in the app, and no real per-student excursion-consent request exists
+  /// either (the real Excursions module only tracks a whole-trip aggregate consent count, e.g.
+  /// "38 of 42 consents received", never which specific student still needs to respond — the same
+  /// aggregate-only limitation School Life's Activities section already documents). [queueConsent]
+  /// stays implemented and correct below for the same reason `AwardRepository.addDraft` was kept: it
+  /// is real, validated logic that would work the moment a real per-student consent-request source
+  /// exists, not something to delete just because nothing currently feeds it.
   Future<ParentDocumentsSnapshot> load() async {
     final membership = _requireParentMembership();
-    final record = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-    );
+    final linked = (await _children.load()).children;
+    final accounts = await _ledger.accounts();
 
-    if (record != null) {
-      final snapshot = ParentDocumentsSnapshot.fromJson(record.payload);
-      _validateSnapshot(snapshot);
-      return snapshot;
+    final documents = <ParentFamilyDocument>[];
+    for (final child in linked) {
+      StudentAccount? account;
+      for (final candidate in accounts) {
+        if (candidate.student.id == child.id) {
+          account = candidate;
+          break;
+        }
+      }
+      if (account == null) continue;
+      for (final payment in account.payments) {
+        if (payment.isVoided) continue;
+        documents.add(ParentFamilyDocument(
+          id: 'DOC-${payment.id}',
+          ownerLabel: child.name,
+          title: 'Payment receipt ${payment.receiptNumber}',
+          typeLabel: 'Finance',
+          status: ParentDocumentStatus.ready,
+        ));
+      }
     }
+    documents.sort((a, b) => a.id.compareTo(b.id));
 
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-      payload: parentDefaultDocuments.toJson(),
+    return ParentDocumentsSnapshot(
+      familyAccountId: membership.id,
+      documents: documents,
+      consentRequests: const [],
+      consentHistory: const [],
     );
-    return parentDefaultDocuments;
   }
 
   Future<ParentConsentRequest> queueConsent({
@@ -63,19 +94,7 @@ class ParentDocumentsRepository {
     }
 
     final now = DateTime.now();
-    final queued = request.copyWith(
-      localDecisionQueued: true,
-      queuedAt: now,
-    );
-    final updatedSnapshot = snapshot.replaceConsent(queued);
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-      payload: updatedSnapshot.toJson(),
-      isDirty: true,
-    );
+    final queued = request.copyWith(localDecisionQueued: true, queuedAt: now);
 
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
@@ -94,66 +113,6 @@ class ParentDocumentsRepository {
     );
 
     return queued;
-  }
-
-  Future<void> replaceFromServer({
-    required ParentDocumentsSnapshot snapshot,
-    required int serverVersion,
-  }) async {
-    final membership = _requireParentMembership();
-    _validateSnapshot(snapshot);
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _snapshotEntityType,
-      entityId: membership.id,
-      payload: snapshot.toJson(),
-      serverVersion: serverVersion,
-      isDirty: false,
-    );
-  }
-
-  void _validateSnapshot(ParentDocumentsSnapshot snapshot) {
-    if (snapshot.familyAccountId.trim().isEmpty) {
-      throw StateError('Family documents are missing the family account id.');
-    }
-
-    final documentIds = <String>{};
-    for (final document in snapshot.documents) {
-      if (document.id.trim().isEmpty || !documentIds.add(document.id)) {
-        throw StateError('Family documents contain an invalid document id.');
-      }
-      if (!document.approvedForGuardianVisibility) {
-        throw StateError('A restricted document cannot appear in the family portal.');
-      }
-      if (document.ownerLabel.trim().isEmpty ||
-          document.title.trim().isEmpty ||
-          document.typeLabel.trim().isEmpty) {
-        throw StateError('A family-visible document is missing required metadata.');
-      }
-    }
-
-    final requestIds = <String>{};
-    for (final request in snapshot.consentRequests) {
-      if (request.id.trim().isEmpty || !requestIds.add(request.id)) {
-        throw StateError('Family consent requests contain an invalid request id.');
-      }
-      if (request.childName.trim().isEmpty ||
-          request.title.trim().isEmpty ||
-          request.description.trim().isEmpty) {
-        throw StateError('A consent request is missing guardian-facing information.');
-      }
-    }
-
-    final historyIds = <String>{};
-    for (final item in snapshot.consentHistory) {
-      if (item.id.trim().isEmpty || !historyIds.add(item.id)) {
-        throw StateError('Consent history contains an invalid item id.');
-      }
-      if (item.title.trim().isEmpty || item.subjectLabel.trim().isEmpty) {
-        throw StateError('Consent history contains an incomplete record.');
-      }
-    }
   }
 
   SchoolMembership _requireParentMembership() {

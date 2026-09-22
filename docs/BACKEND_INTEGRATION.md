@@ -1589,3 +1589,30 @@ seeded onto that route and "Not assigned" for the other; today's meal matches th
 current weekday (or reads honestly on a day with no service); activities and meal plans stay empty; recognition is
 empty when no real award names a linked child; and an internal-only award naming a real child still never leaks to
 the family. Full suite: 1134 passing, same 8 pre-existing unrelated failures, zero regressions.
+
+## Parent: Documents now shows real receipts; report cards and per-student consent stay honestly empty
+
+`ParentDocumentsRepository` fabricated a term report card and a learning report for the same two real children
+(neither backed by any real report-generation system anywhere in the app), a "September Payment Receipt" that
+looked real but was disconnected from the actual ledger, an excursion consent form marked as needing action, and a
+fabricated consent-decision history.
+
+**Real source:** `load()` now builds `documents` from the same real, non-voided payments Finance Office and Parent
+Finance already read from `FinanceLedgerRepository`, one document per real receipt, so a family's document list can
+never show a receipt that doesn't correspond to a real payment or disagree with what Finance itself shows.
+
+**No real source — left honest, not deleted as dead code:** no report-card or PDF-generation system exists
+anywhere in the app, so academic-report documents are gone rather than faked. `consentRequests` and
+`consentHistory` stay empty for the same reason Recognition does in School Life: the real Excursions module only
+tracks a whole-trip aggregate consent count ("38 of 42 consents received"), never which specific student still
+needs to respond, so there is no real per-student consent request to show. `queueConsent` itself is kept exactly as
+validated as before — id lookup, an `actionNeeded` check, idempotent re-queueing, real sync queueing — because it
+is correct, real logic that would work the instant a real per-student consent-request source exists, the same
+reasoning that kept `AwardRepository.addDraft` rather than deleting it for having no visible effect yet.
+
+Tests: `test/parent_documents_feature_test.dart`, the first coverage this repository has had. Confirms documents
+are exactly the real non-voided payment receipts for the real linked children (cross-checked against a second,
+independent `FinanceLedgerRepository` instance) and never a disconnected fixed list; consent requests and history
+are honestly empty; acting on a consent request that doesn't really exist is rejected rather than silently
+accepted; and the permission check behaves correctly. Full suite: 1138 passing, same 8 pre-existing unrelated
+failures, zero regressions.

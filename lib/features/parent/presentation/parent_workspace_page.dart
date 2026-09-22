@@ -158,6 +158,13 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
     _documentsRepository = ParentDocumentsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+      children: _childrenRepository,
+      ledger: FinanceLedgerRepository(
+        database: widget.localDatabase,
+        session: widget.schoolSession,
+        students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+        concessions: ConcessionRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      ),
     );
     _aiRepository = ParentAIRepository(
       localDatabase: widget.localDatabase,
