@@ -91,8 +91,10 @@ class AdministratorAttendanceRepository {
       tenantId: membership.schoolId,
       entityType: _correctionEntityType,
     );
-    if (correctionRecords.isEmpty) {
-      for (final item in administratorAttendanceCorrections) {
+    if (correctionRecords.isEmpty && students.isNotEmpty) {
+      // The demo school: a few sample correction requests, drawn from the real register (a school server has
+      // real requests from real teachers instead, and blocks this).
+      for (final item in demoCorrectionsFor(students)) {
         await _localDatabase.upsertLocalRecord(
           tenantId: membership.schoolId,
           entityType: _correctionEntityType,

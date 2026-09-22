@@ -1,29 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_attendance_demo_data.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_attendance_desk.dart';
 import 'package:schoolos_app/features/administrator/domain/administrator_attendance_models.dart';
+import 'package:schoolos_app/features/administrator/domain/administrator_students_models.dart';
+
+const _students = <AdministratorStudentRecord>[
+  AdministratorStudentRecord(id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', primaryGuardian: 'Alhaji Abdullahi Musa', status: AdministratorStudentStatus.active),
+  AdministratorStudentRecord(id: 'STU-002', name: 'Ibrahim Sani', className: 'JSS 2A', primaryGuardian: 'Alhaji Sani Ibrahim', status: AdministratorStudentStatus.active),
+  AdministratorStudentRecord(id: 'STU-003', name: 'Yusuf Bello', className: 'JSS 2B', primaryGuardian: 'Alhaji Musa Bello', status: AdministratorStudentStatus.transferPending),
+  AdministratorStudentRecord(id: 'PRI-003', name: 'Hafsa Abdullahi', className: 'Primary 3', primaryGuardian: 'Alhaji Abdullahi Sani', status: AdministratorStudentStatus.active),
+];
 
 void main() {
-  test('website attendance KPIs are preserved exactly', () {
-    expect(administratorAttendancePresentToday, 623);
-    expect(administratorAttendancePresentRate, 96.1);
-    expect(administratorAttendanceLateArrivals, 27);
-    expect(administratorAttendanceAbsentNotCheckedIn, 25);
-    expect(administratorAttendanceActiveDevices, '4 / 5');
-    expect(administratorAttendanceQueuedEvents, 42);
-  });
-
-  test('website seed preserves five exact live events', () {
-    expect(administratorAttendanceWebsiteEvents, hasLength(5));
-    expect(administratorAttendanceWebsiteEvents.first.student, 'Maryam Abdullahi');
-    expect(administratorAttendanceWebsiteEvents.first.time, '07:41');
-    expect(administratorAttendanceWebsiteEvents[2].status, AdministratorAttendanceEventStatus.late);
-    expect(administratorAttendanceWebsiteEvents[3].status, AdministratorAttendanceEventStatus.offlineSynced);
-    expect(administratorAttendanceWebsiteEvents[3].parentState, 'Queued');
-    expect(administratorAttendanceWebsiteEvents.last.student, 'Unknown credential');
-    expect(administratorAttendanceWebsiteEvents.last.status, AdministratorAttendanceEventStatus.unknownScan);
-    expect(administratorAttendanceWebsiteEvents.last.parentState, 'Not sent');
-  });
-
   test('website seed preserves five device states including syncing and offline', () {
     expect(administratorAttendanceWebsiteDevices, hasLength(5));
     expect(
@@ -38,39 +26,40 @@ void main() {
     expect(administratorAttendanceWebsiteDevices.last.status, AdministratorAttendanceDeviceStatus.offline);
   });
 
-  test('section summaries preserve exact rates and counts', () {
-    expect(administratorAttendanceSections, hasLength(3));
-    expect(administratorAttendanceSections[0].name, 'Early Years');
-    expect(administratorAttendanceSections[0].rate, 96);
-    expect(administratorAttendanceSections[0].present, 83);
-    expect(administratorAttendanceSections[1].present, 312);
-    expect(administratorAttendanceSections[1].late, 11);
-    expect(administratorAttendanceSections[2].absent, 9);
-  });
-
-  test('three correction requests preserve website evidence', () {
-    expect(administratorAttendanceCorrections, hasLength(3));
-    expect(administratorAttendanceCorrections[0].id, 'ATT-081');
-    expect(administratorAttendanceCorrections[0].requestedChange, 'Absent → Present');
-    expect(administratorAttendanceCorrections[1].evidence, 'Arrival log attached');
-    expect(administratorAttendanceCorrections[2].evidence, 'Leadership review required');
-  });
-
-  test('event, device and correction serialization preserve operational fields', () {
-    final event = AdministratorAttendanceEvent.fromJson(
-      administratorAttendanceWebsiteEvents[3].toJson(),
-    );
-    expect(event.student, 'Muhammad Kabir');
-    expect(event.status, AdministratorAttendanceEventStatus.offlineSynced);
-
+  test('device serialization preserves operational fields', () {
     final device = AdministratorAttendanceDevice.fromJson(
       administratorAttendanceWebsiteDevices[3].toJson(),
     );
     expect(device.status, AdministratorAttendanceDeviceStatus.syncing);
     expect(device.events, '42 queued');
+  });
 
+  test('sample correction requests are drawn from the real register, not fixed names', () {
+    // Every sample correction must name a student who is really on the passed-in register, so a demo school
+    // never shows a fabricated request attributed to a real, identifiable student who never submitted one.
+    final corrections = demoCorrectionsFor(_students);
+    expect(corrections, hasLength(3));
+    final realNames = _students.map((s) => s.name).toSet();
+    for (final c in corrections) {
+      expect(realNames, contains(c.student));
+    }
+    expect(corrections.map((c) => c.id), ['ATT-081', 'ATT-082', 'ATT-083']);
+    expect(corrections.every((c) => c.isPending), isTrue);
+  });
+
+  test('sample correction requests are deterministic: the same register gives the same requests', () {
+    final first = demoCorrectionsFor(_students);
+    final second = demoCorrectionsFor(_students);
+    expect(first.map((c) => '${c.id}-${c.student}-${c.requestedChange}'), second.map((c) => '${c.id}-${c.student}-${c.requestedChange}'));
+  });
+
+  test('an empty register produces no sample correction requests', () {
+    expect(demoCorrectionsFor(const []), isEmpty);
+  });
+
+  test('correction serialization preserves operational fields', () {
     final correction = AdministratorAttendanceCorrection.fromJson(
-      administratorAttendanceCorrections[2].toJson(),
+      demoCorrectionsFor(_students).last.toJson(),
     );
     expect(correction.id, 'ATT-083');
     expect(correction.requestedChange, 'Present → Excused');
@@ -86,13 +75,9 @@ void main() {
     expect(administratorAttendanceCorrectionBoundary, contains('authoritative audit workflow'));
   });
 
-  test('website architecture and exception groups stay complete', () {
+  test('website architecture flow stays complete', () {
     expect(administratorAttendanceFlow, hasLength(6));
     expect(administratorAttendanceFlow.first, contains('Device scan'));
     expect(administratorAttendanceFlow.last, contains('Parent update'));
-    expect(administratorAttendanceExceptions, hasLength(3));
-    expect(administratorAttendanceExceptions.first, contains('42 offline events'));
-    expect(administratorAttendanceExceptions[1], contains('never guess the student identity'));
-    expect(administratorAttendanceExceptions.last, contains('audit trail'));
   });
 }

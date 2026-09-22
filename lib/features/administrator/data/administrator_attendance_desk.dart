@@ -148,6 +148,31 @@ List<AdministratorAttendanceEvent> demoScansFor(List<AdministratorStudentRecord>
   return events;
 }
 
+/// A few sample correction requests for the demo, deterministic like the gate scans and drawn from the real
+/// student register rather than fixed names, so a demo school never shows a fabricated request attributed to a
+/// specific real student who never actually submitted one.
+///
+/// Only the demo uses this. With a school server, correction requests come from real teachers and administrators.
+List<AdministratorAttendanceCorrection> demoCorrectionsFor(List<AdministratorStudentRecord> students) {
+  const templates = [
+    ('Absent → Present', 'Teacher submitted correction'),
+    ('Late → Present', 'Arrival log attached'),
+    ('Present → Excused', 'Leadership review required'),
+  ];
+  final sorted = [...students]..sort((a, b) => a.id.compareTo(b.id));
+  final picked = sorted.take(templates.length).toList(growable: false);
+  return [
+    for (var i = 0; i < picked.length; i++)
+      AdministratorAttendanceCorrection(
+        id: 'ATT-0${81 + i}',
+        student: picked[i].name,
+        className: picked[i].className,
+        requestedChange: templates[i].$1,
+        evidence: templates[i].$2,
+      ),
+  ];
+}
+
 int _hash(String value) {
   var h = 17;
   for (final unit in value.codeUnits) {

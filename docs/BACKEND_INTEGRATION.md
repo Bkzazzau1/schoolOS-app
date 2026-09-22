@@ -687,3 +687,32 @@ teacher genuinely does or creates real, filter every class-scoped view to `Teach
 defense-in-depth checks on every write, replace fixed numbers with real computation wherever a real source exists, leave
 what has no real source honestly labelled rather than fabricated, and never let a screen show one real, named person's
 fabricated evidence to another.
+
+## Administrator: attendance corrections are drawn from the real register, and dead code removed
+
+Spot-audited on request (not part of the Teacher pass above). The core of this module was already solid:
+`buildAttendanceDesk()` computes every figure shown from real inputs, real actions (`checkIn`, `identifyUnknown`,
+`decideCorrection`) correctly set `isDirty: true` and queue for sync, `demoScansFor()` (the sample morning of gate
+scans) was already correctly demo-only and already derived deterministically from the real student register — this
+was the pattern to match, not deviate from.
+
+One live gap: `administratorAttendanceCorrections`, a fixed list of three sample correction requests, attributed a
+specific fabricated request ("Teacher submitted correction") to three of the four real, named students in the demo
+register, regardless of which students a given school's register actually contains. `demoCorrectionsFor(students)`
+replaces it, in `administrator_attendance_desk.dart` next to `demoScansFor` (same file, same pattern): deterministic,
+built from the real register passed in (the first few students by id, matching the number of request templates), so a
+sample correction always names a student who is genuinely enrolled, the same guarantee `demoScansFor` already gave
+attendance events. Still demo-only (seeded without `isDirty`, blocked once a real backend is configured) and still
+labelled as such in the doc comment.
+
+Also removed dead code found during the audit: `administratorAttendanceWebsiteEvents`, `administratorAttendanceSections`,
+`administratorAttendanceExceptions` and six fixed KPI constants (`administratorAttendancePresentToday`, etc.) were
+defined and tested but never referenced by the live page — `AdministratorAttendancePage` already computed everything
+from the real `AttendanceDesk` and its own dynamic `_ExceptionsCard` content. The old test file was asserting on data
+the app doesn't show, which is worse than no test: it gave the appearance of coverage over dead code while the real
+`buildAttendanceDesk`/`demoScansFor` logic was only covered in a separate action-focused test file. Rewrote
+`test/administrator_attendance_feature_test.dart` to test the real `demoCorrectionsFor` logic and the constants that are
+actually still live (devices, flow, boundary text).
+
+Tests: `test/administrator_attendance_feature_test.dart` rewritten; `test/administrator_attendance_actions_test.dart`
+(pre-existing, exercises the real repository end to end) updated for the new correction attribution.

@@ -110,7 +110,7 @@ void main() {
     expect(decided.decisionNote, 'Teacher confirmed');
     expect(decided.decidedAt, isNotEmpty);
     expect((await desk()).pendingCorrections, before.pendingCorrections - 1);
-    expect(after.events.any((e) => e.student == 'Maryam Abdullahi' && e.note.contains('ATT-081')), isTrue);
+    expect(after.events.any((e) => e.student == request.student && e.note.contains('ATT-081')), isTrue);
 
     expect((await attendance.decideCorrection(decided, approve: false, note: 'x')).message, contains('already been decided'));
   });
