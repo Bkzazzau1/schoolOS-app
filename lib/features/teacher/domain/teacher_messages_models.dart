@@ -14,6 +14,7 @@ class TeacherMessageThread {
     required this.preview,
     required this.timeLabel,
     required this.unread,
+    this.className,
   });
 
   final String id;
@@ -22,6 +23,10 @@ class TeacherMessageThread {
   final String preview;
   final String timeLabel;
   final int unread;
+
+  /// For a [TeacherMessageChannelType.parentGroup] thread, the real class it belongs to. A teacher only ever sees
+  /// a guardian group for a class they are really assigned to. Other channel types are not class-scoped.
+  final String? className;
 
   bool matches(String query) {
     final q = query.trim().toLowerCase();
@@ -38,6 +43,7 @@ class TeacherMessageThread {
         'preview': preview,
         'timeLabel': timeLabel,
         'unread': unread,
+        'className': className,
       };
 
   factory TeacherMessageThread.fromJson(Map<String, dynamic> json) =>
@@ -48,6 +54,7 @@ class TeacherMessageThread {
         preview: json['preview'] as String,
         timeLabel: json['timeLabel'] as String,
         unread: (json['unread'] as num).toInt(),
+        className: json['className'] as String?,
       );
 }
 

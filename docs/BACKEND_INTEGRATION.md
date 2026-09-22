@@ -576,3 +576,21 @@ the table cell — disambiguated with `.last`).
 Tests: `test/teacher_lesson_plans_roster_test.dart` (new, against the real roster), `test/teacher_lesson_plans_feature_test.dart`
 rewritten for the new create/select-plan flow; this also fixed one of the 17 previously-failing tests ("history search
 filters rows").
+
+## Teacher: Messages only shows guardian-group channels for real assigned classes
+
+`TeacherMessageThread` gained a `className` field: for a guardian-group channel it names the real class the channel
+belongs to (e.g. "JSS 2A Guardians" → `'JSS 2A'`); for a staff or leadership channel it stays `null`, since those are not
+class-scoped. `TeacherMessagesRepository.load()` now filters the channel list to the teacher's real assigned classes plus
+every non-class-scoped channel, and `queueMessage` re-checks that same real visibility before accepting a message —
+closing a real scope leak where any teacher could message any class's guardian group, contradicting the screen's own
+stated privacy boundary ("Teachers communicate only through approved SchoolOS channels linked to their assigned classes
+or school role"). The KPI strip (Unread, Guardian groups, Staff channels, Channels with unread) is now computed from the
+real, filtered channel list instead of a fixed snapshot that didn't even agree with the fixed thread list it described
+(the old "Guardian groups: 3" against only two guardian-group threads in the same file).
+
+The seeded sample threads and their one seeded conversation were left as sample content — no real, named student or
+guardian is attributed a fabricated message the way earlier screens attributed fabricated academic evidence, so this did
+not need the same rebuild as CBT or Learning Progress.
+
+Tests: `test/teacher_messages_roster_test.dart` (new, against the real roster).

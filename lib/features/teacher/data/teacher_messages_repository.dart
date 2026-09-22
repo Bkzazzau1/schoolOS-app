@@ -4,6 +4,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_messages_models.dart';
 import 'teacher_messages_demo_data.dart';
+import 'teacher_roster.dart';
 
 class TeacherMessagesSnapshot {
   const TeacherMessagesSnapshot({
@@ -37,8 +38,10 @@ class TeacherMessagesRepository {
   TeacherMessagesRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required TeacherRoster roster,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _roster = roster;
 
   static const _threadType = 'teacher_message_thread';
   static const _messageType = 'teacher_message';
@@ -46,6 +49,7 @@ class TeacherMessagesRepository {
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final TeacherRoster _roster;
 
   TeacherMessagePermissions permissionsFor(SchoolMembership membership) {
     final teacher = membership.role == SchoolRole.teacher;
@@ -60,6 +64,19 @@ class TeacherMessagesRepository {
     );
   }
 
+  /// A teacher only ever sees a guardian group for a class they are really assigned to; channels not scoped to a
+  /// class (staff/leadership) are visible to every teacher.
+  Future<List<TeacherMessageThread>> _visibleThreads(
+    SchoolMembership membership,
+    List<TeacherMessageThread> all,
+  ) async {
+    final classes = await _roster.assignedClasses(membership);
+    final classNames = {for (final c in classes) c.className};
+    return all
+        .where((thread) => thread.className == null || classNames.contains(thread.className))
+        .toList(growable: false);
+  }
+
   Future<TeacherMessagesSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
     await _seedIfNeeded(membership);
@@ -71,7 +88,7 @@ class TeacherMessagesRepository {
       tenantId: membership.schoolId,
       entityType: _messageType,
     );
-    final threads = threadRecords
+    var threads = threadRecords
         .map((record) => TeacherMessageThread.fromJson(record.payload))
         .toList(growable: false);
     threads.sort((a, b) {
@@ -79,8 +96,12 @@ class TeacherMessagesRepository {
       final bi = teacherMessageThreads.indexWhere((item) => item.id == b.id);
       return ai.compareTo(bi);
     });
+    threads = await _visibleThreads(membership, threads);
+    final visibleIds = {for (final thread in threads) thread.id};
+
     final messages = messageRecords
         .map((record) => TeacherMessage.fromJson(record.payload))
+        .where((message) => visibleIds.contains(message.threadId))
         .toList(growable: false);
     messages.sort((a, b) {
       final aSeed = teacherMessageSeedMessages.indexWhere((item) => item.id == a.id);
@@ -117,11 +138,11 @@ class TeacherMessagesRepository {
         message: 'Write a professional school message before sending.',
       );
     }
-    final approved = teacherMessageThreads.any((thread) => thread.id == threadId);
-    if (!approved) {
+    final visible = await _visibleThreads(membership, teacherMessageThreads);
+    if (!visible.any((thread) => thread.id == threadId)) {
       return const TeacherMessageActionResult(
         success: false,
-        message: 'Messages can only be queued to approved SchoolOS channels.',
+        message: 'Messages can only be queued to an approved channel you have access to.',
       );
     }
     final now = DateTime.now().toUtc().toIso8601String();

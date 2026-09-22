@@ -105,6 +105,14 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
             );
           }
           final data = snapshot.data!;
+          if (data.threads.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No message channels are available yet.'),
+              ),
+            );
+          }
           final filtered = data.threads
               .where((thread) => thread.matches(_searchController.text))
               .toList(growable: false);
@@ -121,7 +129,7 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
                 children: [
                   _header(context),
                   const SizedBox(height: 16),
-                  _kpis(),
+                  _kpis(data),
                   if (_notice != null) ...[
                     const SizedBox(height: 14),
                     _noticeBanner(),
@@ -191,31 +199,47 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
         ],
       );
 
-  Widget _kpis() => Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          for (final item in teacherMessageKpis)
-            SizedBox(
-              width: 210,
-              child: Card(
-                elevation: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item.label),
-                      const SizedBox(height: 4),
-                      Text(item.value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-                      Text(item.hint, style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
+  Widget _kpis(TeacherMessagesSnapshot data) {
+    final unread = data.threads.fold<int>(0, (sum, t) => sum + t.unread);
+    final guardianGroups = data.threads.where((t) => t.type == TeacherMessageChannelType.parentGroup).length;
+    final staffChannels = data.threads
+        .where((t) =>
+            t.type == TeacherMessageChannelType.staffChannel ||
+            t.type == TeacherMessageChannelType.schoolLeadership)
+        .length;
+    final needsReply = data.threads.where((t) => t.unread > 0).length;
+    final kpis = <({String label, String value, String hint})>[
+      (label: 'Unread', value: '$unread', hint: 'Across your approved channels'),
+      (label: 'Guardian groups', value: '$guardianGroups', hint: 'Your assigned classes only'),
+      (label: 'Staff channels', value: '$staffChannels', hint: 'Department + leadership'),
+      (label: 'Channels with unread', value: '$needsReply', hint: 'May need a reply'),
+    ];
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        for (final item in kpis)
+          SizedBox(
+            width: 210,
+            child: Card(
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.label),
+                    const SizedBox(height: 4),
+                    Text(item.value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                    Text(item.hint, style: const TextStyle(fontSize: 12)),
+                  ],
                 ),
               ),
             ),
-        ],
-      );
+          ),
+      ],
+    );
+  }
 
   Widget _noticeBanner() => Card(
         elevation: 0,

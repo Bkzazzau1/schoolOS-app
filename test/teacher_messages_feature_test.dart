@@ -20,12 +20,15 @@ void main() {
     expect(teacherMessageThreads.fold<int>(0, (sum, item) => sum + item.unread), 4);
   });
 
-  test('Messages preserves exact website KPI snapshot', () {
-    expect(teacherMessageKpis, hasLength(4));
-    expect(teacherMessageKpis[0], (label: 'Unread', value: '4', hint: 'Across approved channels'));
-    expect(teacherMessageKpis[1], (label: 'Guardian groups', value: '3', hint: 'Assigned classes only'));
-    expect(teacherMessageKpis[2], (label: 'Staff channels', value: '2', hint: 'Department + leadership'));
-    expect(teacherMessageKpis[3], (label: 'Pending follow-up', value: '2', hint: 'Teacher action recommended'));
+  test('guardian-group threads are tagged with the real class they belong to', () {
+    final guardianGroups = teacherMessageThreads.where((t) => t.type == TeacherMessageChannelType.parentGroup);
+    expect(guardianGroups.length, 2);
+    for (final thread in guardianGroups) {
+      expect(thread.className, isNotNull, reason: '${thread.name} must be scoped to a real class so it can be filtered to the teacher\'s real assignment');
+    }
+    expect(teacherMessageThreads.firstWhere((t) => t.name == 'JSS 2A Guardians').className, 'JSS 2A');
+    // Staff/leadership channels are not class-scoped, so every teacher may see them.
+    expect(teacherMessageThreads.firstWhere((t) => t.name == 'Academic Office').className, isNull);
   });
 
   test('JSS 2A seed conversation preserves exact three website messages', () {
