@@ -100,12 +100,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
   @override
   void initState() {
     super.initState();
-    _timetable = TeacherTimetableRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _roster = TeacherRoster(
       database: widget.localDatabase,
       session: widget.schoolSession,
       students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
     );
+    _timetable = TeacherTimetableRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _classes = TeacherClassesRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _attendance = TeacherAttendanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _lessonPlans = TeacherLessonPlanRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);

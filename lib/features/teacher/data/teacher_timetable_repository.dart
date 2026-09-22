@@ -3,6 +3,7 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_timetable_models.dart';
+import 'teacher_roster.dart';
 import 'teacher_timetable_demo_data.dart';
 
 class TeacherTimetableSnapshot {
@@ -30,14 +31,17 @@ class TeacherTimetableRepository {
   TeacherTimetableRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required TeacherRoster roster,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _roster = roster;
 
   static const lessonEntityType = 'teacher_timetable_lesson';
   static const intentEntityType = 'teacher_timetable_intent';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final TeacherRoster _roster;
 
   TeacherTimetablePermissions permissionsFor(SchoolMembership membership) =>
       TeacherTimetablePermissions(
@@ -61,8 +65,10 @@ class TeacherTimetableRepository {
       entityType: intentEntityType,
     );
 
+    final assigned = {for (final c in await _roster.assignedClasses(membership)) c.className};
     final lessons = lessonRecords
         .map((record) => TeacherTimetableLesson.fromJson(record.payload))
+        .where((lesson) => assigned.contains(lesson.className))
         .toList(growable: false)
       ..sort((a, b) => _lessonOrder(a.id).compareTo(_lessonOrder(b.id)));
     final intents = intentRecords

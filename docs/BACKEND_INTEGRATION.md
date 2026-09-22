@@ -663,3 +663,27 @@ have been silently discarded the moment a real backend was configured. Fixed by 
 
 Tests: `test/teacher_ai_roster_test.dart` (new, against the real roster, including the same blockDemoSeeds regression
 pattern as Performance).
+
+## Teacher: Timetable filters to real assigned classes — the last screen in this module
+
+The weekly lesson schedule was shown in full to every teacher regardless of what they actually teach. `load()` now
+filters lessons to the teacher's real assigned classes via `TeacherRoster`, the same pattern used throughout this
+module; a teacher with no assigned classes now sees an honestly empty timetable instead of someone else's schedule.
+Fixed the same "SS 1A" (space) vs "SS1A" naming mismatch found several times already this session, in both the sample
+lessons and a schedule notice. The KPI strip ("Lessons this week", "Substitutions", etc.) is now computed from the real,
+filtered lesson list instead of a fixed snapshot (`'14'`, `'4'`, `'1'`, `'9'`); the "Free periods" KPI, which had no real
+source (nothing in the data model tracks total available periods), was replaced with "Assigned classes", a real count.
+Also fixed a real repository-construction-ordering bug in `teacher_workspace_page.dart`: `TeacherTimetableRepository` was
+built one line before `TeacherRoster` itself, which would have thrown `LateInitializationError` at runtime the moment it
+tried to use the roster — the same class of ordering bug caught earlier this session for other repositories, this one
+had gone unnoticed because nothing had given `TeacherTimetableRepository` a `roster` dependency until now.
+
+This screen never had a widget test file; only a unit test file existed and is preserved. Tests:
+`test/teacher_timetable_roster_test.dart` (new, against the real roster).
+
+This completes the pass through every screen in the Teacher module (Syllabus, Assessments, CBT, Learning Progress,
+Lesson Plans, Messages, Profile, Performance, AI, Timetable), following the same pattern throughout: make what a
+teacher genuinely does or creates real, filter every class-scoped view to `TeacherRoster`'s real assigned classes with
+defense-in-depth checks on every write, replace fixed numbers with real computation wherever a real source exists, leave
+what has no real source honestly labelled rather than fabricated, and never let a screen show one real, named person's
+fabricated evidence to another.

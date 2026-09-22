@@ -13,11 +13,13 @@ void main() {
     );
   });
 
-  test('teacher timetable preserves exact website KPI snapshot', () {
-    expect(teacherTimetableKpis.map((item) => item.value).toList(), ['14', '4', '1', '9']);
-    expect(teacherTimetableKpis.first.hint, 'Across 4 assigned classes');
-    expect(teacherTimetableKpis[2].hint, 'Tuesday · JSS 2B');
-    expect(teacherTimetableKpis.last.hint, 'Available planning blocks');
+  test('the KPI strip is computed from the real lessons, not a fixed snapshot', () {
+    // The page computes its KPI strip from the real (possibly roster-filtered) lesson list rather than
+    // from a fixed constant. These are the underlying real counts it computes from.
+    expect(teacherTimetableLessons.length, 14);
+    expect(teacherTimetableLessons.where((l) => l.day == 'Monday').length, 4);
+    expect(teacherTimetableLessons.where((l) => l.status == TeacherTimetableLessonStatus.substitution).length, 1);
+    expect(teacherTimetableLessons.map((l) => l.className).toSet().length, 4);
   });
 
   test('Tuesday substitution keeps exact lesson evidence', () {

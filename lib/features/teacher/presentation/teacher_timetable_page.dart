@@ -39,6 +39,18 @@ class _TeacherTimetablePageState extends State<TeacherTimetablePage> {
     super.dispose();
   }
 
+  List<TeacherTimetableKpi> _kpis(List<TeacherTimetableLesson> lessons) {
+    final monday = lessons.where((l) => l.day == 'Monday').length;
+    final substitutions = lessons.where((l) => l.status == TeacherTimetableLessonStatus.substitution).length;
+    final classes = lessons.map((l) => l.className).toSet().length;
+    return [
+      TeacherTimetableKpi(label: 'Lessons this week', value: '${lessons.length}', hint: 'Across $classes assigned classes'),
+      TeacherTimetableKpi(label: "Monday's lessons", value: '$monday', hint: 'Monday teaching load'),
+      TeacherTimetableKpi(label: 'Substitutions', value: '$substitutions', hint: 'This week'),
+      TeacherTimetableKpi(label: 'Assigned classes', value: '$classes', hint: 'On this timetable'),
+    ];
+  }
+
   Future<void> _run(Future<TeacherTimetableActionResult> future) async {
     final result = await future;
     if (!mounted) return;
@@ -96,7 +108,7 @@ class _TeacherTimetablePageState extends State<TeacherTimetablePage> {
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      for (final item in teacherTimetableKpis)
+                      for (final item in _kpis(data.lessons))
                         SizedBox(width: compact ? double.infinity : 210, child: _KpiCard(item: item)),
                     ],
                   ),
