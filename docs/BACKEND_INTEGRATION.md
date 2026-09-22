@@ -892,3 +892,21 @@ starts creating assessments).
 Tests: `test/principal_academics_feature_test.dart` rewritten against the real repository, including cross-checks
 that a real assignment raises the real teacher count and a real assessment record changes the real average/
 completion figures for that specific class.
+
+## Principal: Results & Reports
+
+The old page seeded fabricated class averages, student scores, positions, attendance, comments and release states,
+then printed them on invented school letterhead. None of those records represented a real term report.
+
+**Real source:** class names and active Secondary student counts now come from the one Administrator student
+register, filtered through `sectionOfClass()` and excluding transferred-out students.
+
+**No real source — left honest:** Teacher assessments contain actual assessment evidence, but do not supply the
+subject/term grading, report preparation, approval and publication records needed for official term reports.
+Reports, review decisions, rankings, signatures, conduct and AI conclusions therefore remain empty; the page links
+to Academics for actual assessment evidence. Legacy seeded report records are deliberately not treated as genuine
+reports. Review and print actions cannot manufacture a report from them. Missing averages are null, not zero marks.
+
+Tests: `test/principal_results_feature_test.dart` now checks the real register, missing evidence, legacy-record
+exclusion, denied review/publication and phone rendering. Full analysis is clean; full suite: 1,114 passed with the
+same 8 baseline failures (six demo navigation tests, Teacher Assignments phone test and Teacher Students phone test).
