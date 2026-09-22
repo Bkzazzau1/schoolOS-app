@@ -1,42 +1,142 @@
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../teacher/data/teacher_assessment_repository.dart'
+    show teacherAssessmentRegisterEntityType, teacherAssessmentScoreSheetEntityType;
+import '../../teacher/domain/teacher_assessment_models.dart';
 import '../domain/parent_learning_progress_models.dart';
-import 'parent_learning_progress_demo_data.dart';
+import 'parent_children_repository.dart';
+
+const _notRecorded = 'Not recorded yet';
 
 class ParentLearningProgressRepository {
   ParentLearningProgressRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required ParentChildrenRepository children,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
-
-  static const _entityType = 'parent_learning_progress_snapshot';
+        _schoolSession = schoolSession,
+        _children = children;
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final ParentChildrenRepository _children;
 
+  /// Every child's average, evidence and timeline are computed live from the same real assessment
+  /// records a Teacher enters and Principal's Academics screen aggregates class-wide
+  /// ([teacherAssessmentRegisterEntityType] / [teacherAssessmentScoreSheetEntityType]), filtered down to
+  /// this one real student's own score entries — so a family can never see a number Finance, the
+  /// register or a teacher's own score sheet would disagree with.
+  ///
+  /// No real assessment records a subject, a topic, a day-by-day history or a narrative "insight"
+  /// (Principal Academics already established the same "no subject label exists yet" fact school-wide),
+  /// so those stay honestly empty instead of inventing them.
   Future<ParentLearningProgressSnapshot> load() async {
     final membership = _requireParentMembership();
-    final record = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-    );
+    final linked = (await _children.load()).children;
 
-    if (record != null) {
-      final snapshot = ParentLearningProgressSnapshot.fromJson(record.payload);
-      _validateSnapshot(snapshot);
-      return snapshot;
+    final registerRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: teacherAssessmentRegisterEntityType,
+    );
+    final register = registerRecords
+        .map((record) => TeacherAssessmentRegisterItem.fromJson(record.payload))
+        .toList(growable: false);
+
+    final sheetRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: teacherAssessmentScoreSheetEntityType,
+    );
+    final sheetsById = <String, TeacherAssessmentScoreSheet>{
+      for (final record in sheetRecords)
+        record.entityId: TeacherAssessmentScoreSheet.fromJson(record.payload),
+    };
+
+    final children = <ParentLearningChild>[];
+    for (final child in linked) {
+      final evidence = <ParentLearningEvidenceItem>[];
+      final timeline = <ParentLearningTimelineEvent>[];
+      var totalPercent = 0;
+      var scoredCount = 0;
+
+      for (final item in register) {
+        if (item.className != child.className) continue;
+        final sheet = sheetsById[item.id];
+        if (sheet == null) continue;
+
+        TeacherAssessmentScoreEntry? entry;
+        for (final e in sheet.entries) {
+          if (e.studentId == child.id) {
+            entry = e;
+            break;
+          }
+        }
+        // A score of exactly 0 cannot be told apart from "not entered yet" with the current score
+        // model, so this follows the same honest convention the register itself uses.
+        if (entry == null || entry.score <= 0) continue;
+
+        final percent = sheet.maximumScore <= 0
+            ? 0
+            : ((entry.score / sheet.maximumScore) * 100).round();
+        totalPercent += percent;
+        scoredCount += 1;
+
+        evidence.add(ParentLearningEvidenceItem(
+          label: item.title,
+          value: '${entry.score}/${sheet.maximumScore} ($percent%)',
+          note: item.className,
+        ));
+
+        final dateLabel = (sheet.submittedAt ?? sheet.updatedAt)?.split('T').first;
+        timeline.add(ParentLearningTimelineEvent(
+          dateLabel: dateLabel ?? _notRecorded,
+          title: item.title,
+          detail: 'Score recorded: ${entry.score}/${sheet.maximumScore}',
+        ));
+      }
+
+      timeline.sort((a, b) => b.dateLabel.compareTo(a.dateLabel));
+
+      final averagePercent = scoredCount == 0 ? 0 : (totalPercent / scoredCount).round();
+      final status = scoredCount == 0
+          ? ParentLearningStatus.stable
+          : averagePercent >= 75
+              ? ParentLearningStatus.strong
+              : averagePercent >= 60
+                  ? ParentLearningStatus.stable
+                  : averagePercent >= 40
+                      ? ParentLearningStatus.watch
+                      : ParentLearningStatus.needsSupport;
+
+      children.add(ParentLearningChild(
+        id: child.id,
+        name: child.name,
+        className: child.className,
+        section: child.section,
+        averagePercent: averagePercent,
+        // The real gate-scan record only ever keeps today's attendance (see Parent Attendance);
+        // there is no real second attendance source to compute this from.
+        attendancePercent: child.presentToday ? 100 : 0,
+        // No real longitudinal series exists to compute a trend from; a single current snapshot
+        // cannot honestly claim to be rising or falling, so this stays at zero rather than guessing.
+        trendPercent: 0,
+        status: status,
+        history: const [],
+        subjects: const [],
+        topics: const [],
+        evidence: evidence,
+        timeline: timeline,
+        insight: scoredCount == 0
+            ? _notRecorded
+            : 'Based on $scoredCount recorded assessment${scoredCount == 1 ? '' : 's'} so far this term.',
+        actions: const [],
+      ));
     }
 
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-      payload: parentDefaultLearningProgress.toJson(),
+    return ParentLearningProgressSnapshot(
+      familyAccountId: membership.id,
+      children: children,
     );
-    return parentDefaultLearningProgress;
   }
 
   Future<ParentLearningChild> childById(String childId) async {
@@ -53,48 +153,6 @@ class ParentLearningProgressRepository {
       );
     }
     return child;
-  }
-
-  Future<void> replaceFromServer({
-    required ParentLearningProgressSnapshot snapshot,
-    required int serverVersion,
-  }) async {
-    final membership = _requireParentMembership();
-    _validateSnapshot(snapshot);
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-      payload: snapshot.toJson(),
-      serverVersion: serverVersion,
-      isDirty: false,
-    );
-  }
-
-  void _validateSnapshot(ParentLearningProgressSnapshot snapshot) {
-    if (snapshot.familyAccountId.trim().isEmpty) {
-      throw StateError('Family learning progress is missing its family account id.');
-    }
-
-    final childIds = <String>{};
-    for (final child in snapshot.children) {
-      if (child.id.trim().isEmpty || !childIds.add(child.id)) {
-        throw StateError('Family learning progress contains an invalid child id.');
-      }
-      if (child.averagePercent < 0 || child.averagePercent > 100) {
-        throw StateError('A child learning average is outside the valid range.');
-      }
-      if (child.attendancePercent < 0 || child.attendancePercent > 100) {
-        throw StateError('A child attendance value is outside the valid range.');
-      }
-      if (child.history.any((value) => value < 0 || value > 100)) {
-        throw StateError('Historical learning evidence is outside the valid range.');
-      }
-      if (child.topics.any((topic) => topic.scorePercent < 0 || topic.scorePercent > 100)) {
-        throw StateError('Topic learning evidence is outside the valid range.');
-      }
-    }
   }
 
   SchoolMembership _requireParentMembership() {

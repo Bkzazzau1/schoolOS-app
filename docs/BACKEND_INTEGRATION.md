@@ -1428,3 +1428,41 @@ round-trips and queues for sync, and a combined payment is validated against rea
 reopening one child's real balance the same way a real accountant would, by voiding a payment, to exercise the
 success path against genuine data rather than a hand-built fixture). Full suite: 1105 passing, same 8 pre-existing
 unrelated failures, zero regressions.
+
+## Parent: Learning Progress now reads real assessment scores, not a fourth fabricated dataset
+
+A fourth independently fabricated dataset for the same two real children: `ParentLearningProgressRepository`
+returned a fixed average/attendance/trend, a made-up seven-point score history, invented per-subject
+exam/classwork/assignment breakdowns, invented per-topic scores with subjective notes, a fabricated evidence
+summary, a fabricated event timeline (including a specific action attributed to "Headmistress" that never
+happened), a fabricated narrative "insight" paragraph, and fabricated suggested next actions.
+
+**Real source:** `load()` starts from `ParentChildrenRepository`'s real linked children, then reads the same real
+assessment records a Teacher enters and Principal's Academics screen already aggregates class-wide
+(`teacherAssessmentRegisterEntityType`) — plus, newly exposed for this fix, the underlying real score sheets
+(`teacherAssessmentScoreSheetEntityType`, exported from `TeacherAssessmentRepository` the same way the register
+type already was, "for the same reason"). Each real score sheet's entries are filtered down to the one real
+student's own `studentId`, so a family's average and evidence can never drift from what a teacher actually
+recorded or disagree with what Principal Academics reports for the same class. A child's `averagePercent` is the
+mean of their real per-assessment percentages; `evidence` and `timeline` list only assessments where that specific
+child has a real, non-zero score (the same "score > 0 means entered" convention the register itself already
+uses); `status` is derived from the real average against fixed thresholds instead of being a free-standing
+fabricated label; `insight` is a short factual sentence naming the real count of recorded assessments, or
+`'Not recorded yet'` when there are none — never an invented narrative.
+
+**No real source — left honest:** Principal Academics already established, school-wide, that "no real assessment
+carries a subject label yet" — a score sheet only records a class and a free-text assessment title, so there is no
+real way to break a child's evidence down by subject. The same absence cascades to topics (which would need a
+subject to sit under). `history` (no real longitudinal series — a fresh demo school has, at most, a handful of
+assessments entered moments apart, not a real multi-term trend), `trendPercent` (for the same reason — a single
+current snapshot cannot honestly claim to be rising or falling), `subjects`, `topics`, and `actions` are now
+`const []` / `0`, matching the "no real source → honest empty, don't half-fabricate" principle applied throughout
+this audit.
+
+Tests: `test/parent_learning_progress_feature_test.dart`, the first coverage this repository has had. Confirms a
+fresh family with no real assessments sees an honestly empty picture rather than fabricated evidence; a real
+recorded score (entered through the real `TeacherAssessmentRepository`, for a real assigned class) becomes real
+evidence and a real average for the right child only, leaving their sibling in a different real class untouched;
+multiple real scores blend into a real average; status is derived from that real average; attendance matches the
+real linked-child attendance; `childById` and the permission check behave correctly. Full suite: 1112 passing, same
+8 pre-existing unrelated failures, zero regressions.
