@@ -377,3 +377,22 @@ Still sample in Finance: Smart Collections, School Store, Payment Mandates, Reco
   matches, one disagreement and two unrecorded payments.
 Tests: `test/finance_reports_ai_reconciliation_test.dart`. Still not built in Finance: Smart Collections, School Store, Payment
 Mandates and Expenses & Income (their own features).
+
+## Teacher (role 6): audit and the attendance register is real
+
+Audit: 16 screens, all with demo data and their own repository. Most write locally (lesson plans, assignments, CBT, assessments,
+weekly learning, messages, profile contact, syllabus, private reflections), but classes, students-in-class and attendance
+registers were all fixed sample rows unconnected to the real school register built for the other roles.
+
+Also fixed: 15 dropdowns across the Teacher module were missing `isExpanded: true` and overflowed on layout, which was most of
+the 46 failing Teacher tests (down to 19, all content-parity or platform-specific; unrelated to this work).
+
+`teacher_roster.dart` is new: which classes a teacher teaches (`AssignedClass`, assignable by the owner or administrator; the
+demo teachers start with sample classes) and the real students in a class, from the administrator's student register (a student
+who has left is excluded). `TeacherAttendanceRepository` now builds one register per assigned class from the real roster instead
+of three fixed lessons with four fixed students; a newly assigned class gets a fresh register without disturbing existing ones,
+submitted registers still lock. Tests: `test/teacher_roster_attendance_test.dart`.
+
+Not done yet: My Classes still shows fixed progress/attendance-rate/marking figures (they need the syllabus and assessment
+modules wired to the same roster); Students, Assessments, CBT, Learning Progress and the rest of the Teacher module still use
+their own demo data, unconnected to the attendance register or each other.

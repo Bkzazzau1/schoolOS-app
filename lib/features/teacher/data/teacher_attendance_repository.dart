@@ -3,7 +3,7 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_attendance_models.dart';
-import 'teacher_attendance_demo_data.dart';
+import 'teacher_roster.dart';
 
 class TeacherAttendanceActionResult {
   const TeacherAttendanceActionResult({
@@ -43,13 +43,16 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
   TeacherAttendanceRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required TeacherRoster roster,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _roster = roster;
 
   static const _registerType = 'teacher_attendance_register';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final TeacherRoster _roster;
 
   TeacherAttendancePermissions permissionsFor(SchoolMembership membership) {
     final isTeacher = membership.role == SchoolRole.teacher;
@@ -65,25 +68,43 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
   @override
   Future<TeacherAttendanceSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
+    final lessons = await _lessons(membership);
+    await _seedIfNeeded(membership, lessons);
 
     final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _registerType,
     );
+    final byLesson = {for (final r in records) r.entityId: r};
 
-    final registers = records.map((record) {
-      final register = TeacherAttendanceRegister.fromJson(record.payload);
-      return register.copyWith(pendingSync: record.isDirty);
-    }).toList(growable: false)
-      ..sort(
-        (a, b) => _lessonOrder(a.lesson.id).compareTo(_lessonOrder(b.lesson.id)),
-      );
+    final registers = <TeacherAttendanceRegister>[];
+    for (final lesson in lessons) {
+      final record = byLesson[lesson.id];
+      if (record == null) continue;
+      registers.add(TeacherAttendanceRegister.fromJson(record.payload).copyWith(pendingSync: record.isDirty));
+    }
 
     return TeacherAttendanceSnapshot(
       registers: registers,
       permissions: permissionsFor(membership),
     );
+  }
+
+  /// One register per class the teacher is assigned. The subject is the class's assigned subject; the topic is left blank
+  /// until lesson plans are linked to attendance.
+  Future<List<TeacherAttendanceLesson>> _lessons(SchoolMembership membership) async {
+    final classes = await _roster.assignedClasses(membership);
+    return [
+      for (final c in classes)
+        TeacherAttendanceLesson(
+          id: '${c.className}|${c.subject}'.replaceAll(' ', '-'),
+          className: c.className,
+          subject: c.subject,
+          time: c.time,
+          room: c.room,
+          topic: '',
+        ),
+    ];
   }
 
   @override
@@ -267,17 +288,30 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     );
   }
 
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    final existing = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _registerType,
-    );
-    if (existing.isNotEmpty) return;
-
-    for (final lesson in teacherAttendanceLessons) {
+  /// Creates a fresh, empty register for any assigned class that does not have one yet (a newly assigned class, or the
+  /// first time this teacher opens the page). Existing registers, including submitted ones, are never touched.
+  Future<void> _seedIfNeeded(SchoolMembership membership, List<TeacherAttendanceLesson> lessons) async {
+    for (final lesson in lessons) {
+      final existing = await _localDatabase.getLocalRecord(
+        tenantId: membership.schoolId,
+        entityType: _registerType,
+        entityId: lesson.id,
+      );
+      if (existing != null) continue;
+      final students = await _roster.studentsIn(lesson.className);
       final register = TeacherAttendanceRegister(
         lesson: lesson,
-        entries: teacherAttendanceInitialStudents,
+        entries: [
+          for (var i = 0; i < students.length; i++)
+            TeacherAttendanceStudentEntry(
+              id: i + 1,
+              code: students[i].name,
+              studentId: students[i].id,
+              status: TeacherAttendanceStatus.present,
+              note: '',
+              attendanceRate: 100,
+            ),
+        ],
         submissionState: TeacherAttendanceSubmissionState.draft,
       );
       await _localDatabase.upsertLocalRecord(
@@ -287,10 +321,5 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
         payload: register.toJson(),
       );
     }
-  }
-
-  int _lessonOrder(String id) {
-    final index = teacherAttendanceLessons.indexWhere((lesson) => lesson.id == id);
-    return index == -1 ? teacherAttendanceLessons.length : index;
   }
 }

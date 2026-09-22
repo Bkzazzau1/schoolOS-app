@@ -13,7 +13,9 @@ import '../../finance_office/presentation/finance_office_workspace_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../../administrator/data/administrator_students_repository.dart';
 import '../data/teacher_ai_repository.dart';
+import '../data/teacher_roster.dart';
 import '../data/teacher_assignment_repository.dart';
 import '../data/teacher_assessment_repository.dart';
 import '../data/teacher_attendance_repository.dart';
@@ -75,6 +77,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
 
   late final TeacherTimetableRepository _timetable;
   late final TeacherClassesRepository _classes;
+  late final TeacherRoster _roster;
   late final TeacherAttendanceRepository _attendance;
   late final TeacherLessonPlanRepository _lessonPlans;
   late final TeacherWeeklyLearningRepository _weeklyLearning;
@@ -99,7 +102,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
     super.initState();
     _timetable = TeacherTimetableRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _classes = TeacherClassesRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
-    _attendance = TeacherAttendanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _roster = TeacherRoster(
+      database: widget.localDatabase,
+      session: widget.schoolSession,
+      students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+    );
+    _attendance = TeacherAttendanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _lessonPlans = TeacherLessonPlanRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _weeklyLearning = TeacherWeeklyLearningRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _syllabus = TeacherSyllabusRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
