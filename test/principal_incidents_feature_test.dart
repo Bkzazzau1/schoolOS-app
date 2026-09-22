@@ -1,43 +1,176 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/principal/data/principal_incidents_demo_data.dart';
+import 'package:schoolos_app/core/database/local_database.dart';
+import 'package:schoolos_app/core/security/payload_cipher.dart';
+import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/shared/models/school_membership.dart';
+import 'core/backend_test_support.dart';
+import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'package:schoolos_app/features/principal/data/principal_incidents_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_incidents_models.dart';
+import 'package:schoolos_app/features/principal/presentation/principal_incidents_page.dart';
 
+const principal = SchoolMembership(
+  id: 'p',
+  schoolId: 's',
+  schoolName: 'School',
+  role: SchoolRole.principal,
+);
 void main() {
-  test('principal incidents preserve exact website seed and KPI state', () {
-    expect(principalIncidentCases.length, 5);
-    expect(principalIncidentCases.map((e) => e.id).toList(), ['INC-2401','INC-2402','INC-2403','INC-2399','INC-2398']);
-    expect(principalIncidentCases.where((e) => e.status != PrincipalIncidentStatus.resolved).length, 3);
-    expect(principalIncidentCases.where((e) => e.status != PrincipalIncidentStatus.resolved && (e.severity == PrincipalIncidentSeverity.high || e.severity == PrincipalIncidentSeverity.critical)).length, 1);
-    expect(principalIncidentCases.where((e) => e.category == PrincipalIncidentCategory.safeguarding && e.status != PrincipalIncidentStatus.resolved).length, 1);
-    expect(principalIncidentCases.where((e) => e.guardianContact == PrincipalGuardianContact.pending).length, 2);
-    expect(principalIncidentResolvedThisTerm, 18);
+  LocalDatabase? db;
+  late SchoolSessionController session;
+  late PrincipalIncidentsRepository repo;
+  Future<void> setUpSchool([SchoolMembership member = principal]) async {
+    db = LocalDatabase(
+      cipher: PayloadCipher(secureStorage: MemorySecureStorage()),
+      databasePath: ':memory:',
+    );
+    await db!.initialize();
+    session = SchoolSessionController(store: FakeSessionStore());
+    await session.setMemberships([member]);
+    await session.selectSchool(member);
+    repo = PrincipalIncidentsRepository(
+      localDatabase: db!,
+      schoolSession: session,
+    );
+  }
+
+  tearDown(() => db?.close());
+  Future<void> record({
+    String context = 'JSS 2A',
+    String tenant = 's',
+    String type = 'principal_recorded_incident_case',
+  }) async {
+    final item = PrincipalIncident(
+      id: 'case',
+      title: 'Recorded concern',
+      category: PrincipalIncidentCategory.property,
+      severity: PrincipalIncidentSeverity.low,
+      status: PrincipalIncidentStatus.open,
+      person: 'Reported by staff',
+      context: context,
+      reportedBy: 'p',
+      owner: 'p',
+      reportedAt: '2026-09-22',
+      location: 'Classroom',
+      guardianContact: PrincipalGuardianContact.notRequired,
+      evidenceCount: 0,
+      summary: 'A staff-entered report.',
+      nextAction: 'Review evidence',
+    );
+    await db!.upsertLocalRecord(
+      tenantId: tenant,
+      entityType: type,
+      entityId: 'case',
+      payload: item.toJson(),
+      isDirty: true,
+    );
+  }
+
+  test('fresh demo has no allegations or fabricated activity', () async {
+    await setUpSchool();
+    final s = await repo.load();
+    expect(s.cases, isEmpty);
+    expect(s.audit, isEmpty);
+    expect(s.openCases, 0);
+    expect(s.safeguarding, 0);
   });
-
-  test('safeguarding case exposes minimum necessary general-list detail', () {
-    final item = principalIncidentCases.firstWhere((e) => e.id == 'INC-2402');
-    expect(item.isRestricted, isTrue);
-    expect(item.summary, contains('Detailed sensitive notes are intentionally not shown'));
-    expect(principalIncidentRestrictedBoundary, contains('minimum necessary'));
+  test('old seeded cases stay quarantined', () async {
+    await setUpSchool();
+    await record(type: 'principal_incident_case');
+    expect((await repo.load()).cases, isEmpty);
+    expect(
+      (await repo.saveNote(incidentId: 'case', note: 'Review')).success,
+      isFalse,
+    );
   });
-
-  test('incident and audit event serialize without losing status history', () {
-    final original = principalIncidentCases.first.copyWith(status: PrincipalIncidentStatus.resolved, lastUpdatedByMembershipId: 'MEM-P', lastUpdatedAt: '2026-09-19T17:00:00Z');
-    final restored = PrincipalIncident.fromJson(original.toJson());
-    expect(restored.status, PrincipalIncidentStatus.resolved);
-    expect(restored.lastUpdatedByMembershipId, 'MEM-P');
-
-    final event = PrincipalIncidentAuditEvent(id: 'EV-1', incidentId: original.id, action: 'status_change', actorMembershipId: 'MEM-P', createdAt: '2026-09-19T17:00:00Z', previousStatus: PrincipalIncidentStatus.monitoring, newStatus: PrincipalIncidentStatus.resolved, note: 'Reviewed.');
-    final eventRestored = PrincipalIncidentAuditEvent.fromJson(event.toJson());
-    expect(eventRestored.previousStatus, PrincipalIncidentStatus.monitoring);
-    expect(eventRestored.newStatus, PrincipalIncidentStatus.resolved);
-    expect(eventRestored.actorMembershipId, 'MEM-P');
+  for (final scope in ['Primary 3', 'Nursery', 'Other']) {
+    test('rejects outside Secondary scope $scope', () async {
+      await setUpSchool();
+      await record(context: scope);
+      expect((await repo.load()).cases, isEmpty);
+      expect(
+        (await repo.changeStatus(
+          incidentId: 'case',
+          status: PrincipalIncidentStatus.resolved,
+        )).success,
+        isFalse,
+      );
+    });
+  }
+  test('other schools remain isolated', () async {
+    await setUpSchool();
+    await record(tenant: 'other');
+    expect((await repo.load()).cases, isEmpty);
   });
-
-  test('governance keeps authority scoped and human-led', () {
-    expect(principalIncidentAuthorityBoundary, contains('Secondary'));
-    expect(principalIncidentAuthorityBoundary, contains('Primary and Early Years'));
-    expect(principalIncidentAuditBoundary, contains('append-only'));
-    expect(principalIncidentAiBoundary, contains('cannot determine'));
-    expect(principalIncidentAiInsight, contains('human review'));
+  test('recorded case note is attributed without changing severity', () async {
+    await setUpSchool();
+    await record();
+    expect(
+      (await repo.saveNote(
+        incidentId: 'case',
+        note: 'Evidence reviewed',
+      )).success,
+      isTrue,
+    );
+    final s = await repo.load();
+    expect(s.audit.single.actorMembershipId, 'p');
+    expect(s.cases.single.severity, PrincipalIncidentSeverity.low);
+  });
+  test('resolution retains case and appends audit', () async {
+    await setUpSchool();
+    await record();
+    await repo.changeStatus(
+      incidentId: 'case',
+      status: PrincipalIncidentStatus.resolved,
+    );
+    final s = await repo.load();
+    expect(s.cases.single.status, PrincipalIncidentStatus.resolved);
+    expect(s.openCases, 0);
+    expect(s.audit.single.previousStatus, PrincipalIncidentStatus.open);
+  });
+  test('empty note is rejected without writes', () async {
+    await setUpSchool();
+    await record();
+    expect(
+      (await repo.saveNote(incidentId: 'case', note: ' ')).success,
+      isFalse,
+    );
+    expect(db!.pendingCount(tenantId: 's'), 0);
+  });
+  test('non principal cannot view or mutate cases', () async {
+    await setUpSchool(
+      const SchoolMembership(
+        id: 't',
+        schoolId: 's',
+        schoolName: 'School',
+        role: SchoolRole.teacher,
+      ),
+    );
+    await record();
+    expect((await repo.load()).cases, isEmpty);
+    expect(
+      (await repo.saveNote(incidentId: 'case', note: 'x')).success,
+      isFalse,
+    );
+  });
+  testWidgets('empty incidents render safely', (tester) async {
+    await tester.runAsync(() => setUpSchool());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PrincipalIncidentsPage(repository: repo, onNavigate: (_) {}),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('No recorded Secondary incidents.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 }

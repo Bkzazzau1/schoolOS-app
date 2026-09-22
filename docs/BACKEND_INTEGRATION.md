@@ -910,3 +910,20 @@ reports. Review and print actions cannot manufacture a report from them. Missing
 Tests: `test/principal_results_feature_test.dart` now checks the real register, missing evidence, legacy-record
 exclusion, denied review/publication and phone rendering. Full analysis is clean; full suite: 1,114 passed with the
 same 8 baseline failures (six demo navigation tests, Teacher Assignments phone test and Teacher Students phone test).
+
+## Principal: Incidents
+
+The fixed case list attached invented behaviour, safeguarding concerns, attendance allegations, guardian contact,
+evidence counts and case histories to named people. It also invented 18 resolved cases and an AI conclusion.
+
+**Real source:** genuine case records can be reviewed offline; case context must match an actual Secondary class
+in the Administrator student register. Notes and status changes retain the real acting membership and timestamp.
+The recorded-case namespace is separate from the old seeded records so previously cached allegations cannot
+silently reappear. Unknown classes, Primary/Early Years and other schools are excluded from reads and changes.
+
+**No real source — left honest:** no Secondary disciplinary intake exists elsewhere in the app. The fresh case
+register and activity are empty, with no AI judgement. Driver transport reports stay in Transport: they do not
+establish disciplinary or safeguarding allegations. Resolved counts now describe recorded cases, not an invented term.
+
+Tests: `test/principal_incidents_feature_test.dart` covers empty demo, legacy exclusion, real audit changes,
+role/school/class isolation and empty rendering. Analysis is clean; full suite: 1,121 passed, same 8 baseline failures.
