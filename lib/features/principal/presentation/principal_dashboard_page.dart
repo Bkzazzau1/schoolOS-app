@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../data/principal_dashboard_demo_data.dart';
+import '../data/principal_dashboard_repository.dart';
 import '../domain/principal_dashboard_models.dart';
+import '../domain/principal_profile_models.dart' show PrincipalProfileActivity;
 
 class PrincipalDashboardPage extends StatefulWidget {
   const PrincipalDashboardPage({
     super.key,
     required this.schoolName,
+    required this.repository,
     required this.onActionRequested,
   });
 
   final String schoolName;
+  final PrincipalDashboardRepository repository;
   final ValueChanged<String> onActionRequested;
 
   @override
@@ -20,6 +24,14 @@ class PrincipalDashboardPage extends StatefulWidget {
 class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
   final _queryController = TextEditingController();
   String _query = '';
+  PrincipalDashboardSnapshot? _snapshot;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   @override
   void dispose() {
@@ -27,9 +39,35 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
     super.dispose();
   }
 
+  Future<void> _load() async {
+    try {
+      final snapshot = await widget.repository.load();
+      if (!mounted) return;
+      setState(() {
+        _snapshot = snapshot;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = '$error');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final teachers = principalTeachers.where((item) => item.matches(_query)).toList();
+    if (_error != null) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(_error!),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: _load, child: const Text('Retry')),
+        ]),
+      );
+    }
+    final snapshot = _snapshot;
+    if (snapshot == null) return const Center(child: CircularProgressIndicator());
+
+    final teachers = snapshot.teachers.where((item) => item.matches(_query)).toList();
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 760;
@@ -40,31 +78,31 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
             children: [
               _Header(schoolName: widget.schoolName, queryController: _queryController, onQueryChanged: (value) => setState(() => _query = value)),
               const SizedBox(height: 16),
-              _Hero(onAction: widget.onActionRequested),
+              _Hero(snapshot: snapshot, onAction: widget.onActionRequested),
               const SizedBox(height: 16),
               _AiBrief(onAction: widget.onActionRequested),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: [for (final item in principalKpis) SizedBox(width: compact ? double.infinity : 210, child: _KpiCard(item: item))],
+                children: [for (final item in snapshot.kpis) SizedBox(width: compact ? double.infinity : 210, child: _KpiCard(item: item))],
               ),
               const SizedBox(height: 16),
               _responsivePair(
                 compact,
-                _Panel(title: 'Approval queue', subtitle: 'Secondary teacher work awaiting principal action', actionLabel: 'Open', onAction: () => widget.onActionRequested('approvals'), child: _ApprovalList(items: principalApprovals)),
-                _Panel(title: 'Today’s alerts', subtitle: 'Secondary issues that may need leadership action', actionLabel: 'Open', onAction: () => widget.onActionRequested('ai'), child: _AlertList(items: principalAlerts)),
+                _Panel(title: 'Approval queue', subtitle: 'Secondary teacher work awaiting principal action', actionLabel: 'Open', onAction: () => widget.onActionRequested('approvals'), child: _ApprovalList(items: snapshot.approvals)),
+                _Panel(title: 'Today’s alerts', subtitle: 'Secondary issues that may need leadership action', actionLabel: 'Open', onAction: () => widget.onActionRequested('performance'), child: _AlertList(items: snapshot.alerts)),
               ),
               const SizedBox(height: 16),
               _responsivePair(
                 compact,
                 _Panel(title: 'Teacher oversight', subtitle: 'Support-oriented Secondary teaching indicators', actionLabel: 'Open', onAction: () => widget.onActionRequested('teachers'), child: _TeacherList(items: teachers)),
-                _Panel(title: 'Class performance', subtitle: 'Secondary academic and attendance health', actionLabel: 'Open', onAction: () => widget.onActionRequested('academics'), child: const _ClassList(items: principalClasses)),
+                _Panel(title: 'Class performance', subtitle: 'Secondary academic and attendance health', actionLabel: 'Open', onAction: () => widget.onActionRequested('academics'), child: _ClassList(items: snapshot.classes)),
               ),
               const SizedBox(height: 16),
               _responsivePair(
                 compact,
-                _Panel(title: 'Section activity', subtitle: 'Recent Secondary academic and operational events', actionLabel: 'Open', onAction: () => widget.onActionRequested('communication'), child: const _ActivityList()),
+                _Panel(title: 'Section activity', subtitle: 'Recent Secondary academic and operational events', actionLabel: 'Open', onAction: () => widget.onActionRequested('approvals'), child: _ActivityList(items: snapshot.activity)),
                 _Panel(title: 'Quick leadership actions', subtitle: 'Common Secondary principal workflows', child: _QuickActions(onAction: widget.onActionRequested)),
               ),
               const SizedBox(height: 16),
@@ -113,7 +151,7 @@ class _Header extends StatelessWidget {
           child: TextField(
             controller: queryController,
             onChanged: onQueryChanged,
-            decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Search Secondary teachers, classes, issues...', isDense: true),
+            decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Search Secondary teachers...', isDense: true),
           ),
         ),
       ],
@@ -122,7 +160,8 @@ class _Header extends StatelessWidget {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.onAction});
+  const _Hero({required this.snapshot, required this.onAction});
+  final PrincipalDashboardSnapshot snapshot;
   final ValueChanged<String> onAction;
   @override
   Widget build(BuildContext context) {
@@ -133,9 +172,13 @@ class _Hero extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('SECONDARY SCHOOL DAY OVERVIEW', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
           const SizedBox(height: 6),
-          Text('Good afternoon, Principal.', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
+          Text('Good day, Principal.', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
-          const Text('Your authority is scoped to the Secondary School section. There are 4 items awaiting your approval, 2 Secondary classes needing academic attention, 3 teacher follow-ups, and subject assignments requiring review.'),
+          Text(
+            'Your authority is scoped to the Secondary School section. There ${snapshot.pendingApprovals == 1 ? 'is' : 'are'} '
+            '${snapshot.pendingApprovals} item${snapshot.pendingApprovals == 1 ? '' : 's'} awaiting your approval and '
+            '${snapshot.openIncidents} open incident${snapshot.openIncidents == 1 ? '' : 's'}.',
+          ),
           const SizedBox(height: 14),
           Wrap(spacing: 10, runSpacing: 8, children: [
             FilledButton(onPressed: () => onAction('assignments'), child: const Text('Assign teachers')),
@@ -162,9 +205,8 @@ class _AiBrief extends StatelessWidget {
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Principal AI Brief · Secondary only', style: TextStyle(fontWeight: FontWeight.w900)),
-            const Text('Updated this morning'),
             const SizedBox(height: 8),
-            const Text(principalAiBrief),
+            const Text('Not available yet. Principal AI is not connected to a real reasoning model yet. The KPIs, approval queue and class/teacher panels below are real; open Principal AI to ask about them directly.'),
             const SizedBox(height: 10),
             Wrap(spacing: 8, children: [
               TextButton(onPressed: () => onAction('ai'), child: const Text('Open intelligence')),
@@ -197,16 +239,27 @@ class _Panel extends StatelessWidget {
 
 class _ApprovalList extends StatelessWidget {
   const _ApprovalList({required this.items});
-  final List<PrincipalApprovalItem> items;
+  final List<PrincipalDashboardApprovalItem> items;
   @override
-  Widget build(BuildContext context) => Column(children: [for (final item in items) ListTile(contentPadding: EdgeInsets.zero, leading: Chip(label: Text(item.priority)), title: Text('${item.type} · ${item.title}', style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('${item.teacher} · ${item.age} ago'))]);
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text('No Secondary submissions are awaiting review.'));
+    return Column(children: [for (final item in items) ListTile(contentPadding: EdgeInsets.zero, leading: Chip(label: Text(item.priority)), title: Text('${item.type} · ${item.title}', style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('${item.teacher} · ${item.age} ago'))]);
+  }
 }
 
 class _AlertList extends StatelessWidget {
   const _AlertList({required this.items});
   final List<PrincipalAlert> items;
   @override
-  Widget build(BuildContext context) => Column(children: [for (final item in items) ListTile(contentPadding: EdgeInsets.zero, leading: Icon(item.warning ? Icons.warning_amber_rounded : Icons.info_outline_rounded), title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text(item.detail))]);
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('Not available yet. Flagging a genuine leadership alert needs human judgement over a pattern that nothing in the app infers automatically. Open School Performance for the real underlying figures.'),
+      );
+    }
+    return Column(children: [for (final item in items) ListTile(contentPadding: EdgeInsets.zero, leading: Icon(item.warning ? Icons.warning_amber_rounded : Icons.info_outline_rounded), title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text(item.detail))]);
+  }
 }
 
 class _TeacherList extends StatelessWidget {
@@ -215,7 +268,7 @@ class _TeacherList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text('No Secondary teachers match this search.'));
-    return Column(children: [for (final item in items) ListTile(contentPadding: EdgeInsets.zero, title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('${item.subject} · Compliance ${item.compliance}% · Syllabus ${item.syllabus}%'), trailing: Chip(label: Text(item.status)))]);
+    return Column(children: [for (final item in items) ListTile(contentPadding: EdgeInsets.zero, title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('${item.subject} · Lesson plans ${item.compliance}% · Syllabus ${item.syllabus}%'), trailing: Chip(label: Text(item.status)))]);
   }
 }
 
@@ -223,13 +276,28 @@ class _ClassList extends StatelessWidget {
   const _ClassList({required this.items});
   final List<PrincipalClassIndicator> items;
   @override
-  Widget build(BuildContext context) => Column(children: [for (final item in items) ListTile(contentPadding: EdgeInsets.zero, title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('Average ${item.average}% · Attendance ${item.attendance}% · Syllabus ${item.syllabus}%'), trailing: Chip(label: Text(item.status)))]);
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text('No Secondary classes are on record yet.'));
+    return Column(children: [for (final item in items) ListTile(contentPadding: EdgeInsets.zero, title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text('Average ${item.average}% · Attendance ${item.attendance}% · Syllabus ${item.syllabus}%'), trailing: Chip(label: Text(item.status)))]);
+  }
 }
 
 class _ActivityList extends StatelessWidget {
-  const _ActivityList();
+  const _ActivityList({required this.items});
+  final List<PrincipalProfileActivity> items;
   @override
-  Widget build(BuildContext context) => Column(children: [for (var i = 0; i < principalActivity.length; i++) ListTile(contentPadding: EdgeInsets.zero, leading: CircleAvatar(radius: 14, child: Text('${i + 1}', style: const TextStyle(fontSize: 11))), title: Text(principalActivity[i]), trailing: Text(i == 0 ? '12 min' : '${(i + 1) * 18} min'))]);
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text('No Secondary teaching submissions, approval decisions or incident updates have been recorded yet.'));
+    return Column(children: [
+      for (var i = 0; i < items.length; i++)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: CircleAvatar(radius: 14, child: Text('${i + 1}', style: const TextStyle(fontSize: 11))),
+          title: Text(items[i].action),
+          subtitle: Text(items[i].time),
+        ),
+    ]);
+  }
 }
 
 class _QuickActions extends StatelessWidget {

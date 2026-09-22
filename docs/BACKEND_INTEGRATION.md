@@ -1075,3 +1075,53 @@ Tests: `test/principal_timetable_feature_test.dart` rewritten against the real r
 schedule, room use or exceptions; real teacher workload lists the real Secondary teachers at zero periods; real
 teaching assignments raise that specific teacher's real period count and cross the fixed target into "Heavy";
 handling an exception is honestly refused; and permission restriction for non-principal roles.
+
+## Principal: Dashboard (and the workspace shell) — the last Principal screen
+
+The landing page itself, and the workspace shell around every Principal screen, both carried fabrication: fixed
+KPIs ("92% · 403 of 438"), a fake four-item approval queue naming real and invented staff, fake teacher/class
+indicators, a fake alerts list, a fake five-item activity log, a fake AI brief — and, in the shell chrome visible on
+*every* Principal screen, a hard-coded person ("Mr. Ibrahim Danladi", avatar initials "PD"), a fabricated
+"Kaduna Campus", and a fixed "Secondary section health: 86%" progress bar.
+
+**Real source — a genuine roll-up:** a new `PrincipalDashboardRepository` computes every KPI, list and count live
+from the same repositories every other Principal screen already made real this session — nothing here is stored or
+computed independently, so it can never drift:
+- Student/teacher attendance KPIs from `PrincipalAttendanceRepository` and real `OwnerStaffProfileRepository`
+  attendance rates (real counts as the hint — "403 of 438" is now genuinely "$present of $total").
+- Pending-approvals KPI and the approval queue itself from `PrincipalApprovalsRepository`'s real pending items.
+- Classes-on-track KPI and the class-performance panel from `PrincipalAcademicsRepository`'s real classes.
+- Open-incidents KPI from `PrincipalIncidentsRepository`'s real cases.
+- Teacher-oversight panel reuses `PrincipalTeachersRepository`'s already-real, already-honestly-zeroed teacher list.
+- "Section activity" is a genuine cross-repository feed: real teacher submissions (from Approvals' items), real
+  approval decisions, and real incident audit events, merged and sorted newest first — deliberately *not* filtered
+  to the Principal's own actions (unlike Profile's activity feed), since this panel is about what is happening in
+  the section, not what the Principal personally did.
+- The Hero card's narrative sentence is now built from the real pending-approvals and open-incidents counts instead
+  of a fixed "4 items, 2 classes, 3 follow-ups" claim.
+
+**No real source — left honest:** the "Today's alerts" list has no real source — the same "needs human judgement"
+reasoning already applied to Academics' risk queue, Performance's priorities and Principal AI's priority signals —
+so it now explains why and links to School Performance. The "Student risk alerts" KPI is dropped entirely: there is
+no real risk-scoring system anywhere (Students intentionally defaults every student to neutral `stable`/`good`
+evaluative fields with no source to score against). The AI brief is a "Not available yet" explanation.
+
+**The workspace shell fix:** `principalLeaderName` and the "PD" avatar are gone — the top bar now shows the real
+Principal's own display name and initials, loaded once from `PrincipalProfileRepository` at workspace start (falling
+back to a generic "Principal" label/person icon, never a fabricated name). `principalCampusLabel`'s fake "Kaduna
+Campus" is gone from the sidebar. The sidebar's "Secondary section health" figure now shows the real
+`PrincipalPerformanceRepository.overallHealth` value (or "Not recorded" when no indicator has evidence yet) instead
+of a fixed 86%.
+
+Tests: `test/principal_dashboard_test.dart` rewritten against the real repository: a fresh school shows honest KPIs
+(real attendance figures are already non-null from the demo's deterministic gate-scan/staff-attendance sources;
+everything else is honestly zero), an empty approval queue/alerts/activity, the real Secondary teacher and class
+lists, a real teacher submission appearing in both the approval queue and the activity feed, a real approval
+decision appearing in activity, and permission restriction for non-principal roles.
+
+---
+
+**This completes the Principal role.** All fourteen Principal screens (Students, Teachers, Attendance, Assignments,
+Academics, Results, Incidents, Approvals, Communication, Performance, Profile, AI, Timetable, Dashboard) plus the
+workspace shell now show real data wherever a real source exists in the app, and an honest, clearly-explained empty
+state everywhere one does not.

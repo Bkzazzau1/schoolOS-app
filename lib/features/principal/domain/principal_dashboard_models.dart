@@ -13,8 +13,10 @@ class PrincipalKpi {
   final String hint;
 }
 
-class PrincipalApprovalItem {
-  const PrincipalApprovalItem({
+/// One real teaching submission or leadership action awaiting the Principal's review, from the
+/// real Approvals queue.
+class PrincipalDashboardApprovalItem {
+  const PrincipalDashboardApprovalItem({
     required this.type,
     required this.title,
     required this.teacher,
@@ -29,6 +31,8 @@ class PrincipalApprovalItem {
   final String priority;
 }
 
+/// A real Secondary teacher's real, honestly-recorded oversight indicators (see the Teachers
+/// screen: everything here is `0`/`'Not recorded yet'` until real teaching evidence exists).
 class PrincipalTeacherIndicator {
   const PrincipalTeacherIndicator({
     required this.name,
@@ -51,6 +55,8 @@ class PrincipalTeacherIndicator {
   }
 }
 
+/// A real Secondary class's real academic/attendance/syllabus standing (see the Academics
+/// screen).
 class PrincipalClassIndicator {
   const PrincipalClassIndicator({
     required this.name,
@@ -67,6 +73,9 @@ class PrincipalClassIndicator {
   final String status;
 }
 
+/// Always empty: flagging a genuine leadership alert needs human judgement over a pattern
+/// nothing in the app infers automatically (the same reasoning already applied to Academics'
+/// risk queue, Performance's priorities and Principal AI's priority signals).
 class PrincipalAlert {
   const PrincipalAlert({required this.title, required this.detail, this.warning = false});
 

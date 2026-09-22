@@ -20,9 +20,11 @@ import '../data/principal_assignments_repository.dart';
 import '../data/principal_attendance_repository.dart';
 import '../data/principal_communication_repository.dart';
 import '../data/principal_dashboard_demo_data.dart';
+import '../data/principal_dashboard_repository.dart';
 import '../data/principal_incidents_repository.dart';
 import '../data/principal_performance_repository.dart';
 import '../data/principal_profile_repository.dart';
+import '../domain/principal_profile_models.dart' show PrincipalAccountProfile;
 import '../data/principal_results_repository.dart';
 import '../data/principal_students_repository.dart';
 import '../data/principal_teachers_repository.dart';
@@ -75,6 +77,9 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
   late final PrincipalIncidentsRepository _incidents;
   late final PrincipalProfileRepository _profile;
   late final PrincipalPerformanceRepository _performance;
+  late final PrincipalDashboardRepository _dashboard;
+  PrincipalAccountProfile? _account;
+  int? _sectionHealth;
 
   @override
   void initState() {
@@ -128,7 +133,44 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
       incidents: _incidents,
       staff: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession),
     );
+    _dashboard = PrincipalDashboardRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+      academics: _academics,
+      attendance: _attendance,
+      teachers: _teachers,
+      approvals: _approvals,
+      incidents: _incidents,
+      staff: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession),
+    );
     _refreshPendingCount();
+    _loadShellSummary();
+  }
+
+  /// The Principal's real display name (for the top bar) and the real section-health figure
+  /// (for the sidebar), loaded once so the workspace shell never shows a fabricated person or
+  /// a fabricated health percentage on every screen.
+  Future<void> _loadShellSummary() async {
+    try {
+      final account = (await _profile.load()).account;
+      final health = (await _performance.load()).overallHealth;
+      if (!mounted) return;
+      setState(() {
+        _account = account;
+        _sectionHealth = health;
+      });
+    } catch (_) {
+      // The shell summary is decorative; a failure here should not block the workspace itself.
+    }
+  }
+
+  /// Initials from the Principal's own real display name, or null while it hasn't been set.
+  String? get _accountInitials {
+    final name = _account?.displayName.trim() ?? '';
+    if (name.isEmpty) return null;
+    final parts = name.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return null;
+    return parts.length == 1 ? parts.first[0].toUpperCase() : (parts.first[0] + parts.last[0]).toUpperCase();
   }
 
   PrincipalNavItem get _activeItem => _navigation.firstWhere((e) => e.key == _activeKey, orElse: () => _navigation.first);
@@ -157,7 +199,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
   }
 
   Widget _content() => switch (_activeKey) {
-        'dashboard' => PrincipalDashboardPage(schoolName: widget.membership.schoolName, onActionRequested: _select),
+        'dashboard' => PrincipalDashboardPage(schoolName: widget.membership.schoolName, repository: _dashboard, onActionRequested: _select),
         'teachers' => PrincipalTeachersPage(repository: _teachers, onActionRequested: _select, onQueuedForSync: _refreshPendingCount),
         'staff-profiles' => OwnerStaffProfilesPage(repository: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession), proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), database: widget.localDatabase, session: widget.schoolSession), payrollBatches: PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), database: widget.localDatabase, session: widget.schoolSession), onChanged: _refreshPendingCount),
         'assignments' => PrincipalAssignmentsPage(repository: _assignments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
@@ -199,16 +241,23 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
     return Scaffold(body: Row(children: [
       SafeArea(child: Container(width: extended ? 282 : 88, decoration: BoxDecoration(border: Border(right: BorderSide(color: Theme.of(context).colorScheme.outlineVariant))), child: Column(children: [
         Padding(padding: const EdgeInsets.all(16), child: extended ? ListTile(contentPadding: EdgeInsets.zero, leading: SchoolLogo(schoolName: widget.membership.schoolName), title: const Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)), subtitle: const Text('Principal Portal')) : SchoolLogo(schoolName: widget.membership.schoolName)),
-        if (extended) Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 12), child: Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('ACTIVE LEADERSHIP SCOPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)), const Text(principalCampusLabel, style: TextStyle(fontSize: 12))])))),
+        if (extended) Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 12), child: Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('ACTIVE LEADERSHIP SCOPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)), const Text('Secondary School · Principal', style: TextStyle(fontSize: 12))])))),
         Expanded(child: ListView(children: [for (final item in _navigation) ListTile(selected: item.key == _activeKey, selectedTileColor: Theme.of(context).colorScheme.primaryContainer, leading: Icon(_iconFor(item.key)), title: extended ? Text(item.label) : null, trailing: extended && item.key == 'ai' ? const Chip(label: Text('AI')) : null, onTap: () => _select(item.key))])),
-        if (extended) Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Secondary section health', style: TextStyle(fontSize: 12)), const Text('86%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)), const LinearProgressIndicator(value: .86), const SizedBox(height: 6), Text('Academics, attendance, staff & compliance', style: Theme.of(context).textTheme.bodySmall)])),
+        if (extended) Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Secondary section health', style: TextStyle(fontSize: 12)),
+          Text(_sectionHealth == null ? 'Not recorded' : '$_sectionHealth%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          if (_sectionHealth != null) LinearProgressIndicator(value: _sectionHealth! / 100),
+          const SizedBox(height: 6),
+          Text('Real mean progress toward target, from School Performance', style: Theme.of(context).textTheme.bodySmall),
+        ])),
       ]))),
       Expanded(child: SafeArea(child: Column(children: [
         Padding(padding: const EdgeInsets.fromLTRB(22, 12, 22, 10), child: Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Principal · Secondary School', style: TextStyle(fontWeight: FontWeight.w900)), Text(_activeItem.label)])),
           if (widget.schoolSession.canSwitchSchool) _SchoolSwitcherButton(activeMembership: widget.membership, memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
-          const SizedBox(width: 8), OutlinedButton.icon(onPressed: _openSyncCenter, icon: const Icon(Icons.cloud_sync_outlined, size: 18), label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending')), const SizedBox(width: 12), const CircleAvatar(child: Text('PD')),
-          if (constraints.maxWidth >= 1080) ...[const SizedBox(width: 8), const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(principalLeaderName, style: TextStyle(fontWeight: FontWeight.w800)), Text('Principal · Secondary', style: TextStyle(fontSize: 12))])],
+          const SizedBox(width: 8), OutlinedButton.icon(onPressed: _openSyncCenter, icon: const Icon(Icons.cloud_sync_outlined, size: 18), label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending')), const SizedBox(width: 12),
+          CircleAvatar(child: _accountInitials == null ? const Icon(Icons.person_outline, size: 18) : Text(_accountInitials!)),
+          if (constraints.maxWidth >= 1080) ...[const SizedBox(width: 8), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(_account?.displayName.isNotEmpty == true ? _account!.displayName : 'Principal', style: const TextStyle(fontWeight: FontWeight.w800)), const Text('Principal · Secondary', style: TextStyle(fontSize: 12))])],
         ])),
         const Divider(height: 1), Expanded(child: _content()),
       ]))),
