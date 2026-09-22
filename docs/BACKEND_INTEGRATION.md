@@ -1395,3 +1395,36 @@ Tests: `test/parent_attendance_feature_test.dart`, the first coverage this repos
 summaries are the real linked children with an honest single-day window, today's events line up exactly with which
 children actually checked in, notifications are honestly empty, and permission checks. Full suite: 1096 passing,
 same 8 pre-existing unrelated failures, zero regressions.
+
+## Parent: Finance reads the same real ledger Finance Office uses, including real actions
+
+A third independently fabricated dataset for the same two real children: `ParentFinanceRepository` returned fixed
+gross fees, balances, a payment ledger, receipts, reminders and reminder history, and store orders — all different
+specific numbers from what My Children and Attendance already showed for the identical students. Two real
+interactive actions were already genuine, though, and are preserved unchanged: `saveMandatePreference` (a real
+guardian-chosen payment-day preference, saved offline and queued for sync) and `queueCombinedPayment` (a real,
+validated request to pay for multiple children at once).
+
+**Real source:** `load()` starts from `ParentChildrenRepository`'s real linked children, then reads the same
+`FinanceLedgerRepository` Finance Office uses — the identical `accounts()` call Finance's own Dashboard and Debt
+Aging screens already depend on, so a family's balance can never drift from what Finance actually sees. Real
+payments (`StudentAccount.payments`) become the family's real ledger entries and receipts, with a real running
+balance computed by replaying each child's payments in order rather than inventing a "previous/new balance" per
+receipt. Real queued reminders (`FinanceLedgerRepository.reminders()`) become the family's real fee reminders,
+scoped to the linked children and using the same `reminderLevelNames` labels Finance's own Reminders screen shows.
+
+The real ledger has no separate per-child bank account number (`StudentAccount` never had one), so
+`accountNumber` — which `queueCombinedPayment`'s own validation needs as a real, unique per-child key — now uses
+the child's real system id instead of inventing a bank account number, documented in a code comment.
+
+**No real source — left honest:** admission number, bank name, reminder delivery method, multi-channel reminder
+history and store orders all have no real source and now read `'Not recorded yet'`/stay empty. A fresh family
+honestly starts with no mandate configured (`enabled: false`) instead of a fabricated active one.
+
+Tests: `test/parent_finance_feature_test.dart`. Confirms every child account, receipt and ledger entry reconciles
+against the same real ledger Finance Office independently reports, the running receipt balance is arithmetically
+consistent, reminders stay scoped to real linked children, the no-real-source fields are honest, a mandate save
+round-trips and queues for sync, and a combined payment is validated against real per-child balances (including
+reopening one child's real balance the same way a real accountant would, by voiding a payment, to exercise the
+success path against genuine data rather than a hand-built fixture). Full suite: 1105 passing, same 8 pre-existing
+unrelated failures, zero regressions.
