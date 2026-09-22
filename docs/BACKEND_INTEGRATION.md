@@ -1647,7 +1647,39 @@ answered with a guess; an unrelated question gets the honest capability fallback
 matches asking the same prompt directly; malformed questions are rejected; and the permission check behaves
 correctly. Full suite: 1145 passing, same 8 pre-existing unrelated failures, zero regressions.
 
-Ten of the eleven Parent screens are now fixed (Children, Attendance, Finance, Learning Progress, Weekly Learning,
-Messages, Discussions, School Life, Documents, AI). Dashboard is deliberately last, to be rebuilt as a real
-roll-up of the other now-fixed Parent screens, mirroring how Principal's Dashboard was fixed last in that role's
-own audit.
+## Parent: Dashboard is now a real roll-up of the ten screens above, the last Parent screen fixed
+
+`ParentDashboardRepository` fabricated a guardian name ("Alhaji Abdullahi Yusuf"), a campus label, an academic
+period, both linked children's attendance/academic/balance figures (disagreeing with the real numbers every other
+now-fixed Parent screen shows), a fixed "attention items" list including an invented excursion consent reminder, a
+static payment-account snapshot with invented bank account numbers, message previews crediting the already-fake
+"Mrs. Amina Yusuf"/"Mrs. Khadija Musa", and a fixed notices list. Fixed deliberately last, exactly like Principal's
+own Dashboard, because a roll-up can only be honest once every screen it rolls up is itself real.
+
+**Real source:** `load()` now reads `ParentChildrenRepository`, `ParentLearningProgressRepository`,
+`ParentFinanceRepository`, `ParentMessagesRepository` and `EventRepository` — the same five repositories the
+screens they summarize already use — so the Dashboard can never show a child, a balance or a message that
+disagrees with what actually opening My Children, Learning Progress, Finance, Messages or School Life shows.
+`attentionItems` are now computed from two real conditions only: a real linked child not marked present today, and
+a real linked child with a real outstanding balance — each item names the real child and links to the real screen
+that explains it. The finance roll-up's `nextScheduledDebit` reads the real payment mandate a guardian may have set
+up through Finance's own `saveMandatePreference`, honestly `0`/`'Not recorded yet'` when none is configured, rather
+than a fabricated always-active one. The message-preview list only ever includes a real channel that already has a
+real message in it (an empty, not-yet-used channel contributes nothing to worry the guardian with).
+
+**No real source — left honest:** `campusLabel` and `academicPeriod` were dead fields the presentation page never
+even read; removed rather than kept with fabricated values. `guardianName` now reads the honest role label
+`'Guardian'` — the same convention used for Finance Office's own shell identity — since no real
+membership-to-guardian-display-name directory exists anywhere in the app.
+
+Tests: `test/parent_dashboard_feature_test.dart`, the first coverage this repository has had (the pre-existing
+`test/parent_dashboard_test.dart` was trimmed of its assertions against the deleted `parentDefaultDashboard`
+constant, keeping only its still-valid navigation/privacy-boundary/membership-serialization tests). Confirms every
+child's real attendance and balance figures reconcile exactly against the real Children and Finance screens;
+attention items only ever name a real child for a real absence or a real balance; the finance roll-up reconciles
+exactly with Parent Finance; a real queued message appears while an empty channel contributes nothing; the
+guardian name is an honest role label; and the permission check behaves correctly. Full suite: 1148 passing, same
+8 pre-existing unrelated failures, zero regressions.
+
+This completes the fabrication audit for all eleven Parent screens: Children, Attendance, Finance, Learning
+Progress, Weekly Learning, Messages, Discussions, School Life, Documents, AI, and Dashboard.

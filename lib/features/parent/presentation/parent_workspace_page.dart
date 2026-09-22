@@ -93,10 +93,6 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
   @override
   void initState() {
     super.initState();
-    _dashboardRepository = ParentDashboardRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
     _childrenRepository = ParentChildrenRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
@@ -175,6 +171,16 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
       learning: _learningProgressRepository,
       events: EventRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
       messages: _messagesRepository,
+    );
+    // Built last and only from the real repositories above, mirroring Principal's own Dashboard.
+    _dashboardRepository = ParentDashboardRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+      children: _childrenRepository,
+      learning: _learningProgressRepository,
+      finance: _financeRepository,
+      messages: _messagesRepository,
+      events: EventRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
     );
     _refreshPendingCount();
   }

@@ -110,17 +110,19 @@ class _DashboardBody extends StatelessWidget {
                 right: _SectionCard(
                   title: 'What needs attention',
                   subtitle: 'Supportive family actions, not automated judgments.',
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < data.attentionItems.length; i++) ...[
-                        _AttentionRow(
-                          item: data.attentionItems[i],
-                          onTap: () => onNavigate(data.attentionItems[i].destinationKey),
+                  child: data.attentionItems.isEmpty
+                      ? const _DashboardEmptyLine('Nothing needs your attention right now.')
+                      : Column(
+                          children: [
+                            for (var i = 0; i < data.attentionItems.length; i++) ...[
+                              _AttentionRow(
+                                item: data.attentionItems[i],
+                                onTap: () => onNavigate(data.attentionItems[i].destinationKey),
+                              ),
+                              if (i != data.attentionItems.length - 1) const Divider(height: 22),
+                            ],
+                          ],
                         ),
-                        if (i != data.attentionItems.length - 1) const Divider(height: 22),
-                      ],
-                    ],
-                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -141,14 +143,16 @@ class _DashboardBody extends StatelessWidget {
                     onPressed: () => onNavigate('messages'),
                     child: const Text('View all →'),
                   ),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < data.messages.length; i++) ...[
-                        _MessageRow(message: data.messages[i]),
-                        if (i != data.messages.length - 1) const Divider(height: 22),
-                      ],
-                    ],
-                  ),
+                  child: data.messages.isEmpty
+                      ? const _DashboardEmptyLine('No recent messages yet.')
+                      : Column(
+                          children: [
+                            for (var i = 0; i < data.messages.length; i++) ...[
+                              _MessageRow(message: data.messages[i]),
+                              if (i != data.messages.length - 1) const Divider(height: 22),
+                            ],
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -160,14 +164,16 @@ class _DashboardBody extends StatelessWidget {
                     onPressed: () => onNavigate('school-life'),
                     child: const Text('School Life →'),
                   ),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < data.notices.length; i++) ...[
-                        _NoticeRow(notice: data.notices[i]),
-                        if (i != data.notices.length - 1) const Divider(height: 22),
-                      ],
-                    ],
-                  ),
+                  child: data.notices.isEmpty
+                      ? const _DashboardEmptyLine('No upcoming school-wide events are recorded right now.')
+                      : Column(
+                          children: [
+                            for (var i = 0; i < data.notices.length; i++) ...[
+                              _NoticeRow(notice: data.notices[i]),
+                              if (i != data.notices.length - 1) const Divider(height: 22),
+                            ],
+                          ],
+                        ),
                 ),
                 right: _SectionCard(
                   title: 'Parent AI',
@@ -492,6 +498,20 @@ class _ResponsivePair extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _DashboardEmptyLine extends StatelessWidget {
+  const _DashboardEmptyLine(this.message);
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      message,
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
     );
   }
 }

@@ -203,8 +203,6 @@ class ParentDashboardSnapshot {
   const ParentDashboardSnapshot({
     required this.guardianName,
     required this.familyAccountId,
-    required this.campusLabel,
-    required this.academicPeriod,
     required this.children,
     required this.attentionItems,
     required this.finance,
@@ -214,8 +212,6 @@ class ParentDashboardSnapshot {
 
   final String guardianName;
   final String familyAccountId;
-  final String campusLabel;
-  final String academicPeriod;
   final List<ParentChildSummary> children;
   final List<ParentAttentionItem> attentionItems;
   final ParentFinanceSnapshot finance;
@@ -230,8 +226,6 @@ class ParentDashboardSnapshot {
   Map<String, Object?> toJson() => {
         'guardianName': guardianName,
         'familyAccountId': familyAccountId,
-        'campusLabel': campusLabel,
-        'academicPeriod': academicPeriod,
         'children': children.map((child) => child.toJson()).toList(),
         'attentionItems': attentionItems.map((item) => item.toJson()).toList(),
         'finance': finance.toJson(),
@@ -242,8 +236,6 @@ class ParentDashboardSnapshot {
   factory ParentDashboardSnapshot.fromJson(Map<String, dynamic> json) => ParentDashboardSnapshot(
         guardianName: json['guardianName'] as String,
         familyAccountId: json['familyAccountId'] as String,
-        campusLabel: json['campusLabel'] as String,
-        academicPeriod: json['academicPeriod'] as String,
         children: (json['children'] as List<dynamic>)
             .map((item) => ParentChildSummary.fromJson(Map<String, dynamic>.from(item as Map)))
             .toList(growable: false),
