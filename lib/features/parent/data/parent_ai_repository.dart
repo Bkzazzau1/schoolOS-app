@@ -1,42 +1,71 @@
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../events/data/event_repository.dart';
 import '../domain/parent_ai_models.dart';
 import 'parent_ai_demo_data.dart';
+import 'parent_ai_facts.dart';
+import 'parent_attendance_repository.dart';
+import 'parent_children_repository.dart';
+import 'parent_finance_repository.dart';
+import 'parent_learning_progress_repository.dart';
+import 'parent_messages_repository.dart';
 
 class ParentAIRepository {
+  /// [localDatabase] is accepted for constructor consistency with every other Parent repository,
+  /// even though this one only ever reads through the real repositories below and never touches the
+  /// local database directly itself.
   ParentAIRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+    required ParentChildrenRepository children,
+    required ParentAttendanceRepository attendance,
+    required ParentFinanceRepository finance,
+    required ParentLearningProgressRepository learning,
+    required EventRepository events,
+    required ParentMessagesRepository messages,
+  })  : _schoolSession = schoolSession,
+        _children = children,
+        _attendance = attendance,
+        _finance = finance,
+        _learning = learning,
+        _events = events,
+        _messages = messages;
 
-  static const _entityType = 'parent_ai_snapshot';
-
-  final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final ParentChildrenRepository _children;
+  final ParentAttendanceRepository _attendance;
+  final ParentFinanceRepository _finance;
+  final ParentLearningProgressRepository _learning;
+  final EventRepository _events;
+  final ParentMessagesRepository _messages;
 
+  /// Reads the same real repositories every other Parent screen reads
+  /// ([ParentAiFacts]/[loadParentAiFacts]) and answers every suggestion through the same
+  /// keyword-matched, honest-refusal engine ([ParentAiService]) a free-text question would use —
+  /// never a fixed canned answer that could drift from what My Children, Attendance, Finance,
+  /// Learning Progress or Messages themselves show.
   Future<ParentAISnapshot> load() async {
     final membership = _requireParentMembership();
-    final record = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-    );
+    final service = ParentAiService(await _facts());
 
-    if (record != null) {
-      final snapshot = ParentAISnapshot.fromJson(record.payload);
-      _validateSnapshot(snapshot);
-      return snapshot;
-    }
+    final suggestions = [
+      for (final prompt in parentAiPrompts)
+        ParentAISuggestion(prompt: prompt, answer: service.answer(prompt).answer),
+    ];
 
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-      payload: parentDefaultAI.toJson(),
+    return ParentAISnapshot(
+      familyAccountId: membership.id,
+      assistantName: 'Family Assistant',
+      description: 'Answers attendance, learning, payment, event and message questions from your real, '
+          'family-visible SchoolOS records. It explains what is recorded, what is not, and when to '
+          'contact the school.',
+      defaultPrompt: parentAiPrompts.first,
+      defaultAnswer: suggestions.first.answer,
+      suggestions: suggestions,
+      privacyBoundary: parentAIPrivacyBoundary,
+      decisionBoundary: parentAIDecisionBoundary,
     );
-    return parentDefaultAI;
   }
 
   Future<ParentAIResponse> answer(String question) async {
@@ -52,75 +81,24 @@ class ParentAIRepository {
       );
     }
 
-    final snapshot = await load();
-    final normalized = normalizedQuestion.toLowerCase();
-
-    ParentAISuggestion? matched;
-    for (final suggestion in snapshot.suggestions) {
-      final prompt = suggestion.prompt.toLowerCase();
-      if (normalized == prompt ||
-          _keywords(prompt).where(normalized.contains).length >= 2) {
-        matched = suggestion;
-        break;
-      }
-    }
-
-    if (matched != null) {
-      return ParentAIResponse(
-        question: normalizedQuestion,
-        answer: matched.answer,
-        isGroundedInCachedFamilyContext: true,
-      );
-    }
-
-    final familyTopic = _looksLikeFamilyVisibleTopic(normalized);
+    _requireParentMembership();
+    final service = ParentAiService(await _facts());
+    final result = service.answer(normalizedQuestion);
     return ParentAIResponse(
-      question: normalizedQuestion,
-      answer: familyTopic
-          ? 'I do not have enough family-visible cached evidence to answer that safely. I will not guess. Check the relevant SchoolOS family page or contact the school for clarification.'
-          : 'I can help with guardian-visible SchoolOS information such as linked-child attendance, learning updates, payments, approved messages, events and school life. I cannot access private staff notes, other families, restricted safeguarding information or confidential health records.',
-      isGroundedInCachedFamilyContext: false,
+      question: result.question,
+      answer: result.answer,
+      isGroundedInCachedFamilyContext: result.isGroundedInCachedFamilyContext,
     );
   }
 
-  Future<void> replaceFromServer({
-    required ParentAISnapshot snapshot,
-    required int serverVersion,
-  }) async {
-    final membership = _requireParentMembership();
-    _validateSnapshot(snapshot);
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-      payload: snapshot.toJson(),
-      serverVersion: serverVersion,
-      isDirty: false,
-    );
-  }
-
-  void _validateSnapshot(ParentAISnapshot snapshot) {
-    if (snapshot.familyAccountId.trim().isEmpty ||
-        snapshot.assistantName.trim().isEmpty ||
-        snapshot.defaultPrompt.trim().isEmpty ||
-        snapshot.defaultAnswer.trim().isEmpty) {
-      throw StateError('Parent AI snapshot is missing required family context.');
-    }
-
-    final prompts = <String>{};
-    for (final suggestion in snapshot.suggestions) {
-      if (suggestion.prompt.trim().isEmpty ||
-          suggestion.answer.trim().isEmpty ||
-          !prompts.add(suggestion.prompt.trim().toLowerCase())) {
-        throw StateError('Parent AI contains an invalid suggested question.');
-      }
-    }
-
-    if (snapshot.privacyBoundary.trim().isEmpty ||
-        snapshot.decisionBoundary.trim().isEmpty) {
-      throw StateError('Parent AI governance boundaries are required.');
-    }
-  }
+  Future<ParentAiFacts> _facts() => loadParentAiFacts(
+        children: _children,
+        attendance: _attendance,
+        finance: _finance,
+        learning: _learning,
+        events: _events,
+        messages: _messages,
+      );
 
   SchoolMembership _requireParentMembership() {
     final membership = _schoolSession.requireActiveMembership();
@@ -128,51 +106,5 @@ class ParentAIRepository {
       throw StateError('Parent AI requires an active Parent membership.');
     }
     return membership;
-  }
-
-  Set<String> _keywords(String value) {
-    const ignored = <String>{
-      'how',
-      'is',
-      'this',
-      'the',
-      'what',
-      'are',
-      'has',
-      'why',
-      'i',
-      'may',
-      'have',
-      'up',
-      'term',
-    };
-    return value
-        .replaceAll(RegExp(r"[^a-z0-9 ]"), ' ')
-        .split(RegExp(r'\s+'))
-        .where((word) => word.length >= 3 && !ignored.contains(word))
-        .toSet();
-  }
-
-  bool _looksLikeFamilyVisibleTopic(String value) {
-    const terms = <String>[
-      'maryam',
-      'hafsa',
-      'attendance',
-      'learning',
-      'result',
-      'assessment',
-      'payment',
-      'fee',
-      'balance',
-      'message',
-      'event',
-      'school',
-      'activity',
-      'transport',
-      'meal',
-      'document',
-      'consent',
-    ];
-    return terms.any(value.contains);
   }
 }

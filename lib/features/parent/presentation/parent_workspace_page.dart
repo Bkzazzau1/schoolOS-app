@@ -169,6 +169,12 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
     _aiRepository = ParentAIRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+      children: _childrenRepository,
+      attendance: _attendanceRepository,
+      finance: _financeRepository,
+      learning: _learningProgressRepository,
+      events: EventRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      messages: _messagesRepository,
     );
     _refreshPendingCount();
   }
