@@ -23,6 +23,7 @@ class TeacherCbtPage extends StatefulWidget {
 class _TeacherCbtPageState extends State<TeacherCbtPage> {
   late Future<TeacherCbtSnapshot> _future;
   List<TeacherCbtPracticeSet> _sets = const [];
+  List<String> _classOptions = const [];
   String? _selectedId;
   TeacherCbtPracticeSet? _editing;
   String? _notice;
@@ -32,10 +33,26 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
   void initState() {
     super.initState();
     _future = widget.repository.load().then((snapshot) {
-      _sets = snapshot.sets;
-      _selectedId ??= snapshot.sets.isEmpty ? null : snapshot.sets.first.id;
-      _editing ??= snapshot.sets.isEmpty ? null : snapshot.sets.first;
+      _applySnapshot(snapshot);
       return snapshot;
+    });
+  }
+
+  void _applySnapshot(TeacherCbtSnapshot snapshot) {
+    _sets = snapshot.sets;
+    _classOptions = snapshot.classOptions;
+    if (_selectedId == null || !_sets.any((s) => s.id == _selectedId)) {
+      _selectedId = _sets.isEmpty ? null : _sets.first.id;
+      _editing = _sets.isEmpty ? null : _sets.first;
+    }
+  }
+
+  void _reload() {
+    setState(() {
+      _future = widget.repository.load().then((snapshot) {
+        _applySnapshot(snapshot);
+        return snapshot;
+      });
     });
   }
 
@@ -78,12 +95,26 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
       if (result.set != null) {
         final updated = result.set!;
         _editing = updated;
-        _sets = _sets
-            .map((item) => item.id == updated.id ? updated : item)
-            .toList(growable: false);
+        _sets = [
+          for (final item in _sets) item.id == updated.id ? updated : item,
+          if (!_sets.any((item) => item.id == updated.id)) updated,
+        ];
+        _selectedId = updated.id;
       }
     });
     if (result.success) widget.onMutationQueued();
+  }
+
+  Future<void> _createSet() async {
+    if (_classOptions.isEmpty) return;
+    final draft = await showDialog<_NewSetDraft>(
+      context: context,
+      builder: (context) => _NewSetDialog(classOptions: _classOptions),
+    );
+    if (draft == null) return;
+    final result = await widget.repository.createDraft(className: draft.className, title: draft.title);
+    if (!mounted) return;
+    _applyResult(result);
   }
 
   @override
@@ -94,7 +125,19 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Unable to load CBT Practice: ${snapshot.error}'));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Unable to load CBT Practice: ${snapshot.error}'),
+                    const SizedBox(height: 10),
+                    FilledButton(onPressed: _reload, child: const Text('Retry')),
+                  ],
+                ),
+              ),
+            );
           }
           return LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
@@ -110,9 +153,38 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
                     _noticeCard(),
                     const SizedBox(height: 18),
                   ],
-                  _topGrid(constraints.maxWidth),
-                  const SizedBox(height: 18),
-                  _evidenceGrid(constraints.maxWidth),
+                  if (_classOptions.isEmpty)
+                    const Card(
+                      elevation: 0,
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('No classes are assigned to you yet. The owner or the administrator assigns classes to teachers.'),
+                      ),
+                    )
+                  else if (_sets.isEmpty)
+                    Card(
+                      elevation: 0,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('No CBT practice sets yet for your assigned classes.'),
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: _createSet,
+                              icon: const Icon(Icons.add),
+                              label: const Text('New set'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else ...[
+                    _topGrid(constraints.maxWidth),
+                    const SizedBox(height: 18),
+                    _evidenceGrid(constraints.maxWidth),
+                  ],
                   const SizedBox(height: 18),
                   _learningHandoff(),
                   const SizedBox(height: 18),
@@ -183,12 +255,25 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
   }
 
   Widget _kpis(double width) {
+    final published = _sets.where((s) => s.state == TeacherCbtSetState.published).length;
+    final draft = _sets.where((s) => s.state == TeacherCbtSetState.draft).length;
+    final totalAttempts = _sets.fold<int>(0, (sum, s) => sum + s.attempts);
+    final withAttempts = _sets.where((s) => s.attempts > 0).toList();
+    final avgAccuracy = withAttempts.isEmpty
+        ? null
+        : (withAttempts.fold<int>(0, (sum, s) => sum + s.averageAccuracy) / withAttempts.length).round();
+    final kpis = <(String, String, String)>[
+      ('Question sets', '${_sets.length}', '$published published · $draft draft'),
+      ('Practice attempts', '$totalAttempts', totalAttempts == 0 ? 'No practice attempts recorded yet' : 'this term'),
+      ('Average accuracy', avgAccuracy == null ? '—' : '$avgAccuracy%', avgAccuracy == null ? 'No attempts recorded yet' : 'across sets with attempts'),
+      ('Drafts to publish', '$draft', 'Not yet queued for publication'),
+    ];
     final cardWidth = width < 700 ? double.infinity : (width - 72) / 4;
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        for (final item in teacherCbtKpis)
+        for (final item in kpis)
           SizedBox(
             width: cardWidth,
             child: Card(
@@ -253,9 +338,7 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
                     ),
                   ),
                   FilledButton.icon(
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Create a new CBT draft from the question-authoring workflow.')),
-                    ),
+                    onPressed: _createSet,
                     icon: const Icon(Icons.add),
                     label: const Text('New set'),
                   ),
@@ -293,6 +376,7 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
     final value = _editing;
     if (value == null) return const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('No practice set selected.')));
     final editable = value.teacherEditable;
+    final classItems = {...(_classOptions), value.className}.toList()..sort();
     return Card(
       elevation: 0,
       child: Padding(
@@ -324,12 +408,10 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-            isExpanded: true,
+              isExpanded: true,
               initialValue: value.className,
               decoration: const InputDecoration(labelText: 'Class', border: OutlineInputBorder()),
-              items: const ['JSS 2A', 'JSS 2B', 'JSS 3A']
-                  .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-                  .toList(growable: false),
+              items: [for (final item in classItems) DropdownMenuItem(value: item, child: Text(item))],
               onChanged: editable ? (item) { if (item != null) _replaceEditing(value.copyWith(className: item)); } : null,
             ),
             const SizedBox(height: 12),
@@ -366,7 +448,7 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-            isExpanded: true,
+              isExpanded: true,
               initialValue: value.resultMode,
               decoration: const InputDecoration(labelText: 'Result mode', border: OutlineInputBorder()),
               items: const [
@@ -455,14 +537,7 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
               const Text('Recent learner results', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
               const Text('Evidence from practice attempts.'),
               const SizedBox(height: 12),
-              for (final result in teacherCbtResults)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(result.student, style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text('${result.className} · ${result.score} · ${result.accuracy}\nTime ${result.time} · Practice focus: ${result.focus}'),
-                  isThreeLine: true,
-                  trailing: const Text('Review'),
-                ),
+              const Text(teacherCbtResultsUnavailable),
             ],
           ),
         ),
@@ -478,8 +553,9 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
               Text('Learning Intelligence handoff', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
               Text('CBT should contribute evidence, not replace teacher judgment.'),
               SizedBox(height: 10),
-              Text('Example insight', style: TextStyle(fontWeight: FontWeight.w900)),
-              Text(teacherCbtLearningHandoff),
+              Text(
+                'Once students complete practice attempts, topic-level evidence from real results will appear here to inform lesson planning — not before.',
+              ),
             ],
           ),
         ),
@@ -511,4 +587,77 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
           title: Text(_notice!),
         ),
       );
+}
+
+class _NewSetDraft {
+  const _NewSetDraft({required this.className, required this.title});
+  final String className;
+  final String title;
+}
+
+class _NewSetDialog extends StatefulWidget {
+  const _NewSetDialog({required this.classOptions});
+  final List<String> classOptions;
+
+  @override
+  State<_NewSetDialog> createState() => _NewSetDialogState();
+}
+
+class _NewSetDialogState extends State<_NewSetDialog> {
+  late String _className = widget.classOptions.first;
+  final _titleController = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      setState(() => _error = 'Enter a title for the practice set.');
+      return;
+    }
+    Navigator.of(context).pop(_NewSetDraft(className: _className, title: title));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New CBT practice set'),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: _className,
+              decoration: const InputDecoration(labelText: 'Class'),
+              items: [for (final item in widget.classOptions) DropdownMenuItem(value: item, child: Text(item))],
+              onChanged: (value) {
+                if (value != null) setState(() => _className = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(labelText: 'Title', hintText: 'e.g. Week 6 Practice'),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        FilledButton(onPressed: _submit, child: const Text('Create')),
+      ],
+    );
+  }
 }

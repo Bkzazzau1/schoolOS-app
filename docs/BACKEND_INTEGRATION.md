@@ -503,3 +503,26 @@ note that deeper AI analysis isn't available yet.
 Tests: `test/teacher_assessment_roster_test.dart` (repository against the real roster), plus
 `test/teacher_assessments_feature_test.dart` rewritten for the new architecture (a fake repository with a small, explicit
 register/sheet instead of the old fixed demo constants).
+
+## Teacher: CBT Practice creates real drafts for real classes, and drops invented student evidence
+
+The practice sets themselves (title, class, question count, duration, instructions) were already real, teacher-editable,
+locally-persisted content — that part did not need to change. Two things did. First, "+ New set" was permanently disabled
+(`onPressed: null`, with a snackbar suggesting a question-authoring workflow that didn't exist); `TeacherCbtRepository` now
+has `createDraft(className, title)`, which refuses a class the teacher is not really assigned to or a blank title, and
+every practice set is filtered to the teacher's real assigned classes on load and re-checked on save/publish, the same
+defense-in-depth pattern as Syllabus and Assessments. The class picker in the configuration panel now lists the teacher's
+real assigned classes instead of a fixed `['JSS 2A', 'JSS 2B', 'JSS 3A']`.
+
+Second, and more importantly: the "Recent learner results" panel listed three named students with fabricated scores,
+accuracy percentages and timings ("Maryam Abdullahi scored 80%…", down to a specific per-student "Learning Intelligence
+handoff" example) — and those names belong to real students in the demo register, not placeholders. There is no student
+CBT-taking pipeline feeding this screen yet, so none of that evidence was real. The results panel now shows an honest "no
+practice attempts recorded yet" message, the sample practice sets seed with `attempts: 0` and `averageAccuracy: 0` instead
+of invented non-zero figures, and the Learning Intelligence handoff card explains what will appear once real attempts
+exist instead of showing a fabricated example tied to a real name. The KPI strip is computed from the real sets (question
+set count, real attempt total — always 0 for now — and how many drafts are still unpublished) instead of fixed numbers
+like "286 practice attempts" or "Topics needing review: Fractions · Geometry · Word problems".
+
+Tests: `test/teacher_cbt_roster_test.dart` (new, against the real roster), `test/teacher_cbt_feature_test.dart` rewritten
+to drop the named-student assertions and cover the new create-draft flow.

@@ -107,23 +107,6 @@ class TeacherCbtPracticeSet {
       );
 }
 
-class TeacherCbtResult {
-  const TeacherCbtResult({
-    required this.student,
-    required this.className,
-    required this.score,
-    required this.accuracy,
-    required this.time,
-    required this.focus,
-  });
-  final String student;
-  final String className;
-  final String score;
-  final String accuracy;
-  final String time;
-  final String focus;
-}
-
 class TeacherCbtEvent {
   const TeacherCbtEvent({
     required this.id,

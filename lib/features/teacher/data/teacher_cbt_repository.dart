@@ -4,14 +4,20 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_cbt_models.dart';
 import 'teacher_cbt_demo_data.dart';
+import 'teacher_roster.dart';
 
 class TeacherCbtSnapshot {
   const TeacherCbtSnapshot({
     required this.sets,
+    required this.classOptions,
     required this.permissions,
   });
 
   final List<TeacherCbtPracticeSet> sets;
+
+  /// The teacher's real assigned classes; a practice set can only be created for one of these.
+  final List<String> classOptions;
+
   final TeacherCbtPermissions permissions;
 }
 
@@ -31,14 +37,17 @@ class TeacherCbtRepository {
   TeacherCbtRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required TeacherRoster roster,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _roster = roster;
 
   static const _setType = 'teacher_cbt_practice_set';
   static const _eventType = 'teacher_cbt_practice_event';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final TeacherRoster _roster;
 
   TeacherCbtPermissions permissionsFor(SchoolMembership membership) {
     final teacher = membership.role == SchoolRole.teacher;
@@ -52,15 +61,23 @@ class TeacherCbtRepository {
     );
   }
 
+  Future<List<String>> _assignedClassNames(SchoolMembership membership) async {
+    final classes = await _roster.assignedClasses(membership);
+    return {for (final c in classes) c.className}.toList()..sort();
+  }
+
   Future<TeacherCbtSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
     await _seedIfNeeded(membership);
+    final assigned = await _assignedClassNames(membership);
+
     final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _setType,
     );
     final sets = records
         .map((record) => TeacherCbtPracticeSet.fromJson(record.payload))
+        .where((set) => assigned.contains(set.className))
         .toList(growable: false)
       ..sort((a, b) {
         final aIndex = teacherCbtSets.indexWhere((seed) => seed.id == a.id);
@@ -72,7 +89,44 @@ class TeacherCbtRepository {
       });
     return TeacherCbtSnapshot(
       sets: sets,
+      classOptions: assigned,
       permissions: permissionsFor(membership),
+    );
+  }
+
+  /// Creates a new draft practice set for a real assigned class. It starts with no real attempts, since there is no
+  /// student CBT-taking pipeline feeding this yet.
+  Future<TeacherCbtActionResult> createDraft({
+    required String className,
+    required String title,
+  }) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (!permissionsFor(membership).canEditDrafts) {
+      return const TeacherCbtActionResult(success: false, message: 'This membership cannot create CBT practice.');
+    }
+    if (!(await _assignedClassNames(membership)).contains(className)) {
+      return const TeacherCbtActionResult(success: false, message: 'You are not assigned to this class.');
+    }
+    if (title.trim().isEmpty) {
+      return const TeacherCbtActionResult(success: false, message: 'Enter a title for the practice set.');
+    }
+    final set = TeacherCbtPracticeSet(
+      id: 'CBT-${DateTime.now().microsecondsSinceEpoch}',
+      title: title.trim(),
+      className: className,
+      questions: 10,
+      durationMinutes: 15,
+      state: TeacherCbtSetState.draft,
+      attempts: 0,
+      averageAccuracy: 0,
+      resultMode: 'Show score + topic feedback',
+      instructions: teacherCbtInstructions,
+    );
+    await _persist(membership, set);
+    return TeacherCbtActionResult(
+      success: true,
+      message: 'Practice set created as a draft. Configure it and save or publish when ready.',
+      set: set,
     );
   }
 
@@ -89,6 +143,12 @@ class TeacherCbtRepository {
       return const TeacherCbtActionResult(
         success: false,
         message: 'Published, queued or closed practice sets cannot be silently rewritten.',
+      );
+    }
+    if (!(await _assignedClassNames(membership)).contains(value.className)) {
+      return const TeacherCbtActionResult(
+        success: false,
+        message: 'This class is not one of your assigned classes.',
       );
     }
     final validation = _validate(value);
@@ -128,6 +188,12 @@ class TeacherCbtRepository {
         message: 'This practice set is already queued, published or closed.',
       );
     }
+    if (!(await _assignedClassNames(membership)).contains(value.className)) {
+      return const TeacherCbtActionResult(
+        success: false,
+        message: 'This class is not one of your assigned classes.',
+      );
+    }
     final validation = _validate(value);
     if (validation != null) {
       return TeacherCbtActionResult(success: false, message: validation);
@@ -164,6 +230,11 @@ class TeacherCbtRepository {
     SchoolMembership membership,
     TeacherCbtPracticeSet value,
   ) async {
+    final existing = await _localDatabase.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _setType,
+      entityId: value.id,
+    );
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: _setType,
@@ -176,7 +247,7 @@ class TeacherCbtRepository {
       membershipId: membership.id,
       entityType: _setType,
       entityId: value.id,
-      operation: SyncOperation.update,
+      operation: existing == null ? SyncOperation.create : SyncOperation.update,
       payload: value.toJson(),
     );
   }

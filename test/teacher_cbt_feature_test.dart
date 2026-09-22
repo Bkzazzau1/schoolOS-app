@@ -6,46 +6,28 @@ import 'package:schoolos_app/features/teacher/domain/teacher_cbt_models.dart';
 import 'package:schoolos_app/features/teacher/presentation/teacher_cbt_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+const _teacher = SchoolMembership(
+  id: 'teacher-1',
+  schoolId: 'school-1',
+  schoolName: 'BrightGate Academy',
+  role: SchoolRole.teacher,
+);
+
 void main() {
-  test('CBT Practice preserves exact website set snapshot', () {
+  test('sample practice sets start with no invented attempt evidence', () {
     expect(teacherCbtSets, hasLength(3));
     expect(teacherCbtSets[0].id, 'CBT-MTH-026');
     expect(teacherCbtSets[0].title, 'JSS 2 Mathematics · Linear Equations');
-    expect(teacherCbtSets[0].questions, 20);
-    expect(teacherCbtSets[0].durationMinutes, 20);
     expect(teacherCbtSets[0].state, TeacherCbtSetState.published);
-    expect(teacherCbtSets[0].attempts, 38);
-    expect(teacherCbtSets[0].averageAccuracy, 78);
+    // No real student CBT-taking pipeline exists yet, so sample sets never claim attempts or accuracy.
+    for (final set in teacherCbtSets) {
+      expect(set.attempts, 0, reason: '${set.id} must not invent attempt evidence');
+      expect(set.averageAccuracy, 0, reason: '${set.id} must not invent accuracy evidence');
+    }
     expect(teacherCbtSets[1].id, 'CBT-MTH-027');
     expect(teacherCbtSets[1].state, TeacherCbtSetState.draft);
-    expect(teacherCbtSets[1].questions, 15);
     expect(teacherCbtSets[2].id, 'CBT-MTH-021');
     expect(teacherCbtSets[2].state, TeacherCbtSetState.closed);
-    expect(teacherCbtSets[2].attempts, 36);
-    expect(teacherCbtSets[2].averageAccuracy, 64);
-  });
-
-  test('CBT Practice preserves exact website KPI snapshot', () {
-    expect(teacherCbtKpis, hasLength(4));
-    expect(teacherCbtKpis[0], ('Question sets', '12', '8 published · 4 draft'));
-    expect(teacherCbtKpis[1], ('Practice attempts', '286', 'this term'));
-    expect(teacherCbtKpis[2], ('Average accuracy', '74%', 'across assigned practice'));
-    expect(teacherCbtKpis[3].$2, '3');
-    expect(teacherCbtKpis[3].$3, 'Fractions · Geometry · Word problems');
-  });
-
-  test('CBT learner evidence matches website results exactly', () {
-    expect(teacherCbtResults, hasLength(3));
-    expect(teacherCbtResults[0].student, 'Maryam Abdullahi');
-    expect(teacherCbtResults[0].score, '16/20');
-    expect(teacherCbtResults[0].accuracy, '80%');
-    expect(teacherCbtResults[0].time, '14m 12s');
-    expect(teacherCbtResults[0].focus, 'Fractions · Geometry');
-    expect(teacherCbtResults[1].student, 'Ibrahim Sani');
-    expect(teacherCbtResults[1].accuracy, '60%');
-    expect(teacherCbtResults[2].student, 'Yusuf Bello');
-    expect(teacherCbtResults[2].accuracy, '45%');
-    expect(teacherCbtResults[2].focus, 'Fractions · Word problems');
   });
 
   test('question preview keeps exact item and topic tag principle', () {
@@ -55,12 +37,12 @@ void main() {
     expect(teacherCbtDesignBoundary, contains('topic tag'));
   });
 
-  test('CBT set serialization preserves publication evidence', () {
+  test('CBT set serialization preserves state without losing the zeroed evidence', () {
     final restored = TeacherCbtPracticeSet.fromJson(teacherCbtSets.first.toJson());
     expect(restored.id, 'CBT-MTH-026');
     expect(restored.state, TeacherCbtSetState.published);
-    expect(restored.attempts, 38);
-    expect(restored.averageAccuracy, 78);
+    expect(restored.attempts, 0);
+    expect(restored.averageAccuracy, 0);
     expect(restored.publishedAt, 'server-confirmed');
   });
 
@@ -76,19 +58,13 @@ void main() {
 
   test('teacher CBT permissions never grant publication confirmation or high-stakes authority', () {
     final fake = _FakeCbtRepository();
-    const teacher = SchoolMembership(
-      id: 'teacher-1',
-      schoolId: 'school-1',
-      schoolName: 'BrightGate Academy',
-      role: SchoolRole.teacher,
-    );
     const parent = SchoolMembership(
       id: 'parent-1',
       schoolId: 'school-1',
       schoolName: 'BrightGate Academy',
       role: SchoolRole.parent,
     );
-    final permissions = fake.permissionsFor(teacher);
+    final permissions = fake.permissionsFor(_teacher);
     expect(permissions.canViewAssignedPractice, isTrue);
     expect(permissions.canEditDrafts, isTrue);
     expect(permissions.canQueuePublication, isTrue);
@@ -98,7 +74,7 @@ void main() {
     expect(fake.permissionsFor(parent).canEditDrafts, isFalse);
   });
 
-  testWidgets('CBT Practice renders exact website evidence', (tester) async {
+  testWidgets('CBT Practice renders real sets and an honest empty results panel, not invented student evidence', (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -117,12 +93,10 @@ void main() {
 
     expect(find.text('CBT Practice Center'), findsOneWidget);
     expect(find.text('JSS 2 Mathematics · Linear Equations'), findsWidgets);
-    expect(find.text('Maryam Abdullahi'), findsOneWidget);
-    expect(find.text('Ibrahim Sani'), findsOneWidget);
-    expect(find.text('Yusuf Bello'), findsOneWidget);
     expect(find.text('Question 7 of 20'), findsOneWidget);
     expect(find.text(teacherCbtQuestionText), findsOneWidget);
     expect(find.text('Learning Intelligence handoff'), findsOneWidget);
+    expect(find.textContaining('No practice attempts have been recorded yet'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -159,6 +133,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('creating a new set adds a draft for a real assigned class', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final fake = _FakeCbtRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TeacherCbtPage(
+            repository: fake,
+            onNavigate: (_) {},
+            onMutationQueued: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'New set').first);
+    await tester.tap(find.widgetWithText(FilledButton, 'New set').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.widgetWithText(TextField, 'e.g. Week 6 Practice'), 'Week 7 Practice');
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+
+    expect(fake.sets.any((s) => s.title == 'Week 7 Practice' && s.state == TeacherCbtSetState.draft), isTrue);
+    expect(find.textContaining('created as a draft'), findsOneWidget);
+  });
+
   testWidgets('CBT top actions route to Teacher Dashboard and Assessments', (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
@@ -181,6 +185,24 @@ void main() {
     expect(destination, 'dashboard');
     await tester.tap(find.widgetWithText(OutlinedButton, 'Assessments'));
     expect(destination, 'assessments');
+  });
+
+  testWidgets('a teacher with no assigned classes sees an honest empty state, not a crash', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TeacherCbtPage(
+            repository: _EmptyFakeCbtRepository(),
+            onNavigate: (_) {},
+            onMutationQueued: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('No classes are assigned to you yet'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('CBT Practice renders on a phone viewport without exceptions', (tester) async {
@@ -210,6 +232,7 @@ void main() {
 
 class _FakeCbtRepository implements TeacherCbtRepository {
   List<TeacherCbtPracticeSet> sets = List<TeacherCbtPracticeSet>.from(teacherCbtSets);
+  final classOptions = const ['JSS 2A', 'JSS 2B'];
 
   @override
   TeacherCbtPermissions permissionsFor(SchoolMembership membership) {
@@ -227,15 +250,34 @@ class _FakeCbtRepository implements TeacherCbtRepository {
   @override
   Future<TeacherCbtSnapshot> load() async => TeacherCbtSnapshot(
         sets: sets,
-        permissions: permissionsFor(
-          const SchoolMembership(
-            id: 'teacher-1',
-            schoolId: 'school-1',
-            schoolName: 'BrightGate Academy',
-            role: SchoolRole.teacher,
-          ),
-        ),
+        classOptions: classOptions,
+        permissions: permissionsFor(_teacher),
       );
+
+  @override
+  Future<TeacherCbtActionResult> createDraft({required String className, required String title}) async {
+    if (!classOptions.contains(className)) {
+      return const TeacherCbtActionResult(success: false, message: 'You are not assigned to this class.');
+    }
+    final set = TeacherCbtPracticeSet(
+      id: 'CBT-NEW-${sets.length + 1}',
+      title: title,
+      className: className,
+      questions: 10,
+      durationMinutes: 15,
+      state: TeacherCbtSetState.draft,
+      attempts: 0,
+      averageAccuracy: 0,
+      resultMode: 'Show score + topic feedback',
+      instructions: teacherCbtInstructions,
+    );
+    sets = [...sets, set];
+    return TeacherCbtActionResult(
+      success: true,
+      message: 'Practice set created as a draft. Configure it and save or publish when ready.',
+      set: set,
+    );
+  }
 
   @override
   Future<TeacherCbtActionResult> saveDraft(TeacherCbtPracticeSet value) async {
@@ -262,4 +304,35 @@ class _FakeCbtRepository implements TeacherCbtRepository {
       set: updated,
     );
   }
+}
+
+class _EmptyFakeCbtRepository implements TeacherCbtRepository {
+  @override
+  TeacherCbtPermissions permissionsFor(SchoolMembership membership) => const TeacherCbtPermissions(
+        canViewAssignedPractice: true,
+        canEditDrafts: true,
+        canQueuePublication: true,
+        canConfirmPublication: false,
+        canUsePracticeEvidence: true,
+        canMakeHighStakesDecision: false,
+      );
+
+  @override
+  Future<TeacherCbtSnapshot> load() async => TeacherCbtSnapshot(
+        sets: const [],
+        classOptions: const [],
+        permissions: permissionsFor(_teacher),
+      );
+
+  @override
+  Future<TeacherCbtActionResult> createDraft({required String className, required String title}) async =>
+      const TeacherCbtActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherCbtActionResult> saveDraft(TeacherCbtPracticeSet value) async =>
+      const TeacherCbtActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherCbtActionResult> queuePublication(TeacherCbtPracticeSet value) async =>
+      const TeacherCbtActionResult(success: false, message: 'Not used in this test.');
 }

@@ -1,15 +1,10 @@
 import '../domain/teacher_cbt_models.dart';
 
-const teacherCbtKpis = <(String, String, String)>[
-  ('Question sets', '12', '8 published · 4 draft'),
-  ('Practice attempts', '286', 'this term'),
-  ('Average accuracy', '74%', 'across assigned practice'),
-  ('Topics needing review', '3', 'Fractions · Geometry · Word problems'),
-];
-
 const teacherCbtInstructions =
     'Answer all questions. You may move between questions before submitting. Use this practice to become comfortable with CBT navigation and timing.';
 
+// Sample practice sets so a new teacher does not start on a blank page. Attempts and average accuracy start at 0:
+// there is no real student CBT-taking pipeline feeding this yet, so no attempt evidence is invented for them.
 const teacherCbtSets = <TeacherCbtPracticeSet>[
   TeacherCbtPracticeSet(
     id: 'CBT-MTH-026',
@@ -18,8 +13,8 @@ const teacherCbtSets = <TeacherCbtPracticeSet>[
     questions: 20,
     durationMinutes: 20,
     state: TeacherCbtSetState.published,
-    attempts: 38,
-    averageAccuracy: 78,
+    attempts: 0,
+    averageAccuracy: 0,
     resultMode: 'Show score + topic feedback',
     instructions: teacherCbtInstructions,
     publishedAt: 'server-confirmed',
@@ -43,38 +38,11 @@ const teacherCbtSets = <TeacherCbtPracticeSet>[
     questions: 20,
     durationMinutes: 20,
     state: TeacherCbtSetState.closed,
-    attempts: 36,
-    averageAccuracy: 64,
+    attempts: 0,
+    averageAccuracy: 0,
     resultMode: 'Show score + topic feedback',
     instructions: teacherCbtInstructions,
     publishedAt: 'server-confirmed',
-  ),
-];
-
-const teacherCbtResults = <TeacherCbtResult>[
-  TeacherCbtResult(
-    student: 'Maryam Abdullahi',
-    className: 'JSS 2A',
-    score: '16/20',
-    accuracy: '80%',
-    time: '14m 12s',
-    focus: 'Fractions · Geometry',
-  ),
-  TeacherCbtResult(
-    student: 'Ibrahim Sani',
-    className: 'JSS 2A',
-    score: '12/20',
-    accuracy: '60%',
-    time: '19m 08s',
-    focus: 'Linear equations',
-  ),
-  TeacherCbtResult(
-    student: 'Yusuf Bello',
-    className: 'JSS 2B',
-    score: '9/20',
-    accuracy: '45%',
-    time: '20m 00s',
-    focus: 'Fractions · Word problems',
   ),
 ];
 
@@ -90,5 +58,5 @@ const teacherCbtAiBoundary =
     'Teacher AI may summarize practice evidence and suggest temporary practice focus, but it cannot change scores, decide mastery, fail or promote a learner, or replace teacher judgment.';
 const teacherCbtPublicationBoundary =
     'Saving or publishing while offline queues the practice set. Published status and student availability require authoritative server acknowledgement.';
-const teacherCbtLearningHandoff =
-    'Maryam Abdullahi scored 80% overall, but missed 3 of 4 fractions questions. Add fractions as a temporary practice focus in Student 360 while keeping her overall Mathematics trend separate.';
+const teacherCbtResultsUnavailable =
+    'No practice attempts have been recorded yet. Real learner results will appear here once students complete a published practice set, with no student named or scored before that.';
