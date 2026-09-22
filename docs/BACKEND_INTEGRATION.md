@@ -1369,3 +1369,29 @@ failures, zero regressions.
 Given how large this role is (eleven screens, several already found to disagree with each other about the same real
 children), the remaining ten screens — Dashboard, Learning Progress, Weekly Learning, Attendance, Finance, Messages,
 Discussions, School Life, Documents, AI — are still to come, in the same pattern.
+
+## Parent: Attendance now reads the real gate-scan record
+
+`ParentAttendanceRepository` returned a second, independently fabricated attendance dataset for the same two real
+children (Maryam Abdullahi 96%, Hafsa Abdullahi 82%) — different specific numbers from the ones My Children showed
+for the same students, a fixed multi-day check-in/check-out history with specific gate/device/time detail, and
+fabricated push notifications ("Maryam checked in at 07:41").
+
+Deliberately fixed *after* My Children rather than before: `load()` now starts from `ParentChildrenRepository`'s
+real linked-child list (so the two screens can never disagree about who the children even are), then matches each
+child by name against the same real gate-scan events `AdministratorAttendanceRepository` computes for every other
+role. Because that real source only keeps today's record, `ParentAttendanceChildSummary`'s per-child stats now
+describe an honest single-day window (`totalSchoolDays: 1`, `presentDays` 0 or 1, `attendancePercent` computed from
+those, never an invented running percentage) instead of a fabricated multi-day history, and
+`ParentAttendanceSnapshot.events` holds only today's real event per child instead of an invented several-day log.
+Removed the now-incoherent `replaceFromServer` method, which validated and cached a full server-provided snapshot
+that `load()` would never have read once every field became live-computed — the same simplification already applied
+to My Children's own `replaceFromServer` → `replaceLinkedChildren`.
+
+**No real source — left honest:** attendance notifications (`ParentAttendanceSnapshot.notifications`) have no real
+push-notification system behind them anywhere in the app and now stay empty.
+
+Tests: `test/parent_attendance_feature_test.dart`, the first coverage this repository has had. Confirms child
+summaries are the real linked children with an honest single-day window, today's events line up exactly with which
+children actually checked in, notifications are honestly empty, and permission checks. Full suite: 1096 passing,
+same 8 pre-existing unrelated failures, zero regressions.

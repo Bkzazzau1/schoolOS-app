@@ -1,94 +1,90 @@
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/data/administrator_attendance_repository.dart';
+import '../../administrator/data/administrator_students_repository.dart';
+import '../../administrator/domain/administrator_attendance_models.dart';
 import '../domain/parent_attendance_models.dart';
-import 'parent_attendance_demo_data.dart';
+import 'parent_children_repository.dart';
+
+const _notRecorded = 'Not recorded yet';
 
 class ParentAttendanceRepository {
+  /// [localDatabase] is accepted for constructor consistency with every other Parent
+  /// repository, even though this one is a pure read-side roll-up of real attendance data and
+  /// never touches the local database directly.
   ParentAttendanceRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+    required ParentChildrenRepository children,
+    required AdministratorStudentsRepository students,
+    required AdministratorAttendanceRepository attendance,
+  })  : _schoolSession = schoolSession,
+        _children = children,
+        _students = students,
+        _attendance = attendance;
 
-  static const _entityType = 'parent_attendance_snapshot';
-
-  final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final ParentChildrenRepository _children;
+  final AdministratorStudentsRepository _students;
+  final AdministratorAttendanceRepository _attendance;
 
+  static String _key(String name) => name.trim().toLowerCase();
+
+  /// Real, from the same gate-scan source every other role reads. The real source only keeps
+  /// today's record — there is no real day-by-day history yet — so [ParentAttendanceChildSummary]
+  /// reports a single-day window (today) rather than a fabricated running percentage, and
+  /// [ParentAttendanceSnapshot.events] holds only today's real event per child.
   Future<ParentAttendanceSnapshot> load() async {
     final membership = _requireParentMembership();
-    final record = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
+    final linked = (await _children.load()).children;
+    final register = (await _students.load()).students;
+    final events = (await _attendance.load(students: register)).events;
+
+    final childSummaries = <ParentAttendanceChildSummary>[];
+    final todayEvents = <ParentAttendanceEvent>[];
+    for (final child in linked) {
+      AdministratorAttendanceEvent? event;
+      for (final e in events) {
+        if (!e.isUnknown && _key(e.student) == _key(child.name)) {
+          event = e;
+          break;
+        }
+      }
+      final present = event?.countsAsPresent ?? false;
+      childSummaries.add(ParentAttendanceChildSummary(
+        childId: child.id,
+        name: child.name,
+        className: child.className,
+        attendancePercent: present ? 100 : 0,
+        presentDays: present ? 1 : 0,
+        totalSchoolDays: 1,
+        lateArrivals: event?.status == AdministratorAttendanceEventStatus.late ? 1 : 0,
+        latestCheckInLabel: event == null ? _notRecorded : 'Today · ${event.time}',
+        captureDevice: event?.device ?? _notRecorded,
+        checkedInToday: present,
+      ));
+      if (event != null) {
+        todayEvents.add(ParentAttendanceEvent(
+          dateLabel: 'Today',
+          childId: child.id,
+          childName: child.name,
+          checkIn: event.time,
+          checkOut: '—',
+          gate: event.device,
+          captureMethod: event.method,
+          status: event.status.label,
+        ));
+      }
+    }
+
+    return ParentAttendanceSnapshot(
+      familyAccountId: membership.id,
+      children: childSummaries,
+      events: todayEvents,
+      // No real push-notification system exists for attendance check-ins.
+      notifications: const [],
     );
-
-    if (record != null) {
-      final snapshot = ParentAttendanceSnapshot.fromJson(record.payload);
-      _validateSnapshot(snapshot);
-      return snapshot;
-    }
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-      payload: parentDefaultAttendance.toJson(),
-    );
-    return parentDefaultAttendance;
-  }
-
-  Future<void> replaceFromServer({
-    required ParentAttendanceSnapshot snapshot,
-    required int serverVersion,
-  }) async {
-    final membership = _requireParentMembership();
-    _validateSnapshot(snapshot);
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _entityType,
-      entityId: membership.id,
-      payload: snapshot.toJson(),
-      serverVersion: serverVersion,
-      isDirty: false,
-    );
-  }
-
-  void _validateSnapshot(ParentAttendanceSnapshot snapshot) {
-    if (snapshot.familyAccountId.trim().isEmpty) {
-      throw StateError('Family attendance is missing its family account id.');
-    }
-
-    final childIds = <String>{};
-    for (final child in snapshot.children) {
-      if (child.childId.trim().isEmpty || !childIds.add(child.childId)) {
-        throw StateError('Family attendance contains an invalid child id.');
-      }
-      if (child.attendancePercent < 0 || child.attendancePercent > 100) {
-        throw StateError('A child attendance percentage is outside the valid range.');
-      }
-      if (child.presentDays < 0 || child.totalSchoolDays < 0 || child.presentDays > child.totalSchoolDays) {
-        throw StateError('A child attendance day count is invalid.');
-      }
-      if (child.lateArrivals < 0) {
-        throw StateError('A child late-arrival count cannot be negative.');
-      }
-    }
-
-    for (final event in snapshot.events) {
-      if (!childIds.contains(event.childId)) {
-        throw StateError(
-          'Attendance history contains a child not linked to the active family snapshot.',
-        );
-      }
-      if (event.dateLabel.trim().isEmpty ||
-          event.checkIn.trim().isEmpty ||
-          event.status.trim().isEmpty) {
-        throw StateError('Attendance history contains an incomplete event.');
-      }
-    }
   }
 
   SchoolMembership _requireParentMembership() {

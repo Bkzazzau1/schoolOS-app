@@ -116,6 +116,9 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
     _attendanceRepository = ParentAttendanceRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+      children: _childrenRepository,
+      students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      attendance: AdministratorAttendanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
     );
     _financeRepository = ParentFinanceRepository(
       localDatabase: widget.localDatabase,
