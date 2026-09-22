@@ -2,8 +2,11 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/data/administrator_students_repository.dart';
+import '../../administrator/data/administrator_attendance_desk.dart'
+    show sectionOfClass;
+import '../../administrator/domain/administrator_students_models.dart';
 import '../domain/principal_approvals_models.dart';
-import 'principal_approvals_demo_data.dart';
 
 class PrincipalApprovalsSnapshot {
   const PrincipalApprovalsSnapshot({
@@ -11,22 +14,29 @@ class PrincipalApprovalsSnapshot {
     required this.decisions,
     required this.permissions,
   });
-
   final List<PrincipalApprovalItem> items;
   final List<PrincipalApprovalDecision> decisions;
   final PrincipalApprovalPermissions permissions;
-
-  int get pendingCount => items.where((item) => item.status == PrincipalApprovalStatus.pending).length;
+  int get pendingCount =>
+      items.where((i) => i.status == PrincipalApprovalStatus.pending).length;
   int get highPriorityPendingCount => items
-      .where((item) => item.status == PrincipalApprovalStatus.pending && item.priority == PrincipalApprovalPriority.high)
+      .where(
+        (i) =>
+            i.status == PrincipalApprovalStatus.pending &&
+            i.priority == PrincipalApprovalPriority.high,
+      )
       .length;
-  int get approvedCount => items.where((item) => item.status == PrincipalApprovalStatus.approved).length;
-  int get returnedCount => items.where((item) => item.status == PrincipalApprovalStatus.returned).length;
+  int get approvedCount =>
+      items.where((i) => i.status == PrincipalApprovalStatus.approved).length;
+  int get returnedCount =>
+      items.where((i) => i.status == PrincipalApprovalStatus.returned).length;
 }
 
 class PrincipalApprovalActionResult {
-  const PrincipalApprovalActionResult({required this.success, required this.message});
-
+  const PrincipalApprovalActionResult({
+    required this.success,
+    required this.message,
+  });
   final bool success;
   final String message;
 }
@@ -35,49 +45,132 @@ class PrincipalApprovalsRepository {
   PrincipalApprovalsRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
-
-  static const _itemType = 'principal_approval_item';
-  static const _decisionType = 'principal_approval_decision';
-
-  final LocalDatabase _localDatabase;
-  final SchoolSessionController _schoolSession;
-
-  PrincipalApprovalPermissions permissionsFor(SchoolMembership membership) => PrincipalApprovalPermissions(
-        canViewSecondaryApprovals: membership.role == SchoolRole.principal,
-        canDecideSecondaryApprovals: membership.role == SchoolRole.principal,
+  }) : _db = localDatabase,
+       _session = schoolSession;
+  final LocalDatabase _db;
+  final SchoolSessionController _session;
+  static const decisionType = 'principal_submission_review';
+  PrincipalApprovalPermissions permissionsFor(SchoolMembership m) =>
+      PrincipalApprovalPermissions(
+        canViewSecondaryApprovals: m.role == SchoolRole.principal,
+        canDecideSecondaryApprovals: m.role == SchoolRole.principal,
         canReleaseReportsDirectly: false,
         canRewriteScoresDirectly: false,
         canManagePrimary: false,
       );
-
   Future<PrincipalApprovalsSnapshot> load() async {
-    final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
-
-    final itemRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _itemType,
+    final m = _session.requireActiveMembership();
+    final permissions = permissionsFor(m);
+    if (!permissions.canViewSecondaryApprovals) {
+      return PrincipalApprovalsSnapshot(
+        items: const [],
+        decisions: const [],
+        permissions: permissions,
+      );
+    }
+    final register = await AdministratorStudentsRepository(
+      localDatabase: _db,
+      schoolSession: _session,
+    ).load();
+    final classes = {
+      for (final s in register.students)
+        if (s.status != AdministratorStudentStatus.transferredOut &&
+            sectionOfClass(s.className) == 'Secondary')
+          s.className,
+    };
+    final reviews = await _db.getLocalRecords(
+      tenantId: m.schoolId,
+      entityType: decisionType,
     );
-    final decisionRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _decisionType,
-    );
-
-    final items = itemRecords
-        .map((record) => PrincipalApprovalItem.fromJson(record.payload))
-        .toList(growable: false)
-      ..sort((a, b) => _sortKey(a.id).compareTo(_sortKey(b.id)));
-    final decisions = decisionRecords
-        .map((record) => PrincipalApprovalDecision.fromJson(record.payload))
-        .toList(growable: false)
-      ..sort((a, b) => b.reviewedAt.compareTo(a.reviewedAt));
-
+    final decisions =
+        reviews
+            .map((r) => PrincipalApprovalDecision.fromJson(r.payload))
+            .toList()
+          ..sort((a, b) => b.reviewedAt.compareTo(a.reviewedAt));
+    final items = <PrincipalApprovalItem>[];
+    for (final lesson in [true, false]) {
+      final type = lesson
+          ? 'teacher_lesson_plan'
+          : 'teacher_assessment_score_sheet';
+      final records = await _db.getLocalRecords(
+        tenantId: m.schoolId,
+        entityType: type,
+      );
+      final events = await _db.getLocalRecords(
+        tenantId: m.schoolId,
+        entityType: lesson
+            ? 'teacher_lesson_plan_event'
+            : 'teacher_assessment_event',
+      );
+      for (final record in records) {
+        final p = record.payload;
+        if (!classes.contains(p['className']) ||
+            p[lesson ? 'status' : 'state'] !=
+                (lesson ? 'submitted' : 'submittedForReview')) {
+          continue;
+        }
+        final submitted =
+            events
+                .where(
+                  (e) =>
+                      e.payload[lesson ? 'planId' : 'sheetId'] == p['id'] &&
+                      e.payload['version'] == p['version'] &&
+                      e.payload['action'] ==
+                          (lesson ? 'submitted' : 'submittedForReview'),
+                )
+                .toList()
+              ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        if (submitted.isEmpty) continue;
+        final event = submitted.first.payload;
+        final id = '$type:${record.entityId}:v${p['version']}';
+        final review = decisions.where((d) => d.approvalId == id).firstOrNull;
+        items.add(
+          PrincipalApprovalItem(
+            id: id,
+            type: lesson ? 'Lesson Plan' : 'Assessment',
+            title: p[lesson ? 'topic' : 'assessmentLabel']! as String,
+            teacher: event['actorMembershipId']! as String,
+            className: p['className']! as String,
+            submitted: event['occurredAt']! as String,
+            priority: PrincipalApprovalPriority.normal,
+            status: review?.newStatus ?? PrincipalApprovalStatus.pending,
+            summary: lesson
+                ? (p['objectives'] as String? ?? '')
+                : 'Submitted score sheet; review does not alter marks or publish results.',
+            details: lesson
+                ? [
+                    PrincipalApprovalDetail(
+                      label: 'Activities',
+                      value: p['activities'] as String? ?? '',
+                    ),
+                    PrincipalApprovalDetail(
+                      label: 'Assessment',
+                      value: p['assessment'] as String? ?? '',
+                    ),
+                  ]
+                : [
+                    PrincipalApprovalDetail(
+                      label: 'Maximum score',
+                      value: '${p['maximumScore']}',
+                    ),
+                    PrincipalApprovalDetail(
+                      label: 'Score entries',
+                      value: '${(p['entries'] as List).length}',
+                    ),
+                  ],
+            lastReviewedByMembershipId: review?.reviewerMembershipId,
+            lastReviewedAt: review?.reviewedAt,
+            lastComment: review?.comment,
+          ),
+        );
+      }
+    }
     return PrincipalApprovalsSnapshot(
       items: items,
-      decisions: decisions,
-      permissions: permissionsFor(membership),
+      decisions: decisions
+          .where((d) => items.any((i) => i.id == d.approvalId))
+          .toList(),
+      permissions: permissions,
     );
   }
 
@@ -86,111 +179,63 @@ class PrincipalApprovalsRepository {
     required PrincipalApprovalStatus status,
     required String comment,
   }) async {
-    final membership = _schoolSession.requireActiveMembership();
-    if (!permissionsFor(membership).canDecideSecondaryApprovals) {
+    final m = _session.requireActiveMembership();
+    if (!permissionsFor(m).canDecideSecondaryApprovals ||
+        status == PrincipalApprovalStatus.pending) {
       return const PrincipalApprovalActionResult(
         success: false,
-        message: 'This membership cannot decide Secondary academic approvals.',
+        message: 'This decision is not permitted.',
       );
     }
-    if (status == PrincipalApprovalStatus.pending) {
+    if (status == PrincipalApprovalStatus.returned && comment.trim().isEmpty) {
       return const PrincipalApprovalActionResult(
         success: false,
-        message: 'Choose Approve or Return for changes.',
+        message: 'Explain the changes needed.',
       );
     }
-
-    final record = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _itemType,
-      entityId: approvalId,
-    );
-    if (record == null) {
-      return const PrincipalApprovalActionResult(success: false, message: 'Approval item not found.');
+    final item = (await load()).items
+        .where((i) => i.id == approvalId)
+        .firstOrNull;
+    if (item == null || item.status != PrincipalApprovalStatus.pending) {
+      return const PrincipalApprovalActionResult(
+        success: false,
+        message: 'No current pending submission matches this decision.',
+      );
     }
-
-    final current = PrincipalApprovalItem.fromJson(record.payload);
-    final reviewedAt = DateTime.now().toUtc().toIso8601String();
-    final updated = current.copyWith(
-      status: status,
-      lastReviewedByMembershipId: membership.id,
-      lastReviewedAt: reviewedAt,
-      lastComment: comment.trim(),
-    );
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _itemType,
-      entityId: updated.id,
-      payload: updated.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _itemType,
-      entityId: updated.id,
-      operation: SyncOperation.update,
-      payload: updated.toJson(),
-    );
-
+    if (_session.requireActiveMembership().id != m.id) {
+      return const PrincipalApprovalActionResult(
+        success: false,
+        message: 'School membership changed. Reload before reviewing.',
+      );
+    }
     final decision = PrincipalApprovalDecision(
-      id: '${updated.id}-${DateTime.now().microsecondsSinceEpoch}',
-      approvalId: updated.id,
-      previousStatus: current.status,
+      id: 'review-${DateTime.now().microsecondsSinceEpoch}',
+      approvalId: approvalId,
+      previousStatus: item.status,
       newStatus: status,
-      reviewerMembershipId: membership.id,
-      reviewedAt: reviewedAt,
+      reviewerMembershipId: m.id,
+      reviewedAt: DateTime.now().toUtc().toIso8601String(),
       comment: comment.trim(),
     );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _decisionType,
+    await _db.upsertLocalRecord(
+      tenantId: m.schoolId,
+      entityType: decisionType,
       entityId: decision.id,
       payload: decision.toJson(),
       isDirty: true,
     );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _decisionType,
+    await _db.queueMutation(
+      tenantId: m.schoolId,
+      membershipId: m.id,
+      entityType: decisionType,
       entityId: decision.id,
       operation: SyncOperation.create,
       payload: decision.toJson(),
     );
-
-    final downstream = switch (updated.type) {
-      'Report Cards' => ' Report release remains a separate governed step.',
-      'Score Correction' => ' The student score remains unchanged until the authorized correction workflow applies this decision.',
-      _ => '',
-    };
-    return PrincipalApprovalActionResult(
+    return const PrincipalApprovalActionResult(
       success: true,
-      message: status == PrincipalApprovalStatus.approved
-          ? 'Approved offline and queued for synchronization.$downstream'
-          : 'Returned for changes offline and queued for synchronization.',
+      message:
+          'Review recorded offline and queued for sync. Teacher source records, marks and publication are unchanged.',
     );
-  }
-
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    final existing = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _itemType,
-    );
-    if (existing.isNotEmpty) return;
-
-    for (final item in principalApprovalItems) {
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: _itemType,
-        entityId: item.id,
-        payload: item.toJson(),
-      );
-    }
-  }
-
-  int _sortKey(String id) {
-    final value = int.tryParse(id.replaceAll(RegExp(r'\D'), '')) ?? 0;
-    return -value;
   }
 }

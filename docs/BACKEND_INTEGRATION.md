@@ -927,3 +927,13 @@ establish disciplinary or safeguarding allegations. Resolved counts now describe
 
 Tests: `test/principal_incidents_feature_test.dart` covers empty demo, legacy exclusion, real audit changes,
 role/school/class isolation and empty rendering. Analysis is clean; full suite: 1,121 passed, same 8 baseline failures.
+
+## Principal: Approvals
+
+Replaced the fixed APR queue and invented report/score-correction evidence with recorded Teacher submissions.
+
+**Real source:** submitted `teacher_lesson_plan` and `teacher_assessment_score_sheet` records must have a matching versioned submission event and belong to a Secondary class in the Administrator student register. Reviews store the Principal membership, timestamp, comment and decision in `principal_submission_review`, with an offline sync mutation. A new source version requires a new review; duplicate and stale decisions are rejected. Teacher marks and publication state are unchanged.
+
+**No real source — left honest:** official report batches and score-correction requests have no connected intake. Old seeded approvals are ignored. Fresh demo schools show an empty queue. Reviewer attribution uses recorded membership IDs, without inventing staff names.
+
+**Validation:** `test/principal_approvals_feature_test.dart` covers provenance, versioning, class/tenant/role scope, return validation and preservation of marks. `flutter analyze` is clean. Full suite: 1127 passing, the same 8 baseline failures (six demo login navigation, Teacher Assignments phone navigation, Teacher Students phone rendering).
