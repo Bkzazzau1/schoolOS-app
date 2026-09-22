@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../../app/demo_people.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
@@ -317,11 +316,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            _demo
-                ? 'Welcome, ${demoPersonNames[widget.membership.id] ?? 'student'}'
-                : 'My student workspace',
-          ),
+          const Text('My student workspace'),
           if (_busy) const LinearProgressIndicator(),
           if (_error != null)
             ListTile(

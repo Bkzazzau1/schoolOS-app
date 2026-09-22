@@ -1683,3 +1683,40 @@ guardian name is an honest role label; and the permission check behaves correctl
 
 This completes the fabrication audit for all eleven Parent screens: Children, Attendance, Finance, Learning
 Progress, Weekly Learning, Messages, Discussions, School Life, Documents, AI, and Dashboard.
+
+## Student (role): audit finds the workspace was already mostly built to this standard
+
+Unlike every role audited so far, Student has a single screen (`StudentWorkspacePage`/`StudentRepository`), and it
+was already following the standing discipline correctly rather than needing a rebuild:
+
+- **My performance** already gates on `LocalDatabase.blockDemoSeeds`: in demo mode it shows fixed sample term
+  results, explicitly labelled "Sample term results · Demo data, not official school marks"; whenever a real
+  backend is expected it instead says "Your school results are not connected yet. No official marks are available
+  here." This is the correct proactive labelling the standing instruction asks for, not a violation of it — left
+  unchanged.
+- **CBT practice** is a genuine, entirely real feature: a fixed five-question maths practice quiz with real local
+  persistence (a real 10-minute deadline, real saved answers, a real computed score), explicitly labelled "Practice
+  only" and "This is not an official exam" throughout, with `startPractice` honestly refusing outright in live mode
+  ("Official exams are not connected yet."). Left unchanged.
+- **My study plan** is a genuine personal task list, real local persistence, explicitly labelled "Personal
+  reminders saved on this device. These are not teacher-assigned homework." Left unchanged.
+
+**Why Performance's demo branch isn't wired to the real per-student assessment data other roles now use:** unlike
+`ParentChildrenRepository`'s established link from a parent's membership to specific real student ids, there is no
+equivalent link anywhere in the app from a Student membership (e.g. `membership-student-001`) to a specific real
+`AdministratorStudentRecord` id (e.g. `STU-001`) that a real score-sheet lookup could key off. Building that link is
+a real architectural decision outside the scope of this pass, not something to route around by guessing; the
+existing honest "not connected yet" / clearly labelled sample-data behavior already documents the gap correctly.
+
+**One real fix:** the workspace header greeted the signed-in student by a fabricated specific name
+(`'Welcome, ${demoPersonNames[widget.membership.id]}'`, reading `demoPersonNames` from `lib/app/demo_people.dart`,
+the shared list of fake identities the demo login picker offers to sign in as). This is the same category of issue
+already fixed earlier in this audit for Principal's own Profile screen, which now defaults to blank rather than
+inventing the signed-in person's display name — inventing a specific name for someone's own account, not evidence
+about someone else, is misleading in the same way. Changed to a static `'My student workspace'` heading, matching
+the phrasing the non-demo branch already used. `lib/app/demo_people.dart` itself (the shared login-picker identity
+list every role's demo login draws from) is out of scope for this pass and left as a flagged cross-cutting item.
+
+Tests: `test/student_workspace_test.dart` already had strong real coverage (practice resume/scoring/locking,
+cross-membership isolation, live-mode refusal, task persistence, a full phone widget flow) and needed no changes;
+all 6 tests still pass. Full suite: 1148 passing, same 8 pre-existing unrelated failures, zero regressions.
