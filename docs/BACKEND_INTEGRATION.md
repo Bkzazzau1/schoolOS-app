@@ -403,3 +403,27 @@ their own demo data, unconnected to the attendance register or each other.
 student count per class (from the administrator's register), and today's real attendance percentage when a register has
 been taken (0% otherwise, never invented). Syllabus progress, class average and pending marking still show 0 until the
 syllabus and assessment modules are linked to the same class list — the next increment. Tests: `test/teacher_classes_roster_test.dart`.
+
+## Owner: verification pass
+
+Went back through all 13 owner screens end to end to confirm the "owner side is complete" claim above still holds:
+
+- No leftover fake business figures found outside what is already labelled sample (Owner Finance's store/mandates/expenses/trend
+  sections, Executive Overview's fee/attendance/results figures) — both already carry an explicit "not available yet" banner.
+  School Life's stat strip (role, scope, module count, backend-enforcement note) is architecture description, not business data,
+  so it is fine as a constant.
+- Found and fixed the same dropdown-overflow bug the Teacher audit turned up (`DropdownButtonFormField` without
+  `isExpanded: true`), in 19 more places: the staff approval dialog, the concession approval dialog, four dropdowns in
+  Structure & Leadership, and the corresponding dialogs in Finance and Administrator (which the owner also reaches through
+  Staff Records and Concession Approvals). Fixed in place; no behaviour change, just stops the row overflowing on a narrow
+  screen.
+- Access & Activities loaded once and never refreshed after a sync round, unlike every other owner screen. Now uses
+  `SyncRefresh` like the rest.
+- Confirmed the earlier dialog-disposal fix (`owner_dialogs.dart`) covers every remaining `TextEditingController` in
+  `staff_proposals_ui.dart`; nothing left un-disposed.
+- Re-ran the full suite and the demo owner walkthrough (opens all 13 owner screens with no server) after each fix: no
+  regressions, same 19 pre-existing Teacher-module failures as before this pass.
+
+Known gaps that remain, all server-mode only (no effect in demo, where there is no server to conflict with or serve stale
+blocked data from): a "send mine anyway" action for a change the server refused as conflicting stays queued with no manual
+override; a screen the owner blocks does not delete that person's already-downloaded local data for it.
