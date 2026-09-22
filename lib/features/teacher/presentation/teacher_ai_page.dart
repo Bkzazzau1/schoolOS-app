@@ -22,9 +22,10 @@ class TeacherAiPage extends StatefulWidget {
 class _TeacherAiPageState extends State<TeacherAiPage> {
   final _composer = TextEditingController();
   late Future<TeacherAiSnapshot> _future;
-  TeacherAiContext _context = TeacherAiContext.jss2bMathematics;
+  TeacherAiContext? _context;
+  List<TeacherAiContext> _contextOptions = const [];
   String _response = teacherAiInitialResponse;
-  List<TeacherAiPromptHistoryItem> _history = teacherAiInitialHistory;
+  List<TeacherAiPromptHistoryItem> _history = const [];
   String? _notice;
 
   @override
@@ -32,6 +33,10 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
     super.initState();
     _future = widget.repository.load().then((snapshot) {
       _history = snapshot.history;
+      _contextOptions = snapshot.contextOptions;
+      if (_context == null || !_contextOptions.contains(_context)) {
+        _context = _contextOptions.isEmpty ? null : _contextOptions.first;
+      }
       return snapshot;
     });
   }
@@ -43,8 +48,10 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
   }
 
   Future<void> _ask([String? suggestedPrompt]) async {
+    final workingContext = _context;
+    if (workingContext == null) return;
     final prompt = (suggestedPrompt ?? _composer.text).trim();
-    final result = await widget.repository.ask(context: _context, prompt: prompt);
+    final result = await widget.repository.ask(context: workingContext, prompt: prompt);
     if (!mounted) return;
     setState(() {
       _response = result.response;
@@ -197,23 +204,26 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<TeacherAiContext>(
-              isExpanded: true,
-                initialValue: _context,
-                decoration: const InputDecoration(
-                  labelText: 'Working context',
-                  border: OutlineInputBorder(),
+              if (_contextOptions.isEmpty)
+                const Text('No classes are assigned to you yet. The owner or the administrator assigns classes to teachers.')
+              else
+                DropdownButtonFormField<TeacherAiContext>(
+                  isExpanded: true,
+                  initialValue: _context,
+                  decoration: const InputDecoration(
+                    labelText: 'Working context',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (final item in _contextOptions)
+                      DropdownMenuItem(value: item, child: Text(item.label)),
+                  ],
+                  onChanged: permissions.canUseAssignedClassContext
+                      ? (value) {
+                          if (value != null) setState(() => _context = value);
+                        }
+                      : null,
                 ),
-                items: [
-                  for (final item in TeacherAiContext.values)
-                    DropdownMenuItem(value: item, child: Text(item.label)),
-                ],
-                onChanged: permissions.canUseAssignedClassContext
-                    ? (value) {
-                        if (value != null) setState(() => _context = value);
-                      }
-                    : null,
-              ),
               const SizedBox(height: 10),
               _BoundaryPanel(
                 title: 'Permission boundary',

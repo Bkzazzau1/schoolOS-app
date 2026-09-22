@@ -23,7 +23,7 @@ void main() {
     expect(TeacherAiContext.jss3aMathematics.label, 'JSS 3A · Mathematics');
     expect(
       TeacherAiContext.ss1aFurtherMathematics.label,
-      'SS 1A · Further Mathematics',
+      'SS1A · Further Mathematics',
     );
   });
 
@@ -229,6 +229,54 @@ void main() {
     expect(find.text('Teacher AI governance'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a teacher with no assigned classes sees an honest note instead of a working-context picker', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TeacherAiPage(
+            repository: _EmptyFakeTeacherAiRepository(),
+            onNavigate: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('No classes are assigned to you yet'), findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<TeacherAiContext>), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+class _EmptyFakeTeacherAiRepository implements TeacherAiRepository {
+  @override
+  TeacherAiPermissions permissionsFor(SchoolMembership membership) => const TeacherAiPermissions(
+        canUseAssignedClassContext: true,
+        canDraftTeachingContent: true,
+        canSuggestSupport: true,
+        canRetrieveUnrelatedClasses: false,
+        canAccessFinance: false,
+        canAccessStaffConfidentialData: false,
+        canAccessOtherSchools: false,
+        canAlterMarks: false,
+        canAlterAttendance: false,
+        canSendMessages: false,
+        canTakeConsequentialAction: false,
+      );
+
+  @override
+  Future<TeacherAiSnapshot> load() async => TeacherAiSnapshot(
+        history: const [],
+        contextOptions: const [],
+        permissions: permissionsFor(
+          const SchoolMembership(id: 'teacher-1', schoolId: 'school-1', schoolName: 'BrightGate Academy', role: SchoolRole.teacher),
+        ),
+      );
+
+  @override
+  Future<TeacherAiAskResult> ask({required TeacherAiContext context, required String prompt}) async =>
+      const TeacherAiAskResult(success: false, response: 'Not used in this test.');
 }
 
 class _FakeTeacherAiRepository implements TeacherAiRepository {
@@ -255,6 +303,7 @@ class _FakeTeacherAiRepository implements TeacherAiRepository {
   @override
   Future<TeacherAiSnapshot> load() async => TeacherAiSnapshot(
         history: teacherAiInitialHistory,
+        contextOptions: TeacherAiContext.values,
         permissions: permissionsFor(
           const SchoolMembership(
             id: 'teacher-1',

@@ -3,14 +3,20 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_ai_models.dart';
 import 'teacher_ai_demo_data.dart';
+import 'teacher_roster.dart';
 
 class TeacherAiSnapshot {
   const TeacherAiSnapshot({
     required this.history,
+    required this.contextOptions,
     required this.permissions,
   });
 
   final List<TeacherAiPromptHistoryItem> history;
+
+  /// The working contexts (class + subject) the teacher may really use, limited to their real assigned classes.
+  final List<TeacherAiContext> contextOptions;
+
   final TeacherAiPermissions permissions;
 }
 
@@ -30,13 +36,16 @@ class TeacherAiRepository {
   TeacherAiRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required TeacherRoster roster,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _roster = roster;
 
   static const _historyType = 'teacher_ai_prompt_history';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final TeacherRoster _roster;
 
   TeacherAiPermissions permissionsFor(SchoolMembership membership) {
     final teacher = membership.role == SchoolRole.teacher;
@@ -55,19 +64,28 @@ class TeacherAiRepository {
     );
   }
 
+  Future<List<TeacherAiContext>> _contextOptions(SchoolMembership membership) async {
+    final classes = await _roster.assignedClasses(membership);
+    final classNames = {for (final c in classes) c.className};
+    return TeacherAiContext.values.where((context) => classNames.contains(context.className)).toList(growable: false);
+  }
+
   Future<TeacherAiSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
     await _seedIfNeeded(membership);
+    final contextOptions = await _contextOptions(membership);
     final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _historyType,
     );
     final history = records
         .map((record) => TeacherAiPromptHistoryItem.fromJson(record.payload))
+        .where((item) => contextOptions.contains(item.context))
         .toList(growable: false)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return TeacherAiSnapshot(
       history: history.take(6).toList(growable: false),
+      contextOptions: contextOptions,
       permissions: permissionsFor(membership),
     );
   }
@@ -86,6 +104,12 @@ class TeacherAiRepository {
         response: 'This membership cannot use the Teacher AI workspace.',
       );
     }
+    if (!(await _contextOptions(membership)).contains(context)) {
+      return const TeacherAiAskResult(
+        success: false,
+        response: 'This working context is not one of your assigned classes.',
+      );
+    }
     if (trimmed.isEmpty) {
       return const TeacherAiAskResult(
         success: false,
@@ -100,11 +124,14 @@ class TeacherAiRepository {
       context: context,
       createdAt: now,
     );
+    // Real, teacher-authored prompt history, kept device-only on purpose (never queued for sync). isDirty: true
+    // marks it as real, so it is never mistaken for seed data and silently dropped once a real backend connects.
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: _historyType,
       entityId: item.id,
       payload: item.toJson(),
+      isDirty: true,
     );
 
     return TeacherAiAskResult(

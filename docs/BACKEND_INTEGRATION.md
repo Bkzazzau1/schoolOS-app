@@ -646,3 +646,20 @@ already established isn't available), and the existing UI copy already frames th
 
 Tests: `test/teacher_performance_roster_test.dart` (new, against the real roster, including a regression test that
 writes a reflection with `blockDemoSeeds` set and confirms it survives).
+
+## Teacher: AI limits its working context to real assigned classes, and fixes the same seed-safety bug
+
+`TeacherAiContext` (the "working context" dropdown — one of a fixed set of class + subject combinations) was offered in
+full to every teacher regardless of what they actually teach. `TeacherAiSnapshot` gained `contextOptions`: the subset of
+`TeacherAiContext.values` whose class is one of the teacher's real assigned classes, via `TeacherRoster`. `ask()`
+re-checks that same real membership before accepting a prompt, and `load()` filters prompt history to those same
+options, the same defense-in-depth pattern used throughout this module. Fixed the same "SS 1A" (space) vs "SS1A" naming
+mismatch found several times already this session, this time in the context enum's label. A teacher with no assigned
+classes among the four covered class/subject combinations now sees an honest note instead of an empty-feeling picker.
+
+Also fixed the same demo-seed-safety bug as Performance: `ask()` wrote the teacher's real prompt history with `isDirty`
+left false, indistinguishable from seed data to `LocalDatabase.blockDemoSeeds` — a teacher's real AI prompt history would
+have been silently discarded the moment a real backend was configured. Fixed by passing `isDirty: true`.
+
+Tests: `test/teacher_ai_roster_test.dart` (new, against the real roster, including the same blockDemoSeeds regression
+pattern as Performance).

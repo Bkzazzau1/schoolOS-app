@@ -10,7 +10,7 @@ extension TeacherAiContextX on TeacherAiContext {
         TeacherAiContext.jss2aMathematics => 'JSS 2A · Mathematics',
         TeacherAiContext.jss2bMathematics => 'JSS 2B · Mathematics',
         TeacherAiContext.jss3aMathematics => 'JSS 3A · Mathematics',
-        TeacherAiContext.ss1aFurtherMathematics => 'SS 1A · Further Mathematics',
+        TeacherAiContext.ss1aFurtherMathematics => 'SS1A · Further Mathematics',
       };
 
   String get className => label.split(' · ').first;
