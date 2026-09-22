@@ -115,7 +115,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
     _assessments = TeacherAssessmentRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _cbt = TeacherCbtRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _learningProgress = TeacherLearningProgressRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
-    _students = TeacherStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _students = TeacherStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _messages = TeacherMessagesRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _teacherAi = TeacherAiRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _performance = TeacherPerformanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);

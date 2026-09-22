@@ -118,6 +118,14 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
         }
 
         final snapshot = asyncSnapshot.data!;
+        if (snapshot.students.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('No students are on the register for your assigned classes yet.'),
+            ),
+          );
+        }
         final filtered = _filtered(snapshot);
         final selected = snapshot.students.firstWhere(
           (student) => student.id == _selectedId,

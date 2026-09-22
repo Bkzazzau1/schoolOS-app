@@ -212,6 +212,15 @@ class _ClassesContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (snapshot.assignments.isEmpty) {
+      return const Card(
+        elevation: 0,
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('No classes are assigned to you yet. The owner or the administrator assigns classes to teachers.'),
+        ),
+      );
+    }
     final filtered = snapshot.assignments.where((item) => item.matches(query)).toList();
     final current = snapshot.assignments.firstWhere(
       (item) => item.id == selectedId,

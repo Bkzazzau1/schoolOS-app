@@ -427,3 +427,18 @@ Went back through all 13 owner screens end to end to confirm the "owner side is 
 Known gaps that remain, all server-mode only (no effect in demo, where there is no server to conflict with or serve stale
 blocked data from): a "send mine anyway" action for a change the server refused as conflicting stays queued with no manual
 override; a screen the owner blocks does not delete that person's already-downloaded local data for it.
+
+## Teacher: Students uses the real roster, and two empty-roster crashes fixed
+
+`TeacherStudentsRepository` now lists the real students across all of a teacher's real assigned classes (deduplicated, since a
+teacher can teach the same class two subjects), instead of a fixed sample list. Average, attendance rate and trend are not
+tracked yet (this module has no assessment or day-by-day attendance history to compute them from), so they show as 0 with an
+honest note rather than a number or a risk label invented for a real, named student. A teacher note can only be saved for a
+student really in their classes. The student's detail view uses their real name, class and status, with empty (not invented)
+academic evidence, attendance context and timeline sections.
+
+While wiring this, found and fixed two crashes that were only possible once rosters became real and could legitimately be
+empty (a teacher with no assigned classes, or an assigned class with nobody enrolled yet): My Classes and Students both called
+`.first` on a list that could now be empty. Both show an honest "nothing yet" message instead.
+
+Tests: `test/teacher_students_roster_test.dart`.
