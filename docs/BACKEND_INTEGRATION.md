@@ -471,3 +471,35 @@ ten sites: `teacher_ai_page.dart`, `teacher_attendance_page.dart`, `teacher_clas
 of the 19 previously-failing tests ("mark complete records teacher progress...").
 
 Tests: `test/teacher_syllabus_roster_test.dart`.
+
+## Teacher: Assessments creates real assessments for real students, replacing a disconnected demo mock
+
+The previous Assessments screen had two unrelated demo halves that never spoke to each other: a fixed three-row
+"assessment register" (`ca-201`/`ca-202`/`ca-203`, with pre-baked entered/total/average numbers) and a single, separately
+seeded score sheet for five fake students (`STU-DEMO-001`..`005`) that a teacher could re-point at any class or assessment
+type via dropdowns, with no real connection to the register at all. The "+ New assessment" button was permanently
+disabled (`onPressed: null`).
+
+`TeacherAssessmentRepository` now models one real thing: an assessment the teacher actually created for one of their real
+assigned classes, with one score entry per real student in that class (from `TeacherRoster`), all starting at 0.
+`createAssessment(className, title, maximumScore)` is the only way an assessment comes into existence, and it refuses a
+class the teacher is not really assigned to, a blank title, a non-positive maximum score, or a class with no students on
+the register yet. The register and every score sheet are filtered to the teacher's real assigned classes on load, as
+defense in depth. `saveProgress`/`submitScores` now also refuse a class no longer in the teacher's real assignment. Each
+register item's `entered`/`total`/`average` are recomputed from its real sheet every time it is saved — with one honest
+caveat documented in code: a score of exactly 0 looks the same as "not entered yet" in the current score model, so
+`entered` counts scores above zero, not a separate entered/not-entered flag.
+
+On the page, the score-entry card's class/assessment dropdowns (which used to silently reassign the current ad hoc sheet
+to any class) are replaced by a dropdown that selects which of the teacher's own created assessments to view or edit, and
+student rows now show the real student's name instead of a raw id. The KPI strip is computed from the real register
+(assessment count, real entered/total scores, real average of assessments that have scores, and how many are still
+pending submission) instead of fixed numbers like "CA completion 84%" or "Needs intervention 11" — the latter was an
+aggregate judgement label with no real basis and has been dropped rather than wired to a fabricated threshold. The
+"Performance insight" panel's fixed submetrics (concept mastery, question completion, etc.) and canned AI observation text
+had no real source and are replaced with the one real number available (average of scores entered so far) and an honest
+note that deeper AI analysis isn't available yet.
+
+Tests: `test/teacher_assessment_roster_test.dart` (repository against the real roster), plus
+`test/teacher_assessments_feature_test.dart` rewritten for the new architecture (a fake repository with a small, explicit
+register/sheet instead of the old fixed demo constants).
