@@ -328,7 +328,6 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                               const Text('ACTIVE SCHOOL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                               const SizedBox(height: 4),
                               Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)),
-                              const Text(financeOfficeCampusLabel, style: TextStyle(fontSize: 12)),
                             ],
                           ),
                         ),
@@ -397,14 +396,13 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                           label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending'),
                         ),
                         const SizedBox(width: 12),
-                        const CircleAvatar(child: Text('AB')),
+                        const CircleAvatar(child: Icon(Icons.person_outline, size: 18)),
                         if (constraints.maxWidth >= 1080) ...[
                           const SizedBox(width: 8),
                           const Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(financeOfficeLeaderName, style: TextStyle(fontWeight: FontWeight.w800)),
-                              Text(financeOfficeLeaderTitle, style: TextStyle(fontSize: 12)),
+                              Text(financeOfficeLeaderTitle, style: TextStyle(fontWeight: FontWeight.w800)),
                             ],
                           ),
                         ],

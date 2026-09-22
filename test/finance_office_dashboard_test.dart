@@ -24,49 +24,7 @@ void main() {
     ]);
   });
 
-  test('finance dashboard preserves exact website KPI snapshot', () {
-    expect(financeOfficeKpis.length, 5);
-    expect(financeOfficeKpis[0].value, '₦62.8m');
-    expect(financeOfficeKpis[1].value, '₦59.1m');
-    expect(financeOfficeKpis[1].hint, '94.1% collection');
-    expect(financeOfficeKpis[2].value, '₦3.7m');
-    expect(financeOfficeKpis[2].hint, '73 family accounts');
-    expect(financeOfficeKpis[3].value, '7');
-    expect(financeOfficeKpis[3].hint, '₦386,000 awaiting review');
-    expect(financeOfficeKpis[4].value, '₦21.4m');
-  });
-
-  test('finance dashboard preserves collection and review evidence', () {
-    expect(financeRecentCollections.length, 4);
-    expect(financeRecentCollections.first.reference, 'PAY-260913-204');
-    expect(financeRecentCollections[2].status, 'Review');
-    expect(financeRecentCollections[2].amount, '₦80,000');
-    expect(financeAttentionQueue.length, 4);
-    expect(financeAttentionQueue.first.title, '7 unmatched receipts');
-    expect(financeAttentionQueue.last.title, 'August payroll package ready');
-  });
-
-  test('finance dashboard preserves seven-week collection trend', () {
-    expect(financeCollectionTrend.map((point) => point.rate).toList(), [
-      72,
-      78,
-      81,
-      84,
-      88,
-      91,
-      94,
-    ]);
-    expect(financeOperationalPosition.length, 4);
-    expect(financeOperationalPosition.first.title, '₦1.24m received today');
-  });
-
-  test('finance authority excludes academic and sensitive leadership data', () {
-    expect(financeOfficePermissions.canAccessFeeData, isTrue);
-    expect(financeOfficePermissions.canAccessTransactions, isTrue);
-    expect(financeOfficePermissions.canProcessApprovedPayroll, isTrue);
-    expect(financeOfficePermissions.canAccessAcademicGrades, isFalse);
-    expect(financeOfficePermissions.canAccessPrivateTeacherNotes, isFalse);
-    expect(financeOfficePermissions.canAccessSafeguardingRecords, isFalse);
+  test('finance authority boundary excludes academic and sensitive leadership data', () {
     expect(financeOfficeScopeBoundary, contains('Academic grading'));
     expect(financeOfficeScopeBoundary, contains('safeguarding'));
   });

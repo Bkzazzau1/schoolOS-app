@@ -1231,3 +1231,63 @@ regressions.
 **This completes the Administrator role audit.** Every Administrator screen now shows real data wherever a real
 source exists, an honest visible label wherever a fixed placeholder remains for a documented reason, and no more
 KPIs disconnected from the real records sitting right below them.
+
+## Finance Office (role): audit
+
+Finance Office turned out to be the most advanced role in the app already: Dashboard, Reports, Reconciliation, Debt
+Aging, Reminders and the Finance AI assistant had all already been rewritten to compute everything live from
+`FinanceLedgerRepository` (real accounts, payments, concessions, reminders, aging, reconciliation), with a genuinely
+excellent, already-honest AI service (`FinanceAiService` in `finance_facts.dart`) that explicitly refuses to answer
+about the school store, expenses, other income or payment mandates because "they are not recorded yet." This is the
+standard every other AI fix this session has been aiming for, and it already existed here.
+
+**The most severe fabrication in this session's Finance audit, and one of the most severe overall:**
+`FinancePayrollPage` cross-referenced every real payroll profile against a fixed three-row `financePayrollRows` list
+**by name**, pulling in fabricated `expectedDays`/`presentDays`/`leaveDays`/`unexplainedDays`/`status` — including
+for two real teachers ("Mrs. Amina Yusuf", "Mr. Ahmad Sani"). That fabricated status then directly gated a real
+financial action: only staff whose *fake* attendance happened to read "ready" could be included when Finance
+actually prepared a real payroll batch. Real per-staff attendance already existed
+(`AdministratorStaffAttendanceRepository`, the same source the Administrator Staff Attendance screen uses); `_load()`
+now matches by real staff id against the real attendance register, holding anyone with no real attendance record for
+review — honestly, because there is genuinely no evidence, not because their name failed to match a hardcoded list
+of three. See the dedicated commit for full detail; documented here so the pattern is recorded alongside the rest of
+this audit.
+
+**A huge amount of orphaned dead code, found by checking every constant a `finance_*_demo_data.dart` file exports
+against real usage in `lib/`:** once Dashboard/Reports/Reconciliation/Debt-Aging/Reminders/AI were rewritten to be
+real, their entire original "website seed" demo-data files were left behind, still compiling, still tested by their
+own now-meaningless test files, but never actually shown by the app again. Confirmed zero real usage and deleted
+entirely:
+- `finance_debt_aging_demo_data.dart` (fabricated "family" receivables with invented balances and next-action dates)
+- `finance_family_accounts_demo_data.dart`
+- `finance_reconciliation_demo_data.dart`
+- `finance_reminders_demo_data.dart`
+- `finance_reports_demo_data.dart` (the fixed "Collection rate: 94.1%" / "Outstanding: ₦3.7m" KPIs — the real Reports
+  page already computes these live)
+- `finance_ai_demo_data.dart` — an entire second, fabricating "Finance AI" implementation
+  (`financeAiAnswerFor`), never actually wired to the live `FinanceAiPage` (which correctly uses
+  `FinanceAiService`), but still citing the dead Reports/Reconciliation/Cashflow/Debt-Aging constants above as if
+  they were live evidence. Deleted along with its four dead boundary-text constants; `financeAiPrompts`, the one
+  constant this file happened to share a name with, is separately and correctly defined in `finance_facts.dart` and
+  needed no change.
+
+Also trimmed `finance_office_dashboard_demo_data.dart` (kept: the real, live navigation list and a generic role
+title) and `finance_payroll_demo_data.dart` (kept: the real boundary text) of their own dead KPI/queue/trend/
+permissions constants, and fixed the same "Kaduna Campus" + fabricated leader name ("Mr. Ahmad Bello") + fake avatar
+initials ("AB") already found and removed from the Administrator and Principal workspace shells — the Finance Office
+top bar and sidebar now show a generic role label instead of an invented person.
+
+**Not yet audited in this role:** Cashflow, Collections, Concessions, Mandates, Store, Fee Structure, Receipts — the
+screens that (unlike the ones above) are still genuinely using their own fixed demo data directly, some with no
+backing repository at all. `FinanceAiService` already treats several of these (store, expenses/cashflow, mandates)
+as intentionally "not recorded yet," suggesting building them fully real may be a deliberate future scope rather
+than an oversight; each needs its own look before deciding between a real build-out and an honest label.
+
+Tests: `test/finance_payroll_feature_test.dart` updated (see the payroll commit); seven fully-dead test files
+deleted (`finance_debt_aging_feature_test.dart`, `finance_family_accounts_feature_test.dart`,
+`finance_reconciliation_feature_test.dart`, `finance_reminders_feature_test.dart`, `finance_reports_feature_test.dart`,
+`finance_ai_feature_test.dart`) alongside their dead source files; `finance_office_dashboard_test.dart` trimmed to
+its still-live assertions. Real coverage for all of this already exists and was untouched: `finance_ledger_test.dart`,
+`finance_dashboard_test.dart`, `finance_aging_reminders_test.dart`, `finance_reports_ai_reconciliation_test.dart`,
+`finance_pages_test.dart`, `proprietor_finance_test.dart`. Full suite: 1085 passing, same 8 pre-existing unrelated
+failures, zero regressions.
