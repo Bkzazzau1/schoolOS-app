@@ -492,11 +492,16 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         ],
       ),
     );
-    phone.dispose();
-    email.dispose();
-    address.dispose();
-    nextOfKin.dispose();
-    emergency.dispose();
+    // The dialog's exit transition is still animating and reading these controllers for a frame or two
+    // after showDialog's future completes, so disposing them synchronously here throws "used after
+    // disposed". Dispose after that frame instead.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      phone.dispose();
+      email.dispose();
+      address.dispose();
+      nextOfKin.dispose();
+      emergency.dispose();
+    });
     if (result == null || !mounted) return;
     final saved = await widget.repository.saveContact(result);
     if (!mounted) return;

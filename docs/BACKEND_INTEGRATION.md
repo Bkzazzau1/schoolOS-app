@@ -594,3 +594,30 @@ guardian is attributed a fabricated message the way earlier screens attributed f
 not need the same rebuild as CBT or Learning Progress.
 
 Tests: `test/teacher_messages_roster_test.dart` (new, against the real roster).
+
+## Teacher: Profile — a real bug fix, a stale test, no data rework needed
+
+Unlike the previous five screens, Profile's contact self-service editing was already fully real (versioned, queued for
+sync, correctly refuses to let a teacher edit employment/payroll fields), and its employment/payroll/security content was
+already honestly labelled as mock in the UI itself ("Current mock payroll", "Mock profile completeness", "Partner payroll
+bank · mock"). There is no real staff-identity source to draw from yet either: `SchoolMembership`, the app's whole session
+model, has no name field at all, so a teacher's display name has nowhere real to come from — that is a cross-cutting gap
+in the session/identity model, not something this one screen can fix on its own, and rebuilding a fake HR/payroll ledger
+with more convincing numbers would not make it more real. So this screen needed no data rework, only bug fixes.
+
+All 6 of the module's pre-existing test failures were on this one screen and turned out to have three distinct, genuine
+causes, not one:
+
+1. **A real bug**: `_editContact`'s edit dialog disposed its `TextEditingController`s synchronously right after
+   `showDialog`'s future resolved, while the dialog's exit transition was still animating and still reading them for a
+   frame or two — "TextEditingController was used after being disposed." Fixed by deferring disposal to
+   `WidgetsBinding.instance.addPostFrameCallback`.
+2. **A stale test**: the tests asserted `netMonthly: 192000` / `monthlyDeductions: 58000`, but the demo data's August
+   payslip has `other: 3000`, which computes to `194000` / `56000` — the two had drifted apart at some earlier point.
+   Fixed by updating the test to the real, current numbers (not by changing the demo figures, since there was no way to
+   know which side was "intended").
+3. **The same off-screen `ListView` test issue already found and fixed in Learning Progress and Lesson Plans**: three
+   assertions targeted widgets further down the page than the test viewport's render cache extent covers. Fixed with
+   `tester.scrollUntilVisible(...)`.
+
+No new test file was needed for this screen (no roster or class-scoped filtering applies to a teacher's own profile).

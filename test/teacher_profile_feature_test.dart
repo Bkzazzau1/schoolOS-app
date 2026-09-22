@@ -18,8 +18,8 @@ void main() {
     expect(teacherProfile.payslips, hasLength(3));
     expect(teacherProfile.payslips.first.reference, 'PAY/TCH-2048/2026-08');
     expect(teacherProfile.grossMonthly, 250000);
-    expect(teacherProfile.monthlyDeductions, 58000);
-    expect(teacherProfile.netMonthly, 192000);
+    expect(teacherProfile.monthlyDeductions, 56000);
+    expect(teacherProfile.netMonthly, 194000);
     expect(teacherProfile.annualGross, 3000000);
   });
 
@@ -40,11 +40,11 @@ void main() {
   });
 
   test('payslip arithmetic remains exact for all three website months', () {
-    expect(teacherProfile.payslips[0].net, 192000);
+    expect(teacherProfile.payslips[0].net, 194000);
     expect(teacherProfile.payslips[1].net, 197000);
     expect(teacherProfile.payslips[2].net, 197000);
     expect(teacherProfile.payslips[0].gross, 250000);
-    expect(teacherProfile.payslips[0].deductions, 58000);
+    expect(teacherProfile.payslips[0].deductions, 56000);
   });
 
   test('Profile serialization preserves confidential payroll and contact evidence', () {
@@ -106,9 +106,13 @@ void main() {
     expect(find.text('Teacher Profile'), findsOneWidget);
     expect(find.text('Mrs. Amina Yusuf'), findsOneWidget);
     expect(find.text('TCH-2048 · PAY-BGA-2048'), findsOneWidget);
-    expect(find.text('₦192,000'), findsWidgets);
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
+    // The tab body's own copy of the net-salary figure is further down the page than the huge test
+    // viewport's render cache extent covers, so scroll to it rather than asserting on an unmounted widget.
+    await tester.scrollUntilVisible(find.text('₦194,000').first, 400);
+    await tester.pumpAndSettle();
+    expect(find.text('₦194,000'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -143,7 +147,7 @@ void main() {
     expect(fake.contact.pendingSync, isTrue);
     expect(queued, 1);
     expect(teacherProfile.staffId, 'TCH-2048');
-    expect(teacherProfile.netMonthly, 192000);
+    expect(teacherProfile.netMonthly, 194000);
     expect(tester.takeException(), isNull);
   });
 
@@ -165,6 +169,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(find.widgetWithText(TextButton, 'My Classes'), 400);
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'My Classes'));
     await tester.pump();
     expect(destination, 'classes');
@@ -196,6 +202,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Teacher Profile'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('PAYROLL PRIVACY'), 400);
+    await tester.pumpAndSettle();
     expect(find.text('PAYROLL PRIVACY'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
