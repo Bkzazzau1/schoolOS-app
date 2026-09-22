@@ -27,7 +27,7 @@ class _PrincipalTeachersPageState extends State<PrincipalTeachersPage> {
   PrincipalTeachersSnapshot? _snapshot;
   String _department = 'All departments';
   String _status = 'All statuses';
-  String _selectedId = 'TCH-001';
+  String? _selectedId;
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -55,11 +55,11 @@ class _PrincipalTeachersPageState extends State<PrincipalTeachersPage> {
       if (!mounted) return;
       final selectedId = snapshot.teachers.any((t) => t.id == _selectedId)
           ? _selectedId
-          : snapshot.teachers.first.id;
+          : (snapshot.teachers.isEmpty ? null : snapshot.teachers.first.id);
       setState(() {
         _snapshot = snapshot;
         _selectedId = selectedId;
-        _noteController.text = snapshot.notes[selectedId]?.text ?? '';
+        _noteController.text = selectedId == null ? '' : (snapshot.notes[selectedId]?.text ?? '');
         _loading = false;
       });
     } catch (error) {
@@ -81,9 +81,11 @@ class _PrincipalTeachersPageState extends State<PrincipalTeachersPage> {
   }
 
   Future<void> _saveNote() async {
+    final selectedId = _selectedId;
+    if (selectedId == null) return;
     setState(() => _saving = true);
     final result = await widget.repository.savePrivateNote(
-      teacherId: _selectedId,
+      teacherId: selectedId,
       text: _noteController.text,
     );
     if (!mounted) return;
@@ -128,53 +130,65 @@ class _PrincipalTeachersPageState extends State<PrincipalTeachersPage> {
     }
 
     final snapshot = _snapshot!;
-    final selected = snapshot.teachers.firstWhere((t) => t.id == _selectedId);
-    final profile = snapshot.profiles.firstWhere((p) => p.directoryId == _selectedId);
     final filtered = snapshot.teachers
         .where((t) => t.matches(query: _queryController.text, departmentFilter: _department, statusFilter: _status))
         .toList(growable: false);
+    final selectedId = _selectedId;
+    final selected = selectedId == null ? null : snapshot.teachers.firstWhere((t) => t.id == selectedId, orElse: () => snapshot.teachers.first);
+    final profile = selectedId == null ? null : snapshot.profiles.firstWhere((p) => p.directoryId == selectedId, orElse: () => snapshot.profiles.first);
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         _Header(onActionRequested: widget.onActionRequested),
         const SizedBox(height: 16),
-        const _Kpis(),
+        _Kpis(teachers: snapshot.teachers),
         const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 1050;
-            final directory = _Directory(
-              teachers: filtered,
-              selectedId: _selectedId,
-              queryController: _queryController,
-              department: _department,
-              status: _status,
-              onQueryChanged: (_) => setState(() {}),
-              onDepartmentChanged: (value) => setState(() => _department = value),
-              onStatusChanged: (value) => setState(() => _status = value),
-              onSelectTeacher: _selectTeacher,
-              onOpenProfile: (id) {
-                final p = snapshot.profiles.firstWhere((x) => x.directoryId == id);
-                _openProfile(p);
-              },
-            );
-            final detail = _TeacherDetail(
-              teacher: selected,
-              noteController: _noteController,
-              saving: _saving,
-              onSaveNote: _saveNote,
-              onOpenProfile: () => _openProfile(profile),
-              onActionRequested: widget.onActionRequested,
-            );
-            return wide
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [Expanded(flex: 3, child: directory), const SizedBox(width: 16), Expanded(flex: 2, child: detail)],
-                  )
-                : Column(children: [directory, const SizedBox(height: 16), detail]);
-          },
-        ),
+        if (snapshot.teachers.isEmpty)
+          const Card(
+            elevation: 0,
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('No Secondary teaching staff are on record yet. The owner or administrator adds staff records.'),
+            ),
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 1050;
+              final directory = _Directory(
+                teachers: filtered,
+                selectedId: selectedId,
+                queryController: _queryController,
+                department: _department,
+                status: _status,
+                onQueryChanged: (_) => setState(() {}),
+                onDepartmentChanged: (value) => setState(() => _department = value),
+                onStatusChanged: (value) => setState(() => _status = value),
+                onSelectTeacher: _selectTeacher,
+                onOpenProfile: (id) {
+                  final p = snapshot.profiles.firstWhere((x) => x.directoryId == id);
+                  _openProfile(p);
+                },
+              );
+              final detail = selected == null || profile == null
+                  ? const Card(elevation: 0, child: Padding(padding: EdgeInsets.all(16), child: Text('No teacher selected.')))
+                  : _TeacherDetail(
+                      teacher: selected,
+                      noteController: _noteController,
+                      saving: _saving,
+                      onSaveNote: _saveNote,
+                      onOpenProfile: () => _openProfile(profile),
+                      onActionRequested: widget.onActionRequested,
+                    );
+              return wide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [Expanded(flex: 3, child: directory), const SizedBox(width: 16), Expanded(flex: 2, child: detail)],
+                    )
+                  : Column(children: [directory, const SizedBox(height: 16), detail]);
+            },
+          ),
         const SizedBox(height: 16),
         const _Guidance(),
       ],
@@ -210,22 +224,25 @@ class _Header extends StatelessWidget {
 }
 
 class _Kpis extends StatelessWidget {
-  const _Kpis();
+  const _Kpis({required this.teachers});
+  final List<PrincipalTeacher> teachers;
+
   @override
   Widget build(BuildContext context) {
-    final hints = <String, String>{
-      'Secondary teaching staff': 'Current section',
-      'Staff attendance': 'Current prototype average',
-      'Needs support': 'Flagged for follow-up',
-      'Pending teacher work': 'Awaiting review/action',
-      'Lesson-plan compliance': 'Secondary section',
-      'Assessment completion': 'Secondary section',
-    };
+    final withAttendance = teachers.where((t) => t.attendance > 0).toList();
+    final avgAttendance = withAttendance.isEmpty
+        ? 'Not recorded'
+        : '${(withAttendance.fold<int>(0, (sum, t) => sum + t.attendance) / withAttendance.length).round()}%';
+    final data = <(String, String, String)>[
+      ('Secondary teaching staff', '${teachers.length}', 'Current section'),
+      ('Staff attendance', avgAttendance, withAttendance.isEmpty ? 'No attendance recorded yet' : 'Average across ${withAttendance.length} teachers'),
+      ('Pending teacher work', '${teachers.where((t) => t.pending > 0).length}', 'Not tracked yet'),
+    ];
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
-        for (final entry in principalTeacherKpis.entries)
+        for (final item in data)
           SizedBox(
             width: 190,
             child: Card(
@@ -233,9 +250,9 @@ class _Kpis extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(entry.key, style: Theme.of(context).textTheme.bodySmall),
-                  Text(entry.value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-                  Text(hints[entry.key]!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  Text(item.$1, style: Theme.of(context).textTheme.bodySmall),
+                  Text(item.$2, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
+                  Text(item.$3, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ]),
               ),
             ),
@@ -260,7 +277,7 @@ class _Directory extends StatelessWidget {
   });
 
   final List<PrincipalTeacher> teachers;
-  final String selectedId;
+  final String? selectedId;
   final TextEditingController queryController;
   final String department;
   final String status;

@@ -76,7 +76,11 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
   @override
   void initState() {
     super.initState();
-    _teachers = PrincipalTeachersRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _teachers = PrincipalTeachersRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+      staff: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession),
+    );
     _assignments = PrincipalAssignmentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _academics = PrincipalAcademicsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _students = PrincipalStudentsRepository(

@@ -745,3 +745,36 @@ correctly `isDirty: true` and queued for sync, and are unchanged.
 Tests: `test/principal_students_feature_test.dart` rewritten to test the real repository against a real, full register
 (16 students across Nursery through SS3, via `administrator_demo_school.dart`), covering Secondary-only scope, the
 zeroed/honest fields, profile access rules, and the leadership-note/lifecycle-proposal write paths.
+
+## Principal: Teachers now shares the owner's one real staff register
+
+Same anti-pattern as Students, one screen later: `principal_teachers_demo_data.dart` maintained its own fixed directory
+of five teachers — two of them (Mrs. Amina Yusuf, Mr. Ahmad Sani) share names with real staff already in
+Administrator's real staff register — with invented attendance, punctuality, lesson-plan compliance, syllabus pace and
+assessment-completion percentages, a fabricated evaluative `status` ("Strong" / "Needs support"), phone numbers, next-of-
+kin, and a full five-teacher detailed HR profile (qualifications, TRCN numbers, weekly periods, class assignments, leave
+history), none of it real. The app already has one authoritative real staff source for this — `OwnerStaffProfileRepository`
+— which the doc comment on `StaffProfileAccess` explicitly names the principal as having full access to (the same access
+as the owner), and which the Principal workspace already reuses directly for its separate "Staff Profiles" nav item. The
+"Teachers" screen just wasn't wired to it.
+
+`PrincipalTeachersRepository` now takes an `OwnerStaffProfileRepository` and derives its directory and every profile from
+that one real register, filtered to Secondary section and a teaching role (`role.toLowerCase().contains('teacher')`, the
+same check `buildStaffOverview`'s `StaffOverviewPerson.teaches` already uses, for consistency). Real fields (name, role,
+section, employment type/date, qualifications via `StaffProfile.highestLevel`, phone, email, next of kin, document
+status, and real staff-attendance rate when recorded) come from that source; everything with no real link yet — subjects
+taught, class assignments, weekly periods, lesson-plan compliance, syllabus pace, assessment completion, leave history —
+is honestly `'Not recorded yet'` / empty / `0` rather than fabricated. The evaluative `status` field defaults to `'Not
+evaluated'` instead of inventing "Strong" or "Needs support" from nothing; the department/status filter lists were
+trimmed to match. The KPI strip is computed from the real, filtered directory instead of a fixed six-value map
+(`'24'` staff, `'96%'` attendance, etc.).
+
+One inconsistency noted but not resolved in this pass: `PrincipalTeacherPermissions.canViewConfidentialPayroll` is
+hard-coded `false`, while `OwnerStaffProfileRepository`'s own real access model (`staffProfileAccessFor`) already grants
+the principal full payroll access, same as the owner. The Teachers screen never surfaces payroll figures either way, so
+this is a latent documentation mismatch between two parallel permission systems, not a live bug — reconciling it is a
+larger change than this screen's scope.
+
+Tests: `test/principal_teachers_feature_test.dart` rewritten to test the real repository against the real staff register
+(4 staff, 2 of them real Secondary teachers), covering scope filtering, the honest/empty fields, and the private-note
+write path.
