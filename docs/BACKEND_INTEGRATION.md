@@ -807,3 +807,41 @@ that intent explicit rather than changing the data.
 
 Tests: `test/principal_attendance_feature_test.dart` rewritten to test the real class-attendance computation against the
 real register and real events, and to confirm staff/follow-ups are honestly empty.
+
+## Principal: Assignments now uses the real Secondary staff and classes; no fake teacher directory or seed
+
+`principalAssignmentTeachers` was a fixed six-teacher directory (one of them, "Mrs. Amina Yusuf", coincidentally sharing
+a real staff member's name and id-style) with invented `weeklyPeriods` and `qualifiedSubjects`, backing a fixed
+eight-assignment seed (`principalAssignmentSeed`) and a fixed six-class picker list (`principalAssignmentClasses`). All
+three are gone.
+
+**Teachers** are now the real Secondary teaching staff from the owner's one real staff register
+(`OwnerStaffProfileRepository`, the same source Teachers uses), filtered to `section == 'Secondary'` and a role
+containing "teacher" — currently Mrs. Amina Yusuf and Mr. Ahmad Sani. `weeklyPeriods` is computed honestly by summing
+that teacher's real assignment records, starting at `0` until a real assignment exists. `department` stays
+`'Not recorded yet'`, since no real source exists for it.
+
+**Classes** are the real Secondary class names drawn from the real student register (`AdministratorStudentsRepository`),
+the same `classOptions` computation Students and Attendance already use.
+
+**Assignments** now start empty — the fixed seed is gone — and are only ever created through the already-correct real
+`addAssignment`/`transferAssignment` workflow (`isDirty: true` + `queueMutation`, unchanged from before this fix).
+Transferring to a brand-new staff member still creates a genuinely real, locally-saved "provisional" teacher record, as
+it did before.
+
+**Deliberate compromise — qualified subjects:** there is no real per-subject qualification record anywhere in the app
+(no syllabus-assignment or credential-by-subject data exists yet). Leaving a real teacher's `qualifiedSubjects` empty
+would make `canTeach()` always false and silently break the entire real assignment-creation workflow. Rather than either
+fabricating specific per-teacher qualifications or disabling the feature, every real Secondary teacher is treated as
+assignable to any subject on the fixed subject list (`principalAssignmentSubjects`, kept as an honest fixed picker list,
+same as before), with a code comment explaining that the principal remains responsible for that judgement — matching
+the fact that the old fixed qualification list never verified anything either.
+
+**No real source — left honest:** `principalUnassignedSubjects` (a fixed three-item "coverage gap" list) had no real
+equivalent — computing a real gap needs a real curriculum-requirement record (which subjects a class is supposed to
+have) that does not exist anywhere yet — so the gap-analysis panel now shows an honestly empty list instead of a fixed
+illustrative one.
+
+Tests: `test/principal_assignments_feature_test.dart` rewritten to test the real teacher/class-option computation, real
+`addAssignment`/`transferAssignment` behavior (including the provisional-teacher path and the qualification-gate
+compromise), and permission restriction for non-principal roles.

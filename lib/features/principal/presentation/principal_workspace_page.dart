@@ -82,7 +82,12 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
       schoolSession: widget.schoolSession,
       staff: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession),
     );
-    _assignments = PrincipalAssignmentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _assignments = PrincipalAssignmentsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+      students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      staff: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession),
+    );
     _academics = PrincipalAcademicsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _students = PrincipalStudentsRepository(
       localDatabase: widget.localDatabase,

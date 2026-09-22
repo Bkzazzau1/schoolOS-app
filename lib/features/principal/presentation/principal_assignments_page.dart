@@ -25,9 +25,9 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
   String? _error;
   String _query = '';
   String _classFilter = 'All classes';
-  String _newClass = 'JSS 2B';
+  String _newClass = '';
   String _newSubject = 'Mathematics';
-  String _newTeacher = 'TCH-001';
+  String _newTeacher = '';
   int _periods = 5;
   bool _saving = false;
 
@@ -44,6 +44,9 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
       setState(() {
         _snapshot = snapshot;
         _error = null;
+        if (!snapshot.classOptions.contains(_newClass) && snapshot.classOptions.isNotEmpty) {
+          _newClass = snapshot.classOptions.first;
+        }
         final qualified = snapshot.teachers.where((t) => t.canTeach(_newSubject)).toList();
         if (qualified.isNotEmpty && !qualified.any((t) => t.id == _newTeacher)) {
           _newTeacher = qualified.first.id;
@@ -241,11 +244,10 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
           final matchesClass = _classFilter == 'All classes' || assignment.className == _classFilter;
           return matchesQuery && matchesClass;
         }).toList(growable: false);
-        final unassigned = principalUnassignedSubjects
-            .where((gap) => !snapshot.assignments.any(
-                  (assignment) => assignment.className == gap.className && assignment.subject == gap.subject,
-                ))
-            .toList(growable: false);
+        // No real curriculum-requirement source exists yet (which subjects a class is supposed to have), so
+        // there is no real way to compute a coverage gap; this stays honestly empty rather than showing a
+        // fixed illustrative list.
+        const unassigned = <PrincipalUnassignedSubject>[];
         final heavy = snapshot.teachers.where((teacher) => teacher.weeklyPeriods > 24).length;
         final qualified = snapshot.teachers.where((teacher) => teacher.canTeach(_newSubject)).toList(growable: false);
 
@@ -412,7 +414,7 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
             _dropdown<String>(
               label: 'Class',
               current: _newClass,
-              items: principalAssignmentClasses.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
+              items: _snapshot!.classOptions.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
               onChanged: (value) => setState(() => _newClass = value ?? _newClass),
             ),
             const SizedBox(height: 10),
@@ -529,7 +531,7 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
         current: _classFilter,
         items: [
           const DropdownMenuItem(value: 'All classes', child: Text('All classes')),
-          for (final item in principalAssignmentClasses) DropdownMenuItem(value: item, child: Text(item)),
+          for (final item in _snapshot!.classOptions) DropdownMenuItem(value: item, child: Text(item)),
         ],
         onChanged: (value) => setState(() => _classFilter = value ?? 'All classes'),
       );

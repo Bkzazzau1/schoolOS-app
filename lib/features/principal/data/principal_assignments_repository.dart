@@ -2,6 +2,11 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/data/administrator_attendance_desk.dart' show sectionOfClass;
+import '../../administrator/data/administrator_students_repository.dart';
+import '../../administrator/domain/administrator_staff_models.dart';
+import '../../administrator/domain/administrator_students_models.dart';
+import '../../proprietor/data/owner_staff_profile_repository.dart';
 import '../domain/principal_assignments_models.dart';
 import 'principal_assignments_demo_data.dart';
 
@@ -10,12 +15,17 @@ class PrincipalAssignmentsSnapshot {
     required this.assignments,
     required this.teachers,
     required this.transfers,
+    required this.classOptions,
     required this.permissions,
   });
 
   final List<PrincipalTeachingAssignment> assignments;
   final List<PrincipalAssignmentTeacher> teachers;
   final List<PrincipalAssignmentTransfer> transfers;
+
+  /// The real Secondary class names drawn from the school's one real student register.
+  final List<String> classOptions;
+
   final PrincipalAssignmentPermissions permissions;
 }
 
@@ -25,12 +35,18 @@ class PrincipalAssignmentActionResult {
   final String message;
 }
 
+bool _teaches(AdministratorStaffRecord record) => record.role.toLowerCase().contains('teacher');
+
 class PrincipalAssignmentsRepository {
   PrincipalAssignmentsRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required AdministratorStudentsRepository students,
+    required OwnerStaffProfileRepository staff,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _students = students,
+        _staff = staff;
 
   static const _assignmentType = 'principal_teaching_assignment';
   static const _teacherType = 'principal_assignment_teacher';
@@ -40,6 +56,8 @@ class PrincipalAssignmentsRepository {
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final AdministratorStudentsRepository _students;
+  final OwnerStaffProfileRepository _staff;
 
   PrincipalAssignmentPermissions permissionsFor(SchoolMembership membership) => PrincipalAssignmentPermissions(
         canManageSecondaryAssignments: membership.role == SchoolRole.principal,
@@ -48,31 +66,62 @@ class PrincipalAssignmentsRepository {
         canManagePrimary: false,
       );
 
+  Future<List<String>> _secondaryClassOptions() async {
+    final register = (await _students.load()).students;
+    final names = {
+      for (final s in register)
+        if (s.status != AdministratorStudentStatus.transferredOut && sectionOfClass(s.className) == 'Secondary') s.className,
+    };
+    return names.toList()..sort();
+  }
+
+  /// Real Secondary teaching staff, plus any provisional target created through a transfer (a real local
+  /// record). There is no real per-subject qualification record anywhere yet, so every real teacher is
+  /// treated as assignable to any subject; the principal remains responsible for that judgment, the same
+  /// way the website's fixed qualification list never verified anything either.
+  Future<List<PrincipalAssignmentTeacher>> _secondaryTeachers(
+    SchoolMembership membership,
+    List<PrincipalTeachingAssignment> assignments,
+  ) async {
+    final all = await _staff.people();
+    final real = [
+      for (final s in all)
+        if (s.section == 'Secondary' && _teaches(s))
+          PrincipalAssignmentTeacher(
+            id: s.id,
+            name: s.name,
+            department: 'Not recorded yet',
+            qualifiedSubjects: principalAssignmentSubjects,
+            weeklyPeriods: assignments.where((a) => a.teacherId == s.id).fold<int>(0, (sum, a) => sum + a.periodsPerWeek),
+          ),
+    ];
+    final teacherRecords = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _teacherType);
+    final provisional = teacherRecords
+        .map((record) => PrincipalAssignmentTeacher.fromJson(record.payload))
+        .where((t) => t.provisional)
+        .toList();
+    return [...real, ...provisional]..sort((a, b) => a.id.compareTo(b.id));
+  }
+
   Future<PrincipalAssignmentsSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
 
     final assignmentRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _assignmentType,
     );
-    final teacherRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _teacherType,
-    );
-    final transferRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _transferType,
-    );
-
     final assignments = assignmentRecords
         .map((record) => PrincipalTeachingAssignment.fromJson(record.payload))
         .toList(growable: false)
       ..sort((a, b) => a.id.compareTo(b.id));
-    final teachers = teacherRecords
-        .map((record) => PrincipalAssignmentTeacher.fromJson(record.payload))
-        .toList(growable: false)
-      ..sort((a, b) => a.id.compareTo(b.id));
+
+    final teachers = await _secondaryTeachers(membership, assignments);
+    final classOptions = await _secondaryClassOptions();
+
+    final transferRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _transferType,
+    );
     final transfers = transferRecords
         .map((record) => PrincipalAssignmentTransfer.fromJson(record.payload))
         .toList(growable: false)
@@ -82,6 +131,7 @@ class PrincipalAssignmentsRepository {
       assignments: assignments,
       teachers: teachers,
       transfers: transfers,
+      classOptions: classOptions,
       permissions: permissionsFor(membership),
     );
   }
@@ -96,7 +146,7 @@ class PrincipalAssignmentsRepository {
     if (!permissionsFor(membership).canManageSecondaryAssignments) {
       return const PrincipalAssignmentActionResult(success: false, message: 'This membership cannot manage Secondary teaching assignments.');
     }
-    if (!principalAssignmentClasses.contains(className)) {
+    if (!(await _secondaryClassOptions()).contains(className)) {
       return const PrincipalAssignmentActionResult(success: false, message: 'That class is outside the active Secondary leadership scope.');
     }
     if (periodsPerWeek < 1 || periodsPerWeek > 10) {
@@ -310,31 +360,6 @@ class PrincipalAssignmentsRepository {
       success: true,
       message: '${assignment.className} · ${assignment.subject} transferred to ${target.name}.$accessMessage',
     );
-  }
-
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    final teachers = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _teacherType);
-    if (teachers.isEmpty) {
-      for (final teacher in principalAssignmentTeachers) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _teacherType,
-          entityId: teacher.id,
-          payload: teacher.toJson(),
-        );
-      }
-    }
-    final assignments = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _assignmentType);
-    if (assignments.isEmpty) {
-      for (final assignment in principalAssignmentSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _assignmentType,
-          entityId: assignment.id,
-          payload: assignment.toJson(),
-        );
-      }
-    }
   }
 }
 
