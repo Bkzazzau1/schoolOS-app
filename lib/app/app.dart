@@ -19,6 +19,7 @@ import '../features/proprietor/data/staff_server_api.dart';
 import '../features/invitations/presentation/invitation_accept_page.dart';
 import 'app_services.dart';
 import 'sync_status_banner.dart';
+import '../features/student/presentation/student_workspace_page.dart';
 
 final _navigatorKey = GlobalKey<NavigatorState>();
 
@@ -65,6 +66,8 @@ class SchoolOsApp extends StatelessWidget {
           home = InvitationAcceptPage(services: services, initialLink: initialInvitationLink);
         } else if (restoredMembership == null) {
           home = LoginPage(services: services);
+        } else if (restoredMembership.role == SchoolRole.student) {
+          home = StudentWorkspacePage(membership: restoredMembership, localDatabase: services.localDatabase, schoolSession: services.schoolSession);
         } else if (restoredMembership.role == SchoolRole.proprietor) {
           home = ProprietorWorkspacePage(
             membership: restoredMembership,

@@ -4,6 +4,7 @@ import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/data/staff_onboarding_repository.dart';
 import '../../proprietor/presentation/staff_onboarding_page.dart';
 import 'package:flutter/material.dart';
+import '../../student/presentation/student_workspace_page.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/auth/app_capability.dart';
@@ -188,6 +189,9 @@ class _DashboardPageState extends State<DashboardPage> with SyncRefresh<Dashboar
   );
 
   Widget _buildWorkspace(BuildContext context) {
+    if (widget.membership.role == SchoolRole.student) {
+      return StudentWorkspacePage(membership: widget.membership, localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    }
     final appearance = _appearance;
     if (widget.membership.role == SchoolRole.accountant && appearance != null) {
       return FinanceOfficeWorkspacePage(

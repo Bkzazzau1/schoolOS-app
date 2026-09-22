@@ -11,6 +11,7 @@ import '../features/proprietor/presentation/proprietor_workspace_page.dart';
 import '../features/teacher/presentation/teacher_workspace_page.dart';
 import '../shared/models/school_membership.dart';
 import 'app_services.dart';
+import '../features/student/presentation/student_workspace_page.dart';
 
 /// Chooses this school and role, starts keeping in step with the school, and opens the
 /// workspace for the role. Used after signing in and after accepting an invitation.
@@ -24,7 +25,9 @@ Future<void> openMembershipHome(
   if (!context.mounted) return;
 
   final Widget page;
-  if (membership.role == SchoolRole.proprietor) {
+  if (membership.role == SchoolRole.student) {
+    page = StudentWorkspacePage(membership: membership, localDatabase: services.localDatabase, schoolSession: services.schoolSession);
+  } else if (membership.role == SchoolRole.proprietor) {
     page = ProprietorWorkspacePage(
       membership: membership,
       localDatabase: services.localDatabase,
