@@ -50,5 +50,8 @@ const administratorNavigation = <AdministratorNavItem>[
 const administratorAuthorityBoundary =
     'Administrator manages operational records and workflows. The role can create and maintain operational records and request scholarships or discounts, but cannot finalize academic results, override section leadership, expose confidential payroll, approve safeguarding outcomes, approve a scholarship or discount, or make other proprietor governance decisions.';
 
-const administratorAcademicYear = '2026/2027 · Term 1';
-const administratorCampusLabel = 'Kaduna Campus · Whole-school administration';
+// There is no real academic-term calendar or campus/branch record anywhere in the app yet
+// (the same gap found and documented on the Principal role's Profile and Performance screens),
+// so the workspace shell shows a fixed, honest scope label instead of an invented term or
+// campus name.
+const administratorScopeLabel = 'Whole-school administration';

@@ -425,7 +425,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                   'Administration',
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
-                subtitle: Text(administratorAcademicYear),
+                subtitle: Text(administratorScopeLabel),
               ),
               const Divider(),
               for (final item in _navigation)
@@ -516,7 +516,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                               ),
                               const SizedBox(height: 3),
                               const Text(
-                                administratorCampusLabel,
+                                administratorScopeLabel,
                                 style: TextStyle(fontSize: 12),
                               ),
                             ],
@@ -566,7 +566,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                                 'Administration Workspace',
                                 style: TextStyle(fontWeight: FontWeight.w900),
                               ),
-                              const Text(administratorAcademicYear),
+                              const Text(administratorScopeLabel),
                             ],
                           ),
                         ),
