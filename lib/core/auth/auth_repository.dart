@@ -87,7 +87,7 @@ class AuthProfile {
     required this.name,
     required this.memberships,
     this.organizations = const [],
-    this.emailVerified = false,
+    this.emailVerified = true,
     this.onboarding = const AccountOnboardingStatus.notApplicable(),
   });
 
@@ -102,7 +102,8 @@ class AuthProfile {
   final List<OrganizationMembership> organizations;
 
   /// Account-level trust state returned by the backend. It is not inferred from
-  /// school membership or local state.
+  /// school membership or local state. Missing state from an older backend is
+  /// treated as already verified so rollout never removes existing access.
   final bool emailVerified;
   final AccountOnboardingStatus onboarding;
 
@@ -110,7 +111,7 @@ class AuthProfile {
         id: json['id'] as String,
         email: json['email'] as String,
         name: (json['name'] as String?) ?? '',
-        emailVerified: json['emailVerified'] as bool? ?? false,
+        emailVerified: json['emailVerified'] as bool? ?? true,
         onboarding: json['onboarding'] is Map
             ? AccountOnboardingStatus.fromJson(
                 Map<String, dynamic>.from(json['onboarding'] as Map),
