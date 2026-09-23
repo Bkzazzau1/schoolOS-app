@@ -77,10 +77,17 @@ class AppServices {
     syncCoordinator?.start();
   }
 
-  Future<void> endSession() async {
+  /// Stops school-scoped background work while the signed-in person is at the
+  /// account layer. The selected school and its encrypted local records remain
+  /// intact, so opening a school again is immediate and safe.
+  void pauseSchoolWorkspace() {
     syncCoordinator?.stop();
     access?.clear();
     notifications?.clear();
+  }
+
+  Future<void> endSession() async {
+    pauseSchoolWorkspace();
     await auth?.signOut();
   }
 
