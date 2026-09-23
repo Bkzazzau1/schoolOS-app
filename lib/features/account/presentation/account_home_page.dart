@@ -152,7 +152,44 @@ class AccountHomePage extends StatelessWidget {
   Future<void> _openSchool(
     BuildContext context,
     SchoolMembership membership,
-  ) => openMembershipHome(context, services, membership);
+  ) async {
+    await openMembershipHome(
+      context,
+      services,
+      membership,
+      preserveAccountHome: true,
+    );
+    if (!context.mounted) return;
+    await _refreshAccountRoute(context);
+  }
+
+  Future<void> _refreshAccountRoute(BuildContext context) async {
+    final auth = services.auth;
+    if (auth == null) return;
+
+    try {
+      final refreshed = await auth.refreshProfile();
+      if (!context.mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => AccountHomePage(
+            profile: refreshed,
+            services: services,
+            onSignOut: onSignOut,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Account details could not be refreshed. Showing the last loaded information.',
+          ),
+        ),
+      );
+    }
+  }
 
   Future<void> _createSchool(
     BuildContext context,
