@@ -12,6 +12,7 @@ import '../core/sync/server_confirm.dart';
 import '../core/sync/round_follow_up.dart';
 import '../core/sync/sync_coordinator.dart';
 import '../core/sync/sync_engine.dart';
+import '../features/account/data/organization_repository.dart';
 import '../features/alumni/data/alumni_server_api.dart';
 import '../core/access/access_view.dart';
 import '../features/proprietor/data/local_owner_access.dart';
@@ -30,6 +31,7 @@ class AppServices {
     required this.schoolAppearance,
     required this.apiConfig,
     this.auth,
+    this.organizations,
     this.syncEngine,
     this.syncCoordinator,
     this.access,
@@ -47,6 +49,11 @@ class AppServices {
   final ApiConfig apiConfig;
 
   final AuthRepository? auth;
+
+  /// Commercial/account-level operations above individual school tenants.
+  /// Present only when the real SchoolOS backend is configured.
+  final OrganizationRepository? organizations;
+
   final SyncEngine? syncEngine;
   final SyncCoordinator? syncCoordinator;
   final AccessController? access;
@@ -94,6 +101,7 @@ class AppServices {
     await schoolAppearance.initialize();
 
     AuthRepository? auth;
+    OrganizationRepository? organizations;
     SyncEngine? syncEngine;
     SyncCoordinator? syncCoordinator;
     AccessController? access;
@@ -112,6 +120,7 @@ class AppServices {
         tokens: tokens,
         schoolSession: schoolSession,
       );
+      organizations = OrganizationRepository(api: api, auth: auth);
       syncEngine = SyncEngine(
         localDatabase: localDatabase,
         schoolSession: schoolSession,
@@ -166,6 +175,7 @@ class AppServices {
       schoolAppearance: schoolAppearance,
       apiConfig: apiConfig,
       auth: auth,
+      organizations: organizations,
       syncEngine: syncEngine,
       syncCoordinator: syncCoordinator,
       access: access,

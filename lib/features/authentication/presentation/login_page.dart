@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../app/app_services.dart';
 import '../../../app/demo_people.dart';
 import '../../../app/open_home.dart';
+import '../../../core/auth/auth_repository.dart';
 import '../../../core/network/api_exceptions.dart';
+import '../../account/presentation/account_home_page.dart';
 import '../../invitations/presentation/invitation_accept_page.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
@@ -110,7 +112,9 @@ class _LoginPageState extends State<LoginPage> {
     final auth = widget.services.auth;
     if (auth == null) {
       // No backend configured: the built-in demo, exactly as before.
-      await widget.services.schoolSession.setMemberships(widget.services.localAccess?.memberships ?? demoMemberships);
+      await widget.services.schoolSession.setMemberships(
+        widget.services.localAccess?.memberships ?? demoMemberships,
+      );
       if (!mounted) return;
       _chooseSchool(widget.services.localAccess?.memberships ?? demoMemberships);
       return;
@@ -123,15 +127,20 @@ class _LoginPageState extends State<LoginPage> {
         _passwordController.text,
       );
       if (!mounted) return;
-      if (profile.memberships.isEmpty) {
+
+      // An organization owner may legitimately have no school yet: Account Home
+      // is where they create the first one. A person with neither an organization
+      // nor a school still has no usable SchoolOS access.
+      if (profile.memberships.isEmpty && profile.organizations.isEmpty) {
         await auth.signOut();
         _showError(
-          'You are signed in, but not connected to any school yet. '
+          'You are signed in, but not connected to a school or school account yet. '
           'Ask your school office to send you an invitation.',
         );
         return;
       }
-      _chooseSchool(profile.memberships);
+
+      _openAfterSignIn(profile);
     } on ApiOfflineException {
       _showError(
         'Could not reach SchoolOS. Check your connection and try again.',
@@ -157,6 +166,33 @@ class _LoginPageState extends State<LoginPage> {
         builder: (_) => InvitationAcceptPage(services: widget.services),
       ),
     );
+  }
+
+  void _openAfterSignIn(AuthProfile profile) {
+    if (profile.organizations.isNotEmpty) {
+      final services = widget.services;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => AccountHomePage(
+            profile: profile,
+            services: services,
+            onSignOut: (accountContext) async {
+              await services.endSession();
+              if (!accountContext.mounted) return;
+              Navigator.of(accountContext).pushAndRemoveUntil(
+                MaterialPageRoute<void>(
+                  builder: (_) => LoginPage(services: services),
+                ),
+                (route) => false,
+              );
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    _chooseSchool(profile.memberships);
   }
 
   void _chooseSchool(List<SchoolMembership> memberships) {
