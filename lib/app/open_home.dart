@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/account/presentation/proprietor_account_shell.dart';
 import '../features/administrator/presentation/administrator_workspace_page.dart';
 import '../features/alumni/presentation/alumni_workspace_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
@@ -35,15 +36,26 @@ Future<void> openMembershipHome(
 
   final Widget page;
   if (membership.role == SchoolRole.student) {
-    page = StudentWorkspacePage(membership: membership, localDatabase: services.localDatabase, schoolSession: services.schoolSession);
-  } else if (membership.role == SchoolRole.proprietor) {
-    page = ProprietorWorkspacePage(
+    page = StudentWorkspacePage(
       membership: membership,
       localDatabase: services.localDatabase,
       schoolSession: services.schoolSession,
-      schoolAppearance: services.schoolAppearance,
-      onOpenAccountHome: preserveAccountHome ? returnToAccountHome : null,
     );
+  } else if (membership.role == SchoolRole.proprietor) {
+    page = preserveAccountHome
+        ? ProprietorAccountShell(
+            membership: membership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+            onOpenAccountHome: returnToAccountHome,
+          )
+        : ProprietorWorkspacePage(
+            membership: membership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+          );
   } else if (membership.role == SchoolRole.administrator) {
     page = AdministratorWorkspacePage(
       membership: membership,
