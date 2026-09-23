@@ -24,6 +24,9 @@ class AccountHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final organizations = profile.organizations;
+    final hasManagedSchool = profile.onboarding.steps.any(
+      (step) => step.key == 'first_school_created' && step.completed,
+    );
     final schoolsByOrganization = <String, List<SchoolMembership>>{
       for (final organization in organizations)
         organization.organizationId:
@@ -91,10 +94,7 @@ class AccountHomePage extends StatelessWidget {
                       schools: schoolsByOrganization[organization.organizationId] ??
                           const [],
                       canProvision: services.organizations != null &&
-                          ((schoolsByOrganization[organization.organizationId]
-                                      ?.isEmpty ??
-                                  true) ||
-                              profile.emailVerified),
+                          (profile.emailVerified || !hasManagedSchool),
                       onOpenSchool: (membership) =>
                           _openSchool(context, membership),
                       onCreateSchool: () => _createSchool(
