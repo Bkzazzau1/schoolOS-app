@@ -152,7 +152,12 @@ class AccountHomePage extends StatelessWidget {
   Future<void> _openSchool(
     BuildContext context,
     SchoolMembership membership,
-  ) => openMembershipHome(context, services, membership);
+  ) => openMembershipHome(
+        context,
+        services,
+        membership,
+        preserveAccountHome: true,
+      );
 
   Future<void> _createSchool(
     BuildContext context,
