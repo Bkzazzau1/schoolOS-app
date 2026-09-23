@@ -86,10 +86,21 @@ void main() {
     expect(result.message, contains('not one of your assigned classes'));
   });
 
-  test('publishing queues the set and queues a sync mutation', () async {
+  test('publishing an empty draft is refused: a set needs real questions first', () async {
     await setUpSchool(mathsTeacher);
     final created = await cbt.createDraft(className: 'JSS 2A', title: 'Week 9 Practice');
-    final published = await cbt.queuePublication(created.set!);
+    final refused = await cbt.queuePublication(created.set!);
+    expect(refused.success, isFalse);
+    expect(refused.message, contains('at least one real question'));
+  });
+
+  test('publishing a draft with real questions queues the set and queues a sync mutation', () async {
+    await setUpSchool(mathsTeacher);
+    final created = await cbt.createDraft(className: 'JSS 2A', title: 'Week 9 Practice');
+    final withQuestion = created.set!.copyWith(items: const [
+      TeacherCbtQuestion(id: 'Q1', prompt: 'What is 2 + 2?', options: ['3', '4', '5'], correctIndex: 1),
+    ]);
+    final published = await cbt.queuePublication(withQuestion);
     expect(published.success, isTrue, reason: published.message);
     expect(published.set!.state, TeacherCbtSetState.queuedForPublication);
     expect(db.pendingCount(tenantId: mathsTeacher.schoolId), greaterThan(0));

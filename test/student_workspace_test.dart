@@ -17,6 +17,13 @@ class _Database implements LocalDatabase {
     if (invocation.memberName == #getLocalRecord) {
       return Future<LocalRecord?>.value(records[key]);
     }
+    if (invocation.memberName == #getLocalRecords) {
+      final prefix = '${args[#tenantId]}/${args[#entityType]}/';
+      return Future<List<LocalRecord>>.value([
+        for (final entry in records.entries)
+          if (entry.key.startsWith(prefix)) entry.value,
+      ]);
+    }
     if (invocation.memberName == #upsertLocalRecord) {
       records[key] = LocalRecord(
         tenantId: args[#tenantId],
@@ -27,6 +34,9 @@ class _Database implements LocalDatabase {
         isDirty: false,
       );
       return Future<void>.value();
+    }
+    if (invocation.memberName == #queueMutation) {
+      return Future<String>.value('mutation-${records.length}');
     }
     return super.noSuchMethod(invocation);
   }
@@ -137,8 +147,18 @@ void main() {
     expect(find.text('My performance'), findsOneWidget);
     await tester.tap(find.text('CBT'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Start practice'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Start practice'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('20'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('20'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(

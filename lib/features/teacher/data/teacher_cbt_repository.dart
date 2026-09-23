@@ -33,6 +33,36 @@ class TeacherCbtActionResult {
   final TeacherCbtPracticeSet? set;
 }
 
+/// The local record entity type real practice sets are stored under, exposed so the real student
+/// CBT-taking pipeline (`StudentCbtRepository`) can read a real published set for a real student's
+/// class without needing a teacher's own assigned-class scope.
+const teacherCbtPracticeSetEntityType = 'teacher_cbt_practice_set';
+
+/// The local record entity type real student attempts are stored under, exposed for the same reason:
+/// `StudentCbtRepository` writes a real attempt here when a student submits, and
+/// `TeacherCbtRepository.load()` reads them back to compute a set's real attempts/average accuracy.
+const teacherCbtAttemptEntityType = 'teacher_cbt_attempt';
+
+/// Seeds the sample practice sets for this tenant if none exist yet. Records are tenant-scoped, not
+/// per-teacher, so whichever role — Teacher or Student — reads this data first makes them available to
+/// both; a student opening CBT before any teacher has opened theirs in this session must still see the
+/// real seeded published set, not an empty list.
+Future<void> ensureTeacherCbtSeeded(LocalDatabase localDatabase, String tenantId) async {
+  final existing = await localDatabase.getLocalRecords(
+    tenantId: tenantId,
+    entityType: teacherCbtPracticeSetEntityType,
+  );
+  if (existing.isNotEmpty) return;
+  for (final set in teacherCbtSets) {
+    await localDatabase.upsertLocalRecord(
+      tenantId: tenantId,
+      entityType: teacherCbtPracticeSetEntityType,
+      entityId: set.id,
+      payload: set.toJson(),
+    );
+  }
+}
+
 class TeacherCbtRepository {
   TeacherCbtRepository({
     required LocalDatabase localDatabase,
@@ -42,8 +72,9 @@ class TeacherCbtRepository {
         _schoolSession = schoolSession,
         _roster = roster;
 
-  static const _setType = 'teacher_cbt_practice_set';
+  static const _setType = teacherCbtPracticeSetEntityType;
   static const _eventType = 'teacher_cbt_practice_event';
+  static const _attemptType = teacherCbtAttemptEntityType;
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -68,18 +99,28 @@ class TeacherCbtRepository {
 
   Future<TeacherCbtSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
+    await ensureTeacherCbtSeeded(_localDatabase, membership.schoolId);
     final assigned = await _assignedClassNames(membership);
 
     final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _setType,
     );
-    final sets = records
+    var sets = records
         .map((record) => TeacherCbtPracticeSet.fromJson(record.payload))
         .where((set) => assigned.contains(set.className))
-        .toList(growable: false)
-      ..sort((a, b) {
+        .toList(growable: false);
+
+    // Real evidence only: attempts/averageAccuracy are always recomputed from real student
+    // submissions here, never trusted from whatever was last persisted on the set itself.
+    final attemptsBySet = await _realAttemptsBySet(membership, {for (final s in sets) s.id});
+    sets = [
+      for (final set in sets)
+        set.copyWith(
+          attempts: (attemptsBySet[set.id] ?? const []).length,
+          averageAccuracy: _averageAccuracy(attemptsBySet[set.id] ?? const []),
+        ),
+    ]..sort((a, b) {
         final aIndex = teacherCbtSets.indexWhere((seed) => seed.id == a.id);
         final bIndex = teacherCbtSets.indexWhere((seed) => seed.id == b.id);
         final safeA = aIndex < 0 ? 999 : aIndex;
@@ -87,6 +128,7 @@ class TeacherCbtRepository {
         final bySeed = safeA.compareTo(safeB);
         return bySeed != 0 ? bySeed : a.id.compareTo(b.id);
       });
+
     return TeacherCbtSnapshot(
       sets: sets,
       classOptions: assigned,
@@ -94,8 +136,32 @@ class TeacherCbtRepository {
     );
   }
 
-  /// Creates a new draft practice set for a real assigned class. It starts with no real attempts, since there is no
-  /// student CBT-taking pipeline feeding this yet.
+  Future<Map<String, List<TeacherCbtAttempt>>> _realAttemptsBySet(
+    SchoolMembership membership,
+    Set<String> setIds,
+  ) async {
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _attemptType,
+    );
+    final bySet = <String, List<TeacherCbtAttempt>>{};
+    for (final record in records) {
+      final attempt = TeacherCbtAttempt.fromJson(record.payload);
+      if (!setIds.contains(attempt.setId)) continue;
+      bySet.putIfAbsent(attempt.setId, () => []).add(attempt);
+    }
+    return bySet;
+  }
+
+  int _averageAccuracy(List<TeacherCbtAttempt> attempts) {
+    if (attempts.isEmpty) return 0;
+    final total = attempts.fold<int>(0, (sum, a) => sum + a.accuracyPercent);
+    return (total / attempts.length).round();
+  }
+
+  /// Creates a new draft practice set for a real assigned class. It starts with no real questions and
+  /// no real attempts — a teacher adds real questions before it can be published (see
+  /// [_validatePublishable]).
   Future<TeacherCbtActionResult> createDraft({
     required String className,
     required String title,
@@ -114,7 +180,7 @@ class TeacherCbtRepository {
       id: 'CBT-${DateTime.now().microsecondsSinceEpoch}',
       title: title.trim(),
       className: className,
-      questions: 10,
+      items: const [],
       durationMinutes: 15,
       state: TeacherCbtSetState.draft,
       attempts: 0,
@@ -125,7 +191,7 @@ class TeacherCbtRepository {
     await _persist(membership, set);
     return TeacherCbtActionResult(
       success: true,
-      message: 'Practice set created as a draft. Configure it and save or publish when ready.',
+      message: 'Practice set created as a draft. Add real questions, then save or publish when ready.',
       set: set,
     );
   }
@@ -194,7 +260,7 @@ class TeacherCbtRepository {
         message: 'This class is not one of your assigned classes.',
       );
     }
-    final validation = _validate(value);
+    final validation = _validate(value) ?? _validatePublishable(value);
     if (validation != null) {
       return TeacherCbtActionResult(success: false, message: validation);
     }
@@ -220,9 +286,18 @@ class TeacherCbtRepository {
 
   String? _validate(TeacherCbtPracticeSet value) {
     if (value.title.trim().isEmpty) return 'Add a practice title before saving.';
-    if (value.questions <= 0) return 'Question count must be greater than zero.';
     if (value.durationMinutes <= 0) return 'Duration must be greater than zero.';
     if (value.instructions.trim().isEmpty) return 'Add learner instructions before saving.';
+    return null;
+  }
+
+  /// A practice set can only reach students with real, complete questions — never an empty or
+  /// half-written set that a student could open and find nothing in.
+  String? _validatePublishable(TeacherCbtPracticeSet value) {
+    if (value.items.isEmpty) return 'Add at least one real question before publishing.';
+    if (value.items.any((item) => !item.isValid)) {
+      return 'Every question needs a prompt, at least two options and a valid correct answer.';
+    }
     return null;
   }
 
@@ -283,19 +358,4 @@ class TeacherCbtRepository {
     );
   }
 
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    final existing = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _setType,
-    );
-    if (existing.isNotEmpty) return;
-    for (final set in teacherCbtSets) {
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: _setType,
-        entityId: set.id,
-        payload: set.toJson(),
-      );
-    }
-  }
 }

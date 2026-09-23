@@ -1720,3 +1720,53 @@ list every role's demo login draws from) is out of scope for this pass and left 
 Tests: `test/student_workspace_test.dart` already had strong real coverage (practice resume/scoring/locking,
 cross-membership isolation, live-mode refusal, task persistence, a full phone widget flow) and needed no changes;
 all 6 tests still pass. Full suite: 1148 passing, same 8 pre-existing unrelated failures, zero regressions.
+
+## Teacher ↔ Student: CBT is now a real, connected pipeline (feature build, not a fabrication fix)
+
+At the user's explicit request, Teacher's CBT Practice Center — a shell that tracked a practice set's title,
+class, duration and a bare `questions` *count* with nothing behind it (`questions: 10` on creation, with a comment
+admitting "there is no real student CBT-taking pipeline feeding this yet") — was built out into a genuine
+end-to-end feature: a teacher writes real questions, publishes a real set, a real student in that real class takes
+it with a real timer, and the real score flows back to the teacher's own results panel.
+
+**`TeacherCbtPracticeSet`** (`lib/features/teacher/domain/teacher_cbt_models.dart`) now carries `items:
+List<TeacherCbtQuestion>` (id, prompt, options, correctIndex, explanation) instead of a settable `questions: int`;
+`questionCount` is a derived getter, never a number a teacher can type in disconnected from real content. A new
+`TeacherCbtAttempt` model (setId, studentMembershipId, score, totalQuestions, submittedAt) is the real evidence a
+student's completed attempt leaves behind.
+
+**Teacher side** (`teacher_cbt_page.dart`): the old fixed "Question 7 of 20" sample preview is replaced by a real
+question editor (add/edit/delete, each question requiring a prompt, at least two options and a valid correct
+answer — `TeacherCbtQuestion.isValid`). `queuePublication` now refuses to publish a set with zero real questions or
+an invalid one (`_validatePublishable`) — a published CBT can no longer reach students with nothing real in it.
+`attempts`/`averageAccuracy` are no longer stored numbers a teacher (or a fabricated seed) can set; `load()` always
+recomputes both live from real `TeacherCbtAttempt` records, so the results panel can never show evidence no student
+actually produced, and now genuinely does once one has.
+
+**Student side** (new `lib/features/student/data/student_cbt_repository.dart`): no real system links a Student
+membership to a specific class the way `ParentChildrenRepository` links a guardian to specific real children, or
+`TeacherRoster` links a teacher to real assigned classes — so, following that same established "seed becomes real"
+pattern, a student's class is honestly seeded once (to `'JSS 2A'`, a class that really exists in the register) and
+persisted from then on, not re-guessed on every read. `loadAvailableSets()` reads real, `published` sets for that
+real class only (never a draft, closed or different-class set); `startAttempt`/`answer`/`submit` mirror the exact
+mechanics the pre-existing sample-practice quiz already used (real per-attempt deadline, locked answers after
+submission or expiry, resumable rather than restarted), but the timer duration, the questions and the correct
+answers are now the real teacher's own, and `submit` writes a real `TeacherCbtAttempt` record the teacher's screen
+reads back. `ensureTeacherCbtSeeded` is a small shared function both `TeacherCbtRepository` and
+`StudentCbtRepository` call, since practice-set records are tenant-scoped, not per-teacher: whichever role opens
+CBT first in a session must not leave the other seeing an empty list.
+
+**What stayed, deliberately:** the existing 5-question generic maths practice quiz on the Student CBT tab is kept
+exactly as it was (real local persistence, explicitly labelled "Sample questions, not assigned by a teacher"), now
+alongside — not replacing — the real "My class CBTs" section above it. It was already honest, tested, working
+functionality; the fix adds a real teacher-authored pipeline rather than discarding a working one.
+
+Tests: `test/student_cbt_feature_test.dart` (new, 10 tests) — a real student sees only real published sets for
+their real class, never a draft/closed/other-class set; starting, answering and submitting scores against the
+real correct answers; a real submitted attempt makes the teacher's own screen show real attempts/accuracy;
+answering after the real deadline is rejected while resuming keeps the original real deadline; submitting twice is
+idempotent; out-of-range answers are rejected; and the permission check behaves correctly. `test/teacher_cbt_roster_test.dart`
+gained a test confirming an empty draft cannot be published. `test/teacher_cbt_feature_test.dart` and
+`test/student_workspace_test.dart` were updated where they asserted on the now-real question editor rather than
+the old fixed preview text. Full suite: 1159 passing, same 8 pre-existing unrelated failures (confirmed unrelated:
+a duplicate-role-label bug on the School Selection picker, in files this feature never touches), zero regressions.

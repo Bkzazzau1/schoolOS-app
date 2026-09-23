@@ -14,13 +14,20 @@ const _teacher = SchoolMembership(
 );
 
 void main() {
-  test('sample practice sets start with no invented attempt evidence', () {
+  test('sample practice sets carry real questions and start with no invented attempt evidence', () {
     expect(teacherCbtSets, hasLength(3));
     expect(teacherCbtSets[0].id, 'CBT-MTH-026');
     expect(teacherCbtSets[0].title, 'JSS 2 Mathematics · Linear Equations');
     expect(teacherCbtSets[0].state, TeacherCbtSetState.published);
-    // No real student CBT-taking pipeline exists yet, so sample sets never claim attempts or accuracy.
+    // Every seeded set carries real questions a student can really answer, never a fabricated count.
     for (final set in teacherCbtSets) {
+      expect(set.items, isNotEmpty, reason: '${set.id} must have real questions, not just a count');
+      expect(set.questionCount, set.items.length);
+      for (final item in set.items) {
+        expect(item.isValid, isTrue, reason: '${set.id} has an invalid question');
+      }
+      // No student has actually attempted the freshly seeded set yet, so evidence starts at zero;
+      // TeacherCbtRepository.load() is what recomputes real evidence once real attempts exist.
       expect(set.attempts, 0, reason: '${set.id} must not invent attempt evidence');
       expect(set.averageAccuracy, 0, reason: '${set.id} must not invent accuracy evidence');
     }
@@ -30,10 +37,7 @@ void main() {
     expect(teacherCbtSets[2].state, TeacherCbtSetState.closed);
   });
 
-  test('question preview keeps exact item and topic tag principle', () {
-    expect(teacherCbtQuestionTopic, 'Linear Equations');
-    expect(teacherCbtQuestionText, 'If 3x + 4 = 19, what is the value of x?');
-    expect(teacherCbtQuestionOptions, ['A. 3', 'B. 4', 'C. 5', 'D. 6']);
+  test('question design principle is still shown to teachers authoring real questions', () {
     expect(teacherCbtDesignBoundary, contains('topic tag'));
   });
 
@@ -93,8 +97,7 @@ void main() {
 
     expect(find.text('CBT Practice Center'), findsOneWidget);
     expect(find.text('JSS 2 Mathematics · Linear Equations'), findsWidgets);
-    expect(find.text('Question 7 of 20'), findsOneWidget);
-    expect(find.text(teacherCbtQuestionText), findsOneWidget);
+    expect(find.textContaining('1. If 3x + 4 = 19, what is the value of x?'), findsOneWidget);
     expect(find.text('Learning Intelligence handoff'), findsOneWidget);
     expect(find.textContaining('No practice attempts have been recorded yet'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -263,7 +266,7 @@ class _FakeCbtRepository implements TeacherCbtRepository {
       id: 'CBT-NEW-${sets.length + 1}',
       title: title,
       className: className,
-      questions: 10,
+      items: const [],
       durationMinutes: 15,
       state: TeacherCbtSetState.draft,
       attempts: 0,

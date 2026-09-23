@@ -352,7 +352,7 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   title: Text(set.title, style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text(
-                    '${set.id} · ${set.className}\n${set.questions} questions · ${set.durationMinutes} minutes · ${set.attempts} attempts',
+                    '${set.id} · ${set.className}\n${set.questionCount} questions · ${set.durationMinutes} minutes · ${set.attempts} attempts',
                   ),
                   isThreeLine: true,
                   trailing: Column(
@@ -415,36 +415,16 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
               onChanged: editable ? (item) { if (item != null) _replaceEditing(value.copyWith(className: item)); } : null,
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    key: ValueKey('cbt-q-${value.id}-${value.version}'),
-                    initialValue: '${value.questions}',
-                    enabled: editable,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Questions', border: OutlineInputBorder()),
-                    onChanged: (text) {
-                      final parsed = int.tryParse(text);
-                      if (parsed != null) _replaceEditing(value.copyWith(questions: parsed));
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    key: ValueKey('cbt-duration-${value.id}-${value.version}'),
-                    initialValue: '${value.durationMinutes}',
-                    enabled: editable,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Duration (minutes)', border: OutlineInputBorder()),
-                    onChanged: (text) {
-                      final parsed = int.tryParse(text);
-                      if (parsed != null) _replaceEditing(value.copyWith(durationMinutes: parsed));
-                    },
-                  ),
-                ),
-              ],
+            TextFormField(
+              key: ValueKey('cbt-duration-${value.id}-${value.version}'),
+              initialValue: '${value.durationMinutes}',
+              enabled: editable,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Duration (minutes)', border: OutlineInputBorder()),
+              onChanged: (text) {
+                final parsed = int.tryParse(text);
+                if (parsed != null) _replaceEditing(value.copyWith(durationMinutes: parsed));
+              },
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -488,7 +468,7 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
   }
 
   Widget _evidenceGrid(double width) {
-    final children = [_questionPreview(), _results()];
+    final children = [_questionEditor(), _results()];
     if (width < 900) return Column(children: [children[0], const SizedBox(height: 16), children[1]]);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,52 +476,96 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
     );
   }
 
-  Widget _questionPreview() => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Question preview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              const Text('Sample question from the selected practice set.'),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  const Expanded(child: Text('Question 7 of 20', style: TextStyle(fontWeight: FontWeight.w800))),
-                  Chip(label: Text(teacherCbtQuestionTopic)),
-                ],
-              ),
-              const Text(teacherCbtQuestionText),
-              const SizedBox(height: 10),
-              for (final option in teacherCbtQuestionOptions)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(option),
+  Widget _questionEditor() {
+    final value = _editing;
+    if (value == null) return const SizedBox.shrink();
+    final editable = value.teacherEditable;
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Questions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                 ),
-              const Divider(),
-              const Text('Question design principle', style: TextStyle(fontWeight: FontWeight.w900)),
-              const Text(teacherCbtDesignBoundary),
-            ],
-          ),
+                if (editable)
+                  FilledButton.icon(
+                    onPressed: () => _addOrEditQuestion(value, null),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add question'),
+                  ),
+              ],
+            ),
+            const Text('Real questions a student answers when they take this set.'),
+            const SizedBox(height: 12),
+            if (value.items.isEmpty)
+              const Text('No real questions have been added yet. This set cannot be published until it has at least one.')
+            else
+              for (var i = 0; i < value.items.length; i++) ...[
+                _QuestionTile(
+                  index: i,
+                  question: value.items[i],
+                  editable: editable,
+                  onEdit: () => _addOrEditQuestion(value, i),
+                  onDelete: () => _replaceEditing(
+                    value.copyWith(items: [for (var j = 0; j < value.items.length; j++) if (j != i) value.items[j]]),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            const Divider(),
+            const Text('Question design principle', style: TextStyle(fontWeight: FontWeight.w900)),
+            const Text(teacherCbtDesignBoundary),
+          ],
         ),
-      );
+      ),
+    );
+  }
 
-  Widget _results() => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Recent learner results', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              const Text('Evidence from practice attempts.'),
-              const SizedBox(height: 12),
+  Future<void> _addOrEditQuestion(TeacherCbtPracticeSet value, int? index) async {
+    final existing = index == null ? null : value.items[index];
+    final question = await showDialog<TeacherCbtQuestion>(
+      context: context,
+      builder: (context) => _QuestionDialog(existing: existing),
+    );
+    if (question == null) return;
+    final items = [...value.items];
+    if (index == null) {
+      items.add(question);
+    } else {
+      items[index] = question;
+    }
+    _replaceEditing(value.copyWith(items: items));
+  }
+
+  Widget _results() {
+    final value = _editing;
+    final hasAttempts = value != null && value.attempts > 0;
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Recent learner results', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const Text('Evidence from practice attempts.'),
+            const SizedBox(height: 12),
+            if (hasAttempts)
+              Text(
+                '${value.attempts} real attempt${value.attempts == 1 ? '' : 's'} recorded · average accuracy ${value.averageAccuracy}%.',
+              )
+            else
               const Text(teacherCbtResultsUnavailable),
-            ],
-          ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 
   Widget _learningHandoff() => Card(
         elevation: 0,
@@ -657,6 +681,211 @@ class _NewSetDialogState extends State<_NewSetDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         FilledButton(onPressed: _submit, child: const Text('Create')),
+      ],
+    );
+  }
+}
+
+class _QuestionTile extends StatelessWidget {
+  const _QuestionTile({
+    required this.index,
+    required this.question,
+    required this.editable,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final int index;
+  final TeacherCbtQuestion question;
+  final bool editable;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${index + 1}. ${question.prompt}',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              if (editable) ...[
+                IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), tooltip: 'Edit'),
+                IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline), tooltip: 'Delete'),
+              ],
+            ],
+          ),
+          for (var i = 0; i < question.options.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${i == question.correctIndex ? '✓ ' : ''}${question.options[i]}',
+                style: TextStyle(
+                  fontWeight: i == question.correctIndex ? FontWeight.w800 : FontWeight.w400,
+                  color: i == question.correctIndex ? scheme.primary : null,
+                ),
+              ),
+            ),
+          if (question.explanation.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(question.explanation, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionDialog extends StatefulWidget {
+  const _QuestionDialog({this.existing});
+  final TeacherCbtQuestion? existing;
+
+  @override
+  State<_QuestionDialog> createState() => _QuestionDialogState();
+}
+
+class _QuestionDialogState extends State<_QuestionDialog> {
+  late final _promptController = TextEditingController(text: widget.existing?.prompt ?? '');
+  late final _explanationController = TextEditingController(text: widget.existing?.explanation ?? '');
+  late List<TextEditingController> _optionControllers = [
+    for (final option in widget.existing?.options ?? const ['', ''])
+      TextEditingController(text: option),
+  ];
+  late int _correctIndex = widget.existing?.correctIndex ?? 0;
+  String? _error;
+
+  @override
+  void dispose() {
+    _promptController.dispose();
+    _explanationController.dispose();
+    for (final controller in _optionControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _addOption() {
+    if (_optionControllers.length >= 6) return;
+    setState(() => _optionControllers = [..._optionControllers, TextEditingController()]);
+  }
+
+  void _removeOption(int index) {
+    if (_optionControllers.length <= 2) return;
+    setState(() {
+      _optionControllers = [
+        for (var i = 0; i < _optionControllers.length; i++) if (i != index) _optionControllers[i],
+      ];
+      if (_correctIndex >= _optionControllers.length) _correctIndex = _optionControllers.length - 1;
+      if (_correctIndex == index) _correctIndex = 0;
+    });
+  }
+
+  void _submit() {
+    final prompt = _promptController.text.trim();
+    final options = [for (final controller in _optionControllers) controller.text.trim()];
+    if (prompt.isEmpty) {
+      setState(() => _error = 'Enter the question text.');
+      return;
+    }
+    if (options.any((option) => option.isEmpty)) {
+      setState(() => _error = 'Every option needs text.');
+      return;
+    }
+    if (_correctIndex < 0 || _correctIndex >= options.length) {
+      setState(() => _error = 'Choose which option is correct.');
+      return;
+    }
+    Navigator.of(context).pop(TeacherCbtQuestion(
+      id: widget.existing?.id ?? 'Q-${DateTime.now().microsecondsSinceEpoch}',
+      prompt: prompt,
+      options: options,
+      correctIndex: _correctIndex,
+      explanation: _explanationController.text.trim(),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.existing == null ? 'Add question' : 'Edit question'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _promptController,
+                minLines: 2,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: 'Question'),
+              ),
+              const SizedBox(height: 12),
+              const Text('Options (select the correct one)', style: TextStyle(fontWeight: FontWeight.w800)),
+              for (var i = 0; i < _optionControllers.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      Radio<int>(
+                        value: i,
+                        // ignore: deprecated_member_use
+                        groupValue: _correctIndex,
+                        // ignore: deprecated_member_use
+                        onChanged: (value) => setState(() => _correctIndex = value ?? _correctIndex),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _optionControllers[i],
+                          decoration: InputDecoration(labelText: 'Option ${i + 1}'),
+                        ),
+                      ),
+                      if (_optionControllers.length > 2)
+                        IconButton(
+                          onPressed: () => _removeOption(i),
+                          icon: const Icon(Icons.close),
+                          tooltip: 'Remove option',
+                        ),
+                    ],
+                  ),
+                ),
+              if (_optionControllers.length < 6)
+                TextButton.icon(
+                  onPressed: _addOption,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add option'),
+                ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _explanationController,
+                minLines: 1,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Explanation (optional)'),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        FilledButton(onPressed: _submit, child: const Text('Save')),
       ],
     );
   }
