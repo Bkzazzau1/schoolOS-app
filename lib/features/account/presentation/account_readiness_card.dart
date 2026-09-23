@@ -90,7 +90,9 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
               ],
             ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(value: progress.clamp(0.0, 1.0)),
+            LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0).toDouble(),
+            ),
             const SizedBox(height: 18),
             Wrap(
               spacing: 16,
