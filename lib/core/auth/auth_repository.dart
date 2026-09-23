@@ -1,3 +1,4 @@
+import '../../features/account/domain/organization_membership.dart';
 import '../../shared/models/school_membership.dart';
 import '../network/api_client.dart';
 import '../network/api_exceptions.dart';
@@ -10,12 +11,18 @@ class AuthProfile {
     required this.email,
     required this.name,
     required this.memberships,
+    this.organizations = const [],
   });
 
   final String id;
   final String email;
   final String name;
   final List<SchoolMembership> memberships;
+
+  /// Account-level memberships sit above individual school tenants. They are
+  /// optional so older SchoolOS backends remain compatible while the SaaS layer
+  /// is rolled out.
+  final List<OrganizationMembership> organizations;
 
   factory AuthProfile.fromJson(Map<String, dynamic> json) => AuthProfile(
         id: json['id'] as String,
@@ -25,12 +32,27 @@ class AuthProfile {
           for (final item in (json['memberships'] as List? ?? const []))
             ?_membership(Map<String, dynamic>.from(item as Map)),
         ],
+        organizations: [
+          for (final item in ((json['organizations'] ?? json['organizationMemberships']) as List? ?? const []))
+            ?_organizationMembership(Map<String, dynamic>.from(item as Map)),
+        ],
       );
 
   /// A role this version of the app does not know is skipped, not a crash.
   static SchoolMembership? _membership(Map<String, dynamic> json) {
     if (!SchoolRole.values.any((role) => role.name == json['role'])) return null;
     return SchoolMembership.fromJson(json);
+  }
+
+  /// The account layer follows the same forward-compatibility rule as school
+  /// roles: a role introduced by a newer server does not stop the person from
+  /// signing in to schools this app version still understands.
+  static OrganizationMembership? _organizationMembership(Map<String, dynamic> json) {
+    try {
+      return OrganizationMembership.fromJson(json);
+    } on FormatException {
+      return null;
+    }
   }
 }
 
@@ -103,8 +125,8 @@ class AuthRepository {
     return refreshProfile();
   }
 
-  /// Asks the server who the person is and which schools they can act in, and
-  /// keeps that list. Offline, the last known list stays as it was.
+  /// Asks the server who the person is, which organizations they can manage and
+  /// which schools they can act in. The school list is kept for offline access.
   Future<AuthProfile> refreshProfile() async {
     final data = await _api.get('me/');
     if (data is! Map) throw const ApiException(500, 'The server sent an unexpected answer.');
