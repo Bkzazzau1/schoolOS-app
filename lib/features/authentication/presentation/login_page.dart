@@ -310,7 +310,9 @@ class _LoginCard extends StatelessWidget {
                 controller: passwordController,
                 obscureText: obscurePassword,
                 textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => busy ? null : onSubmit(),
+                onFieldSubmitted: (_) {
+                  if (!busy) onSubmit();
+                },
                 decoration: InputDecoration(
                   labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
