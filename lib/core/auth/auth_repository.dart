@@ -118,11 +118,44 @@ class AuthRepository {
       body: {'email': email.trim().toLowerCase(), 'password': password},
       authenticated: false,
     );
+    await _storeTokenPair(data);
+    return refreshProfile();
+  }
+
+  /// Creates a new proprietor account and its first commercial organization,
+  /// stores the returned session securely, then loads the canonical profile.
+  Future<AuthProfile> registerProprietor({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    required String organizationName,
+  }) async {
+    final data = await _api.post(
+      'auth/register/',
+      authenticated: false,
+      body: {
+        'firstName': firstName.trim(),
+        'lastName': lastName.trim(),
+        'email': email.trim().toLowerCase(),
+        'password': password,
+        'organizationName': organizationName.trim(),
+      },
+    );
+    await _storeTokenPair(data);
+    return refreshProfile();
+  }
+
+  Future<void> _storeTokenPair(Object? data) async {
     if (data is! Map || data['access'] is! String || data['refresh'] is! String) {
       throw const ApiException(500, 'The server sent an unexpected answer.');
     }
-    await _tokens.write(AuthTokens(access: data['access'] as String, refresh: data['refresh'] as String));
-    return refreshProfile();
+    await _tokens.write(
+      AuthTokens(
+        access: data['access'] as String,
+        refresh: data['refresh'] as String,
+      ),
+    );
   }
 
   /// Asks the server who the person is, which organizations they can manage and
@@ -169,7 +202,7 @@ class AuthRepository {
     if (data is! Map || data['access'] is! String || data['refresh'] is! String || data['membership'] is! Map) {
       throw const ApiException(500, 'The server sent an unexpected answer.');
     }
-    await _tokens.write(AuthTokens(access: data['access'] as String, refresh: data['refresh'] as String));
+    await _storeTokenPair(data);
     final membership = SchoolMembership.fromJson(Map<String, dynamic>.from(data['membership'] as Map));
     final profile = await refreshProfile();
     return AcceptedInvitation(profile: profile, membership: membership, staffId: data['staffId'] as String? ?? '');
