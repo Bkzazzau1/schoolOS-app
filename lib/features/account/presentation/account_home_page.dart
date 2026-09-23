@@ -5,6 +5,7 @@ import '../../../app/open_home.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/organization_membership.dart';
+import 'account_readiness_card.dart';
 import 'create_school_page.dart';
 
 class AccountHomePage extends StatelessWidget {
@@ -59,6 +60,15 @@ class AccountHomePage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
               children: [
                 _AccountHeader(profile: profile),
+                if (profile.onboarding.applicable && services.auth != null) ...[
+                  const SizedBox(height: 18),
+                  AccountReadinessCard(
+                    profile: profile,
+                    auth: services.auth!,
+                    onProfileChanged: (refreshed) =>
+                        _replaceWithProfile(context, refreshed),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 if (organizations.isNotEmpty) ...[
                   Text(
@@ -80,7 +90,11 @@ class AccountHomePage extends StatelessWidget {
                       organization: organization,
                       schools: schoolsByOrganization[organization.organizationId] ??
                           const [],
-                      canProvision: services.organizations != null,
+                      canProvision: services.organizations != null &&
+                          ((schoolsByOrganization[organization.organizationId]
+                                      ?.isEmpty ??
+                                  true) ||
+                              profile.emailVerified),
                       onOpenSchool: (membership) =>
                           _openSchool(context, membership),
                       onCreateSchool: () => _createSchool(
@@ -170,15 +184,7 @@ class AccountHomePage extends StatelessWidget {
     try {
       final refreshed = await auth.refreshProfile();
       if (!context.mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => AccountHomePage(
-            profile: refreshed,
-            services: services,
-            onSignOut: onSignOut,
-          ),
-        ),
-      );
+      _replaceWithProfile(context, refreshed);
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,6 +195,19 @@ class AccountHomePage extends StatelessWidget {
         ),
       );
     }
+  }
+
+  void _replaceWithProfile(BuildContext context, AuthProfile refreshed) {
+    if (!context.mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => AccountHomePage(
+          profile: refreshed,
+          services: services,
+          onSignOut: onSignOut,
+        ),
+      ),
+    );
   }
 
   Future<void> _createSchool(
@@ -348,10 +367,15 @@ class _OrganizationCard extends StatelessWidget {
                   ),
                 ),
                 if (organization.canCreateSchools)
-                  FilledButton.tonalIcon(
-                    onPressed: canProvision ? onCreateSchool : null,
-                    icon: const Icon(Icons.add_business_rounded),
-                    label: const Text('Add school'),
+                  Tooltip(
+                    message: canProvision
+                        ? 'Add another school'
+                        : 'Verify your email before adding another school',
+                    child: FilledButton.tonalIcon(
+                      onPressed: canProvision ? onCreateSchool : null,
+                      icon: const Icon(Icons.add_business_rounded),
+                      label: const Text('Add school'),
+                    ),
                   ),
               ],
             ),
