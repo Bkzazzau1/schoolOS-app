@@ -1,6 +1,9 @@
 import '../core/appearance/school_appearance_controller.dart';
 import 'package:flutter/material.dart';
 
+import '../core/network/api_exceptions.dart';
+import '../features/account/presentation/account_home_page.dart';
+import '../features/account/presentation/proprietor_account_shell.dart';
 import '../features/administrator/presentation/administrator_workspace_page.dart';
 import '../features/alumni/data/alumni_server_api.dart';
 import '../features/alumni/presentation/alumni_workspace_page.dart';
@@ -31,6 +34,75 @@ Future<void> _signInAgain(AppServices services) async {
     ),
     (route) => false,
   );
+}
+
+Future<void> _signOutFromAccount(
+  BuildContext context,
+  AppServices services,
+) async {
+  await services.endSession();
+  if (!context.mounted) return;
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute<void>(
+      builder: (_) => LoginPage(services: services),
+    ),
+    (route) => false,
+  );
+}
+
+Future<void> _openRestoredAccountHome(
+  BuildContext context,
+  AppServices services,
+) async {
+  final auth = services.auth;
+  if (auth == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Connect SchoolOS to the server to manage your school account.'),
+      ),
+    );
+    return;
+  }
+
+  try {
+    final profile = await auth.refreshProfile();
+    if (!context.mounted) return;
+    if (profile.organizations.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This school is not connected to a SchoolOS account you manage.'),
+        ),
+      );
+      return;
+    }
+
+    services.pauseSchoolWorkspace();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (_) => AccountHomePage(
+          profile: profile,
+          services: services,
+          onSignOut: (accountContext) =>
+              _signOutFromAccount(accountContext, services),
+        ),
+      ),
+      (route) => false,
+    );
+  } on ApiOfflineException {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Could not refresh your SchoolOS account. Check your connection and try again.'),
+      ),
+    );
+  } on SessionExpiredException {
+    await _signInAgain(services);
+  } on ApiException catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error.message)),
+    );
+  }
 }
 
 class SchoolOsApp extends StatelessWidget {
@@ -69,12 +141,23 @@ class SchoolOsApp extends StatelessWidget {
         } else if (restoredMembership.role == SchoolRole.student) {
           home = StudentWorkspacePage(membership: restoredMembership, localDatabase: services.localDatabase, schoolSession: services.schoolSession);
         } else if (restoredMembership.role == SchoolRole.proprietor) {
-          home = ProprietorWorkspacePage(
-            membership: restoredMembership,
-            localDatabase: services.localDatabase,
-            schoolSession: services.schoolSession,
-            schoolAppearance: services.schoolAppearance,
-          );
+          final canOpenAccount =
+              restoredMembership.organizationId != null && services.auth != null;
+          home = canOpenAccount
+              ? ProprietorAccountShell(
+                  membership: restoredMembership,
+                  localDatabase: services.localDatabase,
+                  schoolSession: services.schoolSession,
+                  schoolAppearance: services.schoolAppearance,
+                  onOpenAccountHome: (schoolContext) =>
+                      _openRestoredAccountHome(schoolContext, services),
+                )
+              : ProprietorWorkspacePage(
+                  membership: restoredMembership,
+                  localDatabase: services.localDatabase,
+                  schoolSession: services.schoolSession,
+                  schoolAppearance: services.schoolAppearance,
+                );
         } else if (restoredMembership.role == SchoolRole.administrator) {
           home = AdministratorWorkspacePage(
             membership: restoredMembership,
