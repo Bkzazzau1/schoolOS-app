@@ -15,14 +15,23 @@ import '../features/student/presentation/student_workspace_page.dart';
 
 /// Chooses this school and role, starts keeping in step with the school, and opens the
 /// workspace for the role. Used after signing in and after accepting an invitation.
+///
+/// When [preserveAccountHome] is true the school is pushed above Account Home,
+/// allowing an account owner to return to My Schools without signing out.
 Future<void> openMembershipHome(
   BuildContext context,
   AppServices services,
-  SchoolMembership membership,
-) async {
+  SchoolMembership membership, {
+  bool preserveAccountHome = false,
+}) async {
   await services.schoolSession.selectSchool(membership);
   await services.beginSchool(membership);
   if (!context.mounted) return;
+
+  Future<void> returnToAccountHome(BuildContext schoolContext) async {
+    if (!schoolContext.mounted) return;
+    Navigator.of(schoolContext).pop();
+  }
 
   final Widget page;
   if (membership.role == SchoolRole.student) {
@@ -33,6 +42,7 @@ Future<void> openMembershipHome(
       localDatabase: services.localDatabase,
       schoolSession: services.schoolSession,
       schoolAppearance: services.schoolAppearance,
+      onOpenAccountHome: preserveAccountHome ? returnToAccountHome : null,
     );
   } else if (membership.role == SchoolRole.administrator) {
     page = AdministratorWorkspacePage(
@@ -90,6 +100,14 @@ Future<void> openMembershipHome(
       schoolSession: services.schoolSession,
       schoolAppearance: services.schoolAppearance,
     );
+  }
+
+  if (preserveAccountHome) {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (context) => page),
+    );
+    services.pauseSchoolWorkspace();
+    return;
   }
 
   Navigator.of(context).pushAndRemoveUntil(
