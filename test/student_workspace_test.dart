@@ -38,6 +38,9 @@ class _Database implements LocalDatabase {
     if (invocation.memberName == #queueMutation) {
       return Future<String>.value('mutation-${records.length}');
     }
+    if (invocation.memberName == #pendingCount) {
+      return 0;
+    }
     return super.noSuchMethod(invocation);
   }
 }
@@ -145,38 +148,29 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('My performance'), findsOneWidget);
+    await tester.tap(find.byTooltip('Student menu'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('CBT'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Start practice'),
-      400,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.ensureVisible(find.text('Start practice'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Start practice'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('20'),
-      400,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.ensureVisible(find.text('20'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('20'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Finish practice'),
-      400,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.ensureVisible(find.text('Finish practice'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Finish practice'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Submit'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Student menu'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Performance'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('1 / 5 correct · Practice only'),
-      -400,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.ensureVisible(find.text('1 / 5 correct · Practice only'));
     expect(find.text('1 / 5 correct · Practice only'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
