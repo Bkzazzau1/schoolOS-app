@@ -1815,3 +1815,36 @@ morning manifest has exactly one real rider and every other stop is honestly emp
 behaves correctly. `test/transport_test.dart` was updated for BUS-02's honest defaults (three assertions that had
 depended on the fabricated 26-rider/"25/26 checked"/"arrived" narrative). Full suite: 1164 passing, same 8
 pre-existing unrelated failures, zero regressions.
+
+## Bug fix: Parent Finance crashed for any family with no mandate configured
+
+A red-screen crash was reported live: opening Finance & Payments as a parent threw
+`'There should be exactly one item with [DropdownButton]'s value: Not recorded yet.'` from
+`package:flutter/src/material/dropdown.dart`. This was a real regression from this session's own earlier honest fix
+to `ParentFinanceRepository` (see "Parent: Finance reads the same real ledger Finance Office uses" above): a fresh
+family's real payment mandate has no `collectionMethod` configured yet, so it honestly reads `'Not recorded yet'` —
+correct for that repository, but `parent_finance_page.dart` fed that raw value straight into a
+`DropdownButtonFormField<String>`'s `initialValue` whose fixed `items` list (`'Bank direct debit · prototype'`,
+`'Salary-linked collection · prototype'`) never included it, which Flutter's dropdown widget treats as a
+programming error and refuses to render — crashing the entire page for essentially every fresh demo family, since
+having no mandate configured is the default state.
+
+**Fix:** `_ParentFinancePageState._load()` now falls back to a real, selectable default (the first real option)
+whenever the repository's real value isn't one of the picker's own choices, instead of assuming the repository's
+value is always safe to hand a strict-option control. The debit-day picker got the same defensive guard even though
+its own default (`'25th'`) already happened to be valid, so the same class of bug can't reappear there if the
+repository's honest default ever changes. The two option lists were hoisted out of the widget's `build()` into
+shared top-level constants so the guard and the picker can never quietly drift apart again.
+
+**The general lesson, not just this one field:** an honest "not recorded yet" value is safe wherever it is only
+*displayed*, but the moment a UI control requires its current value to be one of a fixed set of choices (a
+dropdown, a segmented control, a radio group), that control needs its own real default — this had already been
+handled correctly everywhere else this session touched (e.g. Discussions' scope picker always initializes from the
+enum's own fixed values, never from repository data), but was missed here because the mandate's `collectionMethod`
+field was introduced by an earlier session's repository fix without touching this page at all, and no test ever
+rendered the actual page widget to catch it.
+
+Tests: `test/parent_finance_feature_test.dart` gained a widget test that renders `ParentFinancePage` for a fresh
+family with no mandate configured and asserts it does not throw — the first widget-level (rather than repository
+-level) coverage this page has had, and exactly the kind of test that would have caught this regression before it
+shipped. Full suite: 1165 passing, same 8 pre-existing unrelated failures, zero regressions.

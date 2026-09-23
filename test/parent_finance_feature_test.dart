@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/security/payload_cipher.dart';
@@ -8,6 +9,7 @@ import 'package:schoolos_app/features/finance_office/data/finance_ledger_reposit
 import 'package:schoolos_app/features/parent/data/parent_children_repository.dart';
 import 'package:schoolos_app/features/parent/data/parent_finance_repository.dart';
 import 'package:schoolos_app/features/parent/domain/parent_finance_models.dart';
+import 'package:schoolos_app/features/parent/presentation/parent_finance_page.dart';
 import 'package:schoolos_app/features/proprietor/data/concession_repository.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
@@ -178,4 +180,29 @@ void main() {
     await setUpFamily(teacher);
     expect(finance.load(), throwsStateError);
   });
+
+  testWidgets(
+    'the page renders for a fresh family with no mandate configured, without crashing the mandate picker',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 4000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await setUpFamily();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ParentFinancePage(repository: finance, onQueueChanged: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // A fresh family's real mandate honestly has no collection method configured
+      // ("Not recorded yet"), which is not one of the picker's own selectable options; the page must
+      // still render the picker with a real default instead of crashing on that mismatch.
+      expect(find.text('Automatic payment mandate'), findsOneWidget);
+      expect(find.text('Bank direct debit · prototype'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

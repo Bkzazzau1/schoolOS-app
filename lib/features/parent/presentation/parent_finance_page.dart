@@ -5,6 +5,16 @@ import '../data/parent_finance_demo_data.dart';
 import '../data/parent_finance_repository.dart';
 import '../domain/parent_finance_models.dart';
 
+// The real choices a guardian can actually pick for a payment mandate. A fresh family's real mandate
+// preference honestly reads "Not recorded yet" for collectionMethod (no real one has ever been
+// configured) — that value is correct for a read-only display, but it is not a selectable option here,
+// so initializing the picker to it would crash. The dropdown always falls back to a real option instead.
+const _mandateDebitDays = ['5th', '10th', '15th', '20th', '25th', '28th'];
+const _mandateCollectionMethods = [
+  'Bank direct debit · prototype',
+  'Salary-linked collection · prototype',
+];
+
 class ParentFinancePage extends StatefulWidget {
   const ParentFinancePage({
     super.key,
@@ -44,9 +54,13 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
     _current = data;
     if (!_controlsInitialized) {
       _autoPay = data.snapshot.mandate.enabled;
-      _debitDay = data.snapshot.mandate.debitDay;
+      _debitDay = _mandateDebitDays.contains(data.snapshot.mandate.debitDay)
+          ? data.snapshot.mandate.debitDay
+          : _mandateDebitDays.first;
       _mandateAmount = data.snapshot.mandate.monthlyAmount.toString();
-      _collectionMethod = data.snapshot.mandate.collectionMethod;
+      _collectionMethod = _mandateCollectionMethods.contains(data.snapshot.mandate.collectionMethod)
+          ? data.snapshot.mandate.collectionMethod
+          : _mandateCollectionMethods.first;
       for (final child in data.snapshot.children) {
         _selectedAccounts[child.accountNumber] = true;
         _payAmounts[child.accountNumber] = child.balance.toString();
@@ -702,11 +716,8 @@ class _MandateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const days = ['5th', '10th', '15th', '20th', '25th', '28th'];
-    const methods = [
-      'Bank direct debit · prototype',
-      'Salary-linked collection · prototype',
-    ];
+    const days = _mandateDebitDays;
+    const methods = _mandateCollectionMethods;
     return _SectionCard(
       title: 'Automatic payment mandate',
       subtitle: 'Optional recurring collection preference connected to the school-fee ledger.',
