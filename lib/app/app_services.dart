@@ -14,6 +14,7 @@ import '../core/sync/sync_coordinator.dart';
 import '../core/sync/sync_engine.dart';
 import '../features/account/data/organization_repository.dart';
 import '../features/alumni/data/alumni_server_api.dart';
+import '../features/billing/data/billing_repository.dart';
 import '../core/access/access_view.dart';
 import '../features/proprietor/data/local_owner_access.dart';
 import '../features/proprietor/data/owner_access_repository.dart';
@@ -32,6 +33,7 @@ class AppServices {
     required this.apiConfig,
     this.auth,
     this.organizations,
+    this.billing,
     this.syncEngine,
     this.syncCoordinator,
     this.access,
@@ -53,6 +55,11 @@ class AppServices {
   /// Commercial/account-level operations above individual school tenants.
   /// Present only when the real SchoolOS backend is configured.
   final OrganizationRepository? organizations;
+
+  /// Read-only commercial plan, subscription and entitlement state. Payment
+  /// provider actions remain server-side and are intentionally not inferred by
+  /// the native app.
+  final BillingRepository? billing;
 
   final SyncEngine? syncEngine;
   final SyncCoordinator? syncCoordinator;
@@ -109,6 +116,7 @@ class AppServices {
 
     AuthRepository? auth;
     OrganizationRepository? organizations;
+    BillingRepository? billing;
     SyncEngine? syncEngine;
     SyncCoordinator? syncCoordinator;
     AccessController? access;
@@ -128,6 +136,7 @@ class AppServices {
         schoolSession: schoolSession,
       );
       organizations = OrganizationRepository(api: api, auth: auth);
+      billing = BillingRepository(api: api);
       syncEngine = SyncEngine(
         localDatabase: localDatabase,
         schoolSession: schoolSession,
@@ -183,6 +192,7 @@ class AppServices {
       apiConfig: apiConfig,
       auth: auth,
       organizations: organizations,
+      billing: billing,
       syncEngine: syncEngine,
       syncCoordinator: syncCoordinator,
       access: access,

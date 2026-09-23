@@ -4,6 +4,7 @@ import '../../../app/app_services.dart';
 import '../../../app/open_home.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../billing/presentation/organization_subscription_card.dart';
 import '../domain/organization_membership.dart';
 import 'account_readiness_card.dart';
 import 'create_school_page.dart';
@@ -89,6 +90,13 @@ class AccountHomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
                   for (final organization in organizations) ...[
+                    if (services.billing != null) ...[
+                      OrganizationSubscriptionCard(
+                        organization: organization,
+                        repository: services.billing!,
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     _OrganizationCard(
                       organization: organization,
                       schools: schoolsByOrganization[organization.organizationId] ??
