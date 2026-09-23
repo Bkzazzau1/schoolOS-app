@@ -170,16 +170,21 @@ class _LoginPageState extends State<LoginPage> {
 
   void _openAfterSignIn(AuthProfile profile) {
     if (profile.organizations.isNotEmpty) {
-      Navigator.of(context).push(
+      final services = widget.services;
+      Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => AccountHomePage(
             profile: profile,
-            services: widget.services,
-            onOpenSchool: (membership) =>
-                _openMembershipHome(context, membership),
-            onSignOut: () async {
-              await widget.services.endSession();
-              if (mounted) Navigator.of(context).pop();
+            services: services,
+            onSignOut: (accountContext) async {
+              await services.endSession();
+              if (!accountContext.mounted) return;
+              Navigator.of(accountContext).pushAndRemoveUntil(
+                MaterialPageRoute<void>(
+                  builder: (_) => LoginPage(services: services),
+                ),
+                (route) => false,
+              );
             },
           ),
         ),
