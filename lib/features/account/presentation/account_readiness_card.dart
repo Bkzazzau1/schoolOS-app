@@ -25,6 +25,8 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
   bool _confirming = false;
   bool _resending = false;
 
+  bool get _busy => _confirming || _resending;
+
   @override
   void dispose() {
     _codeController.dispose();
@@ -130,7 +132,7 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
                         final compact = constraints.maxWidth < 560;
                         final codeField = TextField(
                           controller: _codeController,
-                          enabled: !_confirming,
+                          enabled: !_busy,
                           keyboardType: TextInputType.number,
                           textInputAction: TextInputAction.done,
                           inputFormatters: [
@@ -145,7 +147,7 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
                           ),
                         );
                         final verifyButton = FilledButton.icon(
-                          onPressed: _confirming ? null : _confirm,
+                          onPressed: _busy ? null : _confirm,
                           icon: _confirming
                               ? const SizedBox.square(
                                   dimension: 18,
@@ -178,7 +180,7 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: TextButton.icon(
-                        onPressed: _resending ? null : _resend,
+                        onPressed: _busy ? null : _resend,
                         icon: _resending
                             ? const SizedBox.square(
                                 dimension: 16,
@@ -199,7 +201,7 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
   }
 
   Future<void> _confirm() async {
-    if (_confirming) return;
+    if (_busy) return;
     final code = _codeController.text.trim();
     if (code.length != 6) {
       _message('Enter the 6-digit verification code.');
@@ -224,7 +226,7 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
   }
 
   Future<void> _resend() async {
-    if (_resending) return;
+    if (_busy) return;
     setState(() => _resending = true);
     try {
       final result = await widget.auth.sendEmailVerification();
