@@ -4,6 +4,7 @@ import '../../../core/network/api_exceptions.dart';
 import '../../account/domain/organization_membership.dart';
 import '../data/billing_repository.dart';
 import '../domain/subscription_summary.dart';
+import 'organization_invoices_card.dart';
 
 class OrganizationSubscriptionCard extends StatefulWidget {
   const OrganizationSubscriptionCard({
@@ -73,64 +74,77 @@ class _OrganizationSubscriptionCardState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final summary = _summary;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  Icons.credit_card_rounded,
-                  color: theme.colorScheme.primary,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.credit_card_rounded,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'SchoolOS subscription',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (summary != null)
+                      Chip(label: Text(summary.statusLabel)),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'SchoolOS subscription',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                if (_loading) ...[
+                  const SizedBox(height: 14),
+                  const LinearProgressIndicator(),
+                ] else if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                ),
-                if (_summary != null)
-                  Chip(label: Text(_summary!.statusLabel)),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _load,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('Retry'),
+                    ),
+                  ),
+                ] else if (summary != null) ...[
+                  const SizedBox(height: 14),
+                  _SubscriptionDetails(summary: summary),
+                ],
               ],
             ),
-            if (_loading) ...[
-              const SizedBox(height: 14),
-              const LinearProgressIndicator(),
-            ] else if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Retry'),
-                ),
-              ),
-            ] else if (_summary != null) ...[
-              const SizedBox(height: 14),
-              _SubscriptionDetails(summary: _summary!),
-            ],
-          ],
+          ),
         ),
-      ),
+        if (summary?.canManageBilling ?? false) ...[
+          const SizedBox(height: 10),
+          OrganizationInvoicesCard(
+            organization: widget.organization,
+            repository: widget.repository,
+          ),
+        ],
+      ],
     );
   }
 }
@@ -154,14 +168,12 @@ class _SubscriptionDetails extends StatelessWidget {
           spacing: 24,
           runSpacing: 16,
           children: [
-            _Metric(
-              label: 'Plan',
-              value: plan?.name ?? 'Plan not assigned',
-            ),
+            _Metric(label: 'Plan', value: plan?.name ?? 'Plan not assigned'),
             if (plan != null && plan.studentUnitAmountMinor > 0)
               _Metric(
                 label: 'Price basis',
-                value: '${_money(plan.currency, plan.studentUnitAmountMinor)} / student',
+                value:
+                    '${_money(plan.currency, plan.studentUnitAmountMinor)} / student',
               ),
             _Metric(
               label: 'Active schools',
@@ -184,7 +196,7 @@ class _SubscriptionDetails extends StatelessWidget {
         if (plan != null && plan.billingInterval == null) ...[
           const SizedBox(height: 6),
           Text(
-            'The billing interval has not been activated yet. This plan currently defines the commercial price basis and entitlements only.',
+            'The billing interval has not been activated yet. Invoice preparation will remain unavailable until the commercial cadence is configured.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -226,7 +238,8 @@ class _SubscriptionDetails extends StatelessWidget {
 
   static String _accessMessage(OrganizationSubscriptionSummary summary) {
     return switch (summary.accessMode) {
-      'full' => 'Account-level changes are available under the current subscription.',
+      'full' =>
+        'Account-level changes are available under the current subscription.',
       'account_restricted' =>
         'Account-level changes are restricted. Existing school data and daily school work remain available.',
       'suspended' =>
