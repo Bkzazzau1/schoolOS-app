@@ -5,6 +5,81 @@ import '../network/api_exceptions.dart';
 import '../tenancy/school_session_controller.dart';
 import 'token_store.dart';
 
+class OnboardingStep {
+  const OnboardingStep({
+    required this.key,
+    required this.label,
+    required this.completed,
+  });
+
+  final String key;
+  final String label;
+  final bool completed;
+
+  factory OnboardingStep.fromJson(Map<String, dynamic> json) => OnboardingStep(
+        key: json['key'] as String? ?? '',
+        label: json['label'] as String? ?? '',
+        completed: json['completed'] as bool? ?? false,
+      );
+}
+
+class AccountOnboardingStatus {
+  const AccountOnboardingStatus({
+    required this.applicable,
+    required this.ready,
+    required this.completedCount,
+    required this.totalCount,
+    required this.steps,
+  });
+
+  const AccountOnboardingStatus.notApplicable()
+      : applicable = false,
+        ready = true,
+        completedCount = 0,
+        totalCount = 0,
+        steps = const [];
+
+  final bool applicable;
+  final bool ready;
+  final int completedCount;
+  final int totalCount;
+  final List<OnboardingStep> steps;
+
+  factory AccountOnboardingStatus.fromJson(Map<String, dynamic> json) =>
+      AccountOnboardingStatus(
+        applicable: json['applicable'] as bool? ?? false,
+        ready: json['ready'] as bool? ?? true,
+        completedCount: json['completedCount'] as int? ?? 0,
+        totalCount: json['totalCount'] as int? ?? 0,
+        steps: [
+          for (final item in (json['steps'] as List? ?? const []))
+            if (item is Map)
+              OnboardingStep.fromJson(Map<String, dynamic>.from(item)),
+        ],
+      );
+}
+
+class EmailVerificationDispatch {
+  const EmailVerificationDispatch({
+    required this.verified,
+    required this.sent,
+    this.expiresAt,
+  });
+
+  final bool verified;
+  final bool sent;
+  final DateTime? expiresAt;
+
+  factory EmailVerificationDispatch.fromJson(Map<String, dynamic> json) {
+    final rawExpiresAt = json['expiresAt'];
+    return EmailVerificationDispatch(
+      verified: json['verified'] as bool? ?? false,
+      sent: json['sent'] as bool? ?? false,
+      expiresAt: rawExpiresAt is String ? DateTime.tryParse(rawExpiresAt) : null,
+    );
+  }
+}
+
 class AuthProfile {
   const AuthProfile({
     required this.id,
@@ -12,6 +87,8 @@ class AuthProfile {
     required this.name,
     required this.memberships,
     this.organizations = const [],
+    this.emailVerified = false,
+    this.onboarding = const AccountOnboardingStatus.notApplicable(),
   });
 
   final String id;
@@ -24,10 +101,21 @@ class AuthProfile {
   /// is rolled out.
   final List<OrganizationMembership> organizations;
 
+  /// Account-level trust state returned by the backend. It is not inferred from
+  /// school membership or local state.
+  final bool emailVerified;
+  final AccountOnboardingStatus onboarding;
+
   factory AuthProfile.fromJson(Map<String, dynamic> json) => AuthProfile(
         id: json['id'] as String,
         email: json['email'] as String,
         name: (json['name'] as String?) ?? '',
+        emailVerified: json['emailVerified'] as bool? ?? false,
+        onboarding: json['onboarding'] is Map
+            ? AccountOnboardingStatus.fromJson(
+                Map<String, dynamic>.from(json['onboarding'] as Map),
+              )
+            : const AccountOnboardingStatus.notApplicable(),
         memberships: [
           for (final item in (json['memberships'] as List? ?? const []))
             ?_membership(Map<String, dynamic>.from(item as Map)),
@@ -166,6 +254,30 @@ class AuthRepository {
     final profile = AuthProfile.fromJson(Map<String, dynamic>.from(data));
     await _schoolSession.setMemberships(profile.memberships);
     return profile;
+  }
+
+  Future<EmailVerificationDispatch> sendEmailVerification() async {
+    final data = await _api.post(
+      'auth/email-verification/send/',
+      body: const {},
+    );
+    if (data is! Map) {
+      throw const ApiException(500, 'The server sent an unexpected answer.');
+    }
+    return EmailVerificationDispatch.fromJson(
+      Map<String, dynamic>.from(data),
+    );
+  }
+
+  Future<AuthProfile> confirmEmailVerification(String code) async {
+    final data = await _api.post(
+      'auth/email-verification/confirm/',
+      body: {'code': code.trim()},
+    );
+    if (data is! Map || data['verified'] != true) {
+      throw const ApiException(500, 'The server sent an unexpected answer.');
+    }
+    return refreshProfile();
   }
 
   /// What an invitation link is for. Needs no sign-in. A link that is unknown, expired, replaced or
