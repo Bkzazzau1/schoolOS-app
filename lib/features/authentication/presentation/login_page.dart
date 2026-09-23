@@ -5,11 +5,12 @@ import '../../../app/demo_people.dart';
 import '../../../app/open_home.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/network/api_exceptions.dart';
-import '../../account/presentation/account_home_page.dart';
-import '../../invitations/presentation/invitation_accept_page.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../account/presentation/account_home_page.dart';
+import '../../invitations/presentation/invitation_accept_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
+import 'proprietor_registration_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.services});
@@ -24,6 +25,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _identityController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _busy = false;
 
@@ -40,8 +42,23 @@ class _LoginPageState extends State<LoginPage> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final compact = AppBreakpoints.isPhone(width);
+            final compact = AppBreakpoints.isPhone(constraints.maxWidth);
+            final card = _LoginCard(
+              demoMemberships: demoMemberships,
+              formKey: _formKey,
+              identityController: _identityController,
+              passwordController: _passwordController,
+              obscurePassword: _obscurePassword,
+              busy: _busy,
+              backend: widget.services.usesBackend,
+              onTogglePassword: () => setState(
+                () => _obscurePassword = !_obscurePassword,
+              ),
+              onSubmit: _submit,
+              onInvitation:
+                  widget.services.usesBackend ? _openInvitation : null,
+              onRegister: widget.services.auth != null ? _openRegistration : null,
+            );
 
             if (compact) {
               return SingleChildScrollView(
@@ -51,19 +68,7 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     const _BrandHeader(compact: true),
                     const SizedBox(height: 40),
-                    _LoginCard(
-                      demoMemberships: demoMemberships,
-                      formKey: _formKey,
-                      identityController: _identityController,
-                      passwordController: _passwordController,
-                      obscurePassword: _obscurePassword,
-                      onTogglePassword: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
-                      onSubmit: _submit,
-                      backend: widget.services.usesBackend,
-                      onInvitation: _openInvitation,
-                    ),
+                    card,
                   ],
                 ),
               );
@@ -79,21 +84,7 @@ class _LoginPageState extends State<LoginPage> {
                       padding: const EdgeInsets.all(40),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 460),
-                        child: _LoginCard(
-                          demoMemberships: demoMemberships,
-                          formKey: _formKey,
-                          identityController: _identityController,
-                          passwordController: _passwordController,
-                          obscurePassword: _obscurePassword,
-                          onTogglePassword: () {
-                            setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            );
-                          },
-                          onSubmit: _submit,
-                          backend: widget.services.usesBackend,
-                          onInvitation: _openInvitation,
-                        ),
+                        child: card,
                       ),
                     ),
                   ),
@@ -107,11 +98,10 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _busy) return;
+    if (_busy || !_formKey.currentState!.validate()) return;
 
     final auth = widget.services.auth;
     if (auth == null) {
-      // No backend configured: the built-in demo, exactly as before.
       await widget.services.schoolSession.setMemberships(
         widget.services.localAccess?.memberships ?? demoMemberships,
       );
@@ -128,9 +118,6 @@ class _LoginPageState extends State<LoginPage> {
       );
       if (!mounted) return;
 
-      // An organization owner may legitimately have no school yet: Account Home
-      // is where they create the first one. A person with neither an organization
-      // nor a school still has no usable SchoolOS access.
       if (profile.memberships.isEmpty && profile.organizations.isEmpty) {
         await auth.signOut();
         _showError(
@@ -142,12 +129,8 @@ class _LoginPageState extends State<LoginPage> {
 
       _openAfterSignIn(profile);
     } on ApiOfflineException {
-      _showError(
-        'Could not reach SchoolOS. Check your connection and try again.',
-      );
+      _showError('Could not reach SchoolOS. Check your connection and try again.');
     } on ApiException catch (error) {
-      // A wrong email or a wrong password get the same words, so the screen
-      // never tells anyone which of the two was wrong.
       _showError(
         error.statusCode == 401
             ? 'The email or password is not correct.'
@@ -166,6 +149,19 @@ class _LoginPageState extends State<LoginPage> {
         builder: (_) => InvitationAcceptPage(services: widget.services),
       ),
     );
+  }
+
+  Future<void> _openRegistration() async {
+    final auth = widget.services.auth;
+    if (auth == null || _busy) return;
+
+    final profile = await Navigator.of(context).push<AuthProfile>(
+      MaterialPageRoute<AuthProfile>(
+        builder: (_) => ProprietorRegistrationPage(auth: auth),
+      ),
+    );
+    if (profile == null || !mounted) return;
+    _openAfterSignIn(profile);
   }
 
   void _openAfterSignIn(AuthProfile profile) {
@@ -204,11 +200,17 @@ class _LoginPageState extends State<LoginPage> {
       MaterialPageRoute<void>(
         builder: (context) => SchoolSelectionPage(
           memberships: memberships,
-          onSelected: (membership) => _openMembershipHome(context, membership),
+          onSelected: (membership) =>
+              _openMembershipHome(context, membership),
         ),
       ),
     );
   }
+
+  Future<void> _openMembershipHome(
+    BuildContext context,
+    SchoolMembership membership,
+  ) => openMembershipHome(context, widget.services, membership);
 
   void _showError(String message) {
     if (!mounted) return;
@@ -216,11 +218,6 @@ class _LoginPageState extends State<LoginPage> {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
-
-  Future<void> _openMembershipHome(
-    BuildContext context,
-    SchoolMembership membership,
-  ) => openMembershipHome(context, widget.services, membership);
 }
 
 class _LoginCard extends StatelessWidget {
@@ -230,26 +227,28 @@ class _LoginCard extends StatelessWidget {
     required this.identityController,
     required this.passwordController,
     required this.obscurePassword,
+    required this.busy,
+    required this.backend,
     required this.onTogglePassword,
     required this.onSubmit,
-    this.backend = false,
     this.onInvitation,
+    this.onRegister,
   });
 
-  /// A backend is configured: real sign-in, and no demo panel.
-  final bool backend;
-
-  /// Opens the accept-an-invitation page (only offered with a backend).
-  final VoidCallback? onInvitation;
   final GlobalKey<FormState> formKey;
   final List<SchoolMembership> demoMemberships;
-  static const _demoUsername = 'demo';
-  static const _demoPassword = 'SchoolOS123!';
   final TextEditingController identityController;
   final TextEditingController passwordController;
   final bool obscurePassword;
+  final bool busy;
+  final bool backend;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
+  final VoidCallback? onInvitation;
+  final VoidCallback? onRegister;
+
+  static const _demoUsername = 'demo';
+  static const _demoPassword = 'SchoolOS123!';
 
   @override
   Widget build(BuildContext context) {
@@ -277,7 +276,9 @@ class _LoginCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Sign in once to access the schools connected to your SchoolOS account.',
+                backend
+                    ? 'Sign in to your SchoolOS account and choose the school you want to work in.'
+                    : 'Sign in to explore the local SchoolOS demo.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -285,7 +286,9 @@ class _LoginCard extends StatelessWidget {
               const SizedBox(height: 28),
               TextFormField(
                 controller: identityController,
-                keyboardType: TextInputType.emailAddress,
+                keyboardType: backend
+                    ? TextInputType.emailAddress
+                    : TextInputType.text,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: backend
@@ -307,7 +310,7 @@ class _LoginCard extends StatelessWidget {
                 controller: passwordController,
                 obscureText: obscurePassword,
                 textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => onSubmit(),
+                onFieldSubmitted: (_) => busy ? null : onSubmit(),
                 decoration: InputDecoration(
                   labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
@@ -323,29 +326,59 @@ class _LoginCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Enter your password';
-                  }
-                  return null;
-                },
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Enter your password'
+                    : null,
               ),
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: onSubmit,
-                icon: const Icon(Icons.arrow_forward_rounded),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Text('Sign in'),
+                onPressed: busy ? null : onSubmit,
+                icon: busy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.arrow_forward_rounded),
+                label: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Text(busy ? 'Signing in…' : 'Sign in'),
                 ),
               ),
-              if (backend && onInvitation != null) ...[
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: onInvitation,
-                  icon: const Icon(Icons.mark_email_read_outlined, size: 18),
-                  label: const Text('I have an invitation link'),
+              if (backend) ...[
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'New to SchoolOS?',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+                  ],
                 ),
+                const SizedBox(height: 12),
+                if (onRegister != null)
+                  OutlinedButton.icon(
+                    onPressed: busy ? null : onRegister,
+                    icon: const Icon(Icons.domain_add_rounded),
+                    label: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('Create school account'),
+                    ),
+                  ),
+                if (onInvitation != null) ...[
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: busy ? null : onInvitation,
+                    icon: const Icon(Icons.mark_email_read_outlined, size: 18),
+                    label: const Text('I have an invitation link'),
+                  ),
+                ],
               ],
               if (!backend) ...[
                 const SizedBox(height: 14),
@@ -356,7 +389,7 @@ class _LoginCard extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -378,10 +411,12 @@ class _LoginCard extends StatelessWidget {
                       const SelectableText('Password: $_demoPassword'),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        onPressed: () {
-                          identityController.text = _demoUsername;
-                          passwordController.text = _demoPassword;
-                        },
+                        onPressed: busy
+                            ? null
+                            : () {
+                                identityController.text = _demoUsername;
+                                passwordController.text = _demoPassword;
+                              },
                         icon: const Icon(Icons.edit_note_rounded),
                         label: const Text('Use demo details'),
                       ),
@@ -390,28 +425,13 @@ class _LoginCard extends StatelessWidget {
                         'Available demo roles',
                         style: theme.textTheme.titleSmall,
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Sign in, then choose a school and role. These details work for all roles below.',
-                      ),
                       const SizedBox(height: 8),
                       for (final membership in demoMemberships)
                         Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                membership.roleLabel,
-                                style: theme.textTheme.labelLarge,
-                              ),
-                              Text(
-                                membership.schoolName,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            '${membership.roleLabel} · ${membership.schoolName}',
+                            style: theme.textTheme.bodySmall,
                           ),
                         ),
                     ],
@@ -444,7 +464,10 @@ class _BrandHeader extends StatelessWidget {
             color: theme.colorScheme.primary,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(Icons.school_rounded, color: theme.colorScheme.onPrimary),
+          child: Icon(
+            Icons.school_rounded,
+            color: theme.colorScheme.onPrimary,
+          ),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -487,7 +510,7 @@ class _DesktopBrandPanel extends StatelessWidget {
           const _BrandHeader(compact: false),
           const Spacer(),
           Text(
-            'One account.\nEvery school you belong to.',
+            'One account.\nEvery school you manage.',
             style: theme.textTheme.displaySmall?.copyWith(
               height: 1.08,
               fontWeight: FontWeight.w800,
@@ -495,7 +518,7 @@ class _DesktopBrandPanel extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'SchoolOS is designed for Android phones, tablets and Windows PCs, with offline-first daily operations and intelligent synchronization.',
+            'Create a school account, add one or many schools, and keep each school isolated while working offline across Android and Windows.',
             style: theme.textTheme.titleMedium?.copyWith(
               height: 1.5,
               color: theme.colorScheme.onPrimaryContainer.withValues(
@@ -512,7 +535,10 @@ class _DesktopBrandPanel extends StatelessWidget {
                 icon: Icons.cloud_off_rounded,
                 label: 'Offline-first',
               ),
-              _CapabilityChip(icon: Icons.sync_rounded, label: 'Smart sync'),
+              _CapabilityChip(
+                icon: Icons.account_tree_rounded,
+                label: 'Multi-school',
+              ),
               _CapabilityChip(
                 icon: Icons.auto_awesome_rounded,
                 label: 'Edge AI ready',
@@ -521,7 +547,7 @@ class _DesktopBrandPanel extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            'SchoolOS native application foundation',
+            'SchoolOS native application',
             style: theme.textTheme.bodySmall,
           ),
         ],
