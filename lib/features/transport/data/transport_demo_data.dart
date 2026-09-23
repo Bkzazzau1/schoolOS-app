@@ -14,18 +14,26 @@ const transportWebsiteSeed = <SchoolTransportRoute>[
     status: TransportRouteStatus.arrived,
     note: 'Morning run completed; vehicle parked on campus.',
   ),
+  // BUS-02 is the one route the app's real Driver pipeline actually operates (see
+  // driver_dashboard_demo_data.dart / driver_morning_run_demo_data.dart), so its fields here are kept
+  // honest: no fabricated driver/assistant name, a `riders` count that matches the real registered
+  // roster (only one real student rides it), and a neutral not-yet-run status rather than an invented
+  // "25/26 checked, one absent" narrative for a run that has not actually happened yet in a fresh
+  // install. BUS-01/03/04 still carry the same kind of fabricated driver/assistant identity and
+  // invented operational narrative — out of scope for this pass (no Driver or Administrator screen
+  // audited so far operates them), flagged for a future Administrator/Transport Control pass.
   SchoolTransportRoute(
     id: 'BUS-02',
     name: 'Barnawa / Kakuri Route',
     vehicle: 'Toyota Hiace · BGA-02',
-    driver: 'Mr. Daniel Peter',
-    assistant: 'Mr. Kabiru Ali',
-    riders: 26,
+    driver: 'Driver',
+    assistant: 'Not recorded yet',
+    riders: 1,
     stops: 7,
-    morning: '25 / 26 checked',
-    afternoon: 'Pending dismissal',
-    status: TransportRouteStatus.arrived,
-    note: 'One registered rider recorded as absent from school today.',
+    morning: 'Not started',
+    afternoon: 'Not started',
+    status: TransportRouteStatus.preparing,
+    note: 'No transport run recorded yet today.',
   ),
   SchoolTransportRoute(
     id: 'BUS-03',

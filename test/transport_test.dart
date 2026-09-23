@@ -9,7 +9,9 @@ void main() {
       transportWebsiteSeed.where((route) => route.riders > 0),
       hasLength(3),
     );
-    expect(transportRegisteredRiders, 91);
+    // BUS-02's rider count matches the one real student actually registered on it (see
+    // driver_morning_run_demo_data.dart); the other routes are a separate, not-yet-audited concern.
+    expect(transportRegisteredRiders, 66);
   });
 
   test('vehicle availability matches website snapshot', () {
@@ -23,10 +25,14 @@ void main() {
     );
   });
 
-  test('Barnawa route carries the single morning exception', () {
+  test('Barnawa route (BUS-02) starts honest: no run recorded, no invented driver identity', () {
     final route = transportWebsiteSeed.firstWhere((item) => item.id == 'BUS-02');
-    expect(route.morning, '25 / 26 checked');
-    expect(route.note, contains('absent from school today'));
+    expect(route.morning, 'Not started');
+    expect(route.status, TransportRouteStatus.preparing);
+    expect(route.driver, 'Driver');
+    expect(route.assistant, 'Not recorded yet');
+    // Only one real student is actually registered on this route.
+    expect(route.riders, 1);
   });
 
   test('search and status filtering match website behavior', () {
@@ -34,9 +40,11 @@ void main() {
       transportWebsiteSeed.where((route) => route.matches('Musa Lawal', null)),
       hasLength(1),
     );
+    // BUS-02 now honestly starts as "preparing" (no run recorded yet) rather than a fabricated
+    // "arrived", so only the two other, not-yet-audited routes still match "arrived".
     expect(
       transportWebsiteSeed.where((route) => route.matches('', TransportRouteStatus.arrived)),
-      hasLength(3),
+      hasLength(2),
     );
     expect(
       transportWebsiteSeed.where((route) => route.matches('Backup', TransportRouteStatus.arrived)),

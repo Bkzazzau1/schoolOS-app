@@ -1770,3 +1770,48 @@ gained a test confirming an empty draft cannot be published. `test/teacher_cbt_f
 `test/student_workspace_test.dart` were updated where they asserted on the now-real question editor rather than
 the old fixed preview text. Full suite: 1159 passing, same 8 pre-existing unrelated failures (confirmed unrelated:
 a duplicate-role-label bug on the School Selection picker, in files this feature never touches), zero regressions.
+
+## Driver (role): the BUS-02 morning manifest had 25 entirely fabricated students, not just fabricated evidence
+
+Driver's own repositories (`DriverDashboardRepository`, `DriverMorningRunRepository`, `DriverRidersRepository`, and
+the rest of the run/route/history chain) turned out to already be some of the most carefully built code in the
+app: real assignment lookups, real cross-validation against Transport Control's stop plan, a real state machine
+for arrive/board/depart/complete, real event logging, real sync queueing. The audit found one root problem feeding
+all of them a fabrication, not many separate ones.
+
+`defaultBus02MorningStops()` (`lib/features/driver/data/driver_morning_run_demo_data.dart`) listed 26 riders
+across 7 stops. Only one of them — STU-001, Maryam Abdullahi — was ever a real student from the school's actual
+register (`administratorStudentsWebsiteSeed`, which has exactly four real students total). The other 25 (`STU-014`
+through `STU-283`) were entirely invented people — plausible sequential ids, real-sounding Nigerian names, real
+class names — that Administrator never actually registered anywhere. This is a more severe variant of this
+session's core finding than usual: earlier fixes found fabricated *evidence* attached to real people; this was an
+entire fabricated *population* of people who do not exist in the one real register the rest of the app treats as
+authoritative. It mattered beyond Driver's own screens because this exact function is also the one real seed
+`TransportRiderAssignmentRepository._ensureInitialAssignments` uses school-wide — the same repository Parent's
+School Life (fixed earlier this session) and Administrator's Transport Rider Assignment screen both read.
+
+**Fix:** `defaultBus02MorningStops()` now keeps its 7 real-flavored stops (place names and scheduled times are
+route geography, not a claim about a specific person, so they stay) but each stop's rider list holds only real,
+register-verified students — in practice just Maryam at the first stop; the other six stops are honestly empty
+rather than padded to look like a fuller route. `driver_dashboard_demo_data.dart`'s `defaultDriverAssignment` no
+longer names a fabricated driver ("Mr. Daniel Peter") — a name that flowed into every real record the driver
+produces (morning/afternoon runs, route, history) as if it were fact; it now reads the honest role label
+`'Driver'`, the same convention already used for Parent's "Guardian" and Student's "Student Portal". BUS-02's own
+entry in `transport_demo_data.dart` (the one route this session's real Driver pipeline actually operates) was
+brought into line the same way: `driver`/`assistant` no longer name fabricated people, `riders` now matches the
+real trimmed roster (1, not 26), and `morning`/`status`/`note` read as an honest not-yet-run state instead of an
+invented "25/26 checked, one absent" narrative for a trip that never happened in a fresh install.
+
+**Left for a future pass, explicitly flagged, not routed around:** BUS-01, BUS-03 and BUS-04 in
+`transport_demo_data.dart` still carry the same kind of fabricated driver/assistant names and invented operational
+narrative. No Driver or Administrator screen audited so far actually operates them (only BUS-02 does), so fixing
+them belongs to a future Administrator/Transport Control pass that reviews how those screens consume this data,
+not to this one.
+
+Tests: `test/driver_dashboard_feature_test.dart`, the first coverage any Driver repository has had. Confirms the
+seeded demo driver assignment carries the honest role label; the real BUS-02 rider count (both the dashboard's
+fallback and the route seed itself) matches the real trimmed register rather than an invented headcount; the real
+morning manifest has exactly one real rider and every other stop is honestly empty; and the permission check
+behaves correctly. `test/transport_test.dart` was updated for BUS-02's honest defaults (three assertions that had
+depended on the fabricated 26-rider/"25/26 checked"/"arrived" narrative). Full suite: 1164 passing, same 8
+pre-existing unrelated failures, zero regressions.

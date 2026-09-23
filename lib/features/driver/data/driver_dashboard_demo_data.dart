@@ -1,9 +1,15 @@
 import '../domain/driver_dashboard_models.dart';
 
+// No real membership-to-person display-name directory exists anywhere in the app (the same reason
+// Parent's Dashboard shows "Guardian" and Student's shows "Student Portal" instead of inventing a
+// name), so the one demo Driver's real assignment record honestly carries a role label rather than
+// a fabricated person. This name is written into every real transport record the driver produces
+// (morning/afternoon runs, route, history), so inventing one here would fabricate evidence, not just
+// a greeting.
 const defaultDriverAssignment = DriverTransportAssignment(
   membershipId: 'membership-driver-001',
   routeId: 'BUS-02',
-  driverDisplayName: 'Mr. Daniel Peter',
+  driverDisplayName: 'Driver',
 );
 
 const driverPrivacyBoundary =
