@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_services.dart';
+import '../../../app/open_home.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/organization_membership.dart';
@@ -11,20 +12,32 @@ class AccountHomePage extends StatelessWidget {
     super.key,
     required this.profile,
     required this.services,
-    required this.onOpenSchool,
     required this.onSignOut,
   });
 
   final AuthProfile profile;
   final AppServices services;
-  final Future<void> Function(SchoolMembership membership) onOpenSchool;
-  final Future<void> Function() onSignOut;
+  final Future<void> Function(BuildContext context) onSignOut;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final organizations = profile.organizations;
-    final assignedSchoolMembershipIds = <String>{};
+    final schoolsByOrganization = <String, List<SchoolMembership>>{
+      for (final organization in organizations)
+        organization.organizationId:
+            _schoolsForOrganization(organization, organizations),
+    };
+    final assignedSchoolMembershipIds = {
+      for (final schools in schoolsByOrganization.values)
+        for (final membership in schools) membership.id,
+    };
+    final otherSchools = profile.memberships
+        .where(
+          (membership) =>
+              !assignedSchoolMembershipIds.contains(membership.id),
+        )
+        .toList(growable: false);
 
     return Scaffold(
       appBar: AppBar(
@@ -32,7 +45,7 @@ class AccountHomePage extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Sign out',
-            onPressed: () => onSignOut(),
+            onPressed: () => onSignOut(context),
             icon: const Icon(Icons.logout_rounded),
           ),
           const SizedBox(width: 8),
@@ -63,67 +76,45 @@ class AccountHomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
                   for (final organization in organizations) ...[
-                    Builder(
-                      builder: (context) {
-                        final schools = _schoolsForOrganization(
-                          organization,
-                          organizations,
-                        );
-                        assignedSchoolMembershipIds.addAll(
-                          schools.map((membership) => membership.id),
-                        );
-                        return _OrganizationCard(
-                          organization: organization,
-                          schools: schools,
-                          canProvision: services.organizations != null,
-                          onOpenSchool: onOpenSchool,
-                          onCreateSchool: () => _createSchool(
-                            context,
-                            organization,
-                          ),
-                        );
-                      },
+                    _OrganizationCard(
+                      organization: organization,
+                      schools: schoolsByOrganization[organization.organizationId] ??
+                          const [],
+                      canProvision: services.organizations != null,
+                      onOpenSchool: (membership) =>
+                          _openSchool(context, membership),
+                      onCreateSchool: () => _createSchool(
+                        context,
+                        organization,
+                      ),
                     ),
                     const SizedBox(height: 16),
                   ],
                 ],
-                Builder(
-                  builder: (context) {
-                    final otherSchools = profile.memberships
-                        .where(
-                          (membership) =>
-                              !assignedSchoolMembershipIds.contains(membership.id),
-                        )
-                        .toList(growable: false);
-                    if (otherSchools.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (organizations.isNotEmpty) const SizedBox(height: 12),
-                        Text(
-                          organizations.isEmpty ? 'Your schools' : 'Other school access',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          organizations.isEmpty
-                              ? 'Choose the school and role you want to use.'
-                              : 'Schools where you have a role outside the groups you manage.',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _SchoolGrid(
-                          schools: otherSchools,
-                          onOpenSchool: onOpenSchool,
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                if (otherSchools.isNotEmpty) ...[
+                  if (organizations.isNotEmpty) const SizedBox(height: 12),
+                  Text(
+                    organizations.isEmpty ? 'Your schools' : 'Other school access',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    organizations.isEmpty
+                        ? 'Choose the school and role you want to use.'
+                        : 'Schools where you have a role outside the groups you manage.',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _SchoolGrid(
+                    schools: otherSchools,
+                    onOpenSchool: (membership) =>
+                        _openSchool(context, membership),
+                  ),
+                ],
                 if (organizations.isEmpty && profile.memberships.isEmpty)
                   const _EmptyAccountCard(),
               ],
@@ -158,6 +149,11 @@ class AccountHomePage extends StatelessWidget {
         .toList(growable: false);
   }
 
+  Future<void> _openSchool(
+    BuildContext context,
+    SchoolMembership membership,
+  ) => openMembershipHome(context, services, membership);
+
   Future<void> _createSchool(
     BuildContext context,
     OrganizationMembership organization,
@@ -181,7 +177,7 @@ class AccountHomePage extends StatelessWidget {
       ),
     );
     if (membership == null || !context.mounted) return;
-    await onOpenSchool(membership);
+    await _openSchool(context, membership);
   }
 }
 
@@ -193,7 +189,9 @@ class _AccountHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayName = profile.name.trim().isEmpty ? 'Your SchoolOS account' : profile.name.trim();
+    final displayName = profile.name.trim().isEmpty
+        ? 'Your SchoolOS account'
+        : profile.name.trim();
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -227,7 +225,9 @@ class _AccountHeader extends StatelessWidget {
                 Text(
                   profile.email,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.78),
+                    color: theme.colorScheme.onPrimaryContainer.withValues(
+                      alpha: 0.78,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
