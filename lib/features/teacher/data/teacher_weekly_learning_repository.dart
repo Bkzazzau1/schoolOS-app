@@ -81,9 +81,9 @@ class TeacherWeeklyLearningRepository {
     final updates = <TeacherWeeklyLearningUpdate>[];
     for (final record in records) {
       final parsed = TeacherWeeklyLearningUpdate.fromJson(record.payload);
+      if (!parsed.canonical) continue;
       final assignedNow = optionIds.contains(parsed.classSubjectId);
-      final visibleToTeacher = parsed.authorMembershipId.isEmpty ||
-          parsed.authorMembershipId == membership.id ||
+      final visibleToTeacher = parsed.authorMembershipId == membership.id ||
           parsed.currentTeacherId == membership.id ||
           assignedNow;
       if (!visibleToTeacher) continue;
@@ -143,12 +143,11 @@ class TeacherWeeklyLearningRepository {
     }
 
     final options = await _canonicalOptions(membership);
-    if (!options.any((item) =>
-        item.classSubjectId == draft.classSubjectId &&
-        item.termId == draft.termId)) {
+    if (!_isAssigned(options, draft)) {
       return const TeacherWeeklyLearningActionResult(
         success: false,
-        message: 'This class subject is no longer assigned to your Teacher membership.',
+        message:
+            'This class subject is no longer assigned to your Teacher membership.',
       );
     }
 
@@ -166,7 +165,8 @@ class TeacherWeeklyLearningRepository {
     if (current != null && !current.teacherEditable) {
       return const TeacherWeeklyLearningActionResult(
         success: false,
-        message: 'A queued or published family update cannot be silently rewritten.',
+        message:
+            'A queued or published family update cannot be silently rewritten.',
       );
     }
 
@@ -198,7 +198,8 @@ class TeacherWeeklyLearningRepository {
       membership: membership,
       update: updated,
       action: 'saveDraft',
-      existingServerVersion: existing?.serverVersion,
+      localServerVersion: existing?.serverVersion,
+      mutationBaseVersion: existing?.isDirty == true ? null : existing?.serverVersion,
       operation: existing == null ? SyncOperation.create : SyncOperation.update,
     );
     return TeacherWeeklyLearningActionResult(
@@ -217,31 +218,18 @@ class TeacherWeeklyLearningRepository {
     if (!permissions.canQueuePublication) {
       return const TeacherWeeklyLearningActionResult(
         success: false,
-        message: 'This membership cannot publish Teacher weekly learning updates.',
+        message:
+            'This membership cannot publish Teacher weekly learning updates.',
       );
     }
 
     if (!LocalDatabase.blockDemoSeeds) {
       return _queueDemoPublication(membership, draft);
     }
-    if (!draft.teacherEditable || draft.subjects.length != 1) {
+    if (!draft.canonical || draft.subjects.length != 1) {
       return const TeacherWeeklyLearningActionResult(
         success: false,
-        message: 'This weekly subject update is not editable by the current Teacher.',
-      );
-    }
-    final subject = draft.subjects.first;
-    if (draft.deliveredLessons < 1) {
-      return const TeacherWeeklyLearningActionResult(
-        success: false,
-        message:
-            'No server-accepted delivered lesson evidence is available for this subject/week yet.',
-      );
-    }
-    if (subject.next.trim().isEmpty) {
-      return const TeacherWeeklyLearningActionResult(
-        success: false,
-        message: 'Add the next learning focus before publication.',
+        message: 'Choose a real weekly subject draft first.',
       );
     }
 
@@ -256,10 +244,59 @@ class TeacherWeeklyLearningRepository {
         message: 'Save and synchronize this weekly draft before publishing it.',
       );
     }
+    if (existing.isDirty) {
+      return const TeacherWeeklyLearningActionResult(
+        success: false,
+        message:
+            'Synchronize the current weekly draft changes before publishing them to families.',
+      );
+    }
+
+    final options = await _canonicalOptions(membership);
+    final current = TeacherWeeklyLearningUpdate.fromJson(existing.payload).copyWith(
+      pendingSync: false,
+      currentTeacherAuthorized: _isAssigned(options, draft),
+    );
+    if (!current.teacherEditable) {
+      return const TeacherWeeklyLearningActionResult(
+        success: false,
+        message:
+            'This weekly subject update is not editable by the current Teacher.',
+      );
+    }
+    if (current.deliveredLessons < 1) {
+      return const TeacherWeeklyLearningActionResult(
+        success: false,
+        message:
+            'No server-accepted delivered lesson evidence is available for this subject/week yet.',
+      );
+    }
+
+    final input = draft.subjects.first;
+    if (input.next.trim().isEmpty) {
+      return const TeacherWeeklyLearningActionResult(
+        success: false,
+        message: 'Add the next learning focus before publication.',
+      );
+    }
+    final factual = current.subjectUpdate;
+    if (factual == null) {
+      return const TeacherWeeklyLearningActionResult(
+        success: false,
+        message: 'Canonical weekly evidence is incomplete. Reload before publishing.',
+      );
+    }
+
+    final subject = factual.copyWith(
+      next: input.next.trim(),
+      support: input.support.trim(),
+    );
     final now = DateTime.now().toUtc().toIso8601String();
-    final queued = draft.copyWith(
+    final queued = current.copyWith(
+      subjects: [subject],
+      note: draft.note.trim(),
       state: TeacherWeeklyPublicationState.queuedForPublication,
-      version: draft.version + 1,
+      version: current.version + 1,
       updatedAt: now,
       queuedAt: now,
       pendingSync: true,
@@ -268,7 +305,8 @@ class TeacherWeeklyLearningRepository {
       membership: membership,
       update: queued,
       action: 'publish',
-      existingServerVersion: existing.serverVersion,
+      localServerVersion: existing.serverVersion,
+      mutationBaseVersion: existing.serverVersion,
       operation: SyncOperation.update,
     );
     return TeacherWeeklyLearningActionResult(
@@ -278,6 +316,16 @@ class TeacherWeeklyLearningRepository {
       update: queued,
     );
   }
+
+  bool _isAssigned(
+    List<TeacherWeeklyLearningOption> options,
+    TeacherWeeklyLearningUpdate update,
+  ) =>
+      options.any(
+        (item) =>
+            item.classSubjectId == update.classSubjectId &&
+            item.termId == update.termId,
+      );
 
   Future<List<TeacherWeeklyLearningOption>> _canonicalOptions(
     SchoolMembership membership,
@@ -313,7 +361,8 @@ class TeacherWeeklyLearningRepository {
     required SchoolMembership membership,
     required TeacherWeeklyLearningUpdate update,
     required String action,
-    required int? existingServerVersion,
+    required int? localServerVersion,
+    required int? mutationBaseVersion,
     required SyncOperation operation,
   }) async {
     await _localDatabase.upsertLocalRecord(
@@ -321,7 +370,7 @@ class TeacherWeeklyLearningRepository {
       entityType: _updateType,
       entityId: update.id,
       payload: update.toJson(),
-      serverVersion: existingServerVersion,
+      serverVersion: localServerVersion,
       isDirty: true,
     );
     await _localDatabase.queueMutation(
@@ -331,7 +380,7 @@ class TeacherWeeklyLearningRepository {
       entityId: update.id,
       operation: operation,
       payload: update.toMutationJson(action: action),
-      baseVersion: existingServerVersion,
+      baseVersion: mutationBaseVersion,
     );
   }
 
@@ -368,7 +417,8 @@ class TeacherWeeklyLearningRepository {
     if (!draft.teacherEditable) {
       return const TeacherWeeklyLearningActionResult(
         success: false,
-        message: 'A queued or published parent update cannot be silently rewritten.',
+        message:
+            'A queued or published parent update cannot be silently rewritten.',
       );
     }
     final now = DateTime.now().toUtc().toIso8601String();
@@ -386,7 +436,8 @@ class TeacherWeeklyLearningRepository {
     );
     return TeacherWeeklyLearningActionResult(
       success: true,
-      message: 'Weekly learning draft saved locally and queued for synchronization.',
+      message:
+          'Weekly learning draft saved locally and queued for synchronization.',
       update: updated,
     );
   }
@@ -402,10 +453,12 @@ class TeacherWeeklyLearningRepository {
       );
     }
     if (draft.subjects.isEmpty ||
-        draft.subjects.any((item) =>
-            item.covered.trim().isEmpty ||
-            item.evidence.trim().isEmpty ||
-            item.next.trim().isEmpty)) {
+        draft.subjects.any(
+          (item) =>
+              item.covered.trim().isEmpty ||
+              item.evidence.trim().isEmpty ||
+              item.next.trim().isEmpty,
+        )) {
       return const TeacherWeeklyLearningActionResult(
         success: false,
         message:
