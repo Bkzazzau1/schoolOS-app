@@ -142,6 +142,7 @@ class _OrganizationSubscriptionCardState
           OrganizationInvoicesCard(
             organization: widget.organization,
             repository: widget.repository,
+            automation: summary!.automation,
           ),
         ],
       ],
@@ -158,6 +159,7 @@ class _SubscriptionDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final plan = summary.plan;
+    final automation = summary.automation;
     final schoolProvisioning = summary.entitlements['school_provisioning'];
     final multiSchool = summary.entitlements['multi_school'];
 
@@ -176,13 +178,27 @@ class _SubscriptionDetails extends StatelessWidget {
                     '${_money(plan.currency, plan.studentUnitAmountMinor)} / student',
               ),
             _Metric(
+              label: 'Billing cadence',
+              value: _intervalLabel(plan?.billingInterval),
+            ),
+            _Metric(
               label: 'Active schools',
               value: '${summary.usage.activeSchools}',
+            ),
+            _Metric(
+              label: 'Roster meter',
+              value:
+                  '${automation.meteredSchools}/${automation.activeSchools} schools',
             ),
             if (summary.usage.billableStudents != null)
               _Metric(
                 label: 'Billable students',
                 value: '${summary.usage.billableStudents}',
+              ),
+            if (automation.nextInvoiceAt != null)
+              _Metric(
+                label: 'Next cycle',
+                value: _dateLabel(automation.nextInvoiceAt!),
               ),
           ],
         ),
@@ -193,10 +209,74 @@ class _SubscriptionDetails extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Icon(
+                    automation.enabled
+                        ? Icons.autorenew_rounded
+                        : Icons.schedule_outlined,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
+                  Text(
+                    'Billing automation',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Chip(
+                    label: Text(automation.stateLabel),
+                    avatar: Icon(
+                      automation.enabled
+                          ? Icons.check_circle_rounded
+                          : Icons.info_outline_rounded,
+                      size: 17,
+                    ),
+                  ),
+                ],
+              ),
+              if (automation.message.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  automation.message,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (automation.invoiceDueDays != null &&
+                  automation.pastDueDays != null &&
+                  automation.graceDays != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Payment due ${automation.invoiceDueDays} day(s) after issue · '
+                  'past-due window ${automation.pastDueDays} day(s) · '
+                  'grace ${automation.graceDays} day(s).',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
         if (plan != null && plan.billingInterval == null) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            'The billing interval has not been activated yet. Invoice preparation will remain unavailable until the commercial cadence is configured.',
+            'The billing interval has not been activated yet. SchoolOS will not generate automatic charges until the commercial cadence is configured.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -303,6 +383,33 @@ class _EntitlementChip extends StatelessWidget {
       label: Text(limit == null ? label : '$label · limit $limit'),
     );
   }
+}
+
+String _intervalLabel(String? interval) => switch (interval) {
+      'monthly' => 'Monthly',
+      'annual' => 'Annual',
+      'term' => 'Per term',
+      'custom' => 'Custom',
+      _ => 'Not configured',
+    };
+
+String _dateLabel(DateTime value) {
+  final local = value.toLocal();
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${local.day} ${months[local.month - 1]} ${local.year}';
 }
 
 String _money(String currency, int minor) {

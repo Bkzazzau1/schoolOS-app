@@ -72,6 +72,72 @@ class BillingUsage {
       );
 }
 
+class BillingAutomation {
+  const BillingAutomation({
+    required this.enabled,
+    required this.state,
+    required this.message,
+    required this.activeSchools,
+    required this.meteredSchools,
+    this.periodStart,
+    this.periodEnd,
+    this.nextInvoiceAt,
+    this.invoiceDueDays,
+    this.pastDueDays,
+    this.graceDays,
+  });
+
+  static const unavailable = BillingAutomation(
+    enabled: false,
+    state: 'unknown',
+    message: '',
+    activeSchools: 0,
+    meteredSchools: 0,
+  );
+
+  final bool enabled;
+  final String state;
+  final String message;
+  final int activeSchools;
+  final int meteredSchools;
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+  final DateTime? nextInvoiceAt;
+  final int? invoiceDueDays;
+  final int? pastDueDays;
+  final int? graceDays;
+
+  bool get meterReady => meteredSchools >= activeSchools;
+
+  String get stateLabel => switch (state) {
+        'cadence_not_configured' => 'Cadence not configured',
+        'automatic_invoicing_off' => 'Automatic invoicing off',
+        'policy_incomplete' => 'Policy incomplete',
+        'period_required' => 'Billing period required',
+        'awaiting_meter' => 'Waiting for roster meter',
+        'ready_to_initialize' => 'Ready to initialize',
+        'ready_to_invoice' => 'Ready to invoice',
+        'scheduled' => 'Scheduled',
+        'invoice_outstanding' => 'Invoice outstanding',
+        _ => state.isEmpty || state == 'unknown' ? 'Not available' : state,
+      };
+
+  factory BillingAutomation.fromJson(Map<String, dynamic> json) =>
+      BillingAutomation(
+        enabled: json['enabled'] as bool? ?? false,
+        state: json['state'] as String? ?? 'unknown',
+        message: json['message'] as String? ?? '',
+        activeSchools: (json['activeSchools'] as num?)?.toInt() ?? 0,
+        meteredSchools: (json['meteredSchools'] as num?)?.toInt() ?? 0,
+        periodStart: _date(json['periodStart']),
+        periodEnd: _date(json['periodEnd']),
+        nextInvoiceAt: _date(json['nextInvoiceAt']),
+        invoiceDueDays: (json['invoiceDueDays'] as num?)?.toInt(),
+        pastDueDays: (json['pastDueDays'] as num?)?.toInt(),
+        graceDays: (json['graceDays'] as num?)?.toInt(),
+      );
+}
+
 class OrganizationSubscriptionSummary {
   const OrganizationSubscriptionSummary({
     required this.organizationId,
@@ -86,6 +152,7 @@ class OrganizationSubscriptionSummary {
     this.trialEndsAt,
     this.graceEndsAt,
     this.cancelAtPeriodEnd = false,
+    this.automation = BillingAutomation.unavailable,
   });
 
   final String organizationId;
@@ -100,6 +167,7 @@ class OrganizationSubscriptionSummary {
   final DateTime? trialEndsAt;
   final DateTime? graceEndsAt;
   final bool cancelAtPeriodEnd;
+  final BillingAutomation automation;
 
   bool get accountChangesAvailable => accessMode == 'full';
 
@@ -151,6 +219,11 @@ class OrganizationSubscriptionSummary {
       trialEndsAt: _date(json['trialEndsAt']),
       graceEndsAt: _date(json['graceEndsAt']),
       cancelAtPeriodEnd: json['cancelAtPeriodEnd'] as bool? ?? false,
+      automation: json['automation'] is Map
+          ? BillingAutomation.fromJson(
+              Map<String, dynamic>.from(json['automation'] as Map),
+            )
+          : BillingAutomation.unavailable,
     );
   }
 }
