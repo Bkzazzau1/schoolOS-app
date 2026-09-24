@@ -1,7 +1,8 @@
 enum AdministratorStudentStatus {
   active('Active'),
   transferPending('Transfer pending'),
-  transferredOut('Transferred out');
+  transferredOut('Transferred out'),
+  graduated('Graduated');
 
   const AdministratorStudentStatus(this.label);
   final String label;
