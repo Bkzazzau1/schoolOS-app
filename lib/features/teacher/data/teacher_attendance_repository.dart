@@ -183,6 +183,16 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     required Map<String, Object?> schedule,
     required Map<String, List<TeacherAttendanceTopicOption>> topicOptions,
   }) {
+    if (schedule.containsKey('attendanceOccurrences')) {
+      return _publishedOccurrences(
+        membership: membership,
+        rawOccurrences: schedule['attendanceOccurrences'],
+        topicOptions: topicOptions,
+      );
+    }
+
+    // Compatibility fallback for a pre-upgrade private schedule cached before
+    // the server began publishing explicit occurrence authority.
     final entries = _mapList(schedule['entries']);
     final overrides = _mapList(schedule['overrides']);
     final now = DateTime.now();
@@ -232,8 +242,6 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
       if (included.add(register.lesson.id)) result.add(register);
     }
 
-    // A substitute Teacher receives the override even when the base recurring
-    // entry is not part of their own assignment payload.
     for (final override in overrides) {
       if (override['teacherId'] != membership.id ||
           override['status'] != 'substitution') {
@@ -258,6 +266,36 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
       if (included.add(register.lesson.id)) result.add(register);
     }
 
+    result.sort(_registerOrder);
+    return result;
+  }
+
+  List<TeacherAttendanceRegister> _publishedOccurrences({
+    required SchoolMembership membership,
+    required Object? rawOccurrences,
+    required Map<String, List<TeacherAttendanceTopicOption>> topicOptions,
+  }) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final result = <TeacherAttendanceRegister>[];
+    for (final source in _mapList(rawOccurrences)) {
+      if ((source['teacherId'] as String? ?? '') != membership.id) continue;
+      if (source['status'] == 'cancelled') continue;
+      final lessonDate = source['lessonDate'] as String? ?? '';
+      final date = DateTime.tryParse(lessonDate);
+      if (date == null || date.isAfter(today)) continue;
+      final entryId = source['id'] as String? ?? '';
+      if (entryId.isEmpty) continue;
+      result.add(
+        _occurrenceRegister(
+          entryId: entryId,
+          lessonDate: lessonDate,
+          source: source,
+          room: source['room'] as String? ?? '',
+          topicOptions: topicOptions,
+        ),
+      );
+    }
     result.sort(_registerOrder);
     return result;
   }
