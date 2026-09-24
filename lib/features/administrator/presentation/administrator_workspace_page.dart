@@ -16,6 +16,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../data/administrator_academics_repository.dart';
 import '../data/administrator_admissions_repository.dart';
 import '../data/administrator_attendance_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
@@ -30,6 +31,7 @@ import '../data/administrator_students_repository.dart';
 import '../data/administrator_website_repository.dart';
 import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_dashboard_models.dart';
+import 'administrator_academics_page.dart';
 import 'administrator_admissions_page.dart';
 import 'administrator_attendance_page.dart';
 import 'administrator_dashboard_page.dart';
@@ -62,14 +64,17 @@ class AdministratorWorkspacePage extends StatefulWidget {
       _AdministratorWorkspacePageState();
 }
 
-class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage> with SyncRefresh<AdministratorWorkspacePage>, AccessAware<AdministratorWorkspacePage> {
-  /// The screens the owner allows this person (all of them until their access is known).
+class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
+    with
+        SyncRefresh<AdministratorWorkspacePage>,
+        AccessAware<AdministratorWorkspacePage> {
   List<AdministratorNavItem> get _navigation =>
       visibleScreens('administrator', administratorNavigation, (item) => item.key);
 
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
   AdmissionApplicant? _registrationApplicant;
+  late final AdministratorAcademicsRepository _academicsRepository;
   late final AdministratorAdmissionsRepository _admissionsRepository;
   late final AdministratorAttendanceRepository _attendanceRepository;
   late final AdministratorLifecycleRepository _lifecycleRepository;
@@ -85,6 +90,10 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
   @override
   void initState() {
     super.initState();
+    _academicsRepository = AdministratorAcademicsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _admissionsRepository = AdministratorAdmissionsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
@@ -288,11 +297,21 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       );
     }
 
+    if (_activeKey == 'academics') {
+      return AdministratorAcademicsPage(
+        schoolName: widget.membership.schoolName,
+        repository: _academicsRepository,
+        students: _studentsRepository,
+        onChanged: _refreshPendingCount,
+      );
+    }
+
     if (_activeKey == 'staff') {
       return AdministratorStaffPage(
         schoolName: widget.membership.schoolName,
         repository: _staffRepository,
-        proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), 
+        proposals: StaffProposalRepository(
+          remote: StaffServerScope.maybeOf(context),
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),
@@ -305,11 +324,13 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),
-        proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), 
+        proposals: StaffProposalRepository(
+          remote: StaffServerScope.maybeOf(context),
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),
-        payrollBatches: PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), 
+        payrollBatches: PayrollBatchRepository(
+          confirm: ServerConfirmScope.maybeOf(context),
           database: widget.localDatabase,
           session: widget.schoolSession,
         ),
@@ -640,6 +661,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       'website' => Icons.language_rounded,
       'registration' => Icons.person_add_alt_1_rounded,
       'students' => Icons.groups_rounded,
+      'academics' => Icons.account_tree_outlined,
       'staff' => Icons.badge_outlined,
       'staff-attendance' => Icons.schedule_rounded,
       'staff-profiles' => Icons.folder_shared_outlined,
