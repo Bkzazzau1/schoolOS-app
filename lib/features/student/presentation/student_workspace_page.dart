@@ -613,6 +613,43 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
             description:
                 'Evidence from your own records, clearly marked when it is only a sample.',
           ),
+          if (_results?.reportCard != null) ...[
+            _SectionCard(
+              title: 'Term report card',
+              subtitle: '${_results!.reportCard!.term} · Released',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_results!.reportCard!.overallAverage?.round() ?? '—'}%'
+                    '${_results!.reportCard!.overallGrade.isEmpty ? '' : ' · ${_results!.reportCard!.overallGrade}'}',
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 28),
+                  ),
+                  if (_results!.reportCard!.classPosition != null)
+                    Text('Position ${_results!.reportCard!.classPosition} of ${_results!.reportCard!.classSize}'),
+                  const SizedBox(height: 8),
+                  for (final line in _results!.reportCard!.subjects)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(line.subject)),
+                          Text(
+                            line.percent == null ? 'Not recorded' : '${line.percent!.round()}% · ${line.grade}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_results!.reportCard!.principalComment.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('Principal: ${_results!.reportCard!.principalComment}'),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           _SectionCard(
             title: 'Term results',
             subtitle: !_demo

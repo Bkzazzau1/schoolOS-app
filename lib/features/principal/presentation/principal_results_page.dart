@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/principal_results_repository.dart';
+import '../domain/principal_results_models.dart';
 
 class PrincipalResultsPage extends StatefulWidget {
   const PrincipalResultsPage({
@@ -18,7 +19,9 @@ class PrincipalResultsPage extends StatefulWidget {
 class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
   PrincipalResultsSnapshot? _snapshot;
   String? _error;
+  String? _notice;
   String _query = '';
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +42,40 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
     }
   }
 
+  Future<void> _approve(PrincipalStudentResult student) => _review(student, PrincipalReportReviewAction.approve, '');
+
+  Future<void> _returnWithComment(PrincipalStudentResult student) async {
+    final controller = TextEditingController();
+    final comment = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Return ${student.name}\'s report card'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Comment'),
+          maxLines: 2,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(controller.text.trim()), child: const Text('Return')),
+        ],
+      ),
+    );
+    if (comment == null || comment.isEmpty) return;
+    await _review(student, PrincipalReportReviewAction.returnWithComment, comment);
+  }
+
+  Future<void> _review(PrincipalStudentResult student, PrincipalReportReviewAction action, String comment) async {
+    final result = await widget.repository.reviewReport(studentId: student.id, action: action, comment: comment);
+    if (!mounted) return;
+    setState(() => _notice = result.message);
+    if (result.success) {
+      widget.onMutationQueued?.call();
+      _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
@@ -55,6 +92,13 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
         child: Text('Secondary results require Principal access.'),
       );
     }
+    final awaitingReview = snapshot.students
+        .where((s) => s.reportStatus == PrincipalResultReleaseState.awaitingApproval)
+        .toList();
+    final decided = snapshot.students
+        .where((s) => s.reportStatus != PrincipalResultReleaseState.awaitingApproval)
+        .toList();
+
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -68,13 +112,17 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Released assessments: ${snapshot.reportsReady} · Classes with released results: ${snapshot.releasedClasses}',
+          'Report cards awaiting review: ${snapshot.pendingApproval} · Released: ${snapshot.reportsReady}',
         ),
+        if (_notice != null) ...[
+          const SizedBox(height: 8),
+          Text(_notice!, style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+        ],
         const Card(
           child: Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              'This is recorded and released assessment evidence per class, not an official term report card. A report card also needs a term grade roll-up, position, conduct and Principal/Administrator sign-off, which is a separate, not-yet-built feature. Nothing here is fabricated or inferred beyond a released assessment\'s own recorded scores.',
+              'Report cards are compiled by the Administrator from released assessment evidence. Approving here is a review decision, not publication - release to families remains a separate Administrator/Proprietor action. Attendance percent and a class-teacher comment are not available yet.',
             ),
           ),
         ),
@@ -82,6 +130,42 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
           onPressed: () => widget.onNavigate('academics'),
           child: const Text('View recorded assessment evidence'),
         ),
+        const SizedBox(height: 16),
+        if (awaitingReview.isNotEmpty) ...[
+          Text('Awaiting your review', style: Theme.of(context).textTheme.titleMedium),
+          for (final student in awaitingReview)
+            Card(
+              child: ListTile(
+                title: Text('${student.name} · ${student.className}'),
+                subtitle: Text(
+                  student.average == 0 ? 'No released assessment evidence yet' : 'Average ${student.average}%'
+                      '${student.position.isEmpty ? '' : ' · Position ${student.position}'}',
+                ),
+                trailing: Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(onPressed: () => _returnWithComment(student), child: const Text('Return')),
+                    FilledButton(onPressed: () => _approve(student), child: const Text('Approve')),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+        ],
+        if (decided.isNotEmpty) ...[
+          Text('Reviewed / released', style: Theme.of(context).textTheme.titleMedium),
+          for (final student in decided)
+            Card(
+              child: ListTile(
+                title: Text('${student.name} · ${student.className}'),
+                subtitle: Text(
+                  'Average ${student.average}%${student.position.isEmpty ? '' : ' · Position ${student.position}'}',
+                ),
+                trailing: Chip(label: Text(student.reportStatus.label)),
+              ),
+            ),
+          const SizedBox(height: 16),
+        ],
         TextField(
           decoration: const InputDecoration(labelText: 'Search class'),
           onChanged: (value) =>

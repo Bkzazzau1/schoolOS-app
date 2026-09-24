@@ -1,3 +1,5 @@
+import '../../administrator/domain/report_card_models.dart';
+
 enum ParentLearningStatus {
   strong('Strong'),
   stable('Stable'),
@@ -141,6 +143,7 @@ class ParentLearningChild {
     required this.timeline,
     required this.insight,
     required this.actions,
+    this.reportCard,
   });
 
   final String id;
@@ -158,6 +161,11 @@ class ParentLearningChild {
   final List<ParentLearningTimelineEvent> timeline;
   final String insight;
   final List<String> actions;
+
+  /// This term's released report card, if the school has compiled and
+  /// released one. Null otherwise - never fabricated from per-assessment
+  /// evidence above.
+  final ReportCard? reportCard;
 
   bool get improving => trendPercent > 0;
 

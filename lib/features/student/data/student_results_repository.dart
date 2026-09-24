@@ -1,6 +1,7 @@
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/domain/report_card_models.dart';
 import '../../teacher/data/teacher_assessment_repository.dart'
     show teacherAssessmentEntityType;
 import '../../teacher/domain/teacher_assessment_models.dart';
@@ -31,10 +32,19 @@ class StudentResult {
 }
 
 class StudentResultsSnapshot {
-  const StudentResultsSnapshot({required this.results, required this.averagePercent});
+  const StudentResultsSnapshot({
+    required this.results,
+    required this.averagePercent,
+    this.reportCard,
+  });
 
   final List<StudentResult> results;
   final double? averagePercent;
+
+  /// This term's released report card, if the school has compiled and
+  /// released one. Null otherwise - never fabricated from the per-assessment
+  /// results above.
+  final ReportCard? reportCard;
 }
 
 /// A Student never sees a mark before the school has released it, and only
@@ -64,6 +74,19 @@ class StudentResultsRepository {
     final myStudentCode = await _myStudentCode(membership);
     if (myStudentCode == null) {
       return const StudentResultsSnapshot(results: [], averagePercent: null);
+    }
+
+    final reportCardRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: reportCardEntityType,
+    );
+    ReportCard? myReportCard;
+    for (final record in reportCardRecords) {
+      final card = ReportCard.fromJson(record.payload);
+      if (card.state != ReportCardState.released || card.studentId != myStudentCode) continue;
+      if (myReportCard == null || (card.releasedAt ?? '').compareTo(myReportCard.releasedAt ?? '') > 0) {
+        myReportCard = card;
+      }
     }
 
     final records = await _localDatabase.getLocalRecords(
@@ -105,6 +128,7 @@ class StudentResultsRepository {
     return StudentResultsSnapshot(
       results: results,
       averagePercent: results.isEmpty ? null : totalPercent / results.length,
+      reportCard: myReportCard,
     );
   }
 

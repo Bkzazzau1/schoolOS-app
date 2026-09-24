@@ -72,6 +72,10 @@ class _ParentLearningProgressPageState
                   _Header(onBack: () => widget.onNavigate('children')),
                   const SizedBox(height: 18),
                   _KpiGrid(child: selected),
+                  if (selected.reportCard != null) ...[
+                    const SizedBox(height: 16),
+                    _ReportCardCard(child: selected),
+                  ],
                   const SizedBox(height: 16),
                   _ResponsivePair(
                     left: _ChildrenSelector(
@@ -700,6 +704,49 @@ class _TopicTile extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(topic.note, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportCardCard extends StatelessWidget {
+  const _ReportCardCard({required this.child});
+
+  final ParentLearningChild child;
+
+  @override
+  Widget build(BuildContext context) {
+    final card = child.reportCard!;
+    return _SectionCard(
+      title: 'Term report card',
+      subtitle: '${card.term} · Released',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${card.overallAverage?.round() ?? '—'}%${card.overallGrade.isEmpty ? '' : ' · ${card.overallGrade}'}',
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 26),
+          ),
+          if (card.classPosition != null) Text('Position ${card.classPosition} of ${card.classSize}'),
+          const SizedBox(height: 8),
+          for (final line in card.subjects)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Expanded(child: Text(line.subject)),
+                  Text(
+                    line.percent == null ? 'Not recorded' : '${line.percent!.round()}% · ${line.grade}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          if (card.principalComment.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('Principal: ${card.principalComment}'),
+          ],
         ],
       ),
     );

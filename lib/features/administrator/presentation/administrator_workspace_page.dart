@@ -26,6 +26,7 @@ import '../data/administrator_operations_repository.dart';
 import '../data/administrator_overview.dart';
 import '../data/administrator_records_repository.dart';
 import '../data/administrator_registration_repository.dart';
+import '../data/administrator_report_card_repository.dart';
 import '../data/administrator_staff_attendance_repository.dart';
 import '../data/administrator_staff_repository.dart';
 import '../data/administrator_students_repository.dart';
@@ -36,6 +37,7 @@ import '../domain/administrator_dashboard_models.dart';
 import 'administrator_academics_page.dart';
 import 'administrator_admissions_page.dart';
 import 'administrator_assessment_release_page.dart';
+import 'administrator_report_cards_page.dart';
 import 'administrator_attendance_page.dart';
 import 'administrator_curriculum_page.dart';
 import 'administrator_dashboard_page.dart';
@@ -82,6 +84,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
   late final AdministratorAcademicsRepository _academicsRepository;
   late final AdministratorAdmissionsRepository _admissionsRepository;
   late final AdministratorAssessmentReleaseRepository _assessmentReleaseRepository;
+  late final AdministratorReportCardRepository _reportCardRepository;
   late final AdministratorAttendanceRepository _attendanceRepository;
   late final AdministratorLifecycleRepository _lifecycleRepository;
   late final AdministratorNoticesRepository _noticesRepository;
@@ -106,6 +109,10 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       schoolSession: widget.schoolSession,
     );
     _assessmentReleaseRepository = AdministratorAssessmentReleaseRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _reportCardRepository = AdministratorReportCardRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -325,6 +332,12 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       case 'assessment-release':
         return AdministratorAssessmentReleasePage(
           repository: _assessmentReleaseRepository,
+          onChanged: _refreshPendingCount,
+        );
+      case 'report-cards':
+        return AdministratorReportCardsPage(
+          repository: _reportCardRepository,
+          academics: _academicsRepository,
           onChanged: _refreshPendingCount,
         );
       case 'staff':
@@ -649,6 +662,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
         'curriculum' => Icons.menu_book_outlined,
         'timetable' => Icons.calendar_month_outlined,
         'assessment-release' => Icons.fact_check_rounded,
+        'report-cards' => Icons.assignment_ind_outlined,
         'staff' => Icons.badge_outlined,
         'staff-attendance' => Icons.schedule_rounded,
         'staff-profiles' => Icons.folder_shared_outlined,

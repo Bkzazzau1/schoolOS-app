@@ -1,6 +1,7 @@
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/domain/report_card_models.dart';
 import '../../teacher/data/teacher_assessment_repository.dart'
     show teacherAssessmentEntityType;
 import '../../teacher/domain/teacher_assessment_models.dart';
@@ -39,6 +40,15 @@ class ParentLearningProgressRepository {
   Future<ParentLearningProgressSnapshot> load() async {
     final membership = _requireParentMembership();
     final linked = (await _children.load()).children;
+
+    final reportCardRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: reportCardEntityType,
+    );
+    final releasedReportCards = reportCardRecords
+        .map((record) => ReportCard.fromJson(record.payload))
+        .where((card) => card.state == ReportCardState.released)
+        .toList(growable: false);
 
     final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
@@ -100,6 +110,14 @@ class ParentLearningProgressRepository {
                       ? ParentLearningStatus.watch
                       : ParentLearningStatus.needsSupport;
 
+      ReportCard? childReportCard;
+      for (final card in releasedReportCards) {
+        if (card.studentId != child.id) continue;
+        if (childReportCard == null || (card.releasedAt ?? '').compareTo(childReportCard.releasedAt ?? '') > 0) {
+          childReportCard = card;
+        }
+      }
+
       children.add(ParentLearningChild(
         id: child.id,
         name: child.name,
@@ -122,6 +140,7 @@ class ParentLearningProgressRepository {
             ? _notRecorded
             : 'Based on $scoredCount recorded assessment${scoredCount == 1 ? '' : 's'} so far this term.',
         actions: const [],
+        reportCard: childReportCard,
       ));
     }
 
