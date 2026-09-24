@@ -4,7 +4,6 @@ import '../../../shared/models/school_membership.dart';
 import '../domain/administrator_registration_models.dart';
 import '../domain/administrator_lifecycle_models.dart';
 import '../domain/administrator_students_models.dart';
-import 'administrator_demo_school.dart';
 import 'administrator_lifecycle_effects.dart';
 import 'administrator_lifecycle_repository.dart';
 import 'administrator_students_demo_data.dart';
@@ -42,13 +41,20 @@ class AdministratorStudentsRepository {
 
   Future<AdministratorStudentsSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    var directoryRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
 
-    if (records.isEmpty) {
-      for (final student in [...administratorStudentsWebsiteSeed, ...administratorStudentsDemoExtras]) {
+    // Website/demo directory rows are useful only in standalone demo mode. In a
+    // backend-connected school, the authoritative live directory is derived from
+    // server-confirmed canonical registrations plus lifecycle history. This also
+    // prevents old demo rows on a device from being mistaken for real students.
+    if (!LocalDatabase.blockDemoSeeds && directoryRecords.isEmpty) {
+      for (final student in [
+        ...administratorStudentsWebsiteSeed,
+        ...administratorStudentsDemoExtras,
+      ]) {
         await _localDatabase.upsertLocalRecord(
           tenantId: membership.schoolId,
           entityType: _entityType,
@@ -56,15 +62,19 @@ class AdministratorStudentsRepository {
           payload: student.toJson(),
         );
       }
-      records = await _localDatabase.getLocalRecords(
+      directoryRecords = await _localDatabase.getLocalRecords(
         tenantId: membership.schoolId,
         entityType: _entityType,
       );
     }
 
-    final students = records
-        .map((record) => AdministratorStudentRecord.fromJson(record.payload))
-        .toList();
+    final students = LocalDatabase.blockDemoSeeds
+        ? <AdministratorStudentRecord>[]
+        : directoryRecords
+            .map(
+              (record) => AdministratorStudentRecord.fromJson(record.payload),
+            )
+            .toList();
 
     final registrations = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
@@ -72,8 +82,18 @@ class AdministratorStudentsRepository {
     );
     for (final record in registrations) {
       final registration = StudentRegistrationRecord.fromJson(record.payload);
-      if (!registration.isActive || registration.studentId.trim().isEmpty) continue;
-      if (students.any((student) => student.id == registration.studentId)) continue;
+      if (!registration.isActive || registration.studentId.trim().isEmpty) {
+        continue;
+      }
+      if (LocalDatabase.blockDemoSeeds && !registration.isCanonicalActive) {
+        // A local Active value can still be queued or rejected. The server-owned
+        // canonical marker is returned only after Student + Enrollment creation
+        // succeeds, so live directories never present queued activation as fact.
+        continue;
+      }
+      if (students.any((student) => student.id == registration.studentId)) {
+        continue;
+      }
       students.add(
         AdministratorStudentRecord(
           id: registration.studentId,
@@ -85,25 +105,28 @@ class AdministratorStudentsRepository {
       );
     }
 
-    final websiteOrder = <String, int>{
-      for (var i = 0; i < administratorStudentsWebsiteSeed.length; i++)
-        administratorStudentsWebsiteSeed[i].id: i,
-    };
-    students.sort((a, b) {
-      final aOrder = websiteOrder[a.id];
-      final bOrder = websiteOrder[b.id];
-      if (aOrder != null && bOrder != null) return aOrder.compareTo(bOrder);
-      if (aOrder != null) return -1;
-      if (bOrder != null) return 1;
-      return a.id.compareTo(b.id);
-    });
+    if (LocalDatabase.blockDemoSeeds) {
+      students.sort((a, b) => a.id.compareTo(b.id));
+    } else {
+      final websiteOrder = <String, int>{
+        for (var i = 0; i < administratorStudentsWebsiteSeed.length; i++)
+          administratorStudentsWebsiteSeed[i].id: i,
+      };
+      students.sort((a, b) {
+        final aOrder = websiteOrder[a.id];
+        final bOrder = websiteOrder[b.id];
+        if (aOrder != null && bOrder != null) return aOrder.compareTo(bOrder);
+        if (aOrder != null) return -1;
+        if (bOrder != null) return 1;
+        return a.id.compareTo(b.id);
+      });
+    }
 
-    // The register shows each student where the completed lifecycle changes have put them.
     final lifecycle = (await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: AdministratorLifecycleRepository.entityType,
     ))
-        .map((r) => AdministratorLifecycleRecord.fromJson(r.payload))
+        .map((record) => AdministratorLifecycleRecord.fromJson(record.payload))
         .toList();
 
     return AdministratorStudentsSnapshot(

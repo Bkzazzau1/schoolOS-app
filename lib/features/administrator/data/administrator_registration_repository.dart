@@ -52,9 +52,11 @@ class AdministratorRegistrationRepository {
     AdmissionApplicant? sourceApplicant,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
-    final seed = sourceApplicant == null
-        ? administratorRegistrationWebsiteSeed
-        : _fromApplicant(sourceApplicant);
+    final seed = sourceApplicant != null
+        ? _fromApplicant(sourceApplicant)
+        : LocalDatabase.blockDemoSeeds
+            ? _newLiveDraft()
+            : administratorRegistrationWebsiteSeed;
 
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
@@ -111,7 +113,8 @@ class AdministratorRegistrationRepository {
     if (!permissionsFor(membership).canRegisterStudent) {
       return const AdministratorRegistrationActionResult(
         success: false,
-        message: 'This membership cannot create or complete student registrations.',
+        message:
+            'This membership cannot create or complete student registrations.',
       );
     }
 
@@ -127,13 +130,15 @@ class AdministratorRegistrationRepository {
         if (applicant.isClosed) {
           return AdministratorRegistrationActionResult(
             success: false,
-            message: '${applicant.name}\'s application is closed: ${applicant.closedReason}',
+            message:
+                '${applicant.name}\'s application is closed: ${applicant.closedReason}',
           );
         }
         if (applicant.stage.index < AdmissionStage.accepted.index) {
           return AdministratorRegistrationActionResult(
             success: false,
-            message: 'The offer to ${applicant.name} has not been accepted yet. Accept it in Admissions before completing registration.',
+            message:
+                'The offer to ${applicant.name} has not been accepted yet. Accept it in Admissions before completing registration.',
           );
         }
       }
@@ -160,9 +165,6 @@ class AdministratorRegistrationRepository {
       );
     }
 
-    // A guardian's phone number identifies one parent. Another child may share
-    // it only under the same guardian (a sibling); the same number under a
-    // different guardian is a conflict, not a new parent.
     final phone = normalizeNigerianPhone(record.guardianPhone);
     if (phone == null) {
       return const AdministratorRegistrationActionResult(
@@ -177,29 +179,36 @@ class AdministratorRegistrationRepository {
     )).where((r) => r.entityId != record.registrationId);
     StudentRegistrationRecord? sibling;
     for (final other in others) {
-      final o = StudentRegistrationRecord.fromJson(other.payload);
-      if (normalizeNigerianPhone(o.guardianPhone) != phone) continue;
-      if (normalizeName(o.primaryGuardian) !=
+      final candidate = StudentRegistrationRecord.fromJson(other.payload);
+      if (normalizeNigerianPhone(candidate.guardianPhone) != phone) continue;
+      if (normalizeName(candidate.primaryGuardian) !=
           normalizeName(record.primaryGuardian)) {
         return AdministratorRegistrationActionResult(
           success: false,
           message:
-              'This phone number already belongs to guardian ${o.primaryGuardian} (child ${o.fullName}). A phone number identifies one parent. Use the same guardian name to register a sibling, or correct the number.',
+              'This phone number already belongs to guardian ${candidate.primaryGuardian} (child ${candidate.fullName}). A phone number identifies one parent. Use the same guardian name to register a sibling, or correct the number.',
         );
       }
-      sibling ??= o;
+      sibling ??= candidate;
     }
-
-    final normalized = record.copyWith(
-      guardianPhone: phone,
-      admissionNumber: admissionNumberForSection(record.academicSection)
-          .replaceFirst(RegExp(r'\d{3}$'), _serialFor(record)),
-    );
 
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
       entityType: _entityType,
-      entityId: normalized.registrationId,
+      entityId: record.registrationId,
+    );
+    final acceptedDraft = existing?.serverVersion != null
+        ? StudentRegistrationRecord.fromJson(existing!.payload)
+        : null;
+    final admissionNumber = acceptedDraft != null &&
+            acceptedDraft.admissionNumber.trim().isNotEmpty
+        ? acceptedDraft.admissionNumber
+        : admissionNumberForSection(record.academicSection)
+            .replaceFirst(RegExp(r'\d{3,8}$'), _serialFor(record));
+
+    final normalized = record.copyWith(
+      guardianPhone: phone,
+      admissionNumber: admissionNumber,
     );
 
     await _localDatabase.upsertLocalRecord(
@@ -221,19 +230,46 @@ class AdministratorRegistrationRepository {
     );
 
     if (completed && applicantReference != null && applicantReference.isNotEmpty) {
-      await AdministratorAdmissionsRepository(localDatabase: _localDatabase, schoolSession: _schoolSession)
-          .markRegistered(applicantReference);
+      await AdministratorAdmissionsRepository(
+        localDatabase: _localDatabase,
+        schoolSession: _schoolSession,
+      ).markRegistered(applicantReference);
     }
 
     return AdministratorRegistrationActionResult(
       success: true,
       message: (completed
-              ? 'Registration completed offline. Student status is Active and queued for sync; finance and optional services remain separate workflows.'
+              ? 'Registration completion saved offline and queued for sync. The student becomes canonical Active and billable only after the SchoolOS server accepts this change.'
               : 'Registration draft saved offline and queued for sync.') +
           (sibling == null
               ? ''
               : ' This guardian phone is already registered for ${sibling.fullName}, so this child is a sibling in the same family. Link the family account accordingly.'),
       record: normalized,
+    );
+  }
+
+  StudentRegistrationRecord _newLiveDraft() {
+    final now = DateTime.now();
+    final stamp = now.microsecondsSinceEpoch.toString();
+    final serial = stamp.substring(stamp.length - 6);
+    final studentSuffix = stamp.substring(stamp.length - 10);
+    final year = (now.year % 100).toString().padLeft(2, '0');
+    return administratorRegistrationWebsiteSeed.copyWith(
+      registrationId: 'REG-$stamp',
+      firstName: '',
+      surname: '',
+      otherName: '',
+      dateOfBirth: '',
+      previousSchool: '',
+      address: '',
+      admissionNumber: 'BGA/KD/PRI/$year/$serial',
+      studentId: 'STU-$studentSuffix',
+      primaryGuardian: '',
+      guardianPhone: '',
+      guardianEmail: '',
+      familyAccount: 'Create new family account',
+      siblingLink: 'No existing sibling',
+      status: StudentRegistrationStatus.inProgress,
     );
   }
 
@@ -250,6 +286,7 @@ class AdministratorRegistrationRepository {
       'Secondary' => 'SEC',
       _ => 'EYR',
     };
+    final year = (DateTime.now().year % 100).toString().padLeft(2, '0');
 
     return administratorRegistrationWebsiteSeed.copyWith(
       registrationId: 'REG-${applicant.reference}',
@@ -260,8 +297,8 @@ class AdministratorRegistrationRepository {
           ? 'Early Years'
           : applicant.section,
       proposedClass: applicant.className,
-      admissionNumber: 'BGA/KD/$code/26/$serial',
-      studentId: 'STU-NEW-$serial',
+      admissionNumber: 'BGA/KD/$code/$year/$serial',
+      studentId: 'STU-$serial',
       primaryGuardian: applicant.guardian,
       guardianPhone: applicant.phone,
       guardianEmail: '',
@@ -277,13 +314,13 @@ class AdministratorRegistrationRepository {
     if (reference != null && reference.isNotEmpty) {
       return _digitsFromReference(reference);
     }
-    final match = RegExp(r'(\d{3})$').firstMatch(record.admissionNumber);
-    return match?.group(1) ?? '014';
+    final match = RegExp(r'(\d{3,8})$').firstMatch(record.admissionNumber);
+    return match?.group(1) ?? _digitsFromReference(record.registrationId);
   }
 
   String _digitsFromReference(String reference) {
     final digits = reference.replaceAll(RegExp(r'\D'), '');
-    if (digits.length >= 3) return digits.substring(digits.length - 3);
-    return digits.padLeft(3, '0');
+    if (digits.length >= 6) return digits.substring(digits.length - 6);
+    return digits.padLeft(6, '0');
   }
 }

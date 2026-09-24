@@ -40,6 +40,8 @@ class StudentRegistrationRecord {
     required this.financeSetupStatus,
     required this.transportMealStatus,
     this.sourceApplicantReference,
+    this.canonicalActive = false,
+    this.canonicalStudentId = '',
   });
 
   final String registrationId;
@@ -68,11 +70,21 @@ class StudentRegistrationRecord {
   final String transportMealStatus;
   final String? sourceApplicantReference;
 
+  /// Server-owned confirmation that this registration has been materialized
+  /// into the canonical Student + active Enrollment tables. Local completion
+  /// never sets this flag by itself.
+  final bool canonicalActive;
+
+  /// Opaque canonical Student UUID returned only by the SchoolOS server after
+  /// activation. This is the safe identity for future QR/barcode references.
+  final String canonicalStudentId;
+
   String get fullName => [firstName, otherName, surname]
       .where((part) => part.trim().isNotEmpty)
       .join(' ');
 
   bool get isActive => status == StudentRegistrationStatus.active;
+  bool get isCanonicalActive => isActive && canonicalActive;
 
   StudentRegistrationRecord copyWith({
     String? registrationId,
@@ -100,6 +112,8 @@ class StudentRegistrationRecord {
     String? financeSetupStatus,
     String? transportMealStatus,
     String? sourceApplicantReference,
+    bool? canonicalActive,
+    String? canonicalStudentId,
   }) {
     return StudentRegistrationRecord(
       registrationId: registrationId ?? this.registrationId,
@@ -131,6 +145,8 @@ class StudentRegistrationRecord {
       transportMealStatus: transportMealStatus ?? this.transportMealStatus,
       sourceApplicantReference:
           sourceApplicantReference ?? this.sourceApplicantReference,
+      canonicalActive: canonicalActive ?? this.canonicalActive,
+      canonicalStudentId: canonicalStudentId ?? this.canonicalStudentId,
     );
   }
 
@@ -160,6 +176,8 @@ class StudentRegistrationRecord {
         'financeSetupStatus': financeSetupStatus,
         'transportMealStatus': transportMealStatus,
         'sourceApplicantReference': sourceApplicantReference,
+        'canonicalActive': canonicalActive,
+        'canonicalStudentId': canonicalStudentId,
       };
 
   factory StudentRegistrationRecord.fromJson(Map<String, Object?> json) {
@@ -184,16 +202,20 @@ class StudentRegistrationRecord {
       familyAccount: json['familyAccount'] as String? ?? 'Create new family account',
       siblingLink: json['siblingLink'] as String? ?? 'No existing sibling',
       birthCertificateStatus:
-          json['birthCertificateStatus'] as String? ?? 'Received · pending verification',
+          json['birthCertificateStatus'] as String? ??
+              'Received · pending verification',
       previousSchoolRecordStatus:
           json['previousSchoolRecordStatus'] as String? ?? 'Received',
       guardianIdentificationStatus:
           json['guardianIdentificationStatus'] as String? ?? 'Received',
       financeSetupStatus:
-          json['financeSetupStatus'] as String? ?? 'Prepare after student activation',
+          json['financeSetupStatus'] as String? ??
+              'Prepare after student activation',
       transportMealStatus:
           json['transportMealStatus'] as String? ?? 'Optional service setup',
       sourceApplicantReference: json['sourceApplicantReference'] as String?,
+      canonicalActive: json['canonicalActive'] as bool? ?? false,
+      canonicalStudentId: json['canonicalStudentId'] as String? ?? '',
     );
   }
 }
@@ -210,11 +232,12 @@ String admissionNumberForSection(String section) {
     _ => 'EYR',
   };
   final serial = section == 'Primary' ? '014' : '009';
-  return 'BGA/KD/$code/26/$serial';
+  final year = (DateTime.now().year % 100).toString().padLeft(2, '0');
+  return 'BGA/KD/$code/$year/$serial';
 }
 
 const registrationQrSafetyBoundary =
-    'QR/barcode must use a safe opaque identifier only. Do not encode date of birth, guardian phone, health information or fee balance directly.';
+    'QR/barcode must use a safe opaque server identifier only. Do not encode date of birth, guardian phone, health information or fee balance directly.';
 
 const registrationActivationBoundary =
-    'Registration remains Admission in progress until completion. Finance account setup is prepared after activation; optional transport and meal enrollment stay separate service workflows.';
+    'Local completion may be queued offline. Canonical Active status and billing begin only after the SchoolOS server accepts registration and creates the active enrollment; finance, transport and meal setup remain separate workflows.';
