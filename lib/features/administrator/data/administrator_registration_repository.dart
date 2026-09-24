@@ -192,16 +192,23 @@ class AdministratorRegistrationRepository {
       sibling ??= candidate;
     }
 
-    final normalized = record.copyWith(
-      guardianPhone: phone,
-      admissionNumber: admissionNumberForSection(record.academicSection)
-          .replaceFirst(RegExp(r'\d{3}$'), _serialFor(record)),
-    );
-
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
       entityType: _entityType,
-      entityId: normalized.registrationId,
+      entityId: record.registrationId,
+    );
+    final acceptedDraft = existing?.serverVersion != null
+        ? StudentRegistrationRecord.fromJson(existing!.payload)
+        : null;
+    final admissionNumber = acceptedDraft != null &&
+            acceptedDraft.admissionNumber.trim().isNotEmpty
+        ? acceptedDraft.admissionNumber
+        : admissionNumberForSection(record.academicSection)
+            .replaceFirst(RegExp(r'\d{3,8}$'), _serialFor(record));
+
+    final normalized = record.copyWith(
+      guardianPhone: phone,
+      admissionNumber: admissionNumber,
     );
 
     await _localDatabase.upsertLocalRecord(
