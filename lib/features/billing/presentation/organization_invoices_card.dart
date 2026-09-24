@@ -5,16 +5,19 @@ import '../../../core/network/api_exceptions.dart';
 import '../../account/domain/organization_membership.dart';
 import '../data/billing_repository.dart';
 import '../domain/billing_invoice.dart';
+import '../domain/subscription_summary.dart';
 
 class OrganizationInvoicesCard extends StatefulWidget {
   const OrganizationInvoicesCard({
     super.key,
     required this.organization,
     required this.repository,
+    this.automation,
   });
 
   final OrganizationMembership organization;
   final BillingRepository repository;
+  final BillingAutomation? automation;
 
   @override
   State<OrganizationInvoicesCard> createState() => _OrganizationInvoicesCardState();
@@ -42,6 +45,7 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -153,6 +157,7 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final automatic = widget.automation?.enabled ?? false;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -176,21 +181,29 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                FilledButton.tonalIcon(
-                  onPressed: _issuing ? null : _issueInvoice,
-                  icon: _issuing
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.receipt_long_rounded),
-                  label: Text(_issuing ? 'Preparing…' : 'Prepare invoice'),
-                ),
+                if (automatic)
+                  const Chip(
+                    avatar: Icon(Icons.autorenew_rounded, size: 18),
+                    label: Text('Automatic invoicing'),
+                  )
+                else
+                  FilledButton.tonalIcon(
+                    onPressed: _issuing ? null : _issueInvoice,
+                    icon: _issuing
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.receipt_long_rounded),
+                    label: Text(_issuing ? 'Preparing…' : 'Prepare invoice'),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              'Invoices are calculated by the server from the plan and an authoritative billing usage snapshot; this app cannot enter or alter the charge amount.',
+              automatic
+                  ? 'SchoolOS issues invoices from the server billing cycle and authoritative roster meter. This app cannot alter the student count or charge amount.'
+                  : 'Invoices are calculated by the server from the plan and an authoritative billing usage snapshot; this app cannot enter or alter the charge amount.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -212,7 +225,9 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
             ] else if (_invoices.isEmpty) ...[
               const SizedBox(height: 16),
               Text(
-                'No SchoolOS invoices have been issued for this organization yet.',
+                automatic
+                    ? 'No SchoolOS invoice has reached its issue point yet.'
+                    : 'No SchoolOS invoices have been issued for this organization yet.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -260,6 +275,7 @@ class _InvoiceRow extends StatelessWidget {
       }
     }
 
+    final dueLabel = invoice.dueAt == null ? null : _dateLabel(invoice.dueAt!);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -285,7 +301,7 @@ class _InvoiceRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${_money(invoice.currency, invoice.amountDueMinor)} · ${invoice.billableStudentCount} billable students · ${_statusLabel(invoice.status)}',
+                  '${_money(invoice.currency, invoice.amountDueMinor)} · ${invoice.billableStudentCount} billable students · ${_statusLabel(invoice.status)}${dueLabel == null ? '' : ' · due $dueLabel'}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -334,6 +350,25 @@ String _statusLabel(String status) => switch (status) {
       'draft' => 'Draft',
       _ => status,
     };
+
+String _dateLabel(DateTime value) {
+  final local = value.toLocal();
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${local.day} ${months[local.month - 1]} ${local.year}';
+}
 
 String _money(String currency, int minor) {
   final major = minor ~/ 100;
