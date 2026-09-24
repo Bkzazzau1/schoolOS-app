@@ -1,6 +1,6 @@
 enum TeacherAttendanceStatus { unmarked, present, absent, late, excused }
 
-enum TeacherAttendanceSubmissionState { draft, submitted }
+enum TeacherAttendanceSubmissionState { draft, queued, submitted }
 
 class TeacherAttendanceTopicOption {
   const TeacherAttendanceTopicOption({required this.id, required this.title});
@@ -208,12 +208,16 @@ class TeacherAttendanceRegister {
       );
 
   /// Canonical sync payload expected by the backend lesson-attendance handler.
+  /// A local queued state requests `submitted`; only the server response may
+  /// turn the local cache into canonical `submitted` evidence.
   Map<String, Object?> toJson() => {
         'id': lesson.id,
         'timetableEntryId': lesson.timetableEntryId,
         'lessonDate': lesson.lessonDate,
         'topicId': lesson.topicId,
-        'state': submissionState.name,
+        'state': submissionState == TeacherAttendanceSubmissionState.queued
+            ? 'submitted'
+            : submissionState.name,
         'entries': [
           for (final entry in entries)
             {
