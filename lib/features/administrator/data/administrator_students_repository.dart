@@ -48,7 +48,7 @@ class AdministratorStudentsRepository {
 
     // Website/demo directory rows are useful only in standalone demo mode. In a
     // backend-connected school, the authoritative live directory is derived from
-    // accepted active registration records plus lifecycle history. This also
+    // server-confirmed canonical registrations plus lifecycle history. This also
     // prevents old demo rows on a device from being mistaken for real students.
     if (!LocalDatabase.blockDemoSeeds && directoryRecords.isEmpty) {
       for (final student in [
@@ -83,6 +83,12 @@ class AdministratorStudentsRepository {
     for (final record in registrations) {
       final registration = StudentRegistrationRecord.fromJson(record.payload);
       if (!registration.isActive || registration.studentId.trim().isEmpty) {
+        continue;
+      }
+      if (LocalDatabase.blockDemoSeeds && !registration.isCanonicalActive) {
+        // A local Active value can still be queued or rejected. The server-owned
+        // canonical marker is returned only after Student + Enrollment creation
+        // succeeds, so live directories never present queued activation as fact.
         continue;
       }
       if (students.any((student) => student.id == registration.studentId)) {
