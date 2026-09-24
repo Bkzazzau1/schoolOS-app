@@ -10,30 +10,34 @@ Future<void> showStudentCredentialManagement(
   required StaffServerApi api,
   required SchoolMembership membership,
   required String studentId,
-}) => Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => _CredentialManagementPage(
-          api: api,
-          membership: membership,
-          studentId: studentId,
-        ),
+}) async {
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) => _CredentialManagementPage(
+        api: api,
+        membership: membership,
+        studentId: studentId,
       ),
-    );
+    ),
+  );
+}
 
 Future<void> showCredentialRecoveryQueue(
   BuildContext context, {
   required StaffServerApi api,
   required SchoolMembership membership,
-}) => Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => _RecoveryQueuePage(
-          api: api,
-          membership: membership,
-        ),
+}) async {
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) => _RecoveryQueuePage(
+        api: api,
+        membership: membership,
       ),
-    );
+    ),
+  );
+}
 
 class _CredentialManagementPage extends StatefulWidget {
   const _CredentialManagementPage({
@@ -245,8 +249,10 @@ class _CredentialManagementPageState
     final handoff = _handoff!;
     String line(String label, CredentialParty party) {
       final password = party.temporaryPassword;
-      return '$label\nLogin ID: ${party.loginId}\n'
-          '${password == null ? 'Password: private password already set' : 'Temporary password: $password\nChange password on first sign-in: Yes'}';
+      if (password == null) {
+        return '$label\nLogin ID: ${party.loginId}\nPassword: private password already set';
+      }
+      return '$label\nLogin ID: ${party.loginId}\nTemporary password: $password\nChange password on first sign-in: Yes';
     }
 
     final text = 'SchoolOS credentials\n\n'
@@ -336,7 +342,9 @@ class _CredentialPartyCard extends StatelessWidget {
               const Text('Must create a private password on next sign-in.'),
             ] else ...[
               const SizedBox(height: 6),
-              const Text('Private password already set. It is not visible to the school.'),
+              const Text(
+                'Private password already set. It is not visible to the school.',
+              ),
             ],
             const SizedBox(height: 14),
             Wrap(
@@ -391,7 +399,9 @@ class _RecoveryQueuePageState extends State<_RecoveryQueuePage> {
       _error = null;
     });
     try {
-      final items = await widget.api.credentialRecoveryRequests(widget.membership);
+      final items = await widget.api.credentialRecoveryRequests(
+        widget.membership,
+      );
       if (!mounted) return;
       setState(() => _items = items);
     } catch (error) {
@@ -424,13 +434,16 @@ class _RecoveryQueuePageState extends State<_RecoveryQueuePage> {
                     ? const Center(
                         child: Padding(
                           padding: EdgeInsets.all(24),
-                          child: Text('No pending Student or Parent recovery requests.'),
+                          child: Text(
+                            'No pending Student or Parent recovery requests.',
+                          ),
                         ),
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.all(20),
                         itemCount: _items.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final item = _items[index];
                           final parent = item.identityKind == 'parent_phone';
@@ -457,13 +470,17 @@ class _RecoveryQueuePageState extends State<_RecoveryQueuePage> {
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleMedium
-                                              ?.copyWith(fontWeight: FontWeight.w700),
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                         ),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 8),
-                                  SelectableText('Login ID: ${item.requestedIdentifier}'),
+                                  SelectableText(
+                                    'Login ID: ${item.requestedIdentifier}',
+                                  ),
                                   const SizedBox(height: 4),
                                   Text(
                                     'Requested ${_dateLabel(item.requestedAt)}',
@@ -482,20 +499,27 @@ class _RecoveryQueuePageState extends State<_RecoveryQueuePage> {
                                                     context,
                                                     api: widget.api,
                                                     membership: widget.membership,
-                                                    studentId: item.linkedStudentIds.first,
+                                                    studentId: item
+                                                        .linkedStudentIds.first,
                                                   );
                                                   if (mounted) await _load();
                                                 }
                                               : null,
-                                          icon: const Icon(Icons.manage_accounts_outlined),
-                                          label: const Text('Manage credentials'),
+                                          icon: const Icon(
+                                            Icons.manage_accounts_outlined,
+                                          ),
+                                          label: const Text(
+                                            'Manage credentials',
+                                          ),
                                         ),
                                       TextButton(
                                         onPressed: _busyId == null
                                             ? () => _dismiss(item)
                                             : null,
                                         child: Text(
-                                          _busyId == item.id ? 'Dismissing…' : 'Dismiss',
+                                          _busyId == item.id
+                                              ? 'Dismissing…'
+                                              : 'Dismiss',
                                         ),
                                       ),
                                     ],
@@ -515,7 +539,9 @@ class _RecoveryQueuePageState extends State<_RecoveryQueuePage> {
     try {
       await widget.api.dismissCredentialRecovery(widget.membership, item.id);
       if (!mounted) return;
-      setState(() => _items = _items.where((row) => row.id != item.id).toList());
+      setState(
+        () => _items = _items.where((row) => row.id != item.id).toList(),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -565,5 +591,6 @@ String _message(Object error) {
 String _dateLabel(DateTime date) {
   final local = date.toLocal();
   String two(int value) => value.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year} ${two(local.hour)}:${two(local.minute)}';
+  return '${two(local.day)}/${two(local.month)}/${local.year} '
+      '${two(local.hour)}:${two(local.minute)}';
 }
