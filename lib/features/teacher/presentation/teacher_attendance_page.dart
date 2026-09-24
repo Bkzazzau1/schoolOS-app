@@ -73,6 +73,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
             onTimetable: () => widget.onNavigate('timetable'),
           );
         }
+
         final selected = data.registers.firstWhere(
           (item) => item.lesson.id == _selectedLessonId,
           orElse: () => data.registers.first,
@@ -83,7 +84,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
           return '${entry.code} ${entry.studentId}'.toLowerCase().contains(q);
         }).toList(growable: false);
         final locked =
-            selected.submissionState == TeacherAttendanceSubmissionState.submitted;
+            selected.submissionState != TeacherAttendanceSubmissionState.draft;
 
         return ListView(
           padding: const EdgeInsets.all(20),
@@ -123,7 +124,6 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
             const SizedBox(height: 14),
             _RegisterHeader(
               register: selected,
-              locked: locked,
               searchController: _searchController,
               onSearch: (value) => setState(() => _query = value),
               onMarkAllPresent: locked
@@ -162,7 +162,6 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
             const SizedBox(height: 8),
             _SubmissionPanel(
               register: selected,
-              locked: locked,
               onSubmit: locked
                   ? null
                   : () => _apply(
@@ -243,7 +242,9 @@ class _Header extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                canonical ? 'TEACHER · SUBJECT ATTENDANCE' : 'TEACHER · DEMO ATTENDANCE',
+                canonical
+                    ? 'TEACHER · SUBJECT ATTENDANCE'
+                    : 'TEACHER · DEMO ATTENDANCE',
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 4),
@@ -344,7 +345,10 @@ class _OccurrenceSelector extends StatelessWidget {
                   ),
                 ),
                 _Meta(label: 'Time', value: lesson.time),
-                _Meta(label: 'Room', value: lesson.room.isEmpty ? 'Not assigned' : lesson.room),
+                _Meta(
+                  label: 'Room',
+                  value: lesson.room.isEmpty ? 'Not assigned' : lesson.room,
+                ),
                 _Meta(
                   label: 'Students',
                   value: '${selected.entries.length} eligible',
@@ -362,7 +366,10 @@ class _OccurrenceSelector extends StatelessWidget {
                     labelText: 'Curriculum topic taught (optional)',
                   ),
                   items: [
-                    const DropdownMenuItem(value: '', child: Text('No topic linked')),
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('No topic linked'),
+                    ),
                     for (final topic in lesson.topicOptions)
                       DropdownMenuItem(value: topic.id, child: Text(topic.title)),
                   ],
@@ -429,7 +436,10 @@ class _Summary extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       '${item.$2}',
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ],
                 ),
@@ -444,71 +454,79 @@ class _Summary extends StatelessWidget {
 class _RegisterHeader extends StatelessWidget {
   const _RegisterHeader({
     required this.register,
-    required this.locked,
     required this.searchController,
     required this.onSearch,
     required this.onMarkAllPresent,
   });
 
   final TeacherAttendanceRegister register;
-  final bool locked;
   final TextEditingController searchController;
   final ValueChanged<String> onSearch;
   final VoidCallback? onMarkAllPresent;
 
   @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${register.lesson.className} · ${register.lesson.subject}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+  Widget build(BuildContext context) {
+    final state = register.submissionState;
+    final stateText = switch (state) {
+      TeacherAttendanceSubmissionState.draft =>
+        'Every eligible student must receive an explicit status before submission.',
+      TeacherAttendanceSubmissionState.queued =>
+        'Submission queued locally · waiting for server acknowledgement.',
+      TeacherAttendanceSubmissionState.submitted =>
+        'Canonical submitted register · later changes require an audited correction.',
+    };
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${register.lesson.className} · ${register.lesson.subject}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
                   ),
-                  Text(
-                    locked
-                        ? 'Submitted and locked · ${register.submittedAt ?? 'server acknowledgement pending'}'
-                        : 'Every eligible student must receive an explicit status before submission.',
-                  ),
-                ],
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 280,
-                    child: TextField(
-                      controller: searchController,
-                      onChanged: onSearch,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        prefixIcon: Icon(Icons.search_rounded),
-                        hintText: 'Search student name or ID',
-                      ),
+                ),
+                Text(stateText),
+              ],
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: 280,
+                  child: TextField(
+                    controller: searchController,
+                    onChanged: onSearch,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      prefixIcon: Icon(Icons.search_rounded),
+                      hintText: 'Search student name or ID',
                     ),
                   ),
-                  FilledButton.icon(
-                    onPressed: onMarkAllPresent,
-                    icon: const Icon(Icons.done_all_rounded),
-                    label: const Text('Mark all present'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                FilledButton.icon(
+                  onPressed: onMarkAllPresent,
+                  icon: const Icon(Icons.done_all_rounded),
+                  label: const Text('Mark all present'),
+                ),
+              ],
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _StudentRow extends StatelessWidget {
@@ -526,6 +544,7 @@ class _StudentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final initial = entry.code.trim();
     return Card(
       elevation: 0,
       child: Padding(
@@ -534,7 +553,7 @@ class _StudentRow extends StatelessWidget {
           children: [
             CircleAvatar(
               child: Text(
-                entry.code.trim().isEmpty ? '?' : entry.code.trim().substring(0, 1).toUpperCase(),
+                initial.isEmpty ? '?' : initial.substring(0, 1).toUpperCase(),
               ),
             ),
             const SizedBox(width: 12),
@@ -542,7 +561,10 @@ class _StudentRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(entry.code, style: const TextStyle(fontWeight: FontWeight.w900)),
+                  Text(
+                    entry.code,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
                   Text(entry.studentId),
                   if (entry.note.isNotEmpty)
                     Text(
@@ -557,7 +579,10 @@ class _StudentRow extends StatelessWidget {
               width: 170,
               child: DropdownButtonFormField<TeacherAttendanceStatus>(
                 initialValue: entry.status,
-                decoration: const InputDecoration(isDense: true, labelText: 'Status'),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  labelText: 'Status',
+                ),
                 items: [
                   for (final status in TeacherAttendanceStatus.values)
                     DropdownMenuItem(
@@ -588,17 +613,33 @@ class _StudentRow extends StatelessWidget {
 class _SubmissionPanel extends StatelessWidget {
   const _SubmissionPanel({
     required this.register,
-    required this.locked,
     required this.onSubmit,
   });
 
   final TeacherAttendanceRegister register;
-  final bool locked;
   final VoidCallback? onSubmit;
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = !locked && register.unmarkedCount == 0 && register.entries.isNotEmpty;
+    final state = register.submissionState;
+    final canSubmit = state == TeacherAttendanceSubmissionState.draft &&
+        register.unmarkedCount == 0 &&
+        register.entries.isNotEmpty;
+    final title = switch (state) {
+      TeacherAttendanceSubmissionState.draft => 'Ready to submit?',
+      TeacherAttendanceSubmissionState.queued => 'Submission queued',
+      TeacherAttendanceSubmissionState.submitted => 'Canonical attendance',
+    };
+    final detail = switch (state) {
+      TeacherAttendanceSubmissionState.draft => register.unmarkedCount == 0
+          ? 'All ${register.entries.length} eligible students have an explicit status.'
+          : '${register.unmarkedCount} student(s) are still unmarked.',
+      TeacherAttendanceSubmissionState.queued =>
+        'The register is locked locally while the server validates lesson authority, roster and marks.',
+      TeacherAttendanceSubmissionState.submitted =>
+        'The server acknowledged this occurrence as submitted historical evidence.',
+    };
+
     return Card(
       elevation: 0,
       child: Padding(
@@ -613,27 +654,30 @@ class _SubmissionPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  locked ? 'Attendance submitted' : 'Ready to submit?',
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
                 ),
-                Text(
-                  locked
-                      ? 'This occurrence is locked. A later change must use an audited correction workflow.'
-                      : register.unmarkedCount == 0
-                          ? 'All ${register.entries.length} eligible students have an explicit status.'
-                          : '${register.unmarkedCount} student(s) are still unmarked.',
-                ),
+                Text(detail),
                 if (register.pendingSync)
                   const Padding(
                     padding: EdgeInsets.only(top: 5),
-                    child: Text('Local change queued · server acknowledgement pending'),
+                    child: Text('Pending sync · queued does not mean submitted'),
                   ),
               ],
             ),
             FilledButton.icon(
               onPressed: canSubmit ? onSubmit : null,
               icon: const Icon(Icons.cloud_upload_outlined),
-              label: const Text('Submit attendance'),
+              label: Text(
+                state == TeacherAttendanceSubmissionState.queued
+                    ? 'Awaiting server'
+                    : state == TeacherAttendanceSubmissionState.submitted
+                        ? 'Submitted'
+                        : 'Submit attendance',
+              ),
             ),
           ],
         ),
@@ -657,7 +701,7 @@ class _BoundaryPanel extends StatelessWidget {
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Subject attendance is tied to a real timetable occurrence and the canonical subject-eligible roster. A local draft is not server acknowledgement. Submitted records are historical evidence; attendance alone must not change grades, discipline or progression.',
+                  'Subject attendance is tied to a real timetable occurrence and the canonical subject-eligible roster. A local draft or queued submission is not server acknowledgement. Canonical submitted records are historical evidence; attendance alone must not change grades, discipline or progression.',
                 ),
               ),
             ],
@@ -688,7 +732,10 @@ class _EmptyState extends StatelessWidget {
                   const Text(
                     'No lesson occurrence is ready for attendance',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
