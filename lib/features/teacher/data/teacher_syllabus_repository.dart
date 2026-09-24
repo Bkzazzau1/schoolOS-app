@@ -13,6 +13,7 @@ class TeacherSyllabusSnapshot {
     required this.progress,
     required this.events,
     required this.permissions,
+    this.canonical = false,
   });
 
   final List<TeacherSyllabusRow> rows;
@@ -20,13 +21,17 @@ class TeacherSyllabusSnapshot {
   final Map<String, TeacherSyllabusProgressRecord> progress;
   final List<TeacherSyllabusProgressEvent> events;
   final TeacherSyllabusPermissions permissions;
+  final bool canonical;
 
   TeacherSyllabusStatus effectiveStatus(TeacherSyllabusRow row) =>
       progress[row.id]?.reportedStatus ?? row.approvedStatus;
 
-  bool isBehind(String className) => rows
-      .where((row) => row.className == className)
-      .any((row) => effectiveStatus(row) == TeacherSyllabusStatus.behind);
+  bool isBehind(String className) {
+    if (canonical) return false;
+    return rows
+        .where((row) => row.className == className)
+        .any((row) => effectiveStatus(row) == TeacherSyllabusStatus.behind);
+  }
 
   int coverageOf(String className) {
     final classRows = rows.where((row) => row.className == className).toList();
@@ -35,6 +40,16 @@ class TeacherSyllabusSnapshot {
         .where((row) => effectiveStatus(row) == TeacherSyllabusStatus.completed)
         .length;
     return (done * 100 / classRows.length).round();
+  }
+
+  TeacherSyllabusRow? nextTopic(String className) {
+    final candidates = rows
+        .where((row) =>
+            row.className == className &&
+            effectiveStatus(row) != TeacherSyllabusStatus.completed)
+        .toList()
+      ..sort((a, b) => a.week.compareTo(b.week));
+    return candidates.isEmpty ? null : candidates.first;
   }
 }
 
@@ -72,7 +87,7 @@ class TeacherSyllabusRepository {
     final teacher = membership.role == SchoolRole.teacher;
     return TeacherSyllabusPermissions(
       canViewAssignedScheme: teacher,
-      canReportCoverage: teacher,
+      canReportCoverage: teacher && !LocalDatabase.blockDemoSeeds,
       canEditApprovedScheme: false,
       canReorderTopics: false,
       canConfirmLeadershipApproval: false,
@@ -127,11 +142,6 @@ class TeacherSyllabusRepository {
       tenantId: membership.schoolId,
       entityType: _progressType,
     );
-    final eventRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _eventType,
-    );
-
     final progress = <String, TeacherSyllabusProgressRecord>{};
     for (final record in progressRecords) {
       final parsed = TeacherSyllabusProgressRecord.fromJson(record.payload);
@@ -139,6 +149,21 @@ class TeacherSyllabusRepository {
       progress[parsed.id] = parsed;
     }
 
+    if (LocalDatabase.blockDemoSeeds) {
+      return TeacherSyllabusSnapshot(
+        rows: rows,
+        classes: classes,
+        progress: progress,
+        events: const [],
+        permissions: permissionsFor(membership),
+        canonical: true,
+      );
+    }
+
+    final eventRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _eventType,
+    );
     final events = eventRecords
         .map((record) => TeacherSyllabusProgressEvent.fromJson(record.payload))
         .where((event) => rowIds.contains(event.recordId))
@@ -151,6 +176,7 @@ class TeacherSyllabusRepository {
       progress: progress,
       events: events,
       permissions: permissionsFor(membership),
+      canonical: false,
     );
   }
 
@@ -158,6 +184,14 @@ class TeacherSyllabusRepository {
     required TeacherSyllabusRow row,
     required TeacherSyllabusStatus status,
   }) async {
+    if (LocalDatabase.blockDemoSeeds) {
+      return const TeacherSyllabusActionResult(
+        success: false,
+        message:
+            'Canonical syllabus progress is generated from server-accepted lesson delivery. Open Lesson Plans & Delivery to record the real occurrence instead.',
+      );
+    }
+
     final membership = _schoolSession.requireActiveMembership();
     final permissions = permissionsFor(membership);
     if (!permissions.canReportCoverage) {
@@ -170,17 +204,7 @@ class TeacherSyllabusRepository {
         status != TeacherSyllabusStatus.inProgress) {
       return const TeacherSyllabusActionResult(
         success: false,
-        message:
-            'Teachers can only report a topic as completed or in progress from this workspace.',
-      );
-    }
-
-    final approvedRows = await _approvedRows(membership);
-    if (!approvedRows.any((item) => item.id == row.id)) {
-      return const TeacherSyllabusActionResult(
-        success: false,
-        message:
-            'This topic is not in your current server-authorized teaching assignment.',
+        message: 'Choose Completed or In progress.',
       );
     }
 
@@ -216,9 +240,7 @@ class TeacherSyllabusRepository {
       membershipId: membership.id,
       entityType: _progressType,
       entityId: row.id,
-      operation: existing == null
-          ? SyncOperation.create
-          : SyncOperation.update,
+      operation: existing == null ? SyncOperation.create : SyncOperation.update,
       payload: record.toJson(),
       baseVersion: existing?.serverVersion,
     );
@@ -253,8 +275,8 @@ class TeacherSyllabusRepository {
     return TeacherSyllabusActionResult(
       success: true,
       message: status == TeacherSyllabusStatus.completed
-          ? 'Coverage marked complete locally and queued for server validation. The approved canonical curriculum was not changed.'
-          : 'Coverage marked in progress locally and queued for server validation. The approved canonical curriculum was not changed.',
+          ? 'Demo coverage marked complete locally.'
+          : 'Demo coverage marked in progress locally.',
       record: record,
     );
   }

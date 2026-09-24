@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/teacher_syllabus_demo_data.dart';
 import '../data/teacher_syllabus_repository.dart';
 import '../domain/teacher_syllabus_models.dart';
 
@@ -40,12 +39,10 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
   }
 
   void _reload() {
-    setState(() {
-      _future = widget.repository.load();
-    });
+    setState(() => _future = widget.repository.load());
   }
 
-  Future<void> _mark(
+  Future<void> _markDemo(
     TeacherSyllabusRow row,
     TeacherSyllabusStatus status,
   ) async {
@@ -82,7 +79,7 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
             child: Padding(
               padding: EdgeInsets.all(24),
               child: Text(
-                'No scheme of work has been uploaded yet for your assigned classes. The Principal or the Head of section uploads it.',
+                'No active curriculum topics are available for your assigned classes.',
               ),
             ),
           );
@@ -91,7 +88,6 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
           _className = data.classes.first;
         }
         final className = _className!;
-        final behind = data.isBehind(className);
         final classRows = data.rows
             .where((row) => row.className == className)
             .toList(growable: false);
@@ -103,20 +99,33 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
               ),
             )
             .toList(growable: false);
-        final completed = visible
-            .where((row) => data.effectiveStatus(row) == TeacherSyllabusStatus.completed)
+        final completed = classRows
+            .where(
+              (row) =>
+                  data.effectiveStatus(row) == TeacherSyllabusStatus.completed,
+            )
             .length;
-        final plannedLessons = visible.fold<int>(
+        final inProgress = classRows
+            .where(
+              (row) =>
+                  data.effectiveStatus(row) == TeacherSyllabusStatus.inProgress,
+            )
+            .length;
+        final deliveredLessons = classRows.fold<int>(
           0,
-          (sum, row) => sum + row.plannedLessons,
+          (sum, row) => sum + (data.progress[row.id]?.deliveredLessons ?? 0),
         );
+        final next = data.nextTopic(className);
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Topbar(onNavigate: widget.onNavigate),
+              _Topbar(
+                canonical: data.canonical,
+                onNavigate: widget.onNavigate,
+              ),
               if (_notice != null) ...[
                 const SizedBox(height: 12),
                 _Notice(text: _notice!),
@@ -126,6 +135,8 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
                 className: className,
                 classOptions: data.classes,
                 coverage: data.coverageOf(className),
+                nextTopic: next?.topic ?? 'All approved topics completed',
+                canonical: data.canonical,
                 onClassChanged: (value) {
                   if (value == null) return;
                   setState(() {
@@ -141,57 +152,44 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  _Stat(label: 'Completed topics', value: '$completed', hint: 'selected class'),
-                  const _Stat(label: 'Current week', value: '6', hint: 'term calendar'),
-                  _Stat(label: 'Planned lessons', value: '$plannedLessons', hint: 'visible weeks'),
                   _Stat(
-                    label: 'Pacing status',
-                    value: behind ? 'Behind' : 'On track',
-                    hint: 'From the reported coverage',
+                    label: 'Completed topics',
+                    value: '$completed/${classRows.length}',
+                    hint: data.canonical ? 'delivery-backed' : 'demo reporting',
+                  ),
+                  _Stat(
+                    label: 'In progress',
+                    value: '$inProgress',
+                    hint: 'topics with delivery evidence',
+                  ),
+                  _Stat(
+                    label: 'Delivered lessons',
+                    value: '$deliveredLessons',
+                    hint: data.canonical ? 'server accepted' : 'demo evidence',
+                  ),
+                  _Stat(
+                    label: 'Coverage',
+                    value: '${data.coverageOf(className)}%',
+                    hint: data.canonical
+                        ? 'not a pacing judgement'
+                        : 'demo syllabus coverage',
                   ),
                 ],
               ),
-              if (behind) ...[
-                const SizedBox(height: 16),
-                _PacingAlert(onNavigate: widget.onNavigate),
-              ],
               const SizedBox(height: 16),
               _SchemePanel(
                 rows: visible,
                 snapshot: data,
                 searchController: _search,
                 onSearch: (value) => setState(() => _query = value),
-                onMark: _mark,
+                onMarkDemo: _markDemo,
                 onNavigate: widget.onNavigate,
               ),
               const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final cards = [
-                    _AiInsight(
-                      className: className,
-                      onNavigate: widget.onNavigate,
-                    ),
-                    const _Controls(),
-                  ];
-                  if (constraints.maxWidth < 900) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [cards[0], const SizedBox(height: 12), cards[1]],
-                    );
-                  }
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: cards[0]),
-                      const SizedBox(width: 12),
-                      Expanded(child: cards[1]),
-                    ],
-                  );
-                },
+              _EvidenceBoundary(
+                canonical: data.canonical,
+                onNavigate: widget.onNavigate,
               ),
-              const SizedBox(height: 16),
-              const _BoundaryCard(),
             ],
           ),
         );
@@ -201,39 +199,58 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
 }
 
 class _Topbar extends StatelessWidget {
-  const _Topbar({required this.onNavigate});
+  const _Topbar({required this.canonical, required this.onNavigate});
+
+  final bool canonical;
   final ValueChanged<String> onNavigate;
 
   @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 16,
-      runSpacing: 12,
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 16,
+        runSpacing: 12,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'TEACHER PORTAL · SYLLABUS',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Syllabus Progress',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                Text(
+                  canonical
+                      ? 'Coverage is derived from server-accepted delivered lessons. This screen cannot manufacture curriculum completion.'
+                      : 'Standalone demo syllabus tracker.',
+                ),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: 8,
             children: [
-              const Text('TEACHER PORTAL · SYLLABUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
-              Text('Syllabus Tracker', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
-              const Text('Track where each assigned class should be, what has been taught and what comes next.'),
+              OutlinedButton(
+                onPressed: () => onNavigate('lesson-plans'),
+                child: const Text('Lesson Plans & Delivery'),
+              ),
+              OutlinedButton(
+                onPressed: () => onNavigate('timetable'),
+                child: const Text('Timetable'),
+              ),
             ],
           ),
-        ),
-        Wrap(
-          spacing: 8,
-          children: [
-            OutlinedButton(onPressed: () => onNavigate('dashboard'), child: const Text('Dashboard')),
-            OutlinedButton(onPressed: () => onNavigate('lesson-plans'), child: const Text('Lesson plans')),
-          ],
-        ),
-      ],
-    );
-  }
+        ],
+      );
 }
 
 class _Hero extends StatelessWidget {
@@ -241,79 +258,95 @@ class _Hero extends StatelessWidget {
     required this.className,
     required this.classOptions,
     required this.coverage,
+    required this.nextTopic,
+    required this.canonical,
     required this.onClassChanged,
   });
+
   final String className;
   final List<String> classOptions;
   final int coverage;
+  final String nextTopic;
+  final bool canonical;
   final ValueChanged<String?> onClassChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final progress = coverage;
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Wrap(
-          spacing: 20,
-          runSpacing: 16,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 230,
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: className,
-                decoration: const InputDecoration(labelText: 'Selected class'),
-                items: [
-                  for (final item in classOptions)
-                    DropdownMenuItem(value: item, child: Text(item)),
-                ],
-                onChanged: onClassChanged,
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Wrap(
+            spacing: 24,
+            runSpacing: 16,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 240,
+                child: DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: className,
+                  decoration: const InputDecoration(labelText: 'Assigned class'),
+                  items: [
+                    for (final item in classOptions)
+                      DropdownMenuItem(value: item, child: Text(item)),
+                  ],
+                  onChanged: onClassChanged,
+                ),
               ),
-            ),
-            SizedBox(
-              width: 320,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(child: Text('Curriculum coverage')),
-                      Text('$progress%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(value: progress / 100),
-                  const SizedBox(height: 6),
-                  Text(teacherSyllabusPacingHint(className)),
-                ],
+              SizedBox(
+                width: 320,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(child: Text('Curriculum coverage')),
+                        Text(
+                          '$coverage%',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 22,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: coverage / 100),
+                    const SizedBox(height: 6),
+                    Text(
+                      canonical
+                          ? 'Completed only when delivery evidence says the topic was completed.'
+                          : 'Demo-reported coverage.',
+                    ),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(
-              width: 260,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Next planned topic'),
-                  Text(
-                    teacherSyllabusNextTopic(className),
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-                  ),
-                  const Text('Use this to prepare the next lesson plan'),
-                ],
+              SizedBox(
+                width: 320,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Next incomplete topic'),
+                    Text(
+                      nextTopic,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 17,
+                      ),
+                    ),
+                    const Text('Open Lesson Plans & Delivery to plan the real occurrence.'),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 class _Stat extends StatelessWidget {
   const _Stat({required this.label, required this.value, required this.hint});
+
   final String label;
   final String value;
   final String hint;
@@ -330,45 +363,16 @@ class _Stat extends StatelessWidget {
               children: [
                 Text(label),
                 const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
                 Text(hint, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
-          ),
-        ),
-      );
-}
-
-class _PacingAlert extends StatelessWidget {
-  const _PacingAlert({required this.onNavigate});
-  final ValueChanged<String> onNavigate;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 10,
-            children: [
-              const SizedBox(
-                width: 650,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Pacing alert', style: TextStyle(fontWeight: FontWeight.w900)),
-                    Text('This class is approximately two lessons behind the expected position. Consider revision consolidation and avoid skipping prerequisite material.'),
-                  ],
-                ),
-              ),
-              FilledButton(
-                onPressed: () => onNavigate('lesson-plans'),
-                child: const Text('Plan recovery lesson'),
-              ),
-            ],
           ),
         ),
       );
@@ -380,7 +384,7 @@ class _SchemePanel extends StatelessWidget {
     required this.snapshot,
     required this.searchController,
     required this.onSearch,
-    required this.onMark,
+    required this.onMarkDemo,
     required this.onNavigate,
   });
 
@@ -388,93 +392,104 @@ class _SchemePanel extends StatelessWidget {
   final TeacherSyllabusSnapshot snapshot;
   final TextEditingController searchController;
   final ValueChanged<String> onSearch;
-  final Future<void> Function(TeacherSyllabusRow, TeacherSyllabusStatus) onMark;
+  final Future<void> Function(TeacherSyllabusRow, TeacherSyllabusStatus)
+      onMarkDemo;
   final ValueChanged<String> onNavigate;
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Scheme of work', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                    Text('Update progress only for classes assigned to you.'),
-                  ],
-                ),
-                SizedBox(
-                  width: 300,
-                  child: TextField(
-                    controller: searchController,
-                    onChanged: onSearch,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search_rounded),
-                      hintText: 'Search topics or weeks...',
-                      isDense: true,
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Approved scheme of work',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
+                      Text(
+                        snapshot.canonical
+                            ? 'Progress shown below comes from delivered lesson evidence.'
+                            : 'Demo mode allows direct progress reporting.',
+                      ),
+                    ],
+                  ),
+                  SizedBox(
+                    width: 300,
+                    child: TextField(
+                      controller: searchController,
+                      onChanged: onSearch,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search_rounded),
+                        hintText: 'Search topics...',
+                        isDense: true,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (rows.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: Text('No syllabus rows match your search.'),
-              )
-            else
-              ...[
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (rows.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No syllabus rows match this search.'),
+                )
+              else
                 for (final row in rows)
                   _SchemeRow(
                     row: row,
                     status: snapshot.effectiveStatus(row),
-                    reported: snapshot.progress.containsKey(row.id),
-                    canReport: snapshot.permissions.canReportCoverage,
-                    onMark: onMark,
+                    progress: snapshot.progress[row.id],
+                    canonical: snapshot.canonical,
+                    onMarkDemo: onMarkDemo,
                     onNavigate: onNavigate,
                   ),
-              ],
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 class _SchemeRow extends StatelessWidget {
   const _SchemeRow({
     required this.row,
     required this.status,
-    required this.reported,
-    required this.canReport,
-    required this.onMark,
+    required this.progress,
+    required this.canonical,
+    required this.onMarkDemo,
     required this.onNavigate,
   });
 
   final TeacherSyllabusRow row;
   final TeacherSyllabusStatus status;
-  final bool reported;
-  final bool canReport;
-  final Future<void> Function(TeacherSyllabusRow, TeacherSyllabusStatus) onMark;
+  final TeacherSyllabusProgressRecord? progress;
+  final bool canonical;
+  final Future<void> Function(TeacherSyllabusRow, TeacherSyllabusStatus)
+      onMarkDemo;
   final ValueChanged<String> onNavigate;
 
   @override
   Widget build(BuildContext context) {
+    final evidence = progress == null
+        ? 'No delivered lesson evidence yet'
+        : '${progress!.deliveredLessons} delivered lesson(s)'
+            '${progress!.latestDeliveryDate.isEmpty ? '' : ' · latest ${progress!.latestDeliveryDate}'}';
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
       ),
       child: Wrap(
         spacing: 18,
@@ -486,56 +501,59 @@ class _SchemeRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Week'),
-                Text('${row.week}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                const Text('Sequence'),
+                Text(
+                  '${row.week}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
+                ),
               ],
             ),
           ),
           SizedBox(
-            width: 330,
+            width: 360,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Topic'),
                 Text(row.topic, style: const TextStyle(fontWeight: FontWeight.w900)),
-                Text('${row.plannedLessons} planned lessons'),
+                Text(evidence),
               ],
             ),
           ),
-          Chip(
-            label: Text(
-              reported
-                  ? '${teacherSyllabusStatusLabel(status)} · teacher reported'
-                  : teacherSyllabusStatusLabel(status),
+          Chip(label: Text(teacherSyllabusStatusLabel(status))),
+          if (canonical)
+            FilledButton.tonal(
+              onPressed: () => onNavigate('lesson-plans'),
+              child: const Text('Open delivery evidence'),
+            )
+          else
+            Wrap(
+              spacing: 6,
+              children: [
+                OutlinedButton(
+                  onPressed: () =>
+                      onMarkDemo(row, TeacherSyllabusStatus.completed),
+                  child: const Text('Mark complete'),
+                ),
+                OutlinedButton(
+                  onPressed: () =>
+                      onMarkDemo(row, TeacherSyllabusStatus.inProgress),
+                  child: const Text('In progress'),
+                ),
+              ],
             ),
-          ),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              OutlinedButton(
-                onPressed: canReport ? () => onMark(row, TeacherSyllabusStatus.completed) : null,
-                child: const Text('Mark complete'),
-              ),
-              OutlinedButton(
-                onPressed: canReport ? () => onMark(row, TeacherSyllabusStatus.inProgress) : null,
-                child: const Text('In progress'),
-              ),
-              TextButton(
-                onPressed: () => onNavigate('lesson-plans'),
-                child: const Text('Create plan'),
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
 }
 
-class _AiInsight extends StatelessWidget {
-  const _AiInsight({required this.className, required this.onNavigate});
-  final String className;
+class _EvidenceBoundary extends StatelessWidget {
+  const _EvidenceBoundary({required this.canonical, required this.onNavigate});
+
+  final bool canonical;
   final ValueChanged<String> onNavigate;
 
   @override
@@ -544,68 +562,24 @@ class _AiInsight extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Teacher AI pacing insight', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-              const SizedBox(height: 8),
-              Text(teacherSyllabusAiInsight(className)),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.icon(
-                  onPressed: () => onNavigate('ai'),
-                  icon: const Icon(Icons.auto_awesome_rounded),
-                  label: const Text('Ask AI for pacing plan'),
-                ),
+              const Text(
+                'Syllabus evidence boundary',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
-            ],
-          ),
-        ),
-      );
-}
-
-class _Controls extends StatelessWidget {
-  const _Controls();
-
-  @override
-  Widget build(BuildContext context) => const Card(
-        elevation: 0,
-        child: Padding(
-          padding: EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Curriculum controls', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-              SizedBox(height: 12),
-              Text('Teacher updates progress', style: TextStyle(fontWeight: FontWeight.w900)),
-              Text('You can report what has been taught, but cannot silently change the school-approved scheme.'),
-              SizedBox(height: 12),
-              Text('Leadership approves changes', style: TextStyle(fontWeight: FontWeight.w900)),
-              Text('Topic reordering, removal or curriculum replacement should require authorized academic approval.'),
-            ],
-          ),
-        ),
-      );
-}
-
-class _BoundaryCard extends StatelessWidget {
-  const _BoundaryCard();
-
-  @override
-  Widget build(BuildContext context) => const Card(
-        elevation: 0,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Syllabus authority boundary', style: TextStyle(fontWeight: FontWeight.w900)),
-              SizedBox(height: 6),
-              Text(teacherSyllabusAuthorityBoundary),
-              SizedBox(height: 6),
-              Text(teacherSyllabusAiBoundary),
-              SizedBox(height: 6),
-              Text(teacherSyllabusOfflineBoundary),
+              const SizedBox(height: 8),
+              Text(
+                canonical
+                    ? 'A Teacher cannot directly mark a canonical topic complete here. The server derives In progress / Completed from accepted Lesson Delivery records tied to real timetable occurrences and approved lesson plans.'
+                    : 'Demo progress is local-only and does not represent server curriculum authority.',
+              ),
+              const SizedBox(height: 10),
+              FilledButton.tonalIcon(
+                onPressed: () => onNavigate('lesson-plans'),
+                icon: const Icon(Icons.fact_check_outlined),
+                label: const Text('Open Lesson Plans & Delivery'),
+              ),
             ],
           ),
         ),
@@ -620,11 +594,10 @@ class _Notice extends StatelessWidget {
   Widget build(BuildContext context) => Card(
         elevation: 0,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info_outline_rounded),
+              const Icon(Icons.info_outline),
               const SizedBox(width: 8),
               Expanded(child: Text(text)),
             ],
