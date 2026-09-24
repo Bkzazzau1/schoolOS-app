@@ -58,6 +58,7 @@ const administratorNavigation = <AdministratorNavItem>[
   AdministratorNavItem(key: 'academics', label: 'Academic Structure'),
   AdministratorNavItem(key: 'curriculum', label: 'Subjects & Curriculum'),
   AdministratorNavItem(key: 'timetable', label: 'Timetable & Scheduling'),
+  AdministratorNavItem(key: 'assessment-release', label: 'Assessment Release'),
   AdministratorNavItem(key: 'staff', label: 'Staff Records'),
   AdministratorNavItem(key: 'staff-profiles', label: 'Staff Profiles'),
   AdministratorNavItem(key: 'staff-attendance', label: 'Staff Attendance'),

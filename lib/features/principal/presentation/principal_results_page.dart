@@ -62,16 +62,19 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
           'Results & Reports',
           style: Theme.of(context).textTheme.headlineMedium,
         ),
-        const Text(
-          'Secondary classes from the student register. Official term results: Not recorded yet.',
+        Text(
+          'Secondary classes from the student register. School average: '
+          '${snapshot.schoolAverage == null ? 'not recorded yet' : '${snapshot.schoolAverage}%'}.',
         ),
         const SizedBox(height: 16),
-        const Text('Reports ready: 0 · Released reports: 0'),
+        Text(
+          'Released assessments: ${snapshot.reportsReady} · Classes with released results: ${snapshot.releasedClasses}',
+        ),
         const Card(
           child: Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              'No official report cards have been prepared. Teacher assessments do not yet include the subject, term grading and report approval records needed to produce a report card. Scores, rankings, conduct, comments and release states are not inferred.',
+              'This is recorded and released assessment evidence per class, not an official term report card. A report card also needs a term grade roll-up, position, conduct and Principal/Administrator sign-off, which is a separate, not-yet-built feature. Nothing here is fabricated or inferred beyond a released assessment\'s own recorded scores.',
             ),
           ),
         ),
@@ -93,7 +96,10 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
             child: ListTile(
               title: Text(row.className),
               subtitle: Text(
-                '${row.students} registered students · Results not recorded yet',
+                row.complete == 0
+                    ? '${row.students} registered students · No released assessment yet'
+                    : '${row.students} registered students · ${row.complete} released assessment${row.complete == 1 ? '' : 's'} · '
+                        'average ${row.average}% · pass rate ${row.passRate}%',
               ),
             ),
           ),

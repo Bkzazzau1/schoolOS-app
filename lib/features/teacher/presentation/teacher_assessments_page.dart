@@ -23,7 +23,6 @@ class TeacherAssessmentsPage extends StatefulWidget {
 class _TeacherAssessmentsPageState extends State<TeacherAssessmentsPage> {
   late Future<TeacherAssessmentSnapshot> _future;
   String? _selectedId;
-  TeacherAssessmentScoreSheet? _draft;
   String? _notice;
   bool _noticeSuccess = false;
 
@@ -34,62 +33,20 @@ class _TeacherAssessmentsPageState extends State<TeacherAssessmentsPage> {
   }
 
   void _reload() {
-    setState(() {
-      _future = widget.repository.load();
-    });
+    setState(() => _future = widget.repository.load());
   }
 
-  void _select(TeacherAssessmentSnapshot snapshot, String id) {
-    setState(() {
-      _selectedId = id;
-      _draft = snapshot.sheets[id];
-      _notice = null;
-    });
-  }
+  void _select(String id) => setState(() {
+        _selectedId = id;
+        _notice = null;
+      });
 
-  void _setScore(String studentId, String raw) {
-    final current = _draft;
-    if (current == null || !current.teacherEditable) return;
-    final parsed = int.tryParse(raw);
-    if (parsed == null) return;
-    final clamped = parsed.clamp(0, current.maximumScore);
-    setState(() {
-      _draft = current.copyWith(
-        entries: current.entries
-            .map((entry) => entry.studentId == studentId
-                ? entry.copyWith(score: clamped)
-                : entry)
-            .toList(growable: false),
-      );
-      _notice = null;
-    });
-  }
-
-  Future<void> _saveProgress() async {
-    final current = _draft;
-    if (current == null) return;
-    final result = await widget.repository.saveProgress(current);
+  void _report(TeacherAssessmentActionResult result) {
     if (!mounted) return;
     setState(() {
-      if (result.sheet != null) _draft = result.sheet;
       _notice = result.message;
       _noticeSuccess = result.success;
-    });
-    if (result.success) {
-      widget.onMutationQueued();
-      _reload();
-    }
-  }
-
-  Future<void> _submitScores() async {
-    final current = _draft;
-    if (current == null) return;
-    final result = await widget.repository.submitScores(current);
-    if (!mounted) return;
-    setState(() {
-      if (result.sheet != null) _draft = result.sheet;
-      _notice = result.message;
-      _noticeSuccess = result.success;
+      if (result.success && result.assessment != null) _selectedId = result.assessment!.id;
     });
     if (result.success) {
       widget.onMutationQueued();
@@ -98,28 +55,52 @@ class _TeacherAssessmentsPageState extends State<TeacherAssessmentsPage> {
   }
 
   Future<void> _createAssessment(TeacherAssessmentSnapshot snapshot) async {
-    final draft = await showDialog<_NewAssessmentDraft>(
+    final option = await showDialog<TeacherAssessmentOption>(
       context: context,
-      builder: (context) => _NewAssessmentDialog(classOptions: snapshot.classOptions),
+      builder: (context) => _ClassSubjectPickerDialog(options: snapshot.options),
     );
-    if (draft == null) return;
-    final result = await widget.repository.createAssessment(
-      className: draft.className,
-      title: draft.title,
-      maximumScore: draft.maximumScore,
+    if (option == null) return;
+    final draft = snapshot.draft.copyWith(
+      classSubjectId: option.classSubjectId,
+      termId: option.termId,
+      term: option.term,
+      className: option.className,
+      subject: option.subject,
+      title: '',
+      type: TeacherAssessmentType.ca,
+      maximumScore: 20,
     );
-    if (!mounted) return;
-    setState(() {
-      _notice = result.message;
-      _noticeSuccess = result.success;
-      if (result.success && result.sheet != null) {
-        _selectedId = result.sheet!.id;
-      }
-    });
-    if (result.success) {
-      widget.onMutationQueued();
-      _reload();
-    }
+    _report(await widget.repository.saveDraft(draft));
+  }
+
+  Future<void> _saveDraftEdits(TeacherAssessment draft) async {
+    _report(await widget.repository.saveDraft(draft));
+  }
+
+  Future<void> _publish(TeacherAssessment draft) async {
+    _report(await widget.repository.publish(draft));
+  }
+
+  Future<void> _saveScores(TeacherAssessment assessment) async {
+    _report(await widget.repository.saveScores(assessment));
+  }
+
+  Future<void> _submit(TeacherAssessment assessment) async {
+    _report(await widget.repository.submit(assessment));
+  }
+
+  Future<void> _correct(TeacherAssessment assessment, TeacherAssessmentEntry entry) async {
+    final result = await showDialog<_CorrectionDraft>(
+      context: context,
+      builder: (context) => _CorrectionDialog(entry: entry, maximumScore: assessment.maximumScore),
+    );
+    if (result == null) return;
+    _report(await widget.repository.correctScore(
+      assessment,
+      studentId: entry.studentId,
+      score: result.score,
+      comment: result.comment,
+    ));
   }
 
   @override
@@ -134,31 +115,25 @@ class _TeacherAssessmentsPageState extends State<TeacherAssessmentsPage> {
           return _ErrorState(onRetry: _reload);
         }
         final data = snapshot.requireData;
-        if (_selectedId == null || !data.sheets.containsKey(_selectedId)) {
-          _selectedId = data.register.isEmpty ? null : data.register.first.id;
-          _draft = _selectedId == null ? null : data.sheets[_selectedId];
+        final all = [data.draft, ...data.assessments];
+        if (_selectedId == null || !all.any((a) => a.id == _selectedId)) {
+          _selectedId = all.isEmpty ? null : all.first.id;
         }
-        return _content(context, data);
+        return _content(context, data, all);
       },
     );
   }
 
-  Widget _content(BuildContext context, TeacherAssessmentSnapshot snapshot) {
-    final editable = _draft != null &&
-        _draft!.teacherEditable &&
-        snapshot.permissions.canEnterScores;
-    final entered = snapshot.register.fold<int>(0, (sum, item) => sum + item.entered);
-    final total = snapshot.register.fold<int>(0, (sum, item) => sum + item.total);
-    final scored = snapshot.register.where((item) => item.entered > 0).toList();
-    final averagePercent = scored.isEmpty
+  Widget _content(BuildContext context, TeacherAssessmentSnapshot snapshot, List<TeacherAssessment> all) {
+    final selected = all.firstWhere((a) => a.id == _selectedId, orElse: () => snapshot.draft);
+    final published = snapshot.assessments;
+    final totalEntered = published.fold<int>(0, (sum, a) => sum + a.entered);
+    final totalStudents = published.fold<int>(0, (sum, a) => sum + a.totalStudents);
+    final scored = published.where((a) => a.averagePercent != null).toList();
+    final overallAverage = scored.isEmpty
         ? null
-        : (scored.fold<double>(
-                  0,
-                  (sum, item) => sum + (item.average / item.maximumScore * 100),
-                ) /
-                scored.length)
-            .round();
-    final pending = snapshot.register.where((item) => item.state == TeacherAssessmentRegisterState.inProgress).length;
+        : (scored.fold<double>(0, (sum, a) => sum + a.averagePercent!) / scored.length).round();
+    final pendingReview = published.where((a) => a.state == TeacherAssessmentState.submitted).length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
@@ -171,14 +146,14 @@ class _TeacherAssessmentsPageState extends State<TeacherAssessmentsPage> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _KpiCard(label: 'Assessments', value: '${snapshot.register.length}', hint: 'Your assigned classes'),
-              _KpiCard(label: 'Scores entered', value: '$entered/$total', hint: 'Across your assessments'),
+              _KpiCard(label: 'Assessments', value: '${published.length}', hint: 'Published or further along'),
+              _KpiCard(label: 'Scores entered', value: '$totalEntered/$totalStudents', hint: 'Across your assessments'),
               _KpiCard(
                 label: 'Average score',
-                value: averagePercent == null ? '—' : '$averagePercent%',
-                hint: averagePercent == null ? 'No scores entered yet' : 'Across assessments with scores',
+                value: overallAverage == null ? '—' : '$overallAverage%',
+                hint: overallAverage == null ? 'No scores entered yet' : 'Across assessments with scores',
               ),
-              _KpiCard(label: 'Pending submission', value: '$pending', hint: 'Not yet submitted for review'),
+              _KpiCard(label: 'Awaiting lock/release', value: '$pendingReview', hint: 'Submitted, not yet locked or released'),
             ],
           ),
           const SizedBox(height: 18),
@@ -186,7 +161,7 @@ class _TeacherAssessmentsPageState extends State<TeacherAssessmentsPage> {
             _Notice(message: _notice!, success: _noticeSuccess),
             const SizedBox(height: 14),
           ],
-          if (snapshot.classOptions.isEmpty)
+          if (snapshot.options.isEmpty)
             const Card(
               elevation: 0,
               child: Padding(
@@ -194,40 +169,19 @@ class _TeacherAssessmentsPageState extends State<TeacherAssessmentsPage> {
                 child: Text('No classes are assigned to you yet. The owner or the administrator assigns classes to teachers.'),
               ),
             )
-          else if (snapshot.register.isEmpty)
-            Card(
-              elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('No assessments yet for your assigned classes.'),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: () => _createAssessment(snapshot),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('New assessment'),
-                    ),
-                  ],
-                ),
-              ),
-            )
           else
             LayoutBuilder(
               builder: (context, constraints) {
                 final scoreCard = _ScoreEntryCard(
                   snapshot: snapshot,
-                  selectedId: _selectedId!,
-                  draft: _draft!,
-                  editable: editable,
-                  onSelect: (id) => _select(snapshot, id),
-                  onScoreChanged: _setScore,
-                  onSave: editable ? _saveProgress : null,
-                  onSubmit: editable && snapshot.permissions.canSubmitScores ? _submitScores : null,
-                  onShare: () => widget.onNavigate('messages'),
+                  assessment: selected,
+                  onSaveDraft: _saveDraftEdits,
+                  onPublish: _publish,
+                  onSaveScores: _saveScores,
+                  onSubmit: _submit,
+                  onCorrect: (entry) => _correct(selected, entry),
                 );
-                final insight = _PerformanceInsight(item: snapshot.register.firstWhere((i) => i.id == _selectedId));
+                final insight = _PerformanceInsight(assessment: selected);
                 if (constraints.maxWidth >= 980) {
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,20 +192,18 @@ class _TeacherAssessmentsPageState extends State<TeacherAssessmentsPage> {
                     ],
                   );
                 }
-                return Column(
-                  children: [scoreCard, const SizedBox(height: 14), insight],
-                );
+                return Column(children: [scoreCard, const SizedBox(height: 14), insight]);
               },
             ),
           const SizedBox(height: 18),
           _AssessmentRegister(
-            register: snapshot.register,
+            all: all,
             selectedId: _selectedId,
-            onSelect: (id) => _select(snapshot, id),
-            onCreate: snapshot.classOptions.isEmpty ? null : () => _createAssessment(snapshot),
+            onSelect: _select,
+            onCreate: snapshot.options.isEmpty ? null : () => _createAssessment(snapshot),
           ),
           const SizedBox(height: 18),
-          _Boundaries(onNavigate: widget.onNavigate),
+          const _Boundaries(),
         ],
       ),
     );
@@ -275,16 +227,11 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('TEACHER · ASSESSMENTS',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        )),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w900)),
                 const SizedBox(height: 4),
-                Text('Assessments',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        )),
+                Text('Assessments', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
                 const SizedBox(height: 4),
-                const Text('Create tests, enter CA scores and monitor class performance.'),
+                const Text('Create CA, quizzes, tests and exams, enter scores and track class performance.'),
               ],
             ),
           ),
@@ -292,18 +239,8 @@ class _Header extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton(
-                onPressed: () => onNavigate('classes'),
-                child: const Text('My Classes'),
-              ),
-              OutlinedButton(
-                onPressed: () => onNavigate('messages'),
-                child: const Text('Share work'),
-              ),
-              OutlinedButton(
-                onPressed: () => onNavigate('dashboard'),
-                child: const Text('Dashboard'),
-              ),
+              OutlinedButton(onPressed: () => onNavigate('classes'), child: const Text('My Classes')),
+              OutlinedButton(onPressed: () => onNavigate('dashboard'), child: const Text('Dashboard')),
             ],
           ),
         ],
@@ -328,10 +265,7 @@ class _KpiCard extends StatelessWidget {
               children: [
                 Text(label),
                 const SizedBox(height: 4),
-                Text(value,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        )),
+                Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
                 const SizedBox(height: 4),
                 Text(hint, style: Theme.of(context).textTheme.bodySmall),
               ],
@@ -341,95 +275,138 @@ class _KpiCard extends StatelessWidget {
       );
 }
 
-class _ScoreEntryCard extends StatelessWidget {
+class _ScoreEntryCard extends StatefulWidget {
   const _ScoreEntryCard({
     required this.snapshot,
-    required this.selectedId,
-    required this.draft,
-    required this.editable,
-    required this.onSelect,
-    required this.onScoreChanged,
-    required this.onSave,
+    required this.assessment,
+    required this.onSaveDraft,
+    required this.onPublish,
+    required this.onSaveScores,
     required this.onSubmit,
-    required this.onShare,
+    required this.onCorrect,
   });
 
   final TeacherAssessmentSnapshot snapshot;
-  final String selectedId;
-  final TeacherAssessmentScoreSheet draft;
-  final bool editable;
-  final ValueChanged<String> onSelect;
-  final void Function(String studentId, String raw) onScoreChanged;
-  final VoidCallback? onSave;
-  final VoidCallback? onSubmit;
-  final VoidCallback onShare;
+  final TeacherAssessment assessment;
+  final ValueChanged<TeacherAssessment> onSaveDraft;
+  final ValueChanged<TeacherAssessment> onPublish;
+  final ValueChanged<TeacherAssessment> onSaveScores;
+  final ValueChanged<TeacherAssessment> onSubmit;
+  final ValueChanged<TeacherAssessmentEntry> onCorrect;
 
   @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Score entry',
-                            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-                        Text('Enter scores for one of your own created assessments.'),
-                      ],
-                    ),
-                  ),
-                  Chip(label: Text(teacherAssessmentSheetStateLabel(draft.state))),
-                ],
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: selectedId,
-                decoration: const InputDecoration(labelText: 'Assessment'),
-                items: [
-                  for (final item in snapshot.register)
-                    DropdownMenuItem(value: item.id, child: Text('${item.title} · ${item.className}')),
-                ],
-                onChanged: (value) {
-                  if (value != null) onSelect(value);
-                },
-              ),
-              const SizedBox(height: 14),
-              for (final entry in draft.entries)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
+  State<_ScoreEntryCard> createState() => _ScoreEntryCardState();
+}
+
+class _ScoreEntryCardState extends State<_ScoreEntryCard> {
+  late TeacherAssessment _working = widget.assessment;
+  late final _titleController = TextEditingController(text: _working.title);
+  late final _maxController = TextEditingController(text: '${_working.maximumScore}');
+  late final _weightController = TextEditingController(text: _working.weight.toStringAsFixed(2));
+
+  @override
+  void didUpdateWidget(covariant _ScoreEntryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.assessment.id != widget.assessment.id || oldWidget.assessment.version != widget.assessment.version) {
+      _working = widget.assessment;
+      _titleController.text = _working.title;
+      _maxController.text = '${_working.maximumScore}';
+      _weightController.text = _working.weight.toStringAsFixed(2);
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _maxController.dispose();
+    _weightController.dispose();
+    super.dispose();
+  }
+
+  void _setScore(String studentId, String raw) {
+    final parsed = raw.trim().isEmpty ? null : double.tryParse(raw);
+    setState(() {
+      _working = _working.copyWith(
+        entries: _working.entries
+            .map((e) => e.studentId == studentId ? e.copyWith(score: parsed, clearScore: parsed == null) : e)
+            .toList(growable: false),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = _working;
+    final editableDraft = a.teacherEditable;
+    final editableScores = a.scoresEditable;
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: Text(snapshot.studentNames[entry.studentId] ?? entry.studentId)),
-                      SizedBox(
-                        width: 92,
-                        child: TextFormField(
-                          key: ValueKey('${draft.version}-${entry.studentId}-${entry.score}'),
-                          initialValue: '${entry.score}',
-                          enabled: editable,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(isDense: true),
-                          onChanged: (value) => onScoreChanged(entry.studentId, value),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('/${draft.maximumScore}',
-                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                      Text('Score entry', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                      Text('One of your own current class subjects.'),
                     ],
                   ),
                 ),
-              const Divider(height: 24),
-              Row(
+                Chip(label: Text(teacherAssessmentStateLabel(a.state))),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(a.className.isEmpty ? 'Choose a class subject below.' : '${a.className}${a.subject.isEmpty ? '' : ' · ${a.subject}'}'),
+            const SizedBox(height: 16),
+            if (editableDraft) ...[
+              TextField(
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: 'Title', hintText: 'e.g. First CA'),
+                onChanged: (v) => _working = _working.copyWith(title: v),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
                 children: [
-                  const Expanded(child: Text('Class average')),
-                  Text('${draft.average.toStringAsFixed(1)} / ${draft.maximumScore}',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<TeacherAssessmentType>(
+                      initialValue: a.type,
+                      decoration: const InputDecoration(labelText: 'Type'),
+                      items: [
+                        for (final t in TeacherAssessmentType.values)
+                          DropdownMenuItem(value: t, child: Text(teacherAssessmentTypeLabel(t))),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setState(() => _working = _working.copyWith(type: v));
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    width: 140,
+                    child: TextField(
+                      controller: _maxController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Maximum score'),
+                      onChanged: (v) => _working = _working.copyWith(maximumScore: int.tryParse(v) ?? _working.maximumScore),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 140,
+                    child: TextField(
+                      controller: _weightController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Weight'),
+                      onChanged: (v) => _working = _working.copyWith(weight: double.tryParse(v) ?? _working.weight),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -437,30 +414,79 @@ class _ScoreEntryCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  OutlinedButton(onPressed: onShare, child: const Text('Share results')),
-                  OutlinedButton(onPressed: onSave, child: const Text('Save progress')),
-                  FilledButton(onPressed: onSubmit, child: const Text('Submit scores')),
+                  OutlinedButton(onPressed: () => widget.onSaveDraft(_working), child: const Text('Save draft')),
+                  FilledButton(onPressed: () => widget.onPublish(_working), child: const Text('Publish · open for scoring')),
                 ],
               ),
-              if (!editable) ...[
-                const SizedBox(height: 12),
-                const Text(
-                  'This score sheet is locked for teacher editing after submission. Review/locking and result release require the authorized school workflow.',
+            ] else if (a.className.isEmpty) ...[
+              const Text('Use "+ New assessment" below to start one for a class subject you currently teach.'),
+            ] else ...[
+              for (final entry in a.entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(entry.studentName)),
+                      SizedBox(
+                        width: 92,
+                        child: TextFormField(
+                          key: ValueKey('${a.version}-${entry.studentId}-${entry.score}'),
+                          initialValue: entry.score?.toStringAsFixed(0) ?? '',
+                          enabled: editableScores,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(isDense: true, hintText: '—'),
+                          onChanged: (v) => _setScore(entry.studentId, v),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('/${a.maximumScore}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                      if (a.canCorrect) ...[
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'Correct this score (audited)',
+                          icon: const Icon(Icons.edit_note_rounded, size: 20),
+                          onPressed: () => widget.onCorrect(entry),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ],
+              const Divider(height: 24),
+              Row(
+                children: [
+                  const Expanded(child: Text('Class average')),
+                  Text('${a.average.toStringAsFixed(1)} / ${a.maximumScore}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (editableScores)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton(onPressed: () => widget.onSaveScores(_working), child: const Text('Save progress')),
+                    FilledButton(onPressed: () => widget.onSubmit(_working), child: const Text('Submit for review')),
+                  ],
+                )
+              else
+                const Text(
+                  'This assessment is submitted, locked or released. Use the correction control on a row above to make an audited change.',
+                ),
             ],
-          ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _PerformanceInsight extends StatelessWidget {
-  const _PerformanceInsight({required this.item});
-  final TeacherAssessmentRegisterItem item;
+  const _PerformanceInsight({required this.assessment});
+  final TeacherAssessment assessment;
 
   @override
   Widget build(BuildContext context) {
-    final percent = item.entered == 0 ? null : (item.average / item.maximumScore * 100).round();
+    final percent = assessment.averagePercent?.round();
     return Card(
       elevation: 0,
       child: Padding(
@@ -469,16 +495,15 @@ class _PerformanceInsight extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Performance overview', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-            Text('${item.title} · ${item.className}'),
+            Text(assessment.title.isEmpty ? 'Untitled draft' : '${assessment.title} · ${assessment.className}'),
             const SizedBox(height: 16),
-            Text(percent == null ? '—' : '$percent%',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 34)),
+            Text(percent == null ? '—' : '$percent%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 34)),
             Text(percent == null ? 'No scores entered yet' : 'Average of scores entered so far'),
             const SizedBox(height: 16),
-            Text('${item.entered} of ${item.total} students scored'),
+            Text('${assessment.entered} of ${assessment.totalStudents} students scored'),
             const SizedBox(height: 12),
             const Text(
-              'Deeper AI-assisted performance analysis (concept mastery, question-level patterns) is not available yet for this assessment.',
+              'Deeper AI-assisted performance analysis is not available yet for this assessment.',
               style: TextStyle(fontStyle: FontStyle.italic),
             ),
           ],
@@ -489,13 +514,8 @@ class _PerformanceInsight extends StatelessWidget {
 }
 
 class _AssessmentRegister extends StatelessWidget {
-  const _AssessmentRegister({
-    required this.register,
-    required this.selectedId,
-    required this.onSelect,
-    required this.onCreate,
-  });
-  final List<TeacherAssessmentRegisterItem> register;
+  const _AssessmentRegister({required this.all, required this.selectedId, required this.onSelect, required this.onCreate});
+  final List<TeacherAssessment> all;
   final String? selectedId;
   final ValueChanged<String> onSelect;
   final VoidCallback? onCreate;
@@ -514,8 +534,7 @@ class _AssessmentRegister extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Assessment register',
-                            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                        Text('Assessment register', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
                         Text('Completion status and class performance.'),
                       ],
                     ),
@@ -524,21 +543,19 @@ class _AssessmentRegister extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              for (final item in register)
+              for (final item in all)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   selected: item.id == selectedId,
                   onTap: () => onSelect(item.id),
-                  title: Text('${item.title} · ${item.className}',
-                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  title: Text(
+                    item.title.isEmpty ? 'Untitled draft · ${item.className}' : '${item.title} · ${item.className}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   subtitle: Text(
-                    'Max ${item.maximumScore} · ${item.entered}/${item.total} scores entered · Average ${item.average.toStringAsFixed(1)}',
+                    '${teacherAssessmentTypeLabel(item.type)} · Max ${item.maximumScore} · ${item.entered}/${item.totalStudents} scores entered',
                   ),
-                  trailing: Chip(
-                    label: Text(item.state == TeacherAssessmentRegisterState.complete
-                        ? 'Complete'
-                        : 'In progress'),
-                  ),
+                  trailing: Chip(label: Text(teacherAssessmentStateLabel(item.state))),
                 ),
             ],
           ),
@@ -547,31 +564,25 @@ class _AssessmentRegister extends StatelessWidget {
 }
 
 class _Boundaries extends StatelessWidget {
-  const _Boundaries({required this.onNavigate});
-  final ValueChanged<String> onNavigate;
+  const _Boundaries();
 
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => const Card(
         elevation: 0,
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Assessment controls',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 8),
-              const Text(teacherAssessmentSaveBoundary),
-              const SizedBox(height: 8),
-              const Text(teacherAssessmentSubmissionBoundary),
-              const SizedBox(height: 8),
-              const Text(teacherAssessmentAiBoundary),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: () => onNavigate('lesson-plans'),
-                icon: const Icon(Icons.description_outlined),
-                label: const Text('Create revision lesson'),
-              ),
+              Text('Assessment controls', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              SizedBox(height: 8),
+              Text(teacherAssessmentSaveBoundary),
+              SizedBox(height: 8),
+              Text(teacherAssessmentSubmissionBoundary),
+              SizedBox(height: 8),
+              Text(teacherAssessmentCorrectionBoundary),
+              SizedBox(height: 8),
+              Text(teacherAssessmentAiBoundary),
             ],
           ),
         ),
@@ -588,9 +599,7 @@ class _Notice extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: success
-              ? Theme.of(context).colorScheme.primaryContainer
-              : Theme.of(context).colorScheme.errorContainer,
+          color: success ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.errorContainer,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(message),
@@ -617,91 +626,112 @@ class _ErrorState extends StatelessWidget {
       );
 }
 
-class _NewAssessmentDraft {
-  const _NewAssessmentDraft({required this.className, required this.title, required this.maximumScore});
-  final String className;
-  final String title;
-  final int maximumScore;
-}
-
-class _NewAssessmentDialog extends StatefulWidget {
-  const _NewAssessmentDialog({required this.classOptions});
-  final List<String> classOptions;
+class _ClassSubjectPickerDialog extends StatefulWidget {
+  const _ClassSubjectPickerDialog({required this.options});
+  final List<TeacherAssessmentOption> options;
 
   @override
-  State<_NewAssessmentDialog> createState() => _NewAssessmentDialogState();
+  State<_ClassSubjectPickerDialog> createState() => _ClassSubjectPickerDialogState();
 }
 
-class _NewAssessmentDialogState extends State<_NewAssessmentDialog> {
-  late String _className = widget.classOptions.first;
-  final _titleController = TextEditingController(text: 'CA 1');
-  final _maxController = TextEditingController(text: '20');
+class _ClassSubjectPickerDialogState extends State<_ClassSubjectPickerDialog> {
+  late TeacherAssessmentOption _selected = widget.options.first;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('New assessment'),
+        content: SizedBox(
+          width: 380,
+          child: DropdownButtonFormField<TeacherAssessmentOption>(
+            isExpanded: true,
+            initialValue: _selected,
+            decoration: const InputDecoration(labelText: 'Class subject'),
+            items: [
+              for (final option in widget.options) DropdownMenuItem(value: option, child: Text(option.label)),
+            ],
+            onChanged: (v) {
+              if (v != null) setState(() => _selected = v);
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(_selected), child: const Text('Continue')),
+        ],
+      );
+}
+
+class _CorrectionDraft {
+  const _CorrectionDraft({required this.score, required this.comment});
+  final double? score;
+  final String comment;
+}
+
+class _CorrectionDialog extends StatefulWidget {
+  const _CorrectionDialog({required this.entry, required this.maximumScore});
+  final TeacherAssessmentEntry entry;
+  final int maximumScore;
+
+  @override
+  State<_CorrectionDialog> createState() => _CorrectionDialogState();
+}
+
+class _CorrectionDialogState extends State<_CorrectionDialog> {
+  late final _scoreController = TextEditingController(text: widget.entry.score?.toStringAsFixed(0) ?? '');
+  final _commentController = TextEditingController();
   String? _error;
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _maxController.dispose();
+    _scoreController.dispose();
+    _commentController.dispose();
     super.dispose();
   }
 
   void _submit() {
-    final title = _titleController.text.trim();
-    final max = int.tryParse(_maxController.text.trim());
-    if (title.isEmpty) {
-      setState(() => _error = 'Enter a title for the assessment.');
+    final raw = _scoreController.text.trim();
+    final score = raw.isEmpty ? null : double.tryParse(raw);
+    if (raw.isNotEmpty && (score == null || score < 0 || score > widget.maximumScore)) {
+      setState(() => _error = 'Score must be between 0 and ${widget.maximumScore}.');
       return;
     }
-    if (max == null || max <= 0) {
-      setState(() => _error = 'Enter a positive maximum score.');
+    if (_commentController.text.trim().isEmpty) {
+      setState(() => _error = 'Add a short reason for this correction.');
       return;
     }
-    Navigator.of(context).pop(_NewAssessmentDraft(className: _className, title: title, maximumScore: max));
+    Navigator.of(context).pop(_CorrectionDraft(score: score, comment: _commentController.text.trim()));
   }
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('New assessment'),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: _className,
-              decoration: const InputDecoration(labelText: 'Class'),
-              items: [
-                for (final item in widget.classOptions) DropdownMenuItem(value: item, child: Text(item)),
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text('Correct ${widget.entry.studentName}\'s score'),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _scoreController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: 'New score', hintText: 'out of ${widget.maximumScore}'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _commentController,
+                decoration: const InputDecoration(labelText: 'Reason for correction'),
+                maxLines: 2,
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ],
-              onChanged: (value) {
-                if (value != null) setState(() => _className = value);
-              },
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(labelText: 'Title', hintText: 'e.g. CA 1'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _maxController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Maximum score'),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
-          ],
+          ),
         ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        FilledButton(onPressed: _submit, child: const Text('Create')),
-      ],
-    );
-  }
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          FilledButton(onPressed: _submit, child: const Text('Save correction')),
+        ],
+      );
 }

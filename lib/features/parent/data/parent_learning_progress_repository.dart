@@ -2,7 +2,7 @@ import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../teacher/data/teacher_assessment_repository.dart'
-    show teacherAssessmentRegisterEntityType, teacherAssessmentScoreSheetEntityType;
+    show teacherAssessmentEntityType;
 import '../../teacher/domain/teacher_assessment_models.dart';
 import '../domain/parent_learning_progress_models.dart';
 import 'parent_children_repository.dart';
@@ -22,76 +22,68 @@ class ParentLearningProgressRepository {
   final SchoolSessionController _schoolSession;
   final ParentChildrenRepository _children;
 
-  /// Every child's average, evidence and timeline are computed live from the same real assessment
-  /// records a Teacher enters and Principal's Academics screen aggregates class-wide
-  /// ([teacherAssessmentRegisterEntityType] / [teacherAssessmentScoreSheetEntityType]), filtered down to
-  /// this one real student's own score entries — so a family can never see a number Finance, the
-  /// register or a teacher's own score sheet would disagree with.
+  /// Every child's average, evidence and timeline are computed live from the same real canonical
+  /// assessment records ([teacherAssessmentEntityType]) a Teacher enters and Principal's Academics
+  /// screen aggregates class-wide, filtered down to this one real student's own score entry — so a
+  /// family can never see a number the register or a teacher's own assessment would disagree with.
   ///
-  /// No real assessment records a subject, a topic, a day-by-day history or a narrative "insight"
+  /// Only RELEASED assessments are shown here: a Student/Parent never sees a mark before the school
+  /// has released it, even if it happens to already be sitting in this device's local cache (demo
+  /// mode shares one local database across every signed-in role; a connected server also never sends
+  /// an unreleased mark to this membership in the first place, but this filter is a defensive second
+  /// gate, not a replacement for that server-side authority).
+  ///
+  /// No real assessment records a subject-wide topic, a day-by-day history or a narrative "insight"
   /// (Principal Academics already established the same "no subject label exists yet" fact school-wide),
   /// so those stay honestly empty instead of inventing them.
   Future<ParentLearningProgressSnapshot> load() async {
     final membership = _requireParentMembership();
     final linked = (await _children.load()).children;
 
-    final registerRecords = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
-      entityType: teacherAssessmentRegisterEntityType,
+      entityType: teacherAssessmentEntityType,
     );
-    final register = registerRecords
-        .map((record) => TeacherAssessmentRegisterItem.fromJson(record.payload))
+    final released = records
+        .map((record) => TeacherAssessment.fromJson(record.payload))
+        .where((item) => item.state == TeacherAssessmentState.released)
         .toList(growable: false);
-
-    final sheetRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: teacherAssessmentScoreSheetEntityType,
-    );
-    final sheetsById = <String, TeacherAssessmentScoreSheet>{
-      for (final record in sheetRecords)
-        record.entityId: TeacherAssessmentScoreSheet.fromJson(record.payload),
-    };
 
     final children = <ParentLearningChild>[];
     for (final child in linked) {
       final evidence = <ParentLearningEvidenceItem>[];
       final timeline = <ParentLearningTimelineEvent>[];
-      var totalPercent = 0;
+      var totalPercent = 0.0;
       var scoredCount = 0;
 
-      for (final item in register) {
+      for (final item in released) {
         if (item.className != child.className) continue;
-        final sheet = sheetsById[item.id];
-        if (sheet == null) continue;
 
-        TeacherAssessmentScoreEntry? entry;
-        for (final e in sheet.entries) {
+        TeacherAssessmentEntry? entry;
+        for (final e in item.entries) {
           if (e.studentId == child.id) {
             entry = e;
             break;
           }
         }
-        // A score of exactly 0 cannot be told apart from "not entered yet" with the current score
-        // model, so this follows the same honest convention the register itself uses.
-        if (entry == null || entry.score <= 0) continue;
+        if (entry == null || entry.score == null) continue;
 
-        final percent = sheet.maximumScore <= 0
-            ? 0
-            : ((entry.score / sheet.maximumScore) * 100).round();
+        final percent = entry.percent ??
+            (item.maximumScore <= 0 ? 0 : (entry.score! / item.maximumScore) * 100);
         totalPercent += percent;
         scoredCount += 1;
 
         evidence.add(ParentLearningEvidenceItem(
           label: item.title,
-          value: '${entry.score}/${sheet.maximumScore} ($percent%)',
-          note: item.className,
+          value: '${entry.score!.toStringAsFixed(0)}/${item.maximumScore} (${percent.round()}%)',
+          note: '${item.className} · ${teacherAssessmentTypeLabel(item.type)}',
         ));
 
-        final dateLabel = (sheet.submittedAt ?? sheet.updatedAt)?.split('T').first;
+        final dateLabel = item.releasedAt?.split('T').first;
         timeline.add(ParentLearningTimelineEvent(
           dateLabel: dateLabel ?? _notRecorded,
           title: item.title,
-          detail: 'Score recorded: ${entry.score}/${sheet.maximumScore}',
+          detail: 'Score released: ${entry.score!.toStringAsFixed(0)}/${item.maximumScore}',
         ));
       }
 

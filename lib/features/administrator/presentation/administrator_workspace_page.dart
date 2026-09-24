@@ -17,6 +17,7 @@ import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/administrator_academics_repository.dart';
 import '../data/administrator_admissions_repository.dart';
+import '../data/administrator_assessment_release_repository.dart';
 import '../data/administrator_attendance_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
 import '../data/administrator_lifecycle_repository.dart';
@@ -34,6 +35,7 @@ import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_dashboard_models.dart';
 import 'administrator_academics_page.dart';
 import 'administrator_admissions_page.dart';
+import 'administrator_assessment_release_page.dart';
 import 'administrator_attendance_page.dart';
 import 'administrator_curriculum_page.dart';
 import 'administrator_dashboard_page.dart';
@@ -79,6 +81,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
   AdmissionApplicant? _registrationApplicant;
   late final AdministratorAcademicsRepository _academicsRepository;
   late final AdministratorAdmissionsRepository _admissionsRepository;
+  late final AdministratorAssessmentReleaseRepository _assessmentReleaseRepository;
   late final AdministratorAttendanceRepository _attendanceRepository;
   late final AdministratorLifecycleRepository _lifecycleRepository;
   late final AdministratorNoticesRepository _noticesRepository;
@@ -99,6 +102,10 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       schoolSession: widget.schoolSession,
     );
     _admissionsRepository = AdministratorAdmissionsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _assessmentReleaseRepository = AdministratorAssessmentReleaseRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -313,6 +320,11 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
         return AdministratorTimetablePage(
           schoolName: widget.membership.schoolName,
           repository: _timetableRepository,
+          onChanged: _refreshPendingCount,
+        );
+      case 'assessment-release':
+        return AdministratorAssessmentReleasePage(
+          repository: _assessmentReleaseRepository,
           onChanged: _refreshPendingCount,
         );
       case 'staff':
@@ -636,6 +648,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
         'academics' => Icons.account_tree_outlined,
         'curriculum' => Icons.menu_book_outlined,
         'timetable' => Icons.calendar_month_outlined,
+        'assessment-release' => Icons.fact_check_rounded,
         'staff' => Icons.badge_outlined,
         'staff-attendance' => Icons.schedule_rounded,
         'staff-profiles' => Icons.folder_shared_outlined,

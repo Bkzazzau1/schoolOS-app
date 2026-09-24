@@ -10,9 +10,11 @@ import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../../teacher/domain/teacher_assessment_models.dart';
 import '../data/student_assignment_repository.dart';
 import '../data/student_cbt_repository.dart';
 import '../data/student_repository.dart';
+import '../data/student_results_repository.dart';
 import 'student_assignments_page.dart';
 
 class _StudentNavItem {
@@ -53,6 +55,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   late final StudentRepository _repository;
   late final StudentAssignmentRepository _assignmentRepository;
   late final StudentCbtRepository _cbtRepository;
+  late final StudentResultsRepository _resultsRepository;
   final _task = TextEditingController();
   Timer? _timer;
 
@@ -66,6 +69,10 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   List<StudentCbtAvailableSet> _cbtSets = const [];
   bool _cbtLoading = true;
   String? _cbtError;
+
+  StudentResultsSnapshot? _results;
+  bool _resultsLoading = true;
+  String? _resultsError;
   String? _cbtBusySetId;
   String? _openSetId;
 
@@ -144,8 +151,13 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
+    _resultsRepository = StudentResultsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _run(() async {});
     _loadCbtSets();
+    _loadResults();
     _refreshPendingCount();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
@@ -183,8 +195,26 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   void onSynced() {
     _refreshPendingCount();
     _loadCbtSets();
+    _loadResults();
     _reloadWorkspaceState();
     if (mounted) setState(() => _assignmentRefresh++);
+  }
+
+  Future<void> _loadResults() async {
+    if (mounted) setState(() => _resultsLoading = true);
+    try {
+      final results = await _resultsRepository.load();
+      if (mounted) {
+        setState(() {
+          _results = results;
+          _resultsError = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _resultsError = 'Could not load your term results. Please retry.');
+    } finally {
+      if (mounted) setState(() => _resultsLoading = false);
+    }
   }
 
   Future<void> _reloadWorkspaceState() async {
@@ -586,29 +616,37 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
           _SectionCard(
             title: 'Term results',
             subtitle: !_demo
-                ? 'Connected school mode.'
-                : 'Sample term results · Demo data, not official school marks.',
-            child: !_demo
-                ? const Text(
-                    'Official results are not connected to this screen yet. No marks are fabricated.',
+                ? 'Connected school mode · results appear here once the school releases them.'
+                : 'Standalone demo · results appear here once you publish, submit and (in connected mode) '
+                    'an Administrator locks and releases an assessment for one of your classes.',
+            child: _resultsLoading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: LinearProgressIndicator(),
                   )
-                : Column(
-                    children: [
-                      for (final entry in const {
-                        'Mathematics': 78,
-                        'English': 84,
-                        'Basic Science': 81,
-                      }.entries)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(entry.key),
-                          trailing: Text(
-                            '${entry.value}%',
-                            style: const TextStyle(fontWeight: FontWeight.w900),
+                : _resultsError != null
+                    ? ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(_resultsError!),
+                        trailing: TextButton(onPressed: _loadResults, child: const Text('Retry')),
+                      )
+                    : (_results?.results.isEmpty ?? true)
+                        ? const Text('No released results yet. Nothing is fabricated here.')
+                        : Column(
+                            children: [
+                              for (final result in _results!.results)
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text('${result.title} · ${teacherAssessmentTypeLabel(result.type)}'),
+                                  subtitle: Text(result.subject.isEmpty ? result.className : '${result.className} · ${result.subject}'),
+                                  trailing: Text(
+                                    '${result.score.toStringAsFixed(0)}/${result.maximumScore}'
+                                    '${result.grade.isEmpty ? '' : ' · ${result.grade}'}',
+                                    style: const TextStyle(fontWeight: FontWeight.w900),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ),
-                    ],
-                  ),
           ),
         ],
       );

@@ -6,7 +6,7 @@ import '../../administrator/data/administrator_attendance_desk.dart'
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_students_models.dart';
 import '../../teacher/data/teacher_assessment_repository.dart'
-    show teacherAssessmentRegisterEntityType;
+    show teacherAssessmentEntityType;
 import '../../teacher/data/teacher_syllabus_repository.dart'
     show teacherSyllabusProgressEntityType;
 import '../../teacher/domain/teacher_assessment_models.dart';
@@ -137,15 +137,20 @@ class PrincipalAcademicsRepository {
     return {for (final row in rows) row.className: row.rate};
   }
 
-  Future<Map<String, List<TeacherAssessmentRegisterItem>>>
-      _assessmentsPerClass(String schoolId) async {
+  /// Only assessments that have actually gone past drafting (published or
+  /// further along) count as class evidence - a Teacher's in-progress draft
+  /// is not yet real class-wide assessment activity.
+  Future<Map<String, List<TeacherAssessment>>> _assessmentsPerClass(
+    String schoolId,
+  ) async {
     final records = await _localDatabase.getLocalRecords(
       tenantId: schoolId,
-      entityType: teacherAssessmentRegisterEntityType,
+      entityType: teacherAssessmentEntityType,
     );
-    final byClass = <String, List<TeacherAssessmentRegisterItem>>{};
+    final byClass = <String, List<TeacherAssessment>>{};
     for (final record in records) {
-      final item = TeacherAssessmentRegisterItem.fromJson(record.payload);
+      final item = TeacherAssessment.fromJson(record.payload);
+      if (item.state == TeacherAssessmentState.draft) continue;
       byClass.putIfAbsent(item.className, () => []).add(item);
     }
     return byClass;
@@ -307,19 +312,14 @@ class PrincipalAcademicsRepository {
       for (final className in classNames)
         () {
           final assessmentItems =
-              assessmentsByClass[className] ?? const <TeacherAssessmentRegisterItem>[];
+              assessmentsByClass[className] ?? const <TeacherAssessment>[];
           final hasEvidence = assessmentItems.isNotEmpty;
-          final average = !hasEvidence
+          final scoredItems =
+              assessmentItems.where((item) => item.averagePercent != null).toList();
+          final average = scoredItems.isEmpty
               ? 0
-              : (assessmentItems.fold<double>(
-                        0,
-                        (sum, item) =>
-                            sum +
-                            (item.maximumScore == 0
-                                ? 0
-                                : item.average / item.maximumScore * 100),
-                      ) /
-                      assessmentItems.length)
+              : (scoredItems.fold<double>(0, (sum, item) => sum + item.averagePercent!) /
+                      scoredItems.length)
                   .round();
           final totalEntered = assessmentItems.fold<int>(
             0,
@@ -327,7 +327,7 @@ class PrincipalAcademicsRepository {
           );
           final totalExpected = assessmentItems.fold<int>(
             0,
-            (sum, item) => sum + item.total,
+            (sum, item) => sum + item.totalStudents,
           );
           final assessments = totalExpected == 0
               ? 0
