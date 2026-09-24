@@ -2,9 +2,9 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
-import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/data/administrator_attendance_desk.dart'
     show sectionOfClass;
+import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_students_models.dart';
 import '../domain/principal_approvals_models.dart';
 
@@ -14,22 +14,24 @@ class PrincipalApprovalsSnapshot {
     required this.decisions,
     required this.permissions,
   });
+
   final List<PrincipalApprovalItem> items;
   final List<PrincipalApprovalDecision> decisions;
   final PrincipalApprovalPermissions permissions;
+
   int get pendingCount =>
-      items.where((i) => i.status == PrincipalApprovalStatus.pending).length;
+      items.where((item) => item.status == PrincipalApprovalStatus.pending).length;
   int get highPriorityPendingCount => items
       .where(
-        (i) =>
-            i.status == PrincipalApprovalStatus.pending &&
-            i.priority == PrincipalApprovalPriority.high,
+        (item) =>
+            item.status == PrincipalApprovalStatus.pending &&
+            item.priority == PrincipalApprovalPriority.high,
       )
       .length;
   int get approvedCount =>
-      items.where((i) => i.status == PrincipalApprovalStatus.approved).length;
+      items.where((item) => item.status == PrincipalApprovalStatus.approved).length;
   int get returnedCount =>
-      items.where((i) => i.status == PrincipalApprovalStatus.returned).length;
+      items.where((item) => item.status == PrincipalApprovalStatus.returned).length;
 }
 
 class PrincipalApprovalActionResult {
@@ -37,6 +39,7 @@ class PrincipalApprovalActionResult {
     required this.success,
     required this.message,
   });
+
   final bool success;
   final String message;
 }
@@ -45,22 +48,29 @@ class PrincipalApprovalsRepository {
   PrincipalApprovalsRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
-  }) : _db = localDatabase,
-       _session = schoolSession;
+  })  : _db = localDatabase,
+        _session = schoolSession;
+
+  static const assessmentDecisionType = 'principal_submission_review';
+  static const lessonPlanReviewType = 'lesson_plan_review';
+  static const lessonPlanType = 'teacher_lesson_plan';
+  static const assessmentType = 'teacher_assessment_score_sheet';
+
   final LocalDatabase _db;
   final SchoolSessionController _session;
-  static const decisionType = 'principal_submission_review';
-  PrincipalApprovalPermissions permissionsFor(SchoolMembership m) =>
+
+  PrincipalApprovalPermissions permissionsFor(SchoolMembership membership) =>
       PrincipalApprovalPermissions(
-        canViewSecondaryApprovals: m.role == SchoolRole.principal,
-        canDecideSecondaryApprovals: m.role == SchoolRole.principal,
+        canViewSecondaryApprovals: membership.role == SchoolRole.principal,
+        canDecideSecondaryApprovals: membership.role == SchoolRole.principal,
         canReleaseReportsDirectly: false,
         canRewriteScoresDirectly: false,
         canManagePrimary: false,
       );
+
   Future<PrincipalApprovalsSnapshot> load() async {
-    final m = _session.requireActiveMembership();
-    final permissions = permissionsFor(m);
+    final membership = _session.requireActiveMembership();
+    final permissions = permissionsFor(membership);
     if (!permissions.canViewSecondaryApprovals) {
       return PrincipalApprovalsSnapshot(
         items: const [],
@@ -68,110 +78,186 @@ class PrincipalApprovalsRepository {
         permissions: permissions,
       );
     }
+
     final register = await AdministratorStudentsRepository(
       localDatabase: _db,
       schoolSession: _session,
     ).load();
-    final classes = {
-      for (final s in register.students)
-        if (s.status != AdministratorStudentStatus.transferredOut &&
-            sectionOfClass(s.className) == 'Secondary')
-          s.className,
+    final secondaryClasses = {
+      for (final student in register.students)
+        if (student.status != AdministratorStudentStatus.transferredOut &&
+            sectionOfClass(student.className) == 'Secondary')
+          student.className,
     };
-    final reviews = await _db.getLocalRecords(
-      tenantId: m.schoolId,
-      entityType: decisionType,
-    );
-    final decisions =
-        reviews
-            .map((r) => PrincipalApprovalDecision.fromJson(r.payload))
-            .toList()
-          ..sort((a, b) => b.reviewedAt.compareTo(a.reviewedAt));
-    final items = <PrincipalApprovalItem>[];
-    for (final lesson in [true, false]) {
-      final type = lesson
-          ? 'teacher_lesson_plan'
-          : 'teacher_assessment_score_sheet';
+
+    final decisions = <PrincipalApprovalDecision>[];
+    for (final entityType in [assessmentDecisionType, lessonPlanReviewType]) {
       final records = await _db.getLocalRecords(
-        tenantId: m.schoolId,
-        entityType: type,
-      );
-      final events = await _db.getLocalRecords(
-        tenantId: m.schoolId,
-        entityType: lesson
-            ? 'teacher_lesson_plan_event'
-            : 'teacher_assessment_event',
+        tenantId: membership.schoolId,
+        entityType: entityType,
       );
       for (final record in records) {
-        final p = record.payload;
-        if (!classes.contains(p['className']) ||
-            p[lesson ? 'status' : 'state'] !=
-                (lesson ? 'submitted' : 'submittedForReview')) {
-          continue;
-        }
-        final submitted =
-            events
-                .where(
-                  (e) =>
-                      e.payload[lesson ? 'planId' : 'sheetId'] == p['id'] &&
-                      e.payload['version'] == p['version'] &&
-                      e.payload['action'] ==
-                          (lesson ? 'submitted' : 'submittedForReview'),
-                )
-                .toList()
-              ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-        if (submitted.isEmpty) continue;
-        final event = submitted.first.payload;
-        final id = '$type:${record.entityId}:v${p['version']}';
-        final review = decisions.where((d) => d.approvalId == id).firstOrNull;
-        items.add(
-          PrincipalApprovalItem(
-            id: id,
-            type: lesson ? 'Lesson Plan' : 'Assessment',
-            title: p[lesson ? 'topic' : 'assessmentLabel']! as String,
-            teacher: event['actorMembershipId']! as String,
-            className: p['className']! as String,
-            submitted: event['occurredAt']! as String,
-            priority: PrincipalApprovalPriority.normal,
-            status: review?.newStatus ?? PrincipalApprovalStatus.pending,
-            summary: lesson
-                ? (p['objectives'] as String? ?? '')
-                : 'Submitted score sheet; review does not alter marks or publish results.',
-            details: lesson
-                ? [
-                    PrincipalApprovalDetail(
-                      label: 'Activities',
-                      value: p['activities'] as String? ?? '',
-                    ),
-                    PrincipalApprovalDetail(
-                      label: 'Assessment',
-                      value: p['assessment'] as String? ?? '',
-                    ),
-                  ]
-                : [
-                    PrincipalApprovalDetail(
-                      label: 'Maximum score',
-                      value: '${p['maximumScore']}',
-                    ),
-                    PrincipalApprovalDetail(
-                      label: 'Score entries',
-                      value: '${(p['entries'] as List).length}',
-                    ),
-                  ],
-            lastReviewedByMembershipId: review?.reviewerMembershipId,
-            lastReviewedAt: review?.reviewedAt,
-            lastComment: review?.comment,
-          ),
-        );
+        decisions.add(PrincipalApprovalDecision.fromJson(record.payload));
       }
     }
+    decisions.sort((a, b) => b.reviewedAt.compareTo(a.reviewedAt));
+
+    final items = <PrincipalApprovalItem>[];
+    await _appendLessonPlanApprovals(
+      membership: membership,
+      secondaryClasses: secondaryClasses,
+      decisions: decisions,
+      items: items,
+    );
+    await _appendAssessmentApprovals(
+      membership: membership,
+      secondaryClasses: secondaryClasses,
+      decisions: decisions,
+      items: items,
+    );
+    items.sort((a, b) => b.submitted.compareTo(a.submitted));
+
     return PrincipalApprovalsSnapshot(
       items: items,
       decisions: decisions
-          .where((d) => items.any((i) => i.id == d.approvalId))
-          .toList(),
+          .where((decision) =>
+              items.any((item) => item.id == decision.approvalId))
+          .toList(growable: false),
       permissions: permissions,
     );
+  }
+
+  Future<void> _appendLessonPlanApprovals({
+    required SchoolMembership membership,
+    required Set<String> secondaryClasses,
+    required List<PrincipalApprovalDecision> decisions,
+    required List<PrincipalApprovalItem> items,
+  }) async {
+    final records = await _db.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: lessonPlanType,
+    );
+    for (final record in records) {
+      final payload = record.payload;
+      final className = payload['className'] as String? ?? '';
+      if (!secondaryClasses.contains(className) || payload['state'] != 'submitted') {
+        continue;
+      }
+      final version = payload['version'] as int? ?? 0;
+      if (version <= 0) continue;
+      final planId = payload['id'] as String? ?? record.entityId;
+      final approvalId = '$lessonPlanType:$planId:v$version';
+      final review = decisions
+          .where((decision) => decision.approvalId == approvalId)
+          .firstOrNull;
+      items.add(
+        PrincipalApprovalItem(
+          id: approvalId,
+          type: 'Lesson Plan',
+          title: payload['topic'] as String? ?? 'Lesson plan',
+          teacher: payload['effectiveTeacher'] as String? ??
+              payload['author'] as String? ??
+              payload['submittedByMembershipId'] as String? ??
+              '',
+          className: className,
+          submitted: payload['submittedAt'] as String? ??
+              payload['updatedAt'] as String? ??
+              '',
+          priority: PrincipalApprovalPriority.normal,
+          status: review?.newStatus ?? PrincipalApprovalStatus.pending,
+          summary: payload['objectives'] as String? ?? '',
+          details: [
+            PrincipalApprovalDetail(
+              label: 'Occurrence',
+              value:
+                  '${payload['lessonDate'] ?? ''} · ${payload['time'] ?? ''} · ${payload['subject'] ?? ''}',
+            ),
+            PrincipalApprovalDetail(
+              label: 'Activities',
+              value: payload['activities'] as String? ?? '',
+            ),
+            PrincipalApprovalDetail(
+              label: 'Assessment',
+              value: payload['assessment'] as String? ?? '',
+            ),
+            PrincipalApprovalDetail(
+              label: 'Resources',
+              value: payload['resources'] as String? ?? '',
+            ),
+          ],
+          lastReviewedByMembershipId: review?.reviewerMembershipId,
+          lastReviewedAt: review?.reviewedAt,
+          lastComment: review?.comment,
+        ),
+      );
+    }
+  }
+
+  Future<void> _appendAssessmentApprovals({
+    required SchoolMembership membership,
+    required Set<String> secondaryClasses,
+    required List<PrincipalApprovalDecision> decisions,
+    required List<PrincipalApprovalItem> items,
+  }) async {
+    final records = await _db.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: assessmentType,
+    );
+    final events = await _db.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: 'teacher_assessment_event',
+    );
+    for (final record in records) {
+      final payload = record.payload;
+      final className = payload['className'] as String? ?? '';
+      if (!secondaryClasses.contains(className) ||
+          payload['state'] != 'submittedForReview') {
+        continue;
+      }
+      final submittedEvents = events
+          .where(
+            (event) =>
+                event.payload['sheetId'] == payload['id'] &&
+                event.payload['version'] == payload['version'] &&
+                event.payload['action'] == 'submittedForReview',
+          )
+          .toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      if (submittedEvents.isEmpty) continue;
+      final event = submittedEvents.first.payload;
+      final approvalId = '$assessmentType:${record.entityId}:v${payload['version']}';
+      final review = decisions
+          .where((decision) => decision.approvalId == approvalId)
+          .firstOrNull;
+      final entries = payload['entries'] as List? ?? const [];
+      items.add(
+        PrincipalApprovalItem(
+          id: approvalId,
+          type: 'Assessment',
+          title: payload['assessmentLabel'] as String? ?? 'Assessment',
+          teacher: event['actorMembershipId'] as String? ?? '',
+          className: className,
+          submitted: event['occurredAt'] as String? ?? '',
+          priority: PrincipalApprovalPriority.normal,
+          status: review?.newStatus ?? PrincipalApprovalStatus.pending,
+          summary:
+              'Submitted score sheet; review does not alter marks or publish results.',
+          details: [
+            PrincipalApprovalDetail(
+              label: 'Maximum score',
+              value: '${payload['maximumScore'] ?? ''}',
+            ),
+            PrincipalApprovalDetail(
+              label: 'Score entries',
+              value: '${entries.length}',
+            ),
+          ],
+          lastReviewedByMembershipId: review?.reviewerMembershipId,
+          lastReviewedAt: review?.reviewedAt,
+          lastComment: review?.comment,
+        ),
+      );
+    }
   }
 
   Future<PrincipalApprovalActionResult> decide({
@@ -179,8 +265,8 @@ class PrincipalApprovalsRepository {
     required PrincipalApprovalStatus status,
     required String comment,
   }) async {
-    final m = _session.requireActiveMembership();
-    if (!permissionsFor(m).canDecideSecondaryApprovals ||
+    final membership = _session.requireActiveMembership();
+    if (!permissionsFor(membership).canDecideSecondaryApprovals ||
         status == PrincipalApprovalStatus.pending) {
       return const PrincipalApprovalActionResult(
         success: false,
@@ -193,8 +279,9 @@ class PrincipalApprovalsRepository {
         message: 'Explain the changes needed.',
       );
     }
+
     final item = (await load()).items
-        .where((i) => i.id == approvalId)
+        .where((candidate) => candidate.id == approvalId)
         .firstOrNull;
     if (item == null || item.status != PrincipalApprovalStatus.pending) {
       return const PrincipalApprovalActionResult(
@@ -202,40 +289,93 @@ class PrincipalApprovalsRepository {
         message: 'No current pending submission matches this decision.',
       );
     }
-    if (_session.requireActiveMembership().id != m.id) {
+    if (_session.requireActiveMembership().id != membership.id) {
       return const PrincipalApprovalActionResult(
         success: false,
         message: 'School membership changed. Reload before reviewing.',
       );
     }
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    final id = 'review-${DateTime.now().microsecondsSinceEpoch}';
     final decision = PrincipalApprovalDecision(
-      id: 'review-${DateTime.now().microsecondsSinceEpoch}',
+      id: id,
       approvalId: approvalId,
       previousStatus: item.status,
       newStatus: status,
-      reviewerMembershipId: m.id,
-      reviewedAt: DateTime.now().toUtc().toIso8601String(),
+      reviewerMembershipId: membership.id,
+      reviewedAt: now,
       comment: comment.trim(),
     );
+
+    if (item.type == 'Lesson Plan') {
+      final parsed = _parseLessonPlanApprovalId(approvalId);
+      if (parsed == null) {
+        return const PrincipalApprovalActionResult(
+          success: false,
+          message: 'Lesson-plan approval reference is invalid. Reload first.',
+        );
+      }
+      final payload = {
+        ...decision.toJson(),
+        'planId': parsed.$1,
+        'planVersion': parsed.$2,
+        'decision': status == PrincipalApprovalStatus.approved
+            ? 'approved'
+            : 'returned',
+      };
+      await _db.upsertLocalRecord(
+        tenantId: membership.schoolId,
+        entityType: lessonPlanReviewType,
+        entityId: id,
+        payload: payload,
+        isDirty: true,
+      );
+      await _db.queueMutation(
+        tenantId: membership.schoolId,
+        membershipId: membership.id,
+        entityType: lessonPlanReviewType,
+        entityId: id,
+        operation: SyncOperation.create,
+        payload: payload,
+      );
+      return const PrincipalApprovalActionResult(
+        success: true,
+        message:
+            'Lesson-plan review queued. The Teacher plan changes state only after server acknowledgement.',
+      );
+    }
+
     await _db.upsertLocalRecord(
-      tenantId: m.schoolId,
-      entityType: decisionType,
-      entityId: decision.id,
+      tenantId: membership.schoolId,
+      entityType: assessmentDecisionType,
+      entityId: id,
       payload: decision.toJson(),
       isDirty: true,
     );
     await _db.queueMutation(
-      tenantId: m.schoolId,
-      membershipId: m.id,
-      entityType: decisionType,
-      entityId: decision.id,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      entityType: assessmentDecisionType,
+      entityId: id,
       operation: SyncOperation.create,
       payload: decision.toJson(),
     );
     return const PrincipalApprovalActionResult(
       success: true,
       message:
-          'Review recorded offline and queued for sync. Teacher source records, marks and publication are unchanged.',
+          'Assessment review recorded offline and queued. Marks and publication remain unchanged.',
     );
+  }
+
+  (String, int)? _parseLessonPlanApprovalId(String value) {
+    const prefix = '$lessonPlanType:';
+    if (!value.startsWith(prefix)) return null;
+    final marker = value.lastIndexOf(':v');
+    if (marker <= prefix.length) return null;
+    final planId = value.substring(prefix.length, marker);
+    final version = int.tryParse(value.substring(marker + 2));
+    if (planId.isEmpty || version == null || version < 1) return null;
+    return (planId, version);
   }
 }
