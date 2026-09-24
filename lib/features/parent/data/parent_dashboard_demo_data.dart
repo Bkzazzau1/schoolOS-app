@@ -5,6 +5,7 @@ const parentNavigation = <ParentNavItem>[
   ParentNavItem(key: 'children', label: 'My Children'),
   ParentNavItem(key: 'progress', label: 'Learning Progress'),
   ParentNavItem(key: 'weekly-learning', label: 'Weekly Learning'),
+  ParentNavItem(key: 'assignments', label: 'Assignments'),
   ParentNavItem(key: 'attendance', label: 'Attendance'),
   ParentNavItem(key: 'finance', label: 'Finance & Payments'),
   ParentNavItem(key: 'messages', label: 'Messages'),

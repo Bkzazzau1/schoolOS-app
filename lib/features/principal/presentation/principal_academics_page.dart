@@ -126,6 +126,8 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
                     const SizedBox(width: 14),
                     Expanded(child: _assessmentReadiness(context, snapshot.classes)),
                   ]),
+            const SizedBox(height: 16),
+            _classworkOversight(context, snapshot.classwork),
             const SizedBox(height: 14),
             _scopeBoundary(context),
           ],
@@ -431,6 +433,77 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
         ]),
       ),
     );
+  }
+
+  Widget _classworkOversight(
+    BuildContext context,
+    List<PrincipalClassworkOversight> assignments,
+  ) {
+    final published = assignments.where((item) => item.state == 'published').length;
+    final drafts = assignments.where((item) => item.state == 'draft').length;
+    final totalRecipients = assignments.fold<int>(0, (sum, item) => sum + item.totalStudents);
+    final submitted = assignments.fold<int>(0, (sum, item) => sum + item.submissions);
+    final marked = assignments.fold<int>(0, (sum, item) => sum + item.marked);
+    final late = assignments.fold<int>(0, (sum, item) => sum + item.lateSubmissions);
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Secondary assignment & classwork oversight',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Read-only current-term evidence from canonical Teacher assignments. Student private drafts are excluded; submission and late counts are server-derived.',
+            ),
+            const SizedBox(height: 14),
+            _controlGrid([
+              ('PUBLISHED', '$published'),
+              ('TEACHER DRAFTS', '$drafts'),
+              ('SUBMITTED', '$submitted / $totalRecipients'),
+              ('GRADED', '$marked'),
+              ('LATE', '$late'),
+            ]),
+            const SizedBox(height: 14),
+            if (assignments.isEmpty)
+              const Text('No canonical Secondary assignment record has synced for the active term yet.')
+            else
+              for (final item in assignments.take(10)) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const CircleAvatar(child: Icon(Icons.assignment_outlined)),
+                  title: Text(item.title.isEmpty ? 'Untitled assignment' : item.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text(
+                    '${item.className} · ${item.subject} · ${item.teacher}\n'
+                    '${item.submissions}/${item.totalStudents} submitted · ${item.marked} graded · ${item.lateSubmissions} late · due ${_dateTimeLabel(item.dueAt)}',
+                  ),
+                  isThreeLine: true,
+                  trailing: Chip(label: Text(_assignmentStateLabel(item.state))),
+                ),
+                if (item != assignments.take(10).last) const Divider(height: 1),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _assignmentStateLabel(String state) => switch (state) {
+        'published' => 'Published',
+        'closed' => 'Closed',
+        _ => 'Teacher draft',
+      };
+
+  String _dateTimeLabel(String raw) {
+    if (raw.isEmpty) return '—';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    final local = parsed.toLocal();
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }
 
   Widget _controlGrid(List<(String, String)> items) => Wrap(
