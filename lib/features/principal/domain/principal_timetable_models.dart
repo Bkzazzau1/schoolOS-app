@@ -2,15 +2,23 @@ enum PrincipalTimetableStatus {
   scheduled('Scheduled'),
   substitution('Substitution'),
   uncovered('Uncovered'),
-  clash('Clash');
+  clash('Clash'),
+  cancelled('Cancelled');
 
   const PrincipalTimetableStatus(this.label);
   final String label;
 
-  static PrincipalTimetableStatus fromLabel(String? value) => values.firstWhere(
-        (item) => item.label == value,
-        orElse: () => PrincipalTimetableStatus.scheduled,
-      );
+  static PrincipalTimetableStatus fromLabel(String? value) {
+    final normalized = (value ?? '').trim().toLowerCase();
+    return switch (normalized) {
+      'scheduled' => PrincipalTimetableStatus.scheduled,
+      'substitution' => PrincipalTimetableStatus.substitution,
+      'uncovered' => PrincipalTimetableStatus.uncovered,
+      'clash' => PrincipalTimetableStatus.clash,
+      'cancelled' => PrincipalTimetableStatus.cancelled,
+      _ => PrincipalTimetableStatus.scheduled,
+    };
+  }
 }
 
 enum PrincipalTimetableExceptionAction {
@@ -36,6 +44,14 @@ class PrincipalTimetableLesson {
     required this.teacher,
     required this.room,
     required this.status,
+    this.termId = '',
+    this.classSubjectId = '',
+    this.classId = '',
+    this.subjectId = '',
+    this.teacherId = '',
+    this.periodNumber = 0,
+    this.lessonDate,
+    this.note,
   });
 
   final String id;
@@ -46,6 +62,14 @@ class PrincipalTimetableLesson {
   final String teacher;
   final String room;
   final PrincipalTimetableStatus status;
+  final String termId;
+  final String classSubjectId;
+  final String classId;
+  final String subjectId;
+  final String teacherId;
+  final int periodNumber;
+  final String? lessonDate;
+  final String? note;
 
   bool get isException => status != PrincipalTimetableStatus.scheduled;
 
@@ -58,9 +82,18 @@ class PrincipalTimetableLesson {
         'teacher': teacher,
         'room': room,
         'status': status.label,
+        'termId': termId,
+        'classSubjectId': classSubjectId,
+        'classId': classId,
+        'subjectId': subjectId,
+        'teacherId': teacherId,
+        'periodNumber': periodNumber,
+        'lessonDate': lessonDate,
+        'note': note,
       };
 
-  factory PrincipalTimetableLesson.fromJson(Map<String, Object?> json) => PrincipalTimetableLesson(
+  factory PrincipalTimetableLesson.fromJson(Map<String, Object?> json) =>
+      PrincipalTimetableLesson(
         id: json['id'] as String? ?? '',
         day: json['day'] as String? ?? '',
         time: json['time'] as String? ?? '',
@@ -69,6 +102,14 @@ class PrincipalTimetableLesson {
         teacher: json['teacher'] as String? ?? '',
         room: json['room'] as String? ?? '',
         status: PrincipalTimetableStatus.fromLabel(json['status'] as String?),
+        termId: json['termId'] as String? ?? '',
+        classSubjectId: json['classSubjectId'] as String? ?? '',
+        classId: json['classId'] as String? ?? '',
+        subjectId: json['subjectId'] as String? ?? '',
+        teacherId: json['teacherId'] as String? ?? '',
+        periodNumber: json['periodNumber'] as int? ?? 0,
+        lessonDate: json['lessonDate'] as String?,
+        note: json['note'] as String?,
       );
 }
 
