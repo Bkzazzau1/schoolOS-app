@@ -87,6 +87,7 @@ class AuthProfile {
     required this.name,
     required this.memberships,
     this.organizations = const [],
+    this.mustChangePassword = false,
     this.emailVerified = true,
     this.onboarding = const AccountOnboardingStatus.notApplicable(),
   });
@@ -101,6 +102,10 @@ class AuthProfile {
   /// is rolled out.
   final List<OrganizationMembership> organizations;
 
+  /// School-provisioned Student/Parent accounts start with the school's initial
+  /// password rule and replace it after their first successful sign-in.
+  final bool mustChangePassword;
+
   /// Account-level trust state returned by the backend. It is not inferred from
   /// school membership or local state. Missing state from an older backend is
   /// treated as already verified so rollout never removes existing access.
@@ -109,8 +114,9 @@ class AuthProfile {
 
   factory AuthProfile.fromJson(Map<String, dynamic> json) => AuthProfile(
         id: json['id'] as String,
-        email: json['email'] as String,
+        email: json['email'] as String? ?? '',
         name: (json['name'] as String?) ?? '',
+        mustChangePassword: json['mustChangePassword'] as bool? ?? false,
         emailVerified: json['emailVerified'] as bool? ?? true,
         onboarding: json['onboarding'] is Map
             ? AccountOnboardingStatus.fromJson(
@@ -199,12 +205,12 @@ class AuthRepository {
   final TokenStore _tokens;
   final SchoolSessionController _schoolSession;
 
-  /// Signs in and loads the person's schools. Wrong details come back as an
-  /// [ApiException] whose message is fit to show.
-  Future<AuthProfile> signIn(String email, String password) async {
+  /// Signs in with an email, Student admission ID, or Parent phone number and
+  /// then loads the person's school/account memberships.
+  Future<AuthProfile> signIn(String identifier, String password) async {
     final data = await _api.post(
       'auth/token/',
-      body: {'email': email.trim().toLowerCase(), 'password': password},
+      body: {'identifier': identifier.trim(), 'password': password},
       authenticated: false,
     );
     await _storeTokenPair(data);
@@ -255,6 +261,17 @@ class AuthRepository {
     final profile = AuthProfile.fromJson(Map<String, dynamic>.from(data));
     await _schoolSession.setMemberships(profile.memberships);
     return profile;
+  }
+
+  Future<AuthProfile> completeInitialPassword(String newPassword) async {
+    final data = await _api.post(
+      'auth/password/initial-change/',
+      body: {'newPassword': newPassword},
+    );
+    if (data is! Map || data['changed'] != true) {
+      throw const ApiException(500, 'The server sent an unexpected answer.');
+    }
+    return refreshProfile();
   }
 
   Future<EmailVerificationDispatch> sendEmailVerification() async {

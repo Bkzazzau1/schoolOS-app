@@ -10,6 +10,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../account/presentation/account_home_page.dart';
 import '../../invitations/presentation/invitation_accept_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
+import 'initial_password_change_page.dart';
 import 'proprietor_registration_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -122,18 +123,18 @@ class _LoginPageState extends State<LoginPage> {
         await auth.signOut();
         _showError(
           'You are signed in, but not connected to a school or school account yet. '
-          'Ask your school office to send you an invitation.',
+          'Ask your school office to connect your account.',
         );
         return;
       }
 
-      _openAfterSignIn(profile);
+      await _openAfterSignIn(profile);
     } on ApiOfflineException {
       _showError('Could not reach SchoolOS. Check your connection and try again.');
     } on ApiException catch (error) {
       _showError(
         error.statusCode == 401
-            ? 'The email or password is not correct.'
+            ? 'The login ID or password is not correct.'
             : error.message,
       );
     } on SessionExpiredException catch (error) {
@@ -161,16 +162,31 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
     if (profile == null || !mounted) return;
-    _openAfterSignIn(profile);
+    await _openAfterSignIn(profile);
   }
 
-  void _openAfterSignIn(AuthProfile profile) {
-    if (profile.organizations.isNotEmpty) {
+  Future<void> _openAfterSignIn(AuthProfile profile) async {
+    var readyProfile = profile;
+    final auth = widget.services.auth;
+    if (readyProfile.mustChangePassword && auth != null) {
+      final updated = await Navigator.of(context).push<AuthProfile>(
+        MaterialPageRoute<AuthProfile>(
+          builder: (_) => InitialPasswordChangePage(
+            auth: auth,
+            profile: readyProfile,
+          ),
+        ),
+      );
+      if (updated == null || !mounted) return;
+      readyProfile = updated;
+    }
+
+    if (readyProfile.organizations.isNotEmpty) {
       final services = widget.services;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => AccountHomePage(
-            profile: profile,
+            profile: readyProfile,
             services: services,
             onSignOut: (accountContext) async {
               await services.endSession();
@@ -188,7 +204,7 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    _chooseSchool(profile.memberships);
+    _chooseSchool(readyProfile.memberships);
   }
 
   void _chooseSchool(List<SchoolMembership> memberships) {
@@ -277,7 +293,7 @@ class _LoginCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 backend
-                    ? 'Sign in to your SchoolOS account and choose the school you want to work in.'
+                    ? 'Use your email, student admission ID, or parent phone number to sign in.'
                     : 'Sign in to explore the local SchoolOS demo.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -286,20 +302,19 @@ class _LoginCard extends StatelessWidget {
               const SizedBox(height: 28),
               TextFormField(
                 controller: identityController,
-                keyboardType: backend
-                    ? TextInputType.emailAddress
-                    : TextInputType.text,
+                keyboardType: TextInputType.text,
                 textInputAction: TextInputAction.next,
+                autocorrect: false,
                 decoration: InputDecoration(
                   labelText: backend
-                      ? 'Email address'
+                      ? 'Email, admission ID or phone'
                       : 'Username, email or phone',
                   prefixIcon: const Icon(Icons.person_outline_rounded),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return backend
-                        ? 'Enter your email address'
+                        ? 'Enter your email, admission ID or phone number'
                         : 'Enter your username, email or phone';
                   }
                   return null;
@@ -350,7 +365,9 @@ class _LoginCard extends StatelessWidget {
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+                    Expanded(
+                      child: Divider(color: theme.colorScheme.outlineVariant),
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
@@ -360,7 +377,9 @@ class _LoginCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+                    Expanded(
+                      child: Divider(color: theme.colorScheme.outlineVariant),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -397,7 +416,9 @@ class _LoginCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.colorScheme.outlineVariant),
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant,
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
