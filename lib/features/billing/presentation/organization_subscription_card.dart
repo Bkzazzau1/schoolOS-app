@@ -413,8 +413,12 @@ String _dateLabel(DateTime value) {
 }
 
 String _money(String currency, int minor) {
-  final major = minor ~/ 100;
-  final cents = minor.remainder(100);
+  // A negative minor value should never reach a viewer's screen: remainder() is
+  // sign-preserving in Dart, so an unguarded negative would render nonsense
+  // like a negative cents component. Floor to zero instead.
+  final safeMinor = minor < 0 ? 0 : minor;
+  final major = safeMinor ~/ 100;
+  final cents = safeMinor.remainder(100);
   final digits = major.toString();
   final buffer = StringBuffer();
   for (var i = 0; i < digits.length; i++) {

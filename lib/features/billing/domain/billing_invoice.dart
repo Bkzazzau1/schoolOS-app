@@ -81,8 +81,16 @@ class BillingInvoice {
   final DateTime? paidAt;
   final List<BillingPaymentAttempt> paymentAttempts;
 
-  int get outstandingMinor =>
-      (amountDueMinor - amountPaidMinor).clamp(0, amountDueMinor).toInt();
+  int get outstandingMinor {
+    // amountDueMinor is trusted server data, but nothing upstream guarantees it
+    // is non-negative (a credit-note invoice, a refund adjustment, or simply a
+    // bad value during backend development). clamp(lower, upper) throws if
+    // lower > upper, so a negative amountDueMinor would crash this getter -
+    // guard it to a safe floor first.
+    final due = amountDueMinor < 0 ? 0 : amountDueMinor;
+    return (due - amountPaidMinor).clamp(0, due).toInt();
+  }
+
   bool get paid => status == 'paid';
   bool get payable => status == 'open' && outstandingMinor > 0;
 

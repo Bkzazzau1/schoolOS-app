@@ -55,11 +55,14 @@ class AdministratorRegistrationRepository {
     AdmissionApplicant? sourceApplicant,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
-    final seed = sourceApplicant != null
-        ? _fromApplicant(sourceApplicant)
-        : LocalDatabase.blockDemoSeeds
-            ? _newLiveDraft()
-            : administratorRegistrationWebsiteSeed;
+    final StudentRegistrationRecord seed;
+    if (sourceApplicant != null) {
+      seed = _fromApplicant(sourceApplicant);
+    } else if (LocalDatabase.blockDemoSeeds) {
+      seed = await _newLiveDraft(membership);
+    } else {
+      seed = administratorRegistrationWebsiteSeed;
+    }
 
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
@@ -251,29 +254,66 @@ class AdministratorRegistrationRepository {
     );
   }
 
-  StudentRegistrationRecord _newLiveDraft() {
-    final now = DateTime.now();
-    final stamp = now.microsecondsSinceEpoch.toString();
-    final serial = stamp.substring(stamp.length - 6);
-    final studentSuffix = stamp.substring(stamp.length - 10);
-    final year = (now.year % 100).toString().padLeft(2, '0');
-    return administratorRegistrationWebsiteSeed.copyWith(
-      registrationId: 'REG-$stamp',
-      firstName: '',
-      surname: '',
-      otherName: '',
-      dateOfBirth: '',
-      previousSchool: '',
-      address: '',
-      admissionNumber: 'BGA/KD/PRI/$year/$serial',
-      studentId: 'STU-$studentSuffix',
-      primaryGuardian: '',
-      guardianPhone: '',
-      guardianEmail: '',
-      familyAccount: 'Create new family account',
-      siblingLink: 'No existing sibling',
-      status: StudentRegistrationStatus.inProgress,
+  // Generates a fresh live-registration draft. The registration ID, admission
+  // number and student ID are derived from the device clock, which is not a
+  // safe uniqueness source on its own: microsecond timestamps can repeat on
+  // platforms with coarser clock resolution (Windows commonly reports
+  // millisecond-or-worse precision), and two office devices can create drafts
+  // moments apart. Unlike the guardian-phone sibling check in `_save`, nothing
+  // else in this class re-checks these identifiers for collisions, so this
+  // scans every existing local registration for the current school and
+  // perturbs the timestamp until the admission number and student ID are both
+  // genuinely unused before handing back the draft.
+  Future<StudentRegistrationRecord> _newLiveDraft(
+    SchoolMembership membership,
+  ) async {
+    final existing = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _entityType,
     );
+    final usedAdmissionNumbers = <String>{};
+    final usedStudentIds = <String>{};
+    for (final record in existing) {
+      final decoded = StudentRegistrationRecord.fromJson(record.payload);
+      if (decoded.admissionNumber.trim().isNotEmpty) {
+        usedAdmissionNumbers.add(decoded.admissionNumber);
+      }
+      if (decoded.studentId.trim().isNotEmpty) {
+        usedStudentIds.add(decoded.studentId);
+      }
+    }
+
+    var attempt = 0;
+    while (true) {
+      final now = DateTime.now();
+      final stamp = (now.microsecondsSinceEpoch + attempt).toString();
+      final serial = stamp.substring(stamp.length - 6);
+      final studentSuffix = stamp.substring(stamp.length - 10);
+      final year = (now.year % 100).toString().padLeft(2, '0');
+      final admissionNumber = 'BGA/KD/PRI/$year/$serial';
+      final studentId = 'STU-$studentSuffix';
+      if (!usedAdmissionNumbers.contains(admissionNumber) &&
+          !usedStudentIds.contains(studentId)) {
+        return administratorRegistrationWebsiteSeed.copyWith(
+          registrationId: 'REG-$stamp',
+          firstName: '',
+          surname: '',
+          otherName: '',
+          dateOfBirth: '',
+          previousSchool: '',
+          address: '',
+          admissionNumber: admissionNumber,
+          studentId: studentId,
+          primaryGuardian: '',
+          guardianPhone: '',
+          guardianEmail: '',
+          familyAccount: 'Create new family account',
+          siblingLink: 'No existing sibling',
+          status: StudentRegistrationStatus.inProgress,
+        );
+      }
+      attempt++;
+    }
   }
 
   StudentRegistrationRecord _fromApplicant(AdmissionApplicant applicant) {
