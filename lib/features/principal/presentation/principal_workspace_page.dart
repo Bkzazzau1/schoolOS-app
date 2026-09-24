@@ -18,6 +18,7 @@ import '../data/principal_academics_repository.dart';
 import '../data/principal_approvals_repository.dart';
 import '../data/principal_assignments_repository.dart';
 import '../data/principal_attendance_repository.dart';
+import '../data/principal_class_teachers_repository.dart';
 import '../data/principal_communication_repository.dart';
 import '../data/principal_dashboard_demo_data.dart';
 import '../data/principal_dashboard_repository.dart';
@@ -39,6 +40,7 @@ import 'principal_ai_page.dart';
 import 'principal_approvals_page.dart';
 import 'principal_assignments_page.dart';
 import 'principal_attendance_page.dart';
+import 'principal_class_teachers_page.dart';
 import 'principal_communication_page.dart';
 import 'principal_dashboard_page.dart';
 import 'principal_incidents_page.dart';
@@ -67,6 +69,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
   int _pendingSyncCount = 0;
   late final PrincipalTeachersRepository _teachers;
   late final PrincipalAssignmentsRepository _assignments;
+  late final PrincipalClassTeachersRepository _classTeachers;
   late final PrincipalAcademicsRepository _academics;
   late final PrincipalStudentsRepository _students;
   late final PrincipalAttendanceRepository _attendance;
@@ -93,6 +96,11 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
       students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      staff: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession),
+    );
+    _classTeachers = PrincipalClassTeachersRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
       staff: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession),
     );
     _students = PrincipalStudentsRepository(
@@ -203,6 +211,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
         'teachers' => PrincipalTeachersPage(repository: _teachers, onActionRequested: _select, onQueuedForSync: _refreshPendingCount),
         'staff-profiles' => OwnerStaffProfilesPage(repository: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession), proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), database: widget.localDatabase, session: widget.schoolSession), payrollBatches: PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), database: widget.localDatabase, session: widget.schoolSession), onChanged: _refreshPendingCount),
         'assignments' => PrincipalAssignmentsPage(repository: _assignments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'class-teachers' => PrincipalClassTeachersPage(repository: _classTeachers, onMutationQueued: _refreshPendingCount),
         'academics' => PrincipalAcademicsPage(repository: _academics, onNavigate: _select),
         'students' => PrincipalStudentsPage(repository: _students, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'attendance' => PrincipalAttendancePage(repository: _attendance, onNavigate: _select, onMutationQueued: _refreshPendingCount),
@@ -269,6 +278,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
         'teachers' => Icons.badge_outlined,
         'staff-profiles' => Icons.folder_shared_outlined,
         'assignments' => Icons.assignment_ind_outlined,
+        'class-teachers' => Icons.groups_2_outlined,
         'academics' => Icons.menu_book_rounded,
         'students' => Icons.groups_rounded,
         'attendance' => Icons.fact_check_outlined,

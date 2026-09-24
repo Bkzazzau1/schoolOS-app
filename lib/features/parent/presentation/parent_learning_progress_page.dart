@@ -743,6 +743,10 @@ class _ReportCardCard extends StatelessWidget {
                 ],
               ),
             ),
+          if (card.classTeacherComment.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('Class teacher: ${card.classTeacherComment}'),
+          ],
           if (card.principalComment.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text('Principal: ${card.principalComment}'),

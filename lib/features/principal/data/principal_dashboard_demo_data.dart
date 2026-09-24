@@ -5,6 +5,7 @@ const principalNavigation = <PrincipalNavItem>[
   PrincipalNavItem(key: 'teachers', label: 'Teachers'),
   PrincipalNavItem(key: 'staff-profiles', label: 'Staff Profiles'),
   PrincipalNavItem(key: 'assignments', label: 'Teaching Assignments'),
+  PrincipalNavItem(key: 'class-teachers', label: 'Class Teachers'),
   PrincipalNavItem(key: 'academics', label: 'Academics'),
   PrincipalNavItem(key: 'students', label: 'Students'),
   PrincipalNavItem(key: 'attendance', label: 'Attendance'),

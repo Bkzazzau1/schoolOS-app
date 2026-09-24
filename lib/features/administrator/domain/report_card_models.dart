@@ -54,6 +54,7 @@ class ReportCard {
     this.classSize,
     this.attendancePercent,
     this.principalComment = '',
+    this.classTeacherComment = '',
     this.generatedAt,
     this.submittedAt,
     this.reviewedAt,
@@ -79,6 +80,11 @@ class ReportCard {
   final int? classSize;
   final int? attendancePercent;
   final String principalComment;
+
+  /// Written by whoever holds the active class-teacher assignment (see
+  /// PrincipalClassTeachersRepository) for this class and session. Empty
+  /// when no class teacher has commented yet - never fabricated.
+  final String classTeacherComment;
   final String? generatedAt;
   final String? submittedAt;
   final String? reviewedAt;
@@ -120,6 +126,7 @@ class ReportCard {
         classSize: classSize,
         attendancePercent: attendancePercent,
         principalComment: principalComment,
+        classTeacherComment: classTeacherComment,
         generatedAt: generatedAt,
         submittedAt: submittedAt,
         reviewedAt: reviewedAt,
@@ -153,6 +160,7 @@ class ReportCard {
       classSize: (json['classSize'] as num?)?.toInt(),
       attendancePercent: (json['attendancePercent'] as num?)?.toInt(),
       principalComment: json['principalComment'] as String? ?? '',
+      classTeacherComment: json['classTeacherComment'] as String? ?? '',
       generatedAt: json['generatedAt'] as String?,
       submittedAt: json['submittedAt'] as String?,
       reviewedAt: json['reviewedAt'] as String?,

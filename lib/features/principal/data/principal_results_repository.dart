@@ -293,6 +293,7 @@ class PrincipalResultsRepository {
         'classSize': card.classSize,
         'attendancePercent': card.attendancePercent,
         'principalComment': card.principalComment,
+        'classTeacherComment': card.classTeacherComment,
         'generatedAt': card.generatedAt,
         'submittedAt': card.submittedAt,
         'reviewedAt': card.reviewedAt,

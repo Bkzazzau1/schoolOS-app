@@ -641,6 +641,10 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
                         ],
                       ),
                     ),
+                  if (_results!.reportCard!.classTeacherComment.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('Class teacher: ${_results!.reportCard!.classTeacherComment}'),
+                  ],
                   if (_results!.reportCard!.principalComment.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text('Principal: ${_results!.reportCard!.principalComment}'),

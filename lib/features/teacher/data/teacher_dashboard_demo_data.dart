@@ -17,6 +17,7 @@ const teacherNavigation = <TeacherNavItem>[
   TeacherNavItem(key: 'syllabus', label: 'Syllabus'),
   TeacherNavItem(key: 'assignments', label: 'Assignments'),
   TeacherNavItem(key: 'assessments', label: 'Assessments'),
+  TeacherNavItem(key: 'class-teacher', label: 'Class Teacher'),
   TeacherNavItem(key: 'cbt', label: 'CBT Practice'),
   TeacherNavItem(key: 'learning-progress', label: 'Learning Progress'),
   TeacherNavItem(key: 'students', label: 'Students'),

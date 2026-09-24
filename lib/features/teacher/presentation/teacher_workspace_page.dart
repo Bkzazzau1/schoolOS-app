@@ -20,6 +20,7 @@ import '../data/teacher_assignment_repository.dart';
 import '../data/teacher_assessment_repository.dart';
 import '../data/teacher_attendance_repository.dart';
 import '../data/teacher_cbt_repository.dart';
+import '../data/teacher_class_teacher_repository.dart';
 import '../data/teacher_classes_repository.dart';
 import '../data/teacher_dashboard_demo_data.dart';
 import '../data/teacher_learning_progress_repository.dart';
@@ -35,6 +36,7 @@ import '../domain/teacher_dashboard_models.dart';
 import 'teacher_ai_page.dart';
 import 'teacher_assignments_page.dart';
 import 'teacher_assessments_page.dart';
+import 'teacher_class_teacher_page.dart';
 import 'teacher_attendance_page.dart';
 import 'teacher_cbt_page.dart';
 import 'teacher_classes_page.dart';
@@ -84,6 +86,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
   late final TeacherSyllabusRepository _syllabus;
   late final TeacherAssignmentRepository _assignments;
   late final TeacherAssessmentRepository _assessments;
+  late final TeacherClassTeacherRepository _classTeacher;
   late final TeacherCbtRepository _cbt;
   late final TeacherLearningProgressRepository _learningProgress;
   late final TeacherStudentsRepository _students;
@@ -113,6 +116,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
     _syllabus = TeacherSyllabusRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _assignments = TeacherAssignmentRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _assessments = TeacherAssessmentRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
+    _classTeacher = TeacherClassTeacherRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _cbt = TeacherCbtRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _learningProgress = TeacherLearningProgressRepository(schoolSession: widget.schoolSession, roster: _roster);
     _students = TeacherStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
@@ -200,6 +204,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         'syllabus' => TeacherSyllabusPage(repository: _syllabus, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'assignments' => TeacherAssignmentsPage(repository: _assignments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'assessments' => TeacherAssessmentsPage(repository: _assessments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'class-teacher' => TeacherClassTeacherPage(repository: _classTeacher, onMutationQueued: _refreshPendingCount),
         'cbt' => TeacherCbtPage(repository: _cbt, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'learning-progress' => TeacherLearningProgressPage(repository: _learningProgress, onNavigate: _select),
         'students' => TeacherStudentsPage(repository: _students, onNavigate: _select, onMutationQueued: _refreshPendingCount),
@@ -417,6 +422,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         'syllabus' => Icons.menu_book_outlined,
         'assignments' => Icons.assignment_outlined,
         'assessments' => Icons.grading_outlined,
+        'class-teacher' => Icons.groups_2_outlined,
         'cbt' => Icons.computer_rounded,
         'learning-progress' => Icons.trending_up_rounded,
         'students' => Icons.groups_rounded,
