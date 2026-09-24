@@ -136,6 +136,7 @@ class CredentialRecoveryItem {
     required this.identityKind,
     required this.requestedIdentifier,
     required this.roles,
+    required this.linkedStudentIds,
     required this.requestedAt,
   });
 
@@ -144,6 +145,7 @@ class CredentialRecoveryItem {
   final String identityKind;
   final String requestedIdentifier;
   final List<String> roles;
+  final List<String> linkedStudentIds;
   final DateTime requestedAt;
 
   factory CredentialRecoveryItem.fromJson(Map<String, dynamic> json) =>
@@ -153,6 +155,9 @@ class CredentialRecoveryItem {
         identityKind: json['identityKind'] as String? ?? '',
         requestedIdentifier: json['requestedIdentifier'] as String? ?? '',
         roles: List<String>.from(json['roles'] as List? ?? const []),
+        linkedStudentIds: List<String>.from(
+          json['linkedStudentIds'] as List? ?? const [],
+        ),
         requestedAt: DateTime.parse(json['requestedAt'] as String),
       );
 }
