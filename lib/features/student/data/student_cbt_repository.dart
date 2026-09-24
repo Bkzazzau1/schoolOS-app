@@ -3,13 +3,14 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../teacher/data/teacher_cbt_repository.dart'
-    show ensureTeacherCbtSeeded, teacherCbtAttemptEntityType, teacherCbtPracticeSetEntityType;
+    show
+        ensureTeacherCbtSeeded,
+        teacherCbtAttemptEntityType,
+        teacherCbtPracticeSetEntityType;
 import '../../teacher/domain/teacher_cbt_models.dart';
 
-/// One real, published CBT set available to this student, together with their own real attempt state
-/// against it (if any). `set` is read from the same real record a teacher writes
-/// (`teacherCbtPracticeSetEntityType`); `deadline`/`answers`/`submitted`/`score` are this specific
-/// student's own real, locally-persisted progress against it.
+/// One real, published CBT set available to this student, together with their
+/// own real attempt state against it.
 class StudentCbtAvailableSet {
   const StudentCbtAvailableSet({
     required this.set,
@@ -28,13 +29,6 @@ class StudentCbtAvailableSet {
   bool get started => deadline != null;
 }
 
-/// No real system yet links a Student membership to a specific class the way
-/// `ParentChildrenRepository` links a guardian to specific real children, or the way
-/// `TeacherRoster` links a teacher membership to specific real assigned classes. Until a real
-/// enrollment/admissions workflow creates that link, a student's class is honestly seeded once (to a
-/// real class that really exists in the school's register) and then persisted like any other real
-/// record — never re-guessed on every read, and changeable the same way `TeacherRoster.assign` lets an
-/// administrator reassign a teacher's classes.
 const _defaultStudentClassName = 'JSS 2A';
 
 class StudentCbtRepository {
@@ -42,9 +36,9 @@ class StudentCbtRepository {
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
     DateTime Function()? now,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession,
-        _now = now ?? DateTime.now;
+  }) : _localDatabase = localDatabase,
+       _schoolSession = schoolSession,
+       _now = now ?? DateTime.now;
 
   static const _classLinkEntityType = 'student_class_link';
   static const _attemptStateEntityType = 'student_cbt_attempt_state';
@@ -55,7 +49,9 @@ class StudentCbtRepository {
   final SchoolSessionController _schoolSession;
   final DateTime Function() _now;
 
-  /// This student's real class. Seeded to [_defaultStudentClassName] on first read.
+  /// The signed-in student's class. In backend mode this must come from the
+  /// canonical Enrollment published by the server; real pupils never inherit
+  /// the demo JSS 2A class while their link is still downloading.
   Future<String> className() async {
     final membership = _requireStudentMembership();
     final record = await _localDatabase.getLocalRecord(
@@ -63,7 +59,16 @@ class StudentCbtRepository {
       entityType: _classLinkEntityType,
       entityId: membership.id,
     );
-    if (record != null) return record.payload['className'] as String? ?? _defaultStudentClassName;
+    if (record != null) {
+      final className = (record.payload['className'] as String? ?? '').trim();
+      if (className.isNotEmpty) return className;
+    }
+
+    if (LocalDatabase.blockDemoSeeds) {
+      throw StateError(
+        'Your class is still being confirmed by SchoolOS. Sync and try again.',
+      );
+    }
 
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
@@ -74,8 +79,8 @@ class StudentCbtRepository {
     return _defaultStudentClassName;
   }
 
-  /// Every real, published CBT set for this student's real class, each with this student's own real
-  /// attempt state — never a fixed sample disconnected from what a teacher has actually published.
+  /// Every real, published CBT set for this student's class, each with this
+  /// student's own locally persisted attempt state.
   Future<List<StudentCbtAvailableSet>> loadAvailableSets() async {
     final membership = _requireStudentMembership();
     await ensureTeacherCbtSeeded(_localDatabase, membership.schoolId);
@@ -87,27 +92,39 @@ class StudentCbtRepository {
     );
     final sets = setRecords
         .map((record) => TeacherCbtPracticeSet.fromJson(record.payload))
-        .where((set) => set.state == TeacherCbtSetState.published && set.className == myClass)
+        .where(
+          (set) =>
+              set.state == TeacherCbtSetState.published &&
+              set.className == myClass,
+        )
         .toList(growable: false)
       ..sort((a, b) => a.id.compareTo(b.id));
 
     final result = <StudentCbtAvailableSet>[];
     for (final set in sets) {
       final state = await _attemptState(membership, set.id);
-      result.add(StudentCbtAvailableSet(
-        set: set,
-        deadline: state['deadline'] == null ? null : DateTime.parse(state['deadline']! as String),
-        answers: List<int?>.from(
-          state['answers'] as List? ?? List<int?>.filled(set.items.length, null),
+      result.add(
+        StudentCbtAvailableSet(
+          set: set,
+          deadline: state['deadline'] == null
+              ? null
+              : DateTime.parse(state['deadline']! as String),
+          answers: List<int?>.from(
+            state['answers'] as List? ??
+                List<int?>.filled(set.items.length, null),
+          ),
+          submitted: state['submitted'] == true,
+          score: state['score'] as int?,
         ),
-        submitted: state['submitted'] == true,
-        score: state['score'] as int?,
-      ));
+      );
     }
     return result;
   }
 
-  Future<TeacherCbtPracticeSet> _requireAvailableSet(SchoolMembership membership, String setId) async {
+  Future<TeacherCbtPracticeSet> _requireAvailableSet(
+    SchoolMembership membership,
+    String setId,
+  ) async {
     final myClass = await className();
     final record = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
@@ -125,8 +142,8 @@ class StudentCbtRepository {
   Future<void> startAttempt(String setId) async {
     final membership = _requireStudentMembership();
     final set = await _requireAvailableSet(membership, setId);
-    final state = await _attemptState(membership, setId);
-    if (state['deadline'] != null) return; // already started or resumed
+    final state = await _attemptState(membership, set.id);
+    if (state['deadline'] != null) return;
     await _saveAttemptState(membership, setId, {
       'deadline': _now()
           .add(Duration(minutes: set.durationMinutes))
@@ -146,7 +163,10 @@ class StudentCbtRepository {
         !_now().isBefore(DateTime.parse(deadline))) {
       throw StateError('This CBT attempt is not open for answers.');
     }
-    if (question < 0 || question >= set.items.length || option < 0 || option >= set.items[question].options.length) {
+    if (question < 0 ||
+        question >= set.items.length ||
+        option < 0 ||
+        option >= set.items[question].options.length) {
       throw ArgumentError('Invalid answer.');
     }
     final answers = List<int?>.from(state['answers']! as List);
@@ -154,8 +174,8 @@ class StudentCbtRepository {
     await _saveAttemptState(membership, setId, {...state, 'answers': answers});
   }
 
-  /// Scores the attempt against the real correct answers the teacher set, marks it submitted, and
-  /// writes a real attempt record the teacher's own CBT screen reads back to compute real evidence.
+  /// Scores the attempt against the real correct answers the teacher set,
+  /// marks it submitted, and writes a real attempt record the teacher reads.
   Future<int> submit(String setId) async {
     final membership = _requireStudentMembership();
     final set = await _requireAvailableSet(membership, setId);
@@ -202,7 +222,10 @@ class StudentCbtRepository {
     return score;
   }
 
-  Future<Map<String, Object?>> _attemptState(SchoolMembership membership, String setId) async {
+  Future<Map<String, Object?>> _attemptState(
+    SchoolMembership membership,
+    String setId,
+  ) async {
     final record = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
       entityType: _attemptStateEntityType,
