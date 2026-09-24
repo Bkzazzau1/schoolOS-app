@@ -10,9 +10,47 @@ import '../../administrator/domain/administrator_students_models.dart';
 import '../domain/principal_attendance_models.dart';
 import 'principal_attendance_demo_data.dart';
 
+class PrincipalSubjectAttendanceSummary {
+  const PrincipalSubjectAttendanceSummary({
+    required this.id,
+    required this.lessonDate,
+    required this.time,
+    required this.className,
+    required this.subject,
+    required this.teacher,
+    required this.topic,
+    required this.state,
+    required this.total,
+    required this.unmarked,
+    required this.present,
+    required this.absent,
+    required this.late,
+    required this.excused,
+  });
+
+  final String id;
+  final String lessonDate;
+  final String time;
+  final String className;
+  final String subject;
+  final String teacher;
+  final String topic;
+  final String state;
+  final int total;
+  final int unmarked;
+  final int present;
+  final int absent;
+  final int late;
+  final int excused;
+
+  bool get submitted => state == 'submitted';
+  int get presentRate => total == 0 ? 0 : (present * 100 / total).round();
+}
+
 class PrincipalAttendanceSnapshot {
   const PrincipalAttendanceSnapshot({
     required this.classes,
+    required this.subjectLessons,
     required this.staff,
     required this.followUps,
     required this.scanners,
@@ -21,14 +59,16 @@ class PrincipalAttendanceSnapshot {
     required this.pendingBiometricMutations,
   });
 
+  /// Daily/gate presence evidence. This is intentionally separate from
+  /// [subjectLessons], which represents attendance in a specific lesson period.
   final List<PrincipalClassAttendance> classes;
+  final List<PrincipalSubjectAttendanceSummary> subjectLessons;
 
-  /// Always empty: there is no real per-day staff check-in feed yet, only a period attendance average
-  /// (visible on the Teachers screen). Showing a status or check-in time here would be invented.
+  /// Always empty: there is no real per-day staff check-in feed yet, only a
+  /// period attendance average (visible on the Teachers screen).
   final List<PrincipalStaffAttendance> staff;
 
-  /// Always empty: detecting a real "repeated absence" or "repeated lateness" pattern needs multi-day
-  /// history, and the real attendance source only keeps today's record.
+  /// Always empty until real multi-day evidence exists.
   final List<PrincipalAttendanceFollowUp> followUps;
   final List<PrincipalBiometricScanner> scanners;
   final List<PrincipalBiometricAttendanceEvent> biometricEvents;
@@ -37,7 +77,11 @@ class PrincipalAttendanceSnapshot {
 }
 
 class PrincipalAttendanceActionResult {
-  const PrincipalAttendanceActionResult({required this.success, required this.message});
+  const PrincipalAttendanceActionResult({
+    required this.success,
+    required this.message,
+  });
+
   final bool success;
   final String message;
 }
@@ -66,13 +110,15 @@ class PrincipalAttendanceRepository {
 
   static const _scannerType = 'principal_biometric_scanner';
   static const _eventType = 'principal_biometric_attendance_event';
+  static const _subjectAttendanceType = 'teacher_lesson_attendance_register';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final AdministratorStudentsRepository _students;
   final AdministratorAttendanceRepository _attendance;
 
-  PrincipalAttendancePermissions permissionsFor(SchoolMembership membership) => PrincipalAttendancePermissions(
+  PrincipalAttendancePermissions permissionsFor(SchoolMembership membership) =>
+      PrincipalAttendancePermissions(
         canViewSecondaryAttendance: membership.role == SchoolRole.principal,
         canResolveFollowUps: membership.role == SchoolRole.principal,
         canIngestOfflineBiometricEvents: membership.role == SchoolRole.principal,
@@ -81,23 +127,36 @@ class PrincipalAttendanceRepository {
 
   static String _key(String name) => name.trim().toLowerCase();
 
-  /// Today's real Secondary class attendance, computed from the real register and the real gate-scan
-  /// events — the same source and logic Administrator's attendance desk uses, grouped by class instead
-  /// of section. `trend` is always 0: the real source only keeps today's record, so there is no real
-  /// day-over-day comparison yet. `status` is a deterministic bucket of the real rate, not a judgement.
+  /// Today's real Secondary gate/daily presence, grouped by class. It is not
+  /// evidence that a learner attended a specific subject period.
   Future<List<PrincipalClassAttendance>> _classAttendance() async {
     final register = (await _students.load()).students.where(
-      (s) => s.status != AdministratorStudentStatus.transferredOut && sectionOfClass(s.className) == 'Secondary',
+      (student) =>
+          student.status != AdministratorStudentStatus.transferredOut &&
+          sectionOfClass(student.className) == 'Secondary',
     ).toList();
     final events = (await _attendance.load(students: register)).events;
 
-    final presentNames = {for (final e in events) if (!e.isUnknown && e.countsAsPresent) _key(e.student)};
-    final lateNames = {for (final e in events) if (!e.isUnknown && e.status == AdministratorAttendanceEventStatus.late) _key(e.student)};
-    final excusedNames = {for (final e in events) if (!e.isUnknown && e.status == AdministratorAttendanceEventStatus.excused) _key(e.student)};
+    final presentNames = {
+      for (final event in events)
+        if (!event.isUnknown && event.countsAsPresent) _key(event.student),
+    };
+    final lateNames = {
+      for (final event in events)
+        if (!event.isUnknown &&
+            event.status == AdministratorAttendanceEventStatus.late)
+          _key(event.student),
+    };
+    final excusedNames = {
+      for (final event in events)
+        if (!event.isUnknown &&
+            event.status == AdministratorAttendanceEventStatus.excused)
+          _key(event.student),
+    };
 
     final byClass = <String, List<AdministratorStudentRecord>>{};
-    for (final s in register) {
-      byClass.putIfAbsent(s.className, () => []).add(s);
+    for (final student in register) {
+      byClass.putIfAbsent(student.className, () => []).add(student);
     }
 
     return [
@@ -105,9 +164,15 @@ class PrincipalAttendanceRepository {
         () {
           final rows = byClass[className]!;
           final total = rows.length;
-          final present = rows.where((s) => presentNames.contains(_key(s.name))).length;
-          final late = rows.where((s) => lateNames.contains(_key(s.name))).length;
-          final excused = rows.where((s) => excusedNames.contains(_key(s.name))).length;
+          final present = rows
+              .where((student) => presentNames.contains(_key(student.name)))
+              .length;
+          final late = rows
+              .where((student) => lateNames.contains(_key(student.name)))
+              .length;
+          final excused = rows
+              .where((student) => excusedNames.contains(_key(student.name)))
+              .length;
           final absent = total - present - excused;
           final rate = total == 0 ? 0 : (present * 100 / total).round();
           return PrincipalClassAttendance(
@@ -121,10 +186,76 @@ class PrincipalAttendanceRepository {
             trend: 0,
             status: rate >= 95
                 ? PrincipalAttendanceHealth.strong
-                : (rate >= 85 ? PrincipalAttendanceHealth.watch : PrincipalAttendanceHealth.needsAttention),
+                : (rate >= 85
+                    ? PrincipalAttendanceHealth.watch
+                    : PrincipalAttendanceHealth.needsAttention),
           );
         }(),
     ];
+  }
+
+  Future<List<PrincipalSubjectAttendanceSummary>> _subjectAttendance(
+    SchoolMembership membership,
+  ) async {
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _subjectAttendanceType,
+    );
+    final rows = <PrincipalSubjectAttendanceSummary>[];
+    for (final record in records) {
+      final payload = record.payload;
+      if ((payload['section'] as String? ?? '').trim().toLowerCase() !=
+          'secondary') {
+        continue;
+      }
+      var present = 0;
+      var absent = 0;
+      var late = 0;
+      var excused = 0;
+      var unmarked = 0;
+      final entries = payload['entries'] as List? ?? const [];
+      for (final raw in entries) {
+        if (raw is! Map) continue;
+        switch (raw['status']) {
+          case 'present':
+            present++;
+          case 'absent':
+            absent++;
+          case 'late':
+            late++;
+          case 'excused':
+            excused++;
+          default:
+            unmarked++;
+        }
+      }
+      rows.add(
+        PrincipalSubjectAttendanceSummary(
+          id: payload['id'] as String? ?? record.entityId,
+          lessonDate: payload['lessonDate'] as String? ?? '',
+          time: payload['time'] as String? ?? '',
+          className: payload['className'] as String? ?? '',
+          subject: payload['subject'] as String? ?? '',
+          teacher: payload['teacher'] as String? ?? '',
+          topic: payload['topic'] as String? ?? '',
+          state: payload['state'] as String? ?? 'draft',
+          total: entries.length,
+          unmarked: unmarked,
+          present: present,
+          absent: absent,
+          late: late,
+          excused: excused,
+        ),
+      );
+    }
+    rows.sort((left, right) {
+      final byDate = right.lessonDate.compareTo(left.lessonDate);
+      if (byDate != 0) return byDate;
+      final byTime = left.time.compareTo(right.time);
+      if (byTime != 0) return byTime;
+      return left.className.compareTo(right.className);
+    });
+    return rows;
   }
 
   Future<PrincipalAttendanceSnapshot> load() async {
@@ -132,18 +263,34 @@ class PrincipalAttendanceRepository {
     await _seedIfNeeded(membership);
 
     final classes = await _classAttendance();
+    final subjectLessons = await _subjectAttendance(membership);
 
-    final scannerRecords = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _scannerType);
-    final eventRecords = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _eventType);
+    final scannerRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _scannerType,
+    );
+    final eventRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _eventType,
+    );
 
-    final scanners = scannerRecords.map((record) => PrincipalBiometricScanner.fromJson(record.payload)).toList(growable: false)
+    final scanners = scannerRecords
+        .map((record) => PrincipalBiometricScanner.fromJson(record.payload))
+        .toList(growable: false)
       ..sort((a, b) => a.id.compareTo(b.id));
-    final biometricEvents = eventRecords.map((record) => PrincipalBiometricAttendanceEvent.fromJson(record.payload)).toList(growable: false)
+    final biometricEvents = eventRecords
+        .map(
+          (record) =>
+              PrincipalBiometricAttendanceEvent.fromJson(record.payload),
+        )
+        .toList(growable: false)
       ..sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
-    final pendingBiometricMutations = eventRecords.where((record) => record.isDirty).length;
+    final pendingBiometricMutations =
+        eventRecords.where((record) => record.isDirty).length;
 
     return PrincipalAttendanceSnapshot(
       classes: classes,
+      subjectLessons: subjectLessons,
       staff: const [],
       followUps: const [],
       scanners: scanners,
@@ -153,10 +300,16 @@ class PrincipalAttendanceRepository {
     );
   }
 
-  Future<PrincipalAttendanceActionResult> resolveFollowUp(String followUpId) async {
+  Future<PrincipalAttendanceActionResult> resolveFollowUp(
+    String followUpId,
+  ) async {
     final membership = _schoolSession.requireActiveMembership();
     if (!permissionsFor(membership).canResolveFollowUps) {
-      return const PrincipalAttendanceActionResult(success: false, message: 'This membership cannot resolve Secondary attendance follow-ups.');
+      return const PrincipalAttendanceActionResult(
+        success: false,
+        message:
+            'This membership cannot resolve Secondary attendance follow-ups.',
+      );
     }
     return const PrincipalAttendanceActionResult(
       success: false,
@@ -176,16 +329,31 @@ class PrincipalAttendanceRepository {
   }) async {
     final membership = _schoolSession.requireActiveMembership();
     if (!permissionsFor(membership).canIngestOfflineBiometricEvents) {
-      return const PrincipalAttendanceActionResult(success: false, message: 'This membership cannot ingest Secondary biometric attendance events.');
+      return const PrincipalAttendanceActionResult(
+        success: false,
+        message:
+            'This membership cannot ingest Secondary biometric attendance events.',
+      );
     }
     if (localSequence < 0) {
-      return const PrincipalAttendanceActionResult(success: false, message: 'Scanner local sequence must be non-negative.');
+      return const PrincipalAttendanceActionResult(
+        success: false,
+        message: 'Scanner local sequence must be non-negative.',
+      );
     }
     if (matchScore < 0 || matchScore > 1) {
-      return const PrincipalAttendanceActionResult(success: false, message: 'Biometric match score must be between 0 and 1.');
+      return const PrincipalAttendanceActionResult(
+        success: false,
+        message: 'Biometric match score must be between 0 and 1.',
+      );
     }
-    if (templateReference.trim().isEmpty || !templateReference.startsWith('tpl:')) {
-      return const PrincipalAttendanceActionResult(success: false, message: 'Use an opaque protected template reference; raw biometric images are not accepted.');
+    if (templateReference.trim().isEmpty ||
+        !templateReference.startsWith('tpl:')) {
+      return const PrincipalAttendanceActionResult(
+        success: false,
+        message:
+            'Use an opaque protected template reference; raw biometric images are not accepted.',
+      );
     }
 
     final scannerRecord = await _localDatabase.getLocalRecord(
@@ -194,7 +362,11 @@ class PrincipalAttendanceRepository {
       entityId: scannerId,
     );
     if (scannerRecord == null) {
-      return const PrincipalAttendanceActionResult(success: false, message: 'Scanner is not registered in the local Secondary attendance scope.');
+      return const PrincipalAttendanceActionResult(
+        success: false,
+        message:
+            'Scanner is not registered in the local Secondary attendance scope.',
+      );
     }
     final scanner = PrincipalBiometricScanner.fromJson(scannerRecord.payload);
     final eventId = '$scannerId-$localSequence';
@@ -204,7 +376,11 @@ class PrincipalAttendanceRepository {
       entityId: eventId,
     );
     if (existing != null) {
-      return const PrincipalAttendanceActionResult(success: true, message: 'Duplicate scanner sequence ignored; the existing offline attendance event is preserved.');
+      return const PrincipalAttendanceActionResult(
+        success: true,
+        message:
+            'Duplicate scanner sequence ignored; the existing offline attendance event is preserved.',
+      );
     }
 
     final normalizedPerson = personReference.trim();
@@ -251,14 +427,35 @@ class PrincipalAttendanceRepository {
   }
 
   Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    if ((await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _scannerType)).isEmpty) {
+    // Demo evidence must never appear in a backend-connected Principal workspace.
+    if (LocalDatabase.blockDemoSeeds) return;
+
+    if ((await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _scannerType,
+    ))
+        .isEmpty) {
       for (final row in principalBiometricScanners) {
-        await _localDatabase.upsertLocalRecord(tenantId: membership.schoolId, entityType: _scannerType, entityId: row.id, payload: row.toJson());
+        await _localDatabase.upsertLocalRecord(
+          tenantId: membership.schoolId,
+          entityType: _scannerType,
+          entityId: row.id,
+          payload: row.toJson(),
+        );
       }
     }
-    if ((await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _eventType)).isEmpty) {
+    if ((await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _eventType,
+    ))
+        .isEmpty) {
       for (final row in principalBiometricSeedEvents) {
-        await _localDatabase.upsertLocalRecord(tenantId: membership.schoolId, entityType: _eventType, entityId: row.id, payload: row.toJson());
+        await _localDatabase.upsertLocalRecord(
+          tenantId: membership.schoolId,
+          entityType: _eventType,
+          entityId: row.id,
+          payload: row.toJson(),
+        );
       }
     }
   }
