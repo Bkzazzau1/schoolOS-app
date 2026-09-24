@@ -48,6 +48,32 @@ const studentPracticeQuestions = [
   ),
 ];
 
+const _demoCanonicalProfile = <String, Object?>{
+  'canonicalStudentId': 'demo-student',
+  'studentId': 'STU-DEMO-001',
+  'admissionNumber': 'DEMO/2026/001',
+  'name': 'Demo Student',
+  'dateOfBirth': '2013-06-15',
+  'gender': 'Student',
+  'status': 'Demo only',
+  'academicSection': 'Secondary',
+  'className': 'JSS 2A',
+  'enrollmentActive': true,
+  'primaryGuardian': 'Demo Guardian',
+  'enrollmentHistory': [
+    {
+      'id': 'demo-enrollment-1',
+      'academicSection': 'Secondary',
+      'className': 'JSS 2A',
+      'status': 'active',
+      'billable': false,
+      'startedAt': '2026-09-01T00:00:00Z',
+      'endedAt': null,
+    },
+  ],
+  'progressionHistory': [],
+};
+
 class StudentRepository {
   StudentRepository({
     required this.database,
@@ -87,7 +113,9 @@ class StudentRepository {
     return {
       ...Map<String, Object?>.from(record?.payload ?? {}),
       if (canonical != null)
-        'canonicalProfile': Map<String, Object?>.from(canonical.payload),
+        'canonicalProfile': Map<String, Object?>.from(canonical.payload)
+      else if (!LocalDatabase.blockDemoSeeds)
+        'canonicalProfile': Map<String, Object?>.from(_demoCanonicalProfile),
     };
   }
 
