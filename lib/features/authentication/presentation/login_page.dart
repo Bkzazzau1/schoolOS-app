@@ -10,6 +10,7 @@ import '../../../shared/models/school_membership.dart';
 import '../../account/presentation/account_home_page.dart';
 import '../../invitations/presentation/invitation_accept_page.dart';
 import '../../school_switcher/presentation/school_selection_page.dart';
+import 'forgot_password_page.dart';
 import 'initial_password_change_page.dart';
 import 'proprietor_registration_page.dart';
 
@@ -56,6 +57,8 @@ class _LoginPageState extends State<LoginPage> {
                 () => _obscurePassword = !_obscurePassword,
               ),
               onSubmit: _submit,
+              onForgotPassword:
+                  widget.services.auth != null ? _openForgotPassword : null,
               onInvitation:
                   widget.services.usesBackend ? _openInvitation : null,
               onRegister: widget.services.auth != null ? _openRegistration : null,
@@ -142,6 +145,16 @@ class _LoginPageState extends State<LoginPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _openForgotPassword() {
+    final auth = widget.services.auth;
+    if (auth == null || _busy) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ForgotPasswordPage(auth: auth),
+      ),
+    );
   }
 
   void _openInvitation() {
@@ -247,6 +260,7 @@ class _LoginCard extends StatelessWidget {
     required this.backend,
     required this.onTogglePassword,
     required this.onSubmit,
+    this.onForgotPassword,
     this.onInvitation,
     this.onRegister,
   });
@@ -260,6 +274,7 @@ class _LoginCard extends StatelessWidget {
   final bool backend;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
+  final VoidCallback? onForgotPassword;
   final VoidCallback? onInvitation;
   final VoidCallback? onRegister;
 
@@ -332,9 +347,7 @@ class _LoginCard extends StatelessWidget {
                   labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   suffixIcon: IconButton(
-                    tooltip: obscurePassword
-                        ? 'Show password'
-                        : 'Hide password',
+                    tooltip: obscurePassword ? 'Show password' : 'Hide password',
                     onPressed: onTogglePassword,
                     icon: Icon(
                       obscurePassword
@@ -347,7 +360,16 @@ class _LoginCard extends StatelessWidget {
                     ? 'Enter your password'
                     : null,
               ),
-              const SizedBox(height: 20),
+              if (backend && onForgotPassword != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: busy ? null : onForgotPassword,
+                    child: const Text('Forgot password?'),
+                  ),
+                )
+              else
+                const SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: busy ? null : onSubmit,
                 icon: busy

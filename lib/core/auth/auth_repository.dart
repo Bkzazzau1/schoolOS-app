@@ -96,19 +96,8 @@ class AuthProfile {
   final String email;
   final String name;
   final List<SchoolMembership> memberships;
-
-  /// Account-level memberships sit above individual school tenants. They are
-  /// optional so older SchoolOS backends remain compatible while the SaaS layer
-  /// is rolled out.
   final List<OrganizationMembership> organizations;
-
-  /// School-provisioned Student/Parent accounts start with the school's initial
-  /// password rule and replace it after their first successful sign-in.
   final bool mustChangePassword;
-
-  /// Account-level trust state returned by the backend. It is not inferred from
-  /// school membership or local state. Missing state from an older backend is
-  /// treated as already verified so rollout never removes existing access.
   final bool emailVerified;
   final AccountOnboardingStatus onboarding;
 
@@ -133,15 +122,11 @@ class AuthProfile {
         ],
       );
 
-  /// A role this version of the app does not know is skipped, not a crash.
   static SchoolMembership? _membership(Map<String, dynamic> json) {
     if (!SchoolRole.values.any((role) => role.name == json['role'])) return null;
     return SchoolMembership.fromJson(json);
   }
 
-  /// The account layer follows the same forward-compatibility rule as school
-  /// roles: a role introduced by a newer server does not stop the person from
-  /// signing in to schools this app version still understands.
   static OrganizationMembership? _organizationMembership(Map<String, dynamic> json) {
     try {
       return OrganizationMembership.fromJson(json);
@@ -151,7 +136,6 @@ class AuthProfile {
   }
 }
 
-/// What an invitation link is for, shown before the person does anything.
 class InvitationPreview {
   const InvitationPreview({
     required this.schoolName,
@@ -163,12 +147,8 @@ class InvitationPreview {
 
   final String schoolName;
   final String staffName;
-
-  /// Only the shape of the email (`m***@school.ng`); the link alone never reveals it.
   final String maskedEmail;
   final DateTime expiresAt;
-
-  /// This email already has a SchoolOS account, so the person signs in instead of choosing a password.
   final bool accountExists;
 
   factory InvitationPreview.fromJson(Map<String, dynamic> json) => InvitationPreview(
@@ -181,17 +161,17 @@ class InvitationPreview {
 }
 
 class AcceptedInvitation {
-  const AcceptedInvitation({required this.profile, required this.membership, required this.staffId});
+  const AcceptedInvitation({
+    required this.profile,
+    required this.membership,
+    required this.staffId,
+  });
 
   final AuthProfile profile;
-
-  /// The school and role they now belong to.
   final SchoolMembership membership;
   final String staffId;
 }
 
-/// Signing in and out against the backend, and keeping the person's schools
-/// (their memberships) in the school session.
 class AuthRepository {
   AuthRepository({
     required ApiClient api,
@@ -205,8 +185,6 @@ class AuthRepository {
   final TokenStore _tokens;
   final SchoolSessionController _schoolSession;
 
-  /// Signs in with an email, Student admission ID, or Parent phone number and
-  /// then loads the person's school/account memberships.
   Future<AuthProfile> signIn(String identifier, String password) async {
     final data = await _api.post(
       'auth/token/',
@@ -217,8 +195,22 @@ class AuthRepository {
     return refreshProfile();
   }
 
-  /// Creates a new proprietor account and its first commercial organization,
-  /// stores the returned session securely, then loads the canonical profile.
+  /// Creates a school-office recovery request without revealing whether the
+  /// identifier exists. The backend deliberately returns the same answer for a
+  /// known and unknown login ID.
+  Future<String> requestPasswordRecovery(String identifier) async {
+    final data = await _api.post(
+      'credentials/recovery/request/',
+      authenticated: false,
+      body: {'identifier': identifier.trim()},
+    );
+    if (data is! Map || data['accepted'] != true) {
+      throw const ApiException(500, 'The server sent an unexpected answer.');
+    }
+    return data['message'] as String? ??
+        'If that login ID belongs to a Student or Parent account, the school office can review the recovery request.';
+  }
+
   Future<AuthProfile> registerProprietor({
     required String firstName,
     required String lastName,
@@ -253,11 +245,11 @@ class AuthRepository {
     );
   }
 
-  /// Asks the server who the person is, which organizations they can manage and
-  /// which schools they can act in. The school list is kept for offline access.
   Future<AuthProfile> refreshProfile() async {
     final data = await _api.get('me/');
-    if (data is! Map) throw const ApiException(500, 'The server sent an unexpected answer.');
+    if (data is! Map) {
+      throw const ApiException(500, 'The server sent an unexpected answer.');
+    }
     final profile = AuthProfile.fromJson(Map<String, dynamic>.from(data));
     await _schoolSession.setMemberships(profile.memberships);
     return profile;
@@ -298,14 +290,13 @@ class AuthRepository {
     return refreshProfile();
   }
 
-  /// What an invitation link is for. Needs no sign-in. A link that is unknown, expired, replaced or
-  /// meant for another school is the same "not valid" answer, on purpose.
   Future<InvitationPreview> previewInvitation(String token) async {
     final data = await _api.get('invitations/$token/', authenticated: false);
-    return InvitationPreview.fromJson(Map<String, dynamic>.from(data as Map));
+    return InvitationPreview.fromJson(
+      Map<String, dynamic>.from(data as Map),
+    );
   }
 
-  /// Accepts an invitation with a **new** account: they choose a password, and are signed in.
   Future<AcceptedInvitation> acceptInvitation(
     String token, {
     required String firstName,
@@ -315,34 +306,49 @@ class AuthRepository {
     final data = await _api.post(
       'invitations/$token/accept/',
       authenticated: false,
-      body: {'firstName': firstName.trim(), 'lastName': lastName.trim(), 'password': password},
+      body: {
+        'firstName': firstName.trim(),
+        'lastName': lastName.trim(),
+        'password': password,
+      },
     );
     return _finishAccepting(data);
   }
 
-  /// Accepts an invitation with an account that already exists. The link alone is not enough:
-  /// they sign in as that account first, and the server checks it is the invited email.
-  Future<AcceptedInvitation> acceptInvitationWithAccount(String token, {required String email, required String password}) async {
+  Future<AcceptedInvitation> acceptInvitationWithAccount(
+    String token, {
+    required String email,
+    required String password,
+  }) async {
     await signIn(email, password);
-    final data = await _api.post('invitations/$token/accept/', body: const {});
+    final data = await _api.post(
+      'invitations/$token/accept/',
+      body: const {},
+    );
     return _finishAccepting(data);
   }
 
   Future<AcceptedInvitation> _finishAccepting(Object? data) async {
-    if (data is! Map || data['access'] is! String || data['refresh'] is! String || data['membership'] is! Map) {
+    if (data is! Map ||
+        data['access'] is! String ||
+        data['refresh'] is! String ||
+        data['membership'] is! Map) {
       throw const ApiException(500, 'The server sent an unexpected answer.');
     }
     await _storeTokenPair(data);
-    final membership = SchoolMembership.fromJson(Map<String, dynamic>.from(data['membership'] as Map));
+    final membership = SchoolMembership.fromJson(
+      Map<String, dynamic>.from(data['membership'] as Map),
+    );
     final profile = await refreshProfile();
-    return AcceptedInvitation(profile: profile, membership: membership, staffId: data['staffId'] as String? ?? '');
+    return AcceptedInvitation(
+      profile: profile,
+      membership: membership,
+      staffId: data['staffId'] as String? ?? '',
+    );
   }
 
-  /// Whether a sign-in from an earlier visit is still on the device.
   Future<bool> hasSession() async => await _tokens.read() != null;
 
-  /// Signs out: the tokens and the chosen school are forgotten. Records already
-  /// on the device stay (encrypted) so unsent work is not lost.
   Future<void> signOut() async {
     await _tokens.clear();
     await _schoolSession.clear();

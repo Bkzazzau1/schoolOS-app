@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../proprietor/data/staff_server_api.dart';
 import '../data/administrator_registration_demo_data.dart';
 import '../data/administrator_registration_repository.dart';
 import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_registration_models.dart';
+import 'administrator_credentials_dialog.dart';
 
 class AdministratorRegistrationPage extends StatefulWidget {
   const AdministratorRegistrationPage({
@@ -127,8 +129,9 @@ class _AdministratorRegistrationPageState
 
   StudentRegistrationRecord _draftFromForm() {
     final current = _record ?? administratorRegistrationWebsiteSeed;
-    final serial = RegExp(r'(\d{3})$').firstMatch(current.admissionNumber)?.group(1) ??
-        '014';
+    final serial =
+        RegExp(r'(\d{3})$').firstMatch(current.admissionNumber)?.group(1) ??
+            '014';
     final baseAdmission = admissionNumberForSection(_section);
     final admission = baseAdmission.replaceFirst(RegExp(r'\d{3}$'), serial);
     return current.copyWith(
@@ -193,6 +196,8 @@ class _AdministratorRegistrationPageState
 
     final record = _record ?? administratorRegistrationWebsiteSeed;
     final canManage = _permissions?.canRegisterStudent ?? false;
+    final serverApi = StaffServerScope.maybeOf(context);
+    final membership = widget.repository.activeMembership;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -204,6 +209,13 @@ class _AdministratorRegistrationPageState
               schoolName: widget.schoolName,
               sourceReference: record.sourceApplicantReference,
               canManage: canManage && !_saving,
+              onRecoveryRequests: serverApi == null
+                  ? null
+                  : () => showCredentialRecoveryQueue(
+                        context,
+                        api: serverApi,
+                        membership: membership,
+                      ),
               onSaveDraft: () => _save(complete: false),
               onComplete: () => _save(complete: true),
             ),
@@ -236,6 +248,11 @@ class _AdministratorRegistrationPageState
               _guardianCard(),
               const SizedBox(height: 16),
               _documentsCard(record),
+            ],
+            if (record.credentialsProvisioned &&
+                record.canonicalStudentId.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _credentialsCard(record, serverApi, membership),
             ],
           ],
         );
@@ -317,8 +334,9 @@ class _AdministratorRegistrationPageState
   }
 
   Widget _admissionIdentity(StudentRegistrationRecord record) {
-    final serial = RegExp(r'(\d{3})$').firstMatch(record.admissionNumber)?.group(1) ??
-        '014';
+    final serial =
+        RegExp(r'(\d{3})$').firstMatch(record.admissionNumber)?.group(1) ??
+            '014';
     final shownAdmission = admissionNumberForSection(_section)
         .replaceFirst(RegExp(r'\d{3}$'), serial);
     return _SectionCard(
@@ -420,6 +438,50 @@ class _AdministratorRegistrationPageState
     );
   }
 
+  Widget _credentialsCard(
+    StudentRegistrationRecord record,
+    StaffServerApi? serverApi,
+    dynamic membership,
+  ) {
+    return _SectionCard(
+      title: 'Account credentials',
+      subtitle: 'Server-confirmed Student and Parent login identities.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _InfoRow(
+            label: 'Student login ID',
+            value: record.studentLoginId,
+            note: 'Uses the permanent admission ID',
+          ),
+          _InfoRow(
+            label: 'Parent login ID',
+            value: record.parentLoginId,
+            note: 'Uses the normalized guardian phone number',
+          ),
+          const SizedBox(height: 12),
+          const _BoundaryBox(
+            text:
+                'Initial password rule: the person’s first name. The live credential view shows a temporary password only while SchoolOS still requires a first-login password change. Private permanent passwords are never visible to the school.',
+          ),
+          if (serverApi != null) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => showStudentCredentialManagement(
+                context,
+                api: serverApi,
+                membership: membership,
+                studentId: record.canonicalStudentId,
+              ),
+              icon: const Icon(Icons.manage_accounts_outlined),
+              label: const Text('Manage credentials'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _field(
     String label,
     TextEditingController controller, {
@@ -439,7 +501,7 @@ class _AdministratorRegistrationPageState
   }) {
     final safeValue = items.contains(value) ? value : items.first;
     return DropdownButtonFormField<String>(
-    isExpanded: true,
+      isExpanded: true,
       initialValue: safeValue,
       decoration: InputDecoration(labelText: label),
       items: [
@@ -460,6 +522,7 @@ class _Header extends StatelessWidget {
     required this.canManage,
     required this.onSaveDraft,
     required this.onComplete,
+    this.onRecoveryRequests,
   });
 
   final String schoolName;
@@ -467,6 +530,7 @@ class _Header extends StatelessWidget {
   final bool canManage;
   final VoidCallback onSaveDraft;
   final VoidCallback onComplete;
+  final VoidCallback? onRecoveryRequests;
 
   @override
   Widget build(BuildContext context) {
@@ -510,7 +574,14 @@ class _Header extends StatelessWidget {
         ),
         Wrap(
           spacing: 8,
+          runSpacing: 8,
           children: [
+            if (onRecoveryRequests != null)
+              OutlinedButton.icon(
+                onPressed: onRecoveryRequests,
+                icon: const Icon(Icons.lock_reset_rounded),
+                label: const Text('Recovery requests'),
+              ),
             OutlinedButton(
               onPressed: canManage ? onSaveDraft : null,
               child: const Text('Save draft'),
