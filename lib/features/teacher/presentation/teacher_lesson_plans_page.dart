@@ -28,15 +28,14 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
   final _activities = TextEditingController();
   final _assessment = TextEditingController();
   final _resources = TextEditingController();
+  final _reflection = TextEditingController();
+  final _homework = TextEditingController();
 
   String? _selectedId;
-  String _className = '';
-  String _week = teacherLessonPlanWeeks.first;
-  String _topic = teacherLessonPlanTopics.first;
   String _query = '';
-  String _editorStatus = 'Draft';
   String? _notice;
   bool _busy = false;
+  bool _topicCompleted = false;
 
   @override
   void initState() {
@@ -52,41 +51,41 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
     _activities.dispose();
     _assessment.dispose();
     _resources.dispose();
+    _reflection.dispose();
+    _homework.dispose();
     super.dispose();
   }
 
   void _reload() {
+    setState(() => _future = widget.repository.load());
+  }
+
+  void _selectPlan(
+    TeacherLessonPlan plan,
+    TeacherLessonPlanSnapshot snapshot,
+  ) {
+    final delivery = snapshot.deliveryFor(plan.id);
     setState(() {
-      _future = widget.repository.load();
+      _selectedId = plan.id;
+      _objectives.text = plan.objectives;
+      _starter.text = plan.starter;
+      _activities.text = plan.activities;
+      _assessment.text = plan.assessment;
+      _resources.text = plan.resources;
+      _reflection.text = delivery?.reflection ?? '';
+      _homework.text = delivery?.homework ?? '';
+      _topicCompleted = delivery?.topicCompleted ?? false;
+      _notice = null;
     });
   }
 
   TeacherLessonPlan _editorPlan(TeacherLessonPlan base) => base.copyWith(
-        className: _className,
-        week: _week,
-        topic: _topic,
         objectives: _objectives.text,
         starter: _starter.text,
         activities: _activities.text,
         assessment: _assessment.text,
         resources: _resources.text,
       );
-
-  void _selectPlan(TeacherLessonPlan plan) {
-    setState(() {
-      _selectedId = plan.id;
-      _className = plan.className;
-      _week = teacherLessonPlanWeeks.contains(plan.week) ? plan.week : teacherLessonPlanWeeks.first;
-      _topic = teacherLessonPlanTopics.contains(plan.topic) ? plan.topic : teacherLessonPlanTopics.first;
-      _objectives.text = plan.objectives;
-      _starter.text = plan.starter;
-      _activities.text = plan.activities;
-      _assessment.text = plan.assessment;
-      _resources.text = plan.resources;
-      _editorStatus = teacherLessonPlanStatusLabel(plan.status);
-      _notice = null;
-    });
-  }
 
   void _generateAiDraft() {
     _objectives.text = teacherLessonPlanAiObjectives;
@@ -95,8 +94,8 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
     _assessment.text = teacherLessonPlanAiAssessment;
     _resources.text = teacherLessonPlanAiResources;
     setState(() {
-      _editorStatus = 'AI draft ready';
-      _notice = 'AI generated a draft only. Review and edit it before saving or submitting.';
+      _notice =
+          'AI generated a draft only. Review and edit it before saving or submitting.';
     });
   }
 
@@ -109,7 +108,6 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
     setState(() {
       _busy = false;
       _notice = result.message;
-      _editorStatus = result.success ? 'Draft saved · sync pending' : _editorStatus;
     });
     if (result.success) _reload();
   }
@@ -123,26 +121,76 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
     setState(() {
       _busy = false;
       _notice = result.message;
-      _editorStatus = result.success ? 'Submitted for approval · sync pending' : _editorStatus;
+    });
+    if (result.success) _reload();
+  }
+
+  Future<void> _saveDelivery(
+    TeacherLessonPlan plan, {
+    required bool deliver,
+  }) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final result = deliver
+        ? await widget.repository.recordDelivered(
+            plan: plan,
+            reflection: _reflection.text,
+            homework: _homework.text,
+            topicCompleted: _topicCompleted,
+          )
+        : await widget.repository.saveDeliveryDraft(
+            plan: plan,
+            reflection: _reflection.text,
+            homework: _homework.text,
+            topicCompleted: _topicCompleted,
+          );
+    if (!mounted) return;
+    if (result.success) widget.onMutationQueued();
+    setState(() {
+      _busy = false;
+      _notice = result.message;
     });
     if (result.success) _reload();
   }
 
   Future<void> _createPlan(TeacherLessonPlanSnapshot snapshot) async {
+    if (!snapshot.canonical) {
+      setState(() {
+        _notice =
+            'Standalone demo keeps the seeded lesson-plan examples. New canonical plans require a real timetable occurrence.';
+      });
+      return;
+    }
+    final plannedOccurrences = {
+      for (final plan in snapshot.plans)
+        '${plan.timetableEntryId}|${plan.lessonDate}',
+    };
+    final available = snapshot.occurrenceOptions
+        .where((item) => !plannedOccurrences.contains(item.id))
+        .toList(growable: false);
+    if (available.isEmpty) {
+      setState(() {
+        _notice =
+            'Every currently published lesson occurrence already has a plan, or no current-week occurrence is available.';
+      });
+      return;
+    }
+
     final draft = await showDialog<_NewPlanDraft>(
       context: context,
-      builder: (context) => _NewPlanDialog(classOptions: snapshot.classOptions),
+      builder: (context) => _NewPlanDialog(occurrences: available),
     );
     if (draft == null) return;
     final result = await widget.repository.createPlan(
-      className: draft.className,
-      week: draft.week,
+      occurrence: draft.occurrence,
       topic: draft.topic,
     );
     if (!mounted) return;
     setState(() {
       _notice = result.message;
-      if (result.success && result.plan != null) _selectedId = result.plan!.id;
+      if (result.success && result.plan != null) {
+        _selectedId = result.plan!.id;
+      }
     });
     if (result.success) {
       widget.onMutationQueued();
@@ -169,127 +217,86 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
         }
 
         final data = snapshot.requireData;
-        if (data.classOptions.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('No classes are assigned to you yet. The owner or the administrator assigns classes to teachers.'),
-            ),
-          );
-        }
         if (data.plans.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('No lesson plans yet for your assigned classes.'),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: () => _createPlan(data),
-                    icon: const Icon(Icons.add),
-                    label: const Text('New plan'),
-                  ),
-                ],
-              ),
-            ),
+          return _EmptyState(
+            canonical: data.canonical,
+            canCreate: data.occurrenceOptions.isNotEmpty,
+            onCreate: () => _createPlan(data),
+            onNavigate: widget.onNavigate,
           );
         }
-        if (_selectedId == null || !data.plans.any((p) => p.id == _selectedId)) {
+
+        if (_selectedId == null ||
+            !data.plans.any((plan) => plan.id == _selectedId)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _selectPlan(data.plans.first);
+            if (mounted && data.plans.isNotEmpty) {
+              _selectPlan(data.plans.first, data);
+            }
           });
           return const Center(child: CircularProgressIndicator());
         }
-        final draft = data.plans.firstWhere((plan) => plan.id == _selectedId);
-        final filtered = data.plans.where((plan) => plan.matches(_query)).toList();
-        final editable = draft.teacherEditable;
+
+        final plan = data.plans.firstWhere((item) => item.id == _selectedId);
+        final delivery = data.deliveryFor(plan.id);
+        final filtered = data.plans.where((item) => item.matches(_query)).toList();
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < 820;
+            final compact = constraints.maxWidth < 900;
             return SingleChildScrollView(
               padding: EdgeInsets.all(compact ? 16 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _Header(onNavigate: widget.onNavigate),
+                  _Header(
+                    canonical: data.canonical,
+                    onNavigate: widget.onNavigate,
+                  ),
                   if (_notice != null) ...[
                     const SizedBox(height: 12),
                     _Notice(message: _notice!),
                   ],
                   const SizedBox(height: 16),
-                  _TermStats(plans: data.plans),
+                  _TermStats(plans: data.plans, deliveries: data.deliveries),
                   const SizedBox(height: 16),
-                  if (compact)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _Editor(
-                          classOptions: data.classOptions,
-                          className: _className,
-                          week: _week,
-                          topic: _topic,
-                          editorStatus: _editorStatus,
-                          editable: editable,
-                          busy: _busy,
-                          objectives: _objectives,
-                          starter: _starter,
-                          activities: _activities,
-                          assessment: _assessment,
-                          resources: _resources,
-                          onClassChanged: (value) => setState(() => _className = value),
-                          onWeekChanged: (value) => setState(() => _week = value),
-                          onTopicChanged: (value) => setState(() => _topic = value),
-                          onGenerateAi: editable ? _generateAiDraft : null,
-                          onSave: editable ? () => _saveDraft(draft) : null,
-                          onSubmit: editable ? () => _submit(draft) : null,
-                          onNavigate: widget.onNavigate,
-                        ),
-                        const SizedBox(height: 16),
-                        _PlanningGuide(onNavigate: widget.onNavigate),
-                      ],
-                    )
-                  else
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 7,
-                          child: _Editor(
-                            classOptions: data.classOptions,
-                            className: _className,
-                            week: _week,
-                            topic: _topic,
-                            editorStatus: _editorStatus,
-                            editable: editable,
-                            busy: _busy,
-                            objectives: _objectives,
-                            starter: _starter,
-                            activities: _activities,
-                            assessment: _assessment,
-                            resources: _resources,
-                            onClassChanged: (value) => setState(() => _className = value),
-                            onWeekChanged: (value) => setState(() => _week = value),
-                            onTopicChanged: (value) => setState(() => _topic = value),
-                            onGenerateAi: editable ? _generateAiDraft : null,
-                            onSave: editable ? () => _saveDraft(draft) : null,
-                            onSubmit: editable ? () => _submit(draft) : null,
-                            onNavigate: widget.onNavigate,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(flex: 3, child: _PlanningGuide(onNavigate: widget.onNavigate)),
-                      ],
-                    ),
+                  _OccurrenceCard(plan: plan),
+                  const SizedBox(height: 16),
+                  _PlanEditor(
+                    plan: plan,
+                    busy: _busy,
+                    objectives: _objectives,
+                    starter: _starter,
+                    activities: _activities,
+                    assessment: _assessment,
+                    resources: _resources,
+                    onGenerateAi: plan.teacherEditable ? _generateAiDraft : null,
+                    onSave: plan.teacherEditable ? () => _saveDraft(plan) : null,
+                    onSubmit: plan.teacherEditable ? () => _submit(plan) : null,
+                  ),
+                  if (plan.reviewComment.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _ReviewCard(plan: plan),
+                  ],
+                  const SizedBox(height: 16),
+                  _DeliveryPanel(
+                    plan: plan,
+                    delivery: delivery,
+                    reflection: _reflection,
+                    homework: _homework,
+                    topicCompleted: _topicCompleted,
+                    busy: _busy,
+                    onTopicCompleted: (value) =>
+                        setState(() => _topicCompleted = value),
+                    onSaveDraft: () => _saveDelivery(plan, deliver: false),
+                    onDeliver: () => _saveDelivery(plan, deliver: true),
+                  ),
                   const SizedBox(height: 16),
                   _History(
                     plans: filtered,
                     selectedId: _selectedId,
                     controller: _queryController,
                     onChanged: (value) => setState(() => _query = value),
-                    onSelect: _selectPlan,
+                    onSelect: (selected) => _selectPlan(selected, data),
                     onCreate: () => _createPlan(data),
                   ),
                   const SizedBox(height: 16),
@@ -305,7 +312,9 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onNavigate});
+  const _Header({required this.canonical, required this.onNavigate});
+
+  final bool canonical;
   final ValueChanged<String> onNavigate;
 
   @override
@@ -316,27 +325,101 @@ class _Header extends StatelessWidget {
         runSpacing: 12,
         children: [
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 690),
+            constraints: const BoxConstraints(maxWidth: 720),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('TEACHER PORTAL · LESSON PLANS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-                Text('Lesson Plans', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
-                const Text('Create, improve, submit and track lesson plans for your assigned classes.'),
+                const Text(
+                  'TEACHER PORTAL · LESSON DELIVERY',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+                ),
+                Text(
+                  'Lesson Plans & Delivery',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                Text(
+                  canonical
+                      ? 'Plan a real timetable occurrence, submit it for Secondary review, then record what was actually delivered.'
+                      : 'Standalone demo lesson-plan workspace.',
+                ),
               ],
             ),
           ),
           Wrap(
             spacing: 8,
-            runSpacing: 8,
             children: [
-              TextButton(onPressed: () => onNavigate('dashboard'), child: const Text('Dashboard')),
-              TextButton(onPressed: () => onNavigate('syllabus'), child: const Text('Open syllabus')),
-              TextButton(onPressed: () => onNavigate('weekly-progress'), child: const Text('Weekly parent update')),
-              TextButton(onPressed: () => onNavigate('messages'), child: const Text('Send / share work')),
+              OutlinedButton(
+                onPressed: () => onNavigate('timetable'),
+                child: const Text('Timetable'),
+              ),
+              OutlinedButton(
+                onPressed: () => onNavigate('syllabus'),
+                child: const Text('Syllabus'),
+              ),
+              OutlinedButton(
+                onPressed: () => onNavigate('attendance'),
+                child: const Text('Attendance'),
+              ),
             ],
           ),
         ],
+      );
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.canonical,
+    required this.canCreate,
+    required this.onCreate,
+    required this.onNavigate,
+  });
+
+  final bool canonical;
+  final bool canCreate;
+  final VoidCallback onCreate;
+  final ValueChanged<String> onNavigate;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.menu_book_outlined, size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  canonical
+                      ? (canCreate
+                          ? 'No lesson plans yet. Create one from a real current-week timetable occurrence.'
+                          : 'No current-week lesson occurrence with an approved curriculum topic is available to plan.')
+                      : 'No lesson-plan demo records are available.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: canCreate ? onCreate : null,
+                      icon: const Icon(Icons.add),
+                      label: const Text('New occurrence plan'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => onNavigate('timetable'),
+                      child: const Text('Open timetable'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       );
 }
 
@@ -362,28 +445,42 @@ class _Notice extends StatelessWidget {
 }
 
 class _TermStats extends StatelessWidget {
-  const _TermStats({required this.plans});
+  const _TermStats({required this.plans, required this.deliveries});
+
   final List<TeacherLessonPlan> plans;
+  final List<TeacherLessonDelivery> deliveries;
 
   @override
   Widget build(BuildContext context) {
-    final approved = plans.where((p) => p.status == TeacherLessonPlanStatus.approved).length;
-    final pending = plans.where((p) => p.status == TeacherLessonPlanStatus.submitted).length;
-    final needsChanges = plans.where((p) => p.status == TeacherLessonPlanStatus.needsChanges).length;
-    final approvedPercent = plans.isEmpty ? 0 : (approved * 100 / plans.length).round();
-    final kpis = <(String, String, String)>[
-      ('This term', '${plans.length}', 'lesson plans'),
-      ('Approved', '$approved', '$approvedPercent% approved'),
-      ('Pending', '$pending', 'awaiting review'),
-      ('Needs changes', '$needsChanges', 'action required'),
+    final approved = plans
+        .where((item) => item.status == TeacherLessonPlanStatus.approved)
+        .length;
+    final pending = plans
+        .where((item) =>
+            item.status == TeacherLessonPlanStatus.submitted ||
+            item.status == TeacherLessonPlanStatus.queuedSubmission)
+        .length;
+    final delivered = deliveries
+        .where((item) => item.state == TeacherLessonDeliveryState.delivered)
+        .length;
+    final completedTopics = deliveries
+        .where((item) =>
+            item.state == TeacherLessonDeliveryState.delivered &&
+            item.topicCompleted)
+        .length;
+    final values = [
+      ('Plans', '${plans.length}', 'visible occurrences'),
+      ('Approved', '$approved', 'server reviewed'),
+      ('Pending', '$pending', 'queued or under review'),
+      ('Delivered', '$delivered', '$completedTopics topic completion signal(s)'),
     ];
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        for (final item in kpis)
+        for (final item in values)
           SizedBox(
-            width: 200,
+            width: 210,
             child: Card(
               elevation: 0,
               child: Padding(
@@ -393,7 +490,13 @@ class _TermStats extends StatelessWidget {
                   children: [
                     Text(item.$1),
                     const SizedBox(height: 4),
-                    Text(item.$2, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                    Text(
+                      item.$2,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     Text(item.$3),
                   ],
                 ),
@@ -405,138 +508,181 @@ class _TermStats extends StatelessWidget {
   }
 }
 
-class _Editor extends StatelessWidget {
-  const _Editor({
-    required this.classOptions,
-    required this.className,
-    required this.week,
-    required this.topic,
-    required this.editorStatus,
-    required this.editable,
+class _OccurrenceCard extends StatelessWidget {
+  const _OccurrenceCard({required this.plan});
+
+  final TeacherLessonPlan plan;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Canonical lesson occurrence',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  Chip(label: Text(teacherLessonPlanStatusLabel(plan.status))),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 22,
+                runSpacing: 10,
+                children: [
+                  _Meta('Date', plan.lessonDate.isEmpty ? plan.week : plan.lessonDate),
+                  _Meta('Class', plan.className),
+                  _Meta('Subject', plan.subject.isEmpty ? '—' : plan.subject),
+                  _Meta('Time', plan.time.isEmpty ? '—' : plan.time),
+                  _Meta('Room', plan.room.isEmpty ? '—' : plan.room),
+                  _Meta('Curriculum topic', plan.topic),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Occurrence identity, class, subject, date and curriculum topic are server-authoritative and cannot be moved by the Teacher after plan creation.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _Meta extends StatelessWidget {
+  const _Meta(this.label, this.value);
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 180,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: Theme.of(context).textTheme.labelSmall),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+          ],
+        ),
+      );
+}
+
+class _PlanEditor extends StatelessWidget {
+  const _PlanEditor({
+    required this.plan,
     required this.busy,
     required this.objectives,
     required this.starter,
     required this.activities,
     required this.assessment,
     required this.resources,
-    required this.onClassChanged,
-    required this.onWeekChanged,
-    required this.onTopicChanged,
     required this.onGenerateAi,
     required this.onSave,
     required this.onSubmit,
-    required this.onNavigate,
   });
 
-  final List<String> classOptions;
-  final String className;
-  final String week;
-  final String topic;
-  final String editorStatus;
-  final bool editable;
+  final TeacherLessonPlan plan;
   final bool busy;
   final TextEditingController objectives;
   final TextEditingController starter;
   final TextEditingController activities;
   final TextEditingController assessment;
   final TextEditingController resources;
-  final ValueChanged<String> onClassChanged;
-  final ValueChanged<String> onWeekChanged;
-  final ValueChanged<String> onTopicChanged;
   final VoidCallback? onGenerateAi;
   final VoidCallback? onSave;
   final VoidCallback? onSubmit;
-  final ValueChanged<String> onNavigate;
 
   @override
   Widget build(BuildContext context) {
-    // The plan's own class may no longer be in the teacher's current assignment (e.g. reassigned away); still
-    // show it so the dropdown never breaks, without offering it as a choice for a *new* plan elsewhere.
-    final classItems = {...classOptions, className}.toList()..sort();
+    final editable = plan.teacherEditable;
     return Card(
       elevation: 0,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
+            Row(
               children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Lesson plan editor', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                    Text('Build from the approved syllabus topic, then edit before submission.'),
-                  ],
-                ),
-                Chip(label: Text(editorStatus)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _SelectField(label: 'Class', value: className, values: classItems, enabled: editable, onChanged: onClassChanged),
-                _SelectField(label: 'Week', value: week, values: teacherLessonPlanWeeks, enabled: editable, onChanged: onWeekChanged),
-                _SelectField(label: 'Syllabus topic', value: topic, values: teacherLessonPlanTopics, enabled: editable, onChanged: onTopicChanged),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 0,
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 12,
-                  runSpacing: 10,
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Teacher AI', style: TextStyle(fontWeight: FontWeight.w900)),
-                          Text('Generate a structured first draft from $className, $week and the selected syllabus topic. You remain responsible for reviewing and editing it.'),
-                        ],
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Lesson preparation',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                       ),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: onGenerateAi,
-                      icon: const Icon(Icons.auto_awesome_rounded),
-                      label: const Text('Generate AI draft'),
-                    ),
-                  ],
+                      Text('Plan against the fixed occurrence and curriculum topic above.'),
+                    ],
+                  ),
                 ),
-              ),
+                FilledButton.tonalIcon(
+                  onPressed: onGenerateAi,
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                  label: const Text('AI draft'),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
-            _TextArea(label: 'Learning objectives', controller: objectives, enabled: editable, hint: 'What should learners be able to do by the end of this lesson?'),
-            _TextArea(label: 'Starter / prior knowledge', controller: starter, enabled: editable, hint: 'Opening activity and prior-knowledge check'),
-            _TextArea(label: 'Teaching and learner activities', controller: activities, enabled: editable, hint: 'Explain the lesson flow, modelling, guided practice and learner activity', lines: 5),
-            _TextArea(label: 'Assessment / evidence of learning', controller: assessment, enabled: editable, hint: 'How will you know whether learners understood?'),
-            _TextArea(label: 'Resources', controller: resources, enabled: editable, hint: 'Books, worksheets, equipment, links or files'),
-            const SizedBox(height: 12),
+            _TextArea(
+              label: 'Learning objectives',
+              controller: objectives,
+              enabled: editable,
+              hint: 'What should learners be able to do by the end?',
+            ),
+            _TextArea(
+              label: 'Starter / prior knowledge',
+              controller: starter,
+              enabled: editable,
+              hint: 'Opening activity and prior-knowledge check',
+            ),
+            _TextArea(
+              label: 'Teaching and learner activities',
+              controller: activities,
+              enabled: editable,
+              hint: 'Lesson flow, modelling, guided practice and learner activity',
+              lines: 5,
+            ),
+            _TextArea(
+              label: 'Assessment / evidence of learning',
+              controller: assessment,
+              enabled: editable,
+              hint: 'How will you check whether learning happened?',
+            ),
+            _TextArea(
+              label: 'Resources',
+              controller: resources,
+              enabled: editable,
+              hint: 'Books, worksheets, equipment, links or files',
+            ),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                OutlinedButton(onPressed: () => onNavigate('messages'), child: const Text('Share with principal / colleague')),
-                OutlinedButton(onPressed: () => onNavigate('weekly-progress'), child: const Text('Prepare weekly update')),
-                OutlinedButton(onPressed: busy ? null : onSave, child: const Text('Save draft')),
-                FilledButton(onPressed: busy ? null : onSubmit, child: Text(busy ? 'Working…' : 'Submit for approval')),
+                OutlinedButton(
+                  onPressed: busy ? null : onSave,
+                  child: const Text('Save draft'),
+                ),
+                FilledButton(
+                  onPressed: busy ? null : onSubmit,
+                  child: Text(busy ? 'Working…' : 'Submit for review'),
+                ),
               ],
             ),
             if (!editable) ...[
               const SizedBox(height: 10),
-              const Text('This plan is locked for teacher editing until reviewer action.'),
+              Text(
+                plan.status == TeacherLessonPlanStatus.queuedSubmission
+                    ? 'Submission is queued and locked locally until the server responds.'
+                    : 'This plan is locked for Teacher editing until a reviewer returns it for changes.',
+              ),
             ],
           ],
         ),
@@ -545,29 +691,160 @@ class _Editor extends StatelessWidget {
   }
 }
 
-class _SelectField extends StatelessWidget {
-  const _SelectField({required this.label, required this.value, required this.values, required this.enabled, required this.onChanged});
-  final String label;
-  final String value;
-  final List<String> values;
-  final bool enabled;
-  final ValueChanged<String> onChanged;
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({required this.plan});
+  final TeacherLessonPlan plan;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 210,
-        child: DropdownButtonFormField<String>(
-          isExpanded: true,
-          initialValue: value,
-          decoration: InputDecoration(labelText: label),
-          items: [for (final item in values) DropdownMenuItem(value: item, child: Text(item))],
-          onChanged: enabled ? (next) { if (next != null) onChanged(next); } : null,
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Principal review',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 6),
+              Text(plan.reviewComment),
+              if (plan.reviewedAt != null) Text('Reviewed: ${plan.reviewedAt}'),
+            ],
+          ),
         ),
       );
 }
 
+class _DeliveryPanel extends StatelessWidget {
+  const _DeliveryPanel({
+    required this.plan,
+    required this.delivery,
+    required this.reflection,
+    required this.homework,
+    required this.topicCompleted,
+    required this.busy,
+    required this.onTopicCompleted,
+    required this.onSaveDraft,
+    required this.onDeliver,
+  });
+
+  final TeacherLessonPlan plan;
+  final TeacherLessonDelivery? delivery;
+  final TextEditingController reflection;
+  final TextEditingController homework;
+  final bool topicCompleted;
+  final bool busy;
+  final ValueChanged<bool> onTopicCompleted;
+  final VoidCallback onSaveDraft;
+  final VoidCallback onDeliver;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = delivery?.state ?? TeacherLessonDeliveryState.draft;
+    final approved = plan.status == TeacherLessonPlanStatus.approved;
+    final locked = state != TeacherLessonDeliveryState.draft;
+    final lessonDate = DateTime.tryParse(plan.lessonDate);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final reached = lessonDate == null || !lessonDate.isAfter(today);
+    final enabled = approved && reached && !locked;
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Actual lesson delivery',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
+                      Text('Record what happened after the scheduled occurrence.'),
+                    ],
+                  ),
+                ),
+                Chip(label: Text(teacherLessonDeliveryStateLabel(state))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (!approved)
+              const Text('Delivery opens only after the server confirms Principal approval of this lesson plan.')
+            else if (!reached)
+              const Text('This occurrence is still in the future. Delivery evidence cannot be recorded yet.'),
+            const SizedBox(height: 10),
+            _TextArea(
+              label: 'Teacher reflection',
+              controller: reflection,
+              enabled: enabled,
+              hint: 'What worked, what learners struggled with, and what should change next?',
+              lines: 4,
+            ),
+            _TextArea(
+              label: 'Homework / follow-up',
+              controller: homework,
+              enabled: enabled,
+              hint: 'Optional learner follow-up after this occurrence',
+            ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: topicCompleted,
+              onChanged: enabled ? (value) => onTopicCompleted(value ?? false) : null,
+              title: const Text('Curriculum topic completed by this delivered lesson'),
+              subtitle: const Text(
+                'This is the evidence that can move canonical syllabus coverage to Completed after server acknowledgement.',
+              ),
+            ),
+            if (delivery != null && delivery!.attendanceState != null) ...[
+              const Divider(),
+              Text(
+                'Attendance evidence: ${delivery!.attendanceState} · '
+                '${delivery!.attendancePresent}/${delivery!.attendanceTotal} present · '
+                '${delivery!.attendanceAbsent} absent · ${delivery!.attendanceLate} late',
+              ),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: busy || !enabled ? null : onSaveDraft,
+                  child: const Text('Save delivery draft'),
+                ),
+                FilledButton(
+                  onPressed: busy || !enabled ? null : onDeliver,
+                  child: const Text('Record delivered lesson'),
+                ),
+              ],
+            ),
+            if (state == TeacherLessonDeliveryState.queued) ...[
+              const SizedBox(height: 8),
+              const Text('Delivery is queued, not canonical. Syllabus coverage remains unchanged until the server accepts it.'),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TextArea extends StatelessWidget {
-  const _TextArea({required this.label, required this.controller, required this.enabled, required this.hint, this.lines = 3});
+  const _TextArea({
+    required this.label,
+    required this.controller,
+    required this.enabled,
+    required this.hint,
+    this.lines = 3,
+  });
+
   final String label;
   final TextEditingController controller;
   final bool enabled;
@@ -582,37 +859,10 @@ class _TextArea extends StatelessWidget {
           enabled: enabled,
           minLines: lines,
           maxLines: lines,
-          decoration: InputDecoration(labelText: label, hintText: hint, alignLabelWithHint: true),
-        ),
-      );
-}
-
-class _PlanningGuide extends StatelessWidget {
-  const _PlanningGuide({required this.onNavigate});
-  final ValueChanged<String> onNavigate;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Planning guide', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 12),
-              for (final item in teacherLessonPlanGuide) ...[
-                Text(item.$1, style: const TextStyle(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 3),
-                Text(item.$2),
-                const SizedBox(height: 14),
-              ],
-              TextButton.icon(
-                onPressed: () => onNavigate('syllabus'),
-                icon: const Icon(Icons.menu_book_outlined),
-                label: const Text('Check curriculum position'),
-              ),
-            ],
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            alignLabelWithHint: true,
           ),
         ),
       );
@@ -627,6 +877,7 @@ class _History extends StatelessWidget {
     required this.onSelect,
     required this.onCreate,
   });
+
   final List<TeacherLessonPlan> plans;
   final String? selectedId;
   final TextEditingController controller;
@@ -651,27 +902,32 @@ class _History extends StatelessWidget {
                   const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('My lesson plans', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                      Text('Tap a plan to open it in the editor above.'),
+                      Text(
+                        'Occurrence lesson plans',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
+                      Text('Each canonical plan stays attached to one scheduled occurrence.'),
                     ],
                   ),
                   Wrap(
                     spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       SizedBox(
                         width: 280,
                         child: TextField(
                           controller: controller,
                           onChanged: onChanged,
-                          decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Search plans...', isDense: true),
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.search_rounded),
+                            hintText: 'Search plans...',
+                            isDense: true,
+                          ),
                         ),
                       ),
                       OutlinedButton.icon(
                         onPressed: onCreate,
                         icon: const Icon(Icons.add),
-                        label: const Text('New plan'),
+                        label: const Text('New occurrence plan'),
                       ),
                     ],
                   ),
@@ -679,56 +935,29 @@ class _History extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               if (plans.isEmpty)
-                const Padding(padding: EdgeInsets.all(16), child: Text('No lesson plans match this search.'))
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No lesson plans match this search.'),
+                )
               else
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (constraints.maxWidth < 760) {
-                      return Column(
-                        children: [
-                          for (final plan in plans)
-                            ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              selected: plan.id == selectedId,
-                              onTap: () => onSelect(plan),
-                              title: Text('${plan.id} · ${plan.className}', style: const TextStyle(fontWeight: FontWeight.w900)),
-                              subtitle: Text('${plan.week} · ${plan.topic}\n${plan.updatedLabel}'),
-                              isThreeLine: true,
-                              trailing: Chip(label: Text(teacherLessonPlanStatusLabel(plan.status))),
-                            ),
-                        ],
-                      );
-                    }
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        columns: const [
-                          DataColumn(label: Text('Plan')),
-                          DataColumn(label: Text('Class')),
-                          DataColumn(label: Text('Week')),
-                          DataColumn(label: Text('Topic')),
-                          DataColumn(label: Text('Status')),
-                          DataColumn(label: Text('Updated')),
-                        ],
-                        rows: [
-                          for (final plan in plans)
-                            DataRow(
-                              selected: plan.id == selectedId,
-                              onSelectChanged: (_) => onSelect(plan),
-                              cells: [
-                                DataCell(Text(plan.id, style: const TextStyle(fontWeight: FontWeight.w900))),
-                                DataCell(Text(plan.className)),
-                                DataCell(Text(plan.week)),
-                                DataCell(Text(plan.topic)),
-                                DataCell(Chip(label: Text(teacherLessonPlanStatusLabel(plan.status)))),
-                                DataCell(Text(plan.updatedLabel)),
-                              ],
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                for (final plan in plans)
+                  ListTile(
+                    selected: plan.id == selectedId,
+                    onTap: () => onSelect(plan),
+                    title: Text(
+                      '${plan.className} · ${plan.subject.isEmpty ? plan.topic : plan.subject}',
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    subtitle: Text(
+                      '${plan.lessonDate.isEmpty ? plan.week : plan.lessonDate} · '
+                      '${plan.time.isEmpty ? plan.topic : '${plan.time} · ${plan.topic}'}\n'
+                      '${plan.updatedLabel}',
+                    ),
+                    isThreeLine: true,
+                    trailing: Chip(
+                      label: Text(teacherLessonPlanStatusLabel(plan.status)),
+                    ),
+                  ),
             ],
           ),
         ),
@@ -739,18 +968,25 @@ class _BoundaryCard extends StatelessWidget {
   const _BoundaryCard();
 
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => const Card(
         elevation: 0,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text('Lesson-plan authority & offline boundary', style: TextStyle(fontWeight: FontWeight.w900)),
+            children: [
+              Text(
+                'Lesson-delivery authority boundary',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
               SizedBox(height: 6),
-              Text(teacherLessonPlanAuthorityBoundary),
+              Text(
+                'The timetable occurrence and approved curriculum topic define what may be planned. Teacher submission does not equal Principal approval. A queued delivery does not equal a delivered lesson, and syllabus completion is generated only from server-accepted delivery evidence.',
+              ),
               SizedBox(height: 6),
-              Text(teacherLessonPlanOfflineBoundary),
+              Text(
+                'AI may draft objectives, activities and assessment ideas, but it cannot approve a lesson plan, claim a lesson happened, or mark a curriculum topic complete.',
+              ),
             ],
           ),
         ),
@@ -758,74 +994,84 @@ class _BoundaryCard extends StatelessWidget {
 }
 
 class _NewPlanDraft {
-  const _NewPlanDraft({required this.className, required this.week, required this.topic});
-  final String className;
-  final String week;
-  final String topic;
+  const _NewPlanDraft({required this.occurrence, required this.topic});
+
+  final TeacherLessonPlanOccurrenceOption occurrence;
+  final TeacherLessonPlanTopicOption topic;
 }
 
 class _NewPlanDialog extends StatefulWidget {
-  const _NewPlanDialog({required this.classOptions});
-  final List<String> classOptions;
+  const _NewPlanDialog({required this.occurrences});
+
+  final List<TeacherLessonPlanOccurrenceOption> occurrences;
 
   @override
   State<_NewPlanDialog> createState() => _NewPlanDialogState();
 }
 
 class _NewPlanDialogState extends State<_NewPlanDialog> {
-  late String _className = widget.classOptions.first;
-  String _week = teacherLessonPlanWeeks.first;
-  String _topic = teacherLessonPlanTopics.first;
+  late TeacherLessonPlanOccurrenceOption _occurrence = widget.occurrences.first;
+  late TeacherLessonPlanTopicOption _topic = _occurrence.topics.first;
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('New lesson plan'),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: _className,
-              decoration: const InputDecoration(labelText: 'Class'),
-              items: [for (final item in widget.classOptions) DropdownMenuItem(value: item, child: Text(item))],
-              onChanged: (value) {
-                if (value != null) setState(() => _className = value);
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: _week,
-              decoration: const InputDecoration(labelText: 'Week'),
-              items: [for (final item in teacherLessonPlanWeeks) DropdownMenuItem(value: item, child: Text(item))],
-              onChanged: (value) {
-                if (value != null) setState(() => _week = value);
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: _topic,
-              decoration: const InputDecoration(labelText: 'Syllabus topic'),
-              items: [for (final item in teacherLessonPlanTopics) DropdownMenuItem(value: item, child: Text(item))],
-              onChanged: (value) {
-                if (value != null) setState(() => _topic = value);
-              },
-            ),
-          ],
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('New occurrence lesson plan'),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: _occurrence.id,
+                decoration: const InputDecoration(labelText: 'Scheduled occurrence'),
+                items: [
+                  for (final item in widget.occurrences)
+                    DropdownMenuItem(value: item.id, child: Text(item.label)),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  final next = widget.occurrences.firstWhere((item) => item.id == value);
+                  setState(() {
+                    _occurrence = next;
+                    _topic = next.topics.first;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey(_occurrence.id),
+                isExpanded: true,
+                initialValue: _topic.id,
+                decoration: const InputDecoration(labelText: 'Approved curriculum topic'),
+                items: [
+                  for (final item in _occurrence.topics)
+                    DropdownMenuItem(
+                      value: item.id,
+                      child: Text('${item.sequence}. ${item.title}'),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _topic = _occurrence.topics.firstWhere((item) => item.id == value);
+                  });
+                },
+              ),
+            ],
+          ),
         ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_NewPlanDraft(className: _className, week: _week, topic: _topic)),
-          child: const Text('Create'),
-        ),
-      ],
-    );
-  }
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(
+              _NewPlanDraft(occurrence: _occurrence, topic: _topic),
+            ),
+            child: const Text('Create plan'),
+          ),
+        ],
+      );
 }
