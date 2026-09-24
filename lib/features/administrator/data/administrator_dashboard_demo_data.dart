@@ -25,6 +25,12 @@ const administratorQuickActions = <AdministratorQuickAction>[
         'Maintain the subject catalog, class curriculum requirements and term topics.',
   ),
   AdministratorQuickAction(
+    key: 'timetable',
+    title: 'Timetable & Scheduling',
+    description:
+        'Publish recurring lesson periods and date-specific schedule changes from canonical curriculum.',
+  ),
+  AdministratorQuickAction(
     key: 'lifecycle',
     title: 'Transfers & Promotion',
     description:
@@ -51,6 +57,7 @@ const administratorNavigation = <AdministratorNavItem>[
   AdministratorNavItem(key: 'students', label: 'Students & Families'),
   AdministratorNavItem(key: 'academics', label: 'Academic Structure'),
   AdministratorNavItem(key: 'curriculum', label: 'Subjects & Curriculum'),
+  AdministratorNavItem(key: 'timetable', label: 'Timetable & Scheduling'),
   AdministratorNavItem(key: 'staff', label: 'Staff Records'),
   AdministratorNavItem(key: 'staff-profiles', label: 'Staff Profiles'),
   AdministratorNavItem(key: 'staff-attendance', label: 'Staff Attendance'),
@@ -62,6 +69,6 @@ const administratorNavigation = <AdministratorNavItem>[
 ];
 
 const administratorAuthorityBoundary =
-    'Administrator manages operational records and workflows. The role can maintain the academic calendar/class structure and curriculum records and process an academically approved progression batch, but cannot independently decide academic results or progression outcomes, override section leadership, expose confidential payroll, approve safeguarding outcomes, approve a scholarship or discount, or make other proprietor governance decisions.';
+    'Administrator manages operational records and workflows. The role can maintain the academic calendar/class structure, curriculum records and timetable schedule, and process an academically approved progression batch, but cannot independently decide academic results or progression outcomes, override section leadership, expose confidential payroll, approve safeguarding outcomes, approve a scholarship or discount, or make other proprietor governance decisions.';
 
 const administratorScopeLabel = 'Whole-school administration';
