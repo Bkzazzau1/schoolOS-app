@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/models/school_membership.dart';
 import '../../proprietor/data/staff_server_api.dart';
 import '../data/administrator_registration_demo_data.dart';
 import '../data/administrator_registration_repository.dart';
@@ -12,14 +11,12 @@ class AdministratorRegistrationPage extends StatefulWidget {
   const AdministratorRegistrationPage({
     super.key,
     required this.schoolName,
-    required this.membership,
     required this.repository,
     this.sourceApplicant,
     this.onRegistrationChanged,
   });
 
   final String schoolName;
-  final SchoolMembership membership;
   final AdministratorRegistrationRepository repository;
   final AdmissionApplicant? sourceApplicant;
   final VoidCallback? onRegistrationChanged;
@@ -200,6 +197,7 @@ class _AdministratorRegistrationPageState
     final record = _record ?? administratorRegistrationWebsiteSeed;
     final canManage = _permissions?.canRegisterStudent ?? false;
     final serverApi = StaffServerScope.maybeOf(context);
+    final membership = widget.repository.activeMembership;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -216,7 +214,7 @@ class _AdministratorRegistrationPageState
                   : () => showCredentialRecoveryQueue(
                         context,
                         api: serverApi,
-                        membership: widget.membership,
+                        membership: membership,
                       ),
               onSaveDraft: () => _save(complete: false),
               onComplete: () => _save(complete: true),
@@ -254,7 +252,7 @@ class _AdministratorRegistrationPageState
             if (record.credentialsProvisioned &&
                 record.canonicalStudentId.isNotEmpty) ...[
               const SizedBox(height: 16),
-              _credentialsCard(record, serverApi),
+              _credentialsCard(record, serverApi, membership),
             ],
           ],
         );
@@ -443,6 +441,7 @@ class _AdministratorRegistrationPageState
   Widget _credentialsCard(
     StudentRegistrationRecord record,
     StaffServerApi? serverApi,
+    dynamic membership,
   ) {
     return _SectionCard(
       title: 'Account credentials',
@@ -471,7 +470,7 @@ class _AdministratorRegistrationPageState
               onPressed: () => showStudentCredentialManagement(
                 context,
                 api: serverApi,
-                membership: widget.membership,
+                membership: membership,
                 studentId: record.canonicalStudentId,
               ),
               icon: const Icon(Icons.manage_accounts_outlined),
