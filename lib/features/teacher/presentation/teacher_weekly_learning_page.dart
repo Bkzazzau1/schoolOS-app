@@ -22,19 +22,17 @@ class TeacherWeeklyLearningPage extends StatefulWidget {
 }
 
 class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
-  final _planned = TextEditingController();
-  final _covered = TextEditingController();
-  final _evidence = TextEditingController();
-  final _support = TextEditingController();
   final _next = TextEditingController();
+  final _support = TextEditingController();
   final _note = TextEditingController();
 
   TeacherWeeklyLearningSnapshot? _snapshot;
   TeacherWeeklyLearningUpdate? _working;
-  int _selected = 0;
-  bool _loading = true;
+  String? _selectedId;
+  String? _notice;
   String? _error;
-  String _displayStatus = 'Draft';
+  bool _loading = true;
+  bool _busy = false;
 
   @override
   void initState() {
@@ -44,11 +42,8 @@ class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
 
   @override
   void dispose() {
-    _planned.dispose();
-    _covered.dispose();
-    _evidence.dispose();
-    _support.dispose();
     _next.dispose();
+    _support.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -57,12 +52,27 @@ class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
     try {
       final snapshot = await widget.repository.load();
       if (!mounted) return;
+      TeacherWeeklyLearningUpdate? selected;
+      if (snapshot.canonical) {
+        final wanted = _selectedId;
+        if (wanted != null) {
+          for (final item in snapshot.updates) {
+            if (item.id == wanted) {
+              selected = item;
+              break;
+            }
+          }
+        }
+        selected ??= snapshot.updates.isEmpty ? null : snapshot.updates.first;
+      } else {
+        selected = snapshot.update;
+      }
       setState(() {
         _snapshot = snapshot;
-        _working = snapshot.update;
+        _working = selected;
+        _selectedId = selected?.id;
         _loading = false;
         _error = null;
-        _displayStatus = teacherWeeklyPublicationLabel(snapshot.update.state);
       });
       _syncControllers();
     } catch (_) {
@@ -76,107 +86,132 @@ class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
 
   void _syncControllers() {
     final update = _working;
-    if (update == null || update.subjects.isEmpty) return;
-    final safeIndex = _selected < 0
-        ? 0
-        : (_selected >= update.subjects.length
-            ? update.subjects.length - 1
-            : _selected);
-    final subject = update.subjects[safeIndex];
-    _planned.text = subject.planned;
-    _covered.text = subject.covered;
-    _evidence.text = subject.evidence;
-    _support.text = subject.support;
-    _next.text = subject.next;
+    if (update == null) {
+      _next.clear();
+      _support.clear();
+      _note.clear();
+      return;
+    }
+    final subject = update.subjectUpdate;
+    _next.text = subject?.next ?? '';
+    _support.text = subject?.support ?? '';
     _note.text = update.note;
   }
 
-  void _selectSubject(int index) {
-    setState(() => _selected = index);
+  void _select(TeacherWeeklyLearningUpdate update) {
+    setState(() {
+      _selectedId = update.id;
+      _working = update;
+      _notice = null;
+    });
     _syncControllers();
   }
 
-  void _editSubject({
-    String? planned,
-    String? covered,
-    String? evidence,
-    String? support,
-    String? next,
-  }) {
-    final update = _working;
-    if (update == null || !update.teacherEditable) return;
-    final subjects = List<TeacherWeeklySubjectUpdate>.from(update.subjects);
-    subjects[_selected] = subjects[_selected].copyWith(
-      planned: planned,
-      covered: covered,
-      evidence: evidence,
-      support: support,
-      next: next,
+  TeacherWeeklyLearningUpdate _edited(TeacherWeeklyLearningUpdate base) {
+    if (base.subjects.isEmpty) return base.copyWith(note: _note.text.trim());
+    final subject = base.subjects.first.copyWith(
+      next: _next.text.trim(),
+      support: _support.text.trim(),
     );
-    setState(() {
-      _working = update.copyWith(subjects: subjects);
-      _displayStatus = 'Draft changed';
-    });
+    return base.copyWith(
+      subjects: [subject, ...base.subjects.skip(1)],
+      note: _note.text.trim(),
+    );
   }
 
-  void _editMeta({String? className, String? week, String? note}) {
+  Future<void> _save() async {
     final update = _working;
-    if (update == null || !update.teacherEditable) return;
-    setState(() {
-      _working = update.copyWith(
-        className: className,
-        week: week,
-        note: note,
-      );
-      _displayStatus = 'Draft changed';
-    });
-  }
-
-  Future<void> _saveDraft() async {
-    final update = _working;
-    if (update == null) return;
-    final result = await widget.repository.saveDraft(update);
+    if (update == null || _busy) return;
+    setState(() => _busy = true);
+    final result = await widget.repository.saveDraft(_edited(update));
     if (!mounted) return;
-    setState(() {
-      if (result.update != null) _working = result.update;
-      _displayStatus = result.success
-          ? 'Draft saved · sync pending'
-          : _displayStatus;
-    });
     if (result.success) widget.onMutationQueued();
-    _show(result.message, success: result.success);
+    setState(() {
+      _busy = false;
+      _notice = result.message;
+      if (result.update != null) {
+        _working = result.update;
+        _selectedId = result.update!.id;
+      }
+    });
+    if (result.success && _snapshot?.canonical == true) await _load();
   }
 
   Future<void> _publish() async {
     final update = _working;
-    if (update == null) return;
-    final result = await widget.repository.queuePublication(update);
+    if (update == null || _busy) return;
+    setState(() => _busy = true);
+    final result = await widget.repository.queuePublication(_edited(update));
     if (!mounted) return;
-    setState(() {
-      if (result.update != null) _working = result.update;
-      _displayStatus = result.success
-          ? 'Queued for parent publication · sync pending'
-          : _displayStatus;
-    });
     if (result.success) widget.onMutationQueued();
-    _show(result.message, success: result.success);
+    setState(() {
+      _busy = false;
+      _notice = result.message;
+      if (result.update != null) {
+        _working = result.update;
+        _selectedId = result.update!.id;
+      }
+    });
+    if (result.success && _snapshot?.canonical == true) await _load();
   }
 
-  void _show(String message, {required bool success}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success ? message : 'Unable to continue: $message'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  Future<void> _newCanonicalReport() async {
+    final snapshot = _snapshot;
+    if (snapshot == null || !snapshot.canonical || snapshot.options.isEmpty) {
+      setState(() {
+        _notice = 'No current Teacher class-subject assignment is available.';
+      });
+      return;
+    }
+    final draft = await showDialog<_NewWeeklyDraft>(
+      context: context,
+      builder: (_) => _NewWeeklyDialog(options: snapshot.options),
     );
+    if (draft == null || !mounted) return;
+
+    final end = draft.weekStart.add(const Duration(days: 6));
+    final startIso = _isoDate(draft.weekStart);
+    final endIso = _isoDate(end);
+    final update = TeacherWeeklyLearningUpdate(
+      id: 'weekly|${draft.option.classSubjectId}|$startIso',
+      className: draft.option.className,
+      week: '$startIso – $endIso',
+      subjects: [
+        TeacherWeeklySubjectUpdate(
+          subject: draft.option.subject,
+          planned: '',
+          covered: '',
+          next: '',
+          evidence: '',
+          support: '',
+        ),
+      ],
+      note: '',
+      state: TeacherWeeklyPublicationState.draft,
+      version: 0,
+      classSubjectId: draft.option.classSubjectId,
+      termId: draft.option.termId,
+      term: draft.option.term,
+      weekStart: startIso,
+      weekEnd: endIso,
+      currentTeacherAuthorized: true,
+    );
+    setState(() => _busy = true);
+    final result = await widget.repository.saveDraft(update);
+    if (!mounted) return;
+    if (result.success) widget.onMutationQueued();
+    setState(() {
+      _busy = false;
+      _notice = result.message;
+      if (result.update != null) _selectedId = result.update!.id;
+    });
+    if (result.success) await _load();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null || _working == null || _snapshot == null) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null || _snapshot == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -192,139 +227,264 @@ class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
       );
     }
 
-    final update = _working!;
-    final editable = update.teacherEditable;
+    final snapshot = _snapshot!;
+    return snapshot.canonical
+        ? _buildCanonical(context, snapshot)
+        : _buildDemo(context, snapshot);
+  }
 
+  Widget _buildCanonical(
+    BuildContext context,
+    TeacherWeeklyLearningSnapshot snapshot,
+  ) {
+    final update = _working;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 760;
+        final compact = constraints.maxWidth < 980;
+        final content = <Widget>[
+          _Header(onNavigate: widget.onNavigate, canonical: true),
+          if (_notice != null) ...[
+            const SizedBox(height: 12),
+            _Notice(_notice!),
+          ],
+          const SizedBox(height: 16),
+          _CanonicalSummary(updates: snapshot.updates),
+          const SizedBox(height: 16),
+          if (update == null)
+            _CanonicalEmpty(
+              hasAssignments: snapshot.options.isNotEmpty,
+              onCreate: _busy ? null : _newCanonicalReport,
+            )
+          else ...[
+            if (compact) ...[
+              _ReportList(
+                updates: snapshot.updates,
+                selectedId: update.id,
+                onSelect: _select,
+                onCreate: _busy ? null : _newCanonicalReport,
+              ),
+              const SizedBox(height: 16),
+              _CanonicalEditor(
+                update: update,
+                next: _next,
+                support: _support,
+                note: _note,
+                busy: _busy,
+                onSave: _save,
+                onPublish: _publish,
+              ),
+            ] else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: _ReportList(
+                      updates: snapshot.updates,
+                      selectedId: update.id,
+                      onSelect: _select,
+                      onCreate: _busy ? null : _newCanonicalReport,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 6,
+                    child: _CanonicalEditor(
+                      update: update,
+                      next: _next,
+                      support: _support,
+                      note: _note,
+                      busy: _busy,
+                      onSave: _save,
+                      onPublish: _publish,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+          const SizedBox(height: 16),
+          const _CanonicalBoundary(),
+        ];
         return SingleChildScrollView(
           padding: EdgeInsets.all(compact ? 16 : 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Header(onNavigate: widget.onNavigate),
-              const SizedBox(height: 16),
-              _Stats(update: update, status: _displayStatus),
-              const SizedBox(height: 16),
-              const _FlowCard(),
-              const SizedBox(height: 16),
-              _EditorArea(
-                update: update,
-                selected: _selected,
-                editable: editable,
-                planned: _planned,
-                covered: _covered,
-                evidence: _evidence,
-                support: _support,
-                next: _next,
-                onSelectSubject: _selectSubject,
-                onClassChanged: (value) => _editMeta(className: value),
-                onWeekChanged: (value) => _editMeta(week: value),
-                onPlannedChanged: (value) => _editSubject(planned: value),
-                onCoveredChanged: (value) => _editSubject(covered: value),
-                onEvidenceChanged: (value) => _editSubject(evidence: value),
-                onSupportChanged: (value) => _editSubject(support: value),
-                onNextChanged: (value) => _editSubject(next: value),
-                onSave: _saveDraft,
-                onPublish: _publish,
-              ),
-              const SizedBox(height: 16),
-              _ParentPreview(
-                update: update,
-                status: _displayStatus,
-                noteController: _note,
-                editable: editable,
-                onNoteChanged: (value) => _editMeta(note: value),
-              ),
-              const SizedBox(height: 16),
-              const _Rules(),
-            ],
+            children: content,
           ),
         );
       },
     );
   }
-}
 
-class _Header extends StatelessWidget {
-  const _Header({required this.onNavigate});
-  final ValueChanged<String> onNavigate;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 16,
-      runSpacing: 12,
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'TEACHER PORTAL · WEEKLY LEARNING UPDATE',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Weekly Learning Progress',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineMedium
-                    ?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const Text(
-                'Turn approved lesson plans into one parent-ready weekly update without rewriting the same work.',
-              ),
-            ],
-          ),
-        ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton(
-              onPressed: () => onNavigate('lesson-plans'),
-              child: const Text('Lesson Plans'),
-            ),
-            OutlinedButton(
-              onPressed: () => onNavigate('assignments'),
-              child: const Text('Assignments'),
-            ),
-            OutlinedButton(
-              onPressed: () => onNavigate('messages'),
-              child: const Text('Messages'),
-            ),
+  Widget _buildDemo(
+    BuildContext context,
+    TeacherWeeklyLearningSnapshot snapshot,
+  ) {
+    final update = _working ?? snapshot.update;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Header(onNavigate: widget.onNavigate, canonical: false),
+          if (_notice != null) ...[
+            const SizedBox(height: 12),
+            _Notice(_notice!),
           ],
-        ),
-      ],
+          const SizedBox(height: 16),
+          const _FlowCard(),
+          const SizedBox(height: 16),
+          Card(
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Subjects this week',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 10),
+                  for (final subject in update.subjects)
+                    ListTile(
+                      title: Text(subject.subject),
+                      subtitle: Text('${subject.covered}\n${subject.evidence}'),
+                      isThreeLine: true,
+                      trailing: subject.linkedPlanId == null
+                          ? null
+                          : Text('From ${subject.linkedPlanId}'),
+                    ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Parent preview',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(update.note),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: _busy || !update.teacherEditable ? null : _save,
+                        child: const Text('Save draft'),
+                      ),
+                      FilledButton(
+                        onPressed:
+                            _busy || !update.teacherEditable ? null : _publish,
+                        child: const Text('Publish weekly update'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${update.completionPercent}% with coverage notes · ${teacherWeeklyPublicationLabel(update.state)}',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const _DemoBoundary(),
+        ],
+      ),
     );
   }
 }
 
-class _Stats extends StatelessWidget {
-  const _Stats({required this.update, required this.status});
-  final TeacherWeeklyLearningUpdate update;
-  final String status;
+class _Header extends StatelessWidget {
+  const _Header({required this.onNavigate, required this.canonical});
+
+  final ValueChanged<String> onNavigate;
+  final bool canonical;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 16,
+        runSpacing: 12,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'TEACHER PORTAL · WEEKLY LEARNING UPDATE',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Weekly Learning Progress',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                Text(
+                  canonical
+                      ? 'Lesson delivery creates the facts. You add the next focus, support guidance and parent note, then publish one subject/week snapshot.'
+                      : 'Turn approved lesson plans into one parent-ready weekly update without rewriting the same work.',
+                ),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed: () => onNavigate('lesson-plans'),
+                child: const Text('Lesson Plans'),
+              ),
+              OutlinedButton(
+                onPressed: () => onNavigate('syllabus'),
+                child: const Text('Syllabus'),
+              ),
+              OutlinedButton(
+                onPressed: () => onNavigate('assignments'),
+                child: const Text('Assignments'),
+              ),
+              OutlinedButton(
+                onPressed: () => onNavigate('messages'),
+                child: const Text('Messages'),
+              ),
+            ],
+          ),
+        ],
+      );
+}
+
+class _CanonicalSummary extends StatelessWidget {
+  const _CanonicalSummary({required this.updates});
+  final List<TeacherWeeklyLearningUpdate> updates;
 
   @override
   Widget build(BuildContext context) {
-    final items = <(String, String, String)>[
-      ('Class', update.className, 'current selection'),
-      ('Week', update.week, teacherWeeklyTermLabel),
-      ('Subjects ready', '${update.subjects.length}', '${update.completionPercent}% with coverage notes'),
-      ('Publication', status, 'parent-safe summary'),
+    final published = updates.where((item) => item.serverPublished).length;
+    final queued = updates.where((item) => item.queued).length;
+    final drafts = updates
+        .where((item) => item.state == TeacherWeeklyPublicationState.draft)
+        .length;
+    final delivered = updates.fold<int>(
+      0,
+      (sum, item) => sum + item.deliveredLessons,
+    );
+    final values = [
+      ('Reports', '${updates.length}', 'subject/week records'),
+      ('Draft', '$drafts', 'Teacher editable'),
+      ('Queued', '$queued', 'not published'),
+      ('Published', '$published', '$delivered delivered lesson evidence item(s)'),
     ];
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        for (final item in items)
+        for (final item in values)
           SizedBox(
-            width: 220,
+            width: 215,
             child: Card(
               elevation: 0,
               child: Padding(
@@ -333,12 +493,12 @@ class _Stats extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(item.$1),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
                     Text(
                       item.$2,
                       style: const TextStyle(
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
-                        fontSize: 20,
                       ),
                     ),
                     Text(item.$3),
@@ -350,6 +510,263 @@ class _Stats extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ReportList extends StatelessWidget {
+  const _ReportList({
+    required this.updates,
+    required this.selectedId,
+    required this.onSelect,
+    required this.onCreate,
+  });
+
+  final List<TeacherWeeklyLearningUpdate> updates;
+  final String selectedId;
+  final ValueChanged<TeacherWeeklyLearningUpdate> onSelect;
+  final VoidCallback? onCreate;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Weekly subject reports',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onCreate,
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: 'New subject/week report',
+                  ),
+                ],
+              ),
+              const Text(
+                'One record per assigned ClassSubject and academic week.',
+              ),
+              const SizedBox(height: 10),
+              for (final item in updates)
+                ListTile(
+                  selected: item.id == selectedId,
+                  onTap: () => onSelect(item),
+                  title: Text(
+                    '${item.className} · ${item.subjectUpdate?.subject ?? ''}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: Text(item.week),
+                  trailing: Chip(
+                    label: Text(teacherWeeklyPublicationLabel(item.state)),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _CanonicalEditor extends StatelessWidget {
+  const _CanonicalEditor({
+    required this.update,
+    required this.next,
+    required this.support,
+    required this.note,
+    required this.busy,
+    required this.onSave,
+    required this.onPublish,
+  });
+
+  final TeacherWeeklyLearningUpdate update;
+  final TextEditingController next;
+  final TextEditingController support;
+  final TextEditingController note;
+  final bool busy;
+  final VoidCallback onSave;
+  final VoidCallback onPublish;
+
+  @override
+  Widget build(BuildContext context) {
+    final subject = update.subjectUpdate;
+    final editable = update.teacherEditable;
+    final status = update.pendingSync && update.queued
+        ? 'QUEUED · NOT PUBLISHED'
+        : update.pendingSync
+            ? 'LOCAL CHANGES · SYNC PENDING'
+            : teacherWeeklyPublicationLabel(update.state).toUpperCase();
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${update.className} · ${subject?.subject ?? ''}',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text('${update.week} · ${update.term}'),
+                    ],
+                  ),
+                ),
+                Chip(label: Text(status)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Server-derived learning facts',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            _Fact(label: 'Approved plans', value: '${update.approvedPlans}'),
+            _Fact(label: 'Delivered lessons', value: '${update.deliveredLessons}'),
+            _Fact(label: 'Planned topics', value: subject?.planned ?? '—'),
+            _Fact(label: 'Covered topics', value: subject?.covered ?? '—'),
+            _Fact(label: 'Evidence', value: subject?.evidence ?? '—'),
+            if (update.attendanceTotal > 0)
+              _Fact(
+                label: 'Attendance evidence',
+                value:
+                    '${update.attendancePresent}/${update.attendanceTotal} present · ${update.attendanceLate} late · ${update.attendanceAbsent} absent · ${update.attendanceExcused} excused',
+              ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: next,
+              enabled: editable,
+              minLines: 2,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Next learning focus',
+                hintText: 'What should the class focus on next?',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: support,
+              enabled: editable,
+              minLines: 2,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Support / home practice guidance',
+                hintText: 'Optional factual support guidance for families',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: note,
+              enabled: editable,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Parent note',
+                hintText: 'Short parent-facing context for this subject/week',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: busy || !editable ? null : onSave,
+                  child: const Text('Save draft'),
+                ),
+                FilledButton(
+                  onPressed: busy || !editable || update.deliveredLessons < 1
+                      ? null
+                      : onPublish,
+                  child: const Text('Publish weekly update'),
+                ),
+              ],
+            ),
+            if (!editable) ...[
+              const SizedBox(height: 10),
+              Text(
+                update.queued
+                    ? 'Publication is queued locally. Families do not see it until the server accepts and freezes the snapshot.'
+                    : update.serverPublished
+                        ? 'This published family snapshot is historical and cannot be silently rewritten.'
+                        : 'This report is not editable by the current Teacher authority.',
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Fact extends StatelessWidget {
+  const _Fact({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 145,
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            Expanded(child: Text(value.isEmpty ? '—' : value)),
+          ],
+        ),
+      );
+}
+
+class _CanonicalEmpty extends StatelessWidget {
+  const _CanonicalEmpty({required this.hasAssignments, required this.onCreate});
+  final bool hasAssignments;
+  final VoidCallback? onCreate;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              const Icon(Icons.auto_stories_outlined, size: 44),
+              const SizedBox(height: 10),
+              Text(
+                hasAssignments
+                    ? 'No weekly subject report has been created yet.'
+                    : 'No canonical class-subject assignment has synced for this Teacher yet.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: hasAssignments ? onCreate : null,
+                icon: const Icon(Icons.add),
+                label: const Text('New weekly subject report'),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _FlowCard extends StatelessWidget {
@@ -394,451 +811,171 @@ class _FlowCard extends StatelessWidget {
       );
 }
 
-class _EditorArea extends StatelessWidget {
-  const _EditorArea({
-    required this.update,
-    required this.selected,
-    required this.editable,
-    required this.planned,
-    required this.covered,
-    required this.evidence,
-    required this.support,
-    required this.next,
-    required this.onSelectSubject,
-    required this.onClassChanged,
-    required this.onWeekChanged,
-    required this.onPlannedChanged,
-    required this.onCoveredChanged,
-    required this.onEvidenceChanged,
-    required this.onSupportChanged,
-    required this.onNextChanged,
-    required this.onSave,
-    required this.onPublish,
-  });
+class _CanonicalBoundary extends StatelessWidget {
+  const _CanonicalBoundary();
 
-  final TeacherWeeklyLearningUpdate update;
-  final int selected;
-  final bool editable;
-  final TextEditingController planned;
-  final TextEditingController covered;
-  final TextEditingController evidence;
-  final TextEditingController support;
-  final TextEditingController next;
-  final ValueChanged<int> onSelectSubject;
-  final ValueChanged<String> onClassChanged;
-  final ValueChanged<String> onWeekChanged;
-  final ValueChanged<String> onPlannedChanged;
-  final ValueChanged<String> onCoveredChanged;
-  final ValueChanged<String> onEvidenceChanged;
-  final ValueChanged<String> onSupportChanged;
-  final ValueChanged<String> onNextChanged;
-  final VoidCallback onSave;
-  final VoidCallback onPublish;
+  @override
+  Widget build(BuildContext context) => const Card(
+        elevation: 0,
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Weekly learning evidence boundary',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Planned topics, delivered lessons, curriculum completion and attendance evidence come from canonical academic records. The Teacher may add next-focus and support context, but cannot rewrite those facts here.',
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Queued does not mean published. Only a server-published snapshot becomes family-visible, and that snapshot is preserved as historical evidence.',
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _DemoBoundary extends StatelessWidget {
+  const _DemoBoundary();
+
+  @override
+  Widget build(BuildContext context) => const Card(
+        elevation: 0,
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Standalone demo content remains local. In a connected school, weekly learning is subject-scoped, evidence-derived and server-published before families can see it.',
+          ),
+        ),
+      );
+}
+
+class _Notice extends StatelessWidget {
+  const _Notice(this.message);
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline),
+              const SizedBox(width: 8),
+              Expanded(child: Text(message)),
+            ],
+          ),
+        ),
+      );
+}
+
+class _NewWeeklyDraft {
+  const _NewWeeklyDraft({required this.option, required this.weekStart});
+  final TeacherWeeklyLearningOption option;
+  final DateTime weekStart;
+}
+
+class _NewWeeklyDialog extends StatefulWidget {
+  const _NewWeeklyDialog({required this.options});
+  final List<TeacherWeeklyLearningOption> options;
+
+  @override
+  State<_NewWeeklyDialog> createState() => _NewWeeklyDialogState();
+}
+
+class _NewWeeklyDialogState extends State<_NewWeeklyDialog> {
+  late TeacherWeeklyLearningOption _option = widget.options.first;
+  late DateTime _weekStart = _currentMonday();
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 980;
-        final list = _SubjectList(
-          update: update,
-          selected: selected,
-          onSelectSubject: onSelectSubject,
-          onClassChanged: onClassChanged,
-          onWeekChanged: onWeekChanged,
-          editable: editable,
-        );
-        final editor = _SubjectEditor(
-          subject: update.subjects[selected],
-          editable: editable,
-          planned: planned,
-          covered: covered,
-          evidence: evidence,
-          support: support,
-          next: next,
-          onPlannedChanged: onPlannedChanged,
-          onCoveredChanged: onCoveredChanged,
-          onEvidenceChanged: onEvidenceChanged,
-          onSupportChanged: onSupportChanged,
-          onNextChanged: onNextChanged,
-          onSave: onSave,
-          onPublish: onPublish,
-        );
-        if (compact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [list, const SizedBox(height: 16), editor],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final weeks = List.generate(
+      6,
+      (index) => _currentMonday().subtract(Duration(days: index * 7)),
+    );
+    return AlertDialog(
+      title: const Text('New weekly subject report'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(flex: 4, child: list),
-            const SizedBox(width: 16),
-            Expanded(flex: 6, child: editor),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: _option.classSubjectId,
+              decoration: const InputDecoration(labelText: 'Assigned subject'),
+              items: [
+                for (final item in widget.options)
+                  DropdownMenuItem(
+                    value: item.classSubjectId,
+                    child: Text(item.label),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _option = widget.options.firstWhere(
+                    (item) => item.classSubjectId == value,
+                  );
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: _isoDate(_weekStart),
+              decoration: const InputDecoration(
+                labelText: 'Academic week starting Monday',
+              ),
+              items: [
+                for (final week in weeks)
+                  DropdownMenuItem(
+                    value: _isoDate(week),
+                    child: Text(
+                      '${_isoDate(week)} – ${_isoDate(week.add(const Duration(days: 6)))}',
+                    ),
+                  ),
+              ],
+              onChanged: (value) {
+                final parsed = value == null ? null : DateTime.tryParse(value);
+                if (parsed != null) setState(() => _weekStart = parsed);
+              },
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Term: ${_option.term}'),
+            ),
           ],
-        );
-      },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(
+            _NewWeeklyDraft(option: _option, weekStart: _weekStart),
+          ),
+          child: const Text('Create draft'),
+        ),
+      ],
     );
   }
 }
 
-class _SubjectList extends StatelessWidget {
-  const _SubjectList({
-    required this.update,
-    required this.selected,
-    required this.onSelectSubject,
-    required this.onClassChanged,
-    required this.onWeekChanged,
-    required this.editable,
-  });
-
-  final TeacherWeeklyLearningUpdate update;
-  final int selected;
-  final ValueChanged<int> onSelectSubject;
-  final ValueChanged<String> onClassChanged;
-  final ValueChanged<String> onWeekChanged;
-  final bool editable;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Subjects this week',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-              ),
-              const Text('Select a subject and confirm what was actually taught.'),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  SizedBox(
-                    width: 190,
-                    child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                      initialValue: update.className,
-                      decoration: const InputDecoration(labelText: 'Class'),
-                      items: [
-                        for (final item in teacherWeeklyClassOptions)
-                          DropdownMenuItem(value: item, child: Text(item)),
-                      ],
-                      onChanged: editable
-                          ? (value) {
-                              if (value != null) onClassChanged(value);
-                            }
-                          : null,
-                    ),
-                  ),
-                  SizedBox(
-                    width: 160,
-                    child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                      initialValue: update.week,
-                      decoration: const InputDecoration(labelText: 'Week'),
-                      items: [
-                        for (final item in teacherWeeklyWeekOptions)
-                          DropdownMenuItem(value: item, child: Text(item)),
-                      ],
-                      onChanged: editable
-                          ? (value) {
-                              if (value != null) onWeekChanged(value);
-                            }
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              for (var i = 0; i < update.subjects.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    selected: selected == i,
-                    selectedTileColor:
-                        Theme.of(context).colorScheme.primaryContainer,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    title: Text(
-                      update.subjects[i].subject,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    subtitle: Text(
-                      '${update.subjects[i].covered}\nNext: ${update.subjects[i].next}',
-                    ),
-                    trailing: Text(
-                      update.subjects[i].linkedPlanId == 'LP-206'
-                          ? 'From LP-206'
-                          : 'Linked plan',
-                    ),
-                    onTap: () => onSelectSubject(i),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
+DateTime _currentMonday() {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  return today.subtract(Duration(days: today.weekday - DateTime.monday));
 }
 
-class _SubjectEditor extends StatelessWidget {
-  const _SubjectEditor({
-    required this.subject,
-    required this.editable,
-    required this.planned,
-    required this.covered,
-    required this.evidence,
-    required this.support,
-    required this.next,
-    required this.onPlannedChanged,
-    required this.onCoveredChanged,
-    required this.onEvidenceChanged,
-    required this.onSupportChanged,
-    required this.onNextChanged,
-    required this.onSave,
-    required this.onPublish,
-  });
-
-  final TeacherWeeklySubjectUpdate subject;
-  final bool editable;
-  final TextEditingController planned;
-  final TextEditingController covered;
-  final TextEditingController evidence;
-  final TextEditingController support;
-  final TextEditingController next;
-  final ValueChanged<String> onPlannedChanged;
-  final ValueChanged<String> onCoveredChanged;
-  final ValueChanged<String> onEvidenceChanged;
-  final ValueChanged<String> onSupportChanged;
-  final ValueChanged<String> onNextChanged;
-  final VoidCallback onSave;
-  final VoidCallback onPublish;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                subject.subject,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19),
-              ),
-              const SizedBox(height: 12),
-              _Field(
-                label: 'Planned from lesson plan',
-                controller: planned,
-                enabled: editable,
-                onChanged: onPlannedChanged,
-              ),
-              _Field(
-                label: 'Actually covered',
-                controller: covered,
-                enabled: editable,
-                onChanged: onCoveredChanged,
-              ),
-              _Field(
-                label: 'Classwork / assignment evidence',
-                controller: evidence,
-                enabled: editable,
-                onChanged: onEvidenceChanged,
-              ),
-              _Field(
-                label: 'Topic or support area to continue',
-                controller: support,
-                enabled: editable,
-                onChanged: onSupportChanged,
-              ),
-              _Field(
-                label: 'What comes next',
-                controller: next,
-                enabled: editable,
-                onChanged: onNextChanged,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 8,
-                alignment: WrapAlignment.end,
-                children: [
-                  OutlinedButton(
-                    onPressed: editable ? onSave : null,
-                    child: const Text('Save draft'),
-                  ),
-                  FilledButton(
-                    onPressed: editable ? onPublish : null,
-                    child: const Text('Publish weekly update'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-}
-
-class _Field extends StatelessWidget {
-  const _Field({
-    required this.label,
-    required this.controller,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final bool enabled;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: TextField(
-          controller: controller,
-          enabled: enabled,
-          minLines: 2,
-          maxLines: 4,
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            labelText: label,
-            alignLabelWithHint: true,
-          ),
-        ),
-      );
-}
-
-class _ParentPreview extends StatelessWidget {
-  const _ParentPreview({
-    required this.update,
-    required this.status,
-    required this.noteController,
-    required this.editable,
-    required this.onNoteChanged,
-  });
-
-  final TeacherWeeklyLearningUpdate update;
-  final String status;
-  final TextEditingController noteController;
-  final bool editable;
-  final ValueChanged<String> onNoteChanged;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                runSpacing: 8,
-                children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Parent preview',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                        ),
-                      ),
-                      Text('Family-safe version generated from the classroom record.'),
-                    ],
-                  ),
-                  Chip(label: Text(status)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'WEEKLY LEARNING UPDATE',
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-              Text(
-                '${update.className} · ${update.week}',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const Text('Teacher: Mrs. Amina Yusuf'),
-              const Text('BrightGate Academy'),
-              const SizedBox(height: 14),
-              for (final subject in update.subjects)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        subject.subject,
-                        style: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                      Text('This week: ${subject.covered}'),
-                      Text('Evidence: ${subject.evidence}'),
-                      Text('Next: ${subject.next}'),
-                      Text(
-                        subject.support,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              TextField(
-                controller: noteController,
-                enabled: editable,
-                minLines: 2,
-                maxLines: 4,
-                onChanged: onNoteChanged,
-                decoration: const InputDecoration(
-                  labelText: 'Whole-class note',
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(update.note),
-            ],
-          ),
-        ),
-      );
-}
-
-class _Rules extends StatelessWidget {
-  const _Rules();
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Publication rule',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 4),
-              const Text(teacherWeeklyPublicationBoundary),
-              const SizedBox(height: 12),
-              const Text(
-                'Delivery & evidence boundary',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 4),
-              const Text(teacherWeeklyDeliveryBoundary),
-              const SizedBox(height: 8),
-              const Text(teacherWeeklyEvidenceBoundary),
-            ],
-          ),
-        ),
-      );
-}
+String _isoDate(DateTime value) =>
+    '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';

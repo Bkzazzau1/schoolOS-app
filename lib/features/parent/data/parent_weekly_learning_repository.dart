@@ -22,69 +22,82 @@ class ParentWeeklyLearningRepository {
   final SchoolSessionController _schoolSession;
   final ParentChildrenRepository _children;
 
-  /// Real weekly updates a Teacher has actually queued for publication or published — read from the
-  /// same real record Teacher's own Weekly Learning screen edits
-  /// ([teacherWeeklyLearningUpdateEntityType]), matched to each real linked child by real class name.
-  /// A draft a teacher is still privately editing is never shown to a family, mirroring the boundary
-  /// Teacher's own screen already documents (`teacherWeeklyPublicationBoundary`): drafts and other
-  /// children's records must never reach a parent. "Queued for publication" is shown too, not only
-  /// "published" — a real send/receive acknowledgement needs a server this app does not require, so
-  /// requiring strict delivery confirmation would make this screen impossible to demo; the teacher-side
-  /// boundary text already covers that queuing does not itself prove delivery.
-  ///
-  /// This repository's underlying real source currently keeps only one live weekly update at a time
-  /// (Teacher's screen is a single-draft prototype, not yet a full per-class, per-week archive — see
-  /// docs/BACKEND_INTEGRATION.md), so a linked child whose class has not been the subject of that one
-  /// real update honestly shows nothing yet, rather than an invented one.
+  /// Families receive only canonical server-published weekly subject reports.
+  /// In connected mode the server adds `visibleStudentIds` after checking the
+  /// guardian link, historical enrollment and elective eligibility for that
+  /// exact subject/week. A Teacher-visible copy without that parent scope is
+  /// deliberately ignored here.
   Future<ParentWeeklyLearningSnapshot> load() async {
     final membership = _requireParentMembership();
     final linked = (await _children.load()).children;
-
     final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: teacherWeeklyLearningUpdateEntityType,
     );
-    final realUpdates = records
-        .map((record) => TeacherWeeklyLearningUpdate.fromJson(record.payload))
-        .where((update) => update.state != TeacherWeeklyPublicationState.draft)
-        .toList(growable: false);
 
-    final updates = <ParentWeeklyLearningUpdate>[];
-    for (final child in linked) {
-      for (final update in realUpdates) {
-        if (update.className != child.className) continue;
+    final groups = <String, _WeeklyGroup>{};
+    for (final record in records) {
+      final update = TeacherWeeklyLearningUpdate.fromJson(record.payload);
+      if (update.state != TeacherWeeklyPublicationState.published) continue;
 
-        final dateLabel =
-            (update.publishedAt ?? update.queuedAt ?? update.updatedAt)?.split('T').first;
-        updates.add(ParentWeeklyLearningUpdate(
-          id: '${update.id}-${child.id}',
-          weekLabel: update.week,
-          dateLabel: dateLabel ?? _notRecorded,
-          childId: child.id,
-          childName: child.name,
-          className: update.className,
-          // No real class-teacher directory exists yet (the same reason My Children's classTeacher
-          // field is honestly "Not recorded yet"), so the author's name cannot be shown here either.
-          teacher: _notRecorded,
-          teacherNote: update.note,
-          subjects: [
-            for (final subject in update.subjects)
-              ParentWeeklySubjectUpdate(
-                subject: subject.subject,
-                thisWeek: subject.covered.trim().isEmpty ? _notRecorded : subject.covered,
-                learningEvidence:
-                    subject.evidence.trim().isEmpty ? _notRecorded : subject.evidence,
-                nextTopic: subject.next.trim().isEmpty ? _notRecorded : subject.next,
-                practiceNote: subject.support.trim().isEmpty ? _notRecorded : subject.support,
-              ),
-          ],
-        ));
+      final visibleStudentIds = {
+        for (final raw in (record.payload['visibleStudentIds'] as List? ?? const []))
+          if (raw is String && raw.isNotEmpty) raw,
+      };
+      for (final child in linked) {
+        final serverScoped = visibleStudentIds.contains(child.id);
+        final demoScoped = !LocalDatabase.blockDemoSeeds &&
+            visibleStudentIds.isEmpty &&
+            update.className == child.className;
+        if (!serverScoped && !demoScoped) continue;
+
+        final weekKey = update.weekStart.isNotEmpty ? update.weekStart : update.week;
+        final key = '${child.id}|${update.className}|$weekKey';
+        final group = groups.putIfAbsent(
+          key,
+          () => _WeeklyGroup(
+            id: 'weekly-$key',
+            childId: child.id,
+            childName: child.name,
+            className: update.className,
+            weekLabel: update.week,
+            dateLabel: (update.publishedAt ?? update.updatedAt)?.split('T').first ??
+                _notRecorded,
+            sortKey: weekKey,
+          ),
+        );
+
+        final author = (record.payload['author'] as String? ?? '').trim();
+        if (author.isNotEmpty) group.teachers.add(author);
+
+        for (final subject in update.subjects) {
+          group.subjects.add(
+            ParentWeeklySubjectUpdate(
+              subject: subject.subject,
+              thisWeek:
+                  subject.covered.trim().isEmpty ? _notRecorded : subject.covered,
+              learningEvidence:
+                  subject.evidence.trim().isEmpty ? _notRecorded : subject.evidence,
+              nextTopic: subject.next.trim().isEmpty ? _notRecorded : subject.next,
+              practiceNote:
+                  subject.support.trim().isEmpty ? _notRecorded : subject.support,
+            ),
+          );
+          if (update.note.trim().isNotEmpty) {
+            final prefix = subject.subject.trim().isEmpty
+                ? update.className
+                : subject.subject.trim();
+            group.notes.add('$prefix: ${update.note.trim()}');
+          }
+        }
       }
     }
 
+    final ordered = groups.values.toList()
+      ..sort((a, b) => b.sortKey.compareTo(a.sortKey));
     return ParentWeeklyLearningSnapshot(
       familyAccountId: membership.id,
-      updates: updates,
+      updates: [for (final group in ordered) group.toParentUpdate()],
     );
   }
 
@@ -96,5 +109,44 @@ class ParentWeeklyLearningRepository {
       );
     }
     return membership;
+  }
+}
+
+class _WeeklyGroup {
+  _WeeklyGroup({
+    required this.id,
+    required this.childId,
+    required this.childName,
+    required this.className,
+    required this.weekLabel,
+    required this.dateLabel,
+    required this.sortKey,
+  });
+
+  final String id;
+  final String childId;
+  final String childName;
+  final String className;
+  final String weekLabel;
+  final String dateLabel;
+  final String sortKey;
+  final Set<String> teachers = {};
+  final Set<String> notes = {};
+  final List<ParentWeeklySubjectUpdate> subjects = [];
+
+  ParentWeeklyLearningUpdate toParentUpdate() {
+    subjects.sort((a, b) => a.subject.compareTo(b.subject));
+    return ParentWeeklyLearningUpdate(
+      id: id,
+      weekLabel: weekLabel,
+      dateLabel: dateLabel,
+      childId: childId,
+      childName: childName,
+      className: className,
+      teacher: teachers.isEmpty ? _notRecorded : teachers.join(' · '),
+      teacherNote: notes.isEmpty ? _notRecorded : notes.join('\n'),
+      subjects: List.unmodifiable(subjects),
+      published: true,
+    );
   }
 }
