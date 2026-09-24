@@ -291,7 +291,7 @@ class _DirectoryCard extends StatelessWidget {
           student: 'Student',
           className: 'Class',
           guardian: 'Primary guardian',
-          status: 'Status',
+          statusLabel: 'Status',
         ),
         for (final student in students)
           _DirectoryRow(
@@ -299,8 +299,8 @@ class _DirectoryCard extends StatelessWidget {
             student: student.name,
             className: student.className,
             guardian: student.primaryGuardian,
-            status: student.status.label,
-            warning: student.status == AdministratorStudentStatus.transferPending,
+            statusLabel: student.status.label,
+            statusValue: student.status,
             onOpen: () => onOpen(student),
           ),
       ],
@@ -362,8 +362,8 @@ class _DirectoryRow extends StatelessWidget {
     required this.student,
     required this.className,
     required this.guardian,
-    required this.status,
-    this.warning = false,
+    required this.statusLabel,
+    this.statusValue,
     this.onOpen,
   });
 
@@ -372,8 +372,8 @@ class _DirectoryRow extends StatelessWidget {
   final String student;
   final String className;
   final String guardian;
-  final String status;
-  final bool warning;
+  final String statusLabel;
+  final AdministratorStudentStatus? statusValue;
   final VoidCallback? onOpen;
 
   @override
@@ -398,13 +398,11 @@ class _DirectoryRow extends StatelessWidget {
           Expanded(
             flex: 2,
             child: header
-                ? Text(status, style: style)
+                ? Text(statusLabel, style: style)
                 : Align(
                     alignment: Alignment.centerLeft,
                     child: _StatusChip(
-                      status: warning
-                          ? AdministratorStudentStatus.transferPending
-                          : AdministratorStudentStatus.active,
+                      status: statusValue ?? AdministratorStudentStatus.active,
                     ),
                   ),
           ),
@@ -427,15 +425,16 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final icon = switch (status) {
+      AdministratorStudentStatus.active => Icons.check_circle_outline_rounded,
+      AdministratorStudentStatus.transferPending => Icons.schedule_rounded,
+      AdministratorStudentStatus.transferredOut => Icons.logout_rounded,
+      AdministratorStudentStatus.graduated => Icons.school_outlined,
+    };
     return Chip(
       visualDensity: VisualDensity.compact,
       label: Text(status.label),
-      avatar: Icon(
-        status == AdministratorStudentStatus.transferPending
-            ? Icons.schedule_rounded
-            : Icons.check_circle_outline_rounded,
-        size: 16,
-      ),
+      avatar: Icon(icon, size: 16),
     );
   }
 }
