@@ -9,6 +9,24 @@ enum TeacherWeeklyEventAction {
   queuedForPublication,
 }
 
+class TeacherWeeklyLearningOption {
+  const TeacherWeeklyLearningOption({
+    required this.classSubjectId,
+    required this.termId,
+    required this.term,
+    required this.className,
+    required this.subject,
+  });
+
+  final String classSubjectId;
+  final String termId;
+  final String term;
+  final String className;
+  final String subject;
+
+  String get label => '$className · $subject';
+}
+
 class TeacherWeeklySubjectUpdate {
   const TeacherWeeklySubjectUpdate({
     required this.subject,
@@ -59,12 +77,12 @@ class TeacherWeeklySubjectUpdate {
 
   factory TeacherWeeklySubjectUpdate.fromJson(Map<String, dynamic> json) =>
       TeacherWeeklySubjectUpdate(
-        subject: json['subject'] as String,
-        planned: json['planned'] as String,
-        covered: json['covered'] as String,
-        next: json['next'] as String,
-        evidence: json['evidence'] as String,
-        support: json['support'] as String,
+        subject: json['subject'] as String? ?? '',
+        planned: json['planned'] as String? ?? '',
+        covered: json['covered'] as String? ?? '',
+        next: json['next'] as String? ?? '',
+        evidence: json['evidence'] as String? ?? '',
+        support: json['support'] as String? ?? '',
         linkedPlanId: json['linkedPlanId'] as String?,
       );
 }
@@ -81,6 +99,24 @@ class TeacherWeeklyLearningUpdate {
     this.updatedAt,
     this.queuedAt,
     this.publishedAt,
+    this.classSubjectId = '',
+    this.termId = '',
+    this.term = '',
+    this.classId = '',
+    this.subjectId = '',
+    this.weekStart = '',
+    this.weekEnd = '',
+    this.authorMembershipId = '',
+    this.currentTeacherId = '',
+    this.currentTeacherAuthorized = true,
+    this.pendingSync = false,
+    this.approvedPlans = 0,
+    this.deliveredLessons = 0,
+    this.attendanceTotal = 0,
+    this.attendancePresent = 0,
+    this.attendanceLate = 0,
+    this.attendanceAbsent = 0,
+    this.attendanceExcused = 0,
   });
 
   final String id;
@@ -94,13 +130,39 @@ class TeacherWeeklyLearningUpdate {
   final String? queuedAt;
   final String? publishedAt;
 
+  final String classSubjectId;
+  final String termId;
+  final String term;
+  final String classId;
+  final String subjectId;
+  final String weekStart;
+  final String weekEnd;
+  final String authorMembershipId;
+  final String currentTeacherId;
+  final bool currentTeacherAuthorized;
+  final bool pendingSync;
+  final int approvedPlans;
+  final int deliveredLessons;
+  final int attendanceTotal;
+  final int attendancePresent;
+  final int attendanceLate;
+  final int attendanceAbsent;
+  final int attendanceExcused;
+
   int get completionPercent {
     if (subjects.isEmpty) return 0;
     final ready = subjects.where((item) => item.hasCoverage).length;
     return ((ready / subjects.length) * 100).round();
   }
 
-  bool get teacherEditable => state == TeacherWeeklyPublicationState.draft;
+  bool get canonical => classSubjectId.isNotEmpty && termId.isNotEmpty;
+  bool get teacherEditable =>
+      state == TeacherWeeklyPublicationState.draft && currentTeacherAuthorized;
+  bool get serverPublished => state == TeacherWeeklyPublicationState.published;
+  bool get queued => state == TeacherWeeklyPublicationState.queuedForPublication;
+
+  TeacherWeeklySubjectUpdate? get subjectUpdate =>
+      subjects.isEmpty ? null : subjects.first;
 
   TeacherWeeklyLearningUpdate copyWith({
     String? className,
@@ -112,6 +174,24 @@ class TeacherWeeklyLearningUpdate {
     String? updatedAt,
     String? queuedAt,
     String? publishedAt,
+    String? classSubjectId,
+    String? termId,
+    String? term,
+    String? classId,
+    String? subjectId,
+    String? weekStart,
+    String? weekEnd,
+    String? authorMembershipId,
+    String? currentTeacherId,
+    bool? currentTeacherAuthorized,
+    bool? pendingSync,
+    int? approvedPlans,
+    int? deliveredLessons,
+    int? attendanceTotal,
+    int? attendancePresent,
+    int? attendanceLate,
+    int? attendanceAbsent,
+    int? attendanceExcused,
   }) =>
       TeacherWeeklyLearningUpdate(
         id: id,
@@ -124,7 +204,40 @@ class TeacherWeeklyLearningUpdate {
         updatedAt: updatedAt ?? this.updatedAt,
         queuedAt: queuedAt ?? this.queuedAt,
         publishedAt: publishedAt ?? this.publishedAt,
+        classSubjectId: classSubjectId ?? this.classSubjectId,
+        termId: termId ?? this.termId,
+        term: term ?? this.term,
+        classId: classId ?? this.classId,
+        subjectId: subjectId ?? this.subjectId,
+        weekStart: weekStart ?? this.weekStart,
+        weekEnd: weekEnd ?? this.weekEnd,
+        authorMembershipId: authorMembershipId ?? this.authorMembershipId,
+        currentTeacherId: currentTeacherId ?? this.currentTeacherId,
+        currentTeacherAuthorized:
+            currentTeacherAuthorized ?? this.currentTeacherAuthorized,
+        pendingSync: pendingSync ?? this.pendingSync,
+        approvedPlans: approvedPlans ?? this.approvedPlans,
+        deliveredLessons: deliveredLessons ?? this.deliveredLessons,
+        attendanceTotal: attendanceTotal ?? this.attendanceTotal,
+        attendancePresent: attendancePresent ?? this.attendancePresent,
+        attendanceLate: attendanceLate ?? this.attendanceLate,
+        attendanceAbsent: attendanceAbsent ?? this.attendanceAbsent,
+        attendanceExcused: attendanceExcused ?? this.attendanceExcused,
       );
+
+  Map<String, Object?> toMutationJson({required String action}) {
+    final subject = subjectUpdate;
+    return {
+      'id': id,
+      'classSubjectId': classSubjectId,
+      'termId': termId,
+      'weekStart': weekStart,
+      'action': action,
+      'nextFocus': subject?.next ?? '',
+      'supportNote': subject?.support ?? '',
+      'parentNote': note,
+    };
+  }
 
   Map<String, Object?> toJson() => {
         'id': id,
@@ -137,25 +250,126 @@ class TeacherWeeklyLearningUpdate {
         'updatedAt': updatedAt,
         'queuedAt': queuedAt,
         'publishedAt': publishedAt,
+        'classSubjectId': classSubjectId,
+        'termId': termId,
+        'term': term,
+        'classId': classId,
+        'subjectId': subjectId,
+        'weekStart': weekStart,
+        'weekEnd': weekEnd,
+        'authorMembershipId': authorMembershipId,
+        'currentTeacherId': currentTeacherId,
+        'currentTeacherAuthorized': currentTeacherAuthorized,
+        'pendingSync': pendingSync,
+        'approvedPlans': approvedPlans,
+        'deliveredLessons': deliveredLessons,
+        'attendanceTotal': attendanceTotal,
+        'attendancePresent': attendancePresent,
+        'attendanceLate': attendanceLate,
+        'attendanceAbsent': attendanceAbsent,
+        'attendanceExcused': attendanceExcused,
+        'parentNote': note,
+        'nextFocus': subjectUpdate?.next ?? '',
+        'supportNote': subjectUpdate?.support ?? '',
+        'planned': subjectUpdate?.planned ?? '',
+        'covered': subjectUpdate?.covered ?? '',
+        'evidence': subjectUpdate?.evidence ?? '',
       };
 
-  factory TeacherWeeklyLearningUpdate.fromJson(Map<String, dynamic> json) =>
-      TeacherWeeklyLearningUpdate(
-        id: json['id'] as String,
-        className: json['className'] as String,
-        week: json['week'] as String,
-        subjects: (json['subjects'] as List<dynamic>)
-            .map((item) => TeacherWeeklySubjectUpdate.fromJson(
-                  Map<String, dynamic>.from(item as Map),
-                ))
-            .toList(growable: false),
-        note: json['note'] as String,
-        state: TeacherWeeklyPublicationState.values.byName(json['state'] as String),
-        version: json['version'] as int? ?? 1,
-        updatedAt: json['updatedAt'] as String?,
-        queuedAt: json['queuedAt'] as String?,
-        publishedAt: json['publishedAt'] as String?,
-      );
+  factory TeacherWeeklyLearningUpdate.fromJson(Map<String, dynamic> json) {
+    final rawState = json['state'] as String? ?? 'draft';
+    final state = switch (rawState) {
+      'queuedForPublication' => TeacherWeeklyPublicationState.queuedForPublication,
+      'published' => TeacherWeeklyPublicationState.published,
+      _ => TeacherWeeklyPublicationState.draft,
+    };
+
+    final rawSubjects = json['subjects'];
+    final subjects = <TeacherWeeklySubjectUpdate>[];
+    if (rawSubjects is List) {
+      for (final item in rawSubjects) {
+        if (item is Map) {
+          subjects.add(
+            TeacherWeeklySubjectUpdate.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          );
+        }
+      }
+    } else {
+      final subject = json['subject'] as String? ?? '';
+      if (subject.isNotEmpty) {
+        subjects.add(
+          TeacherWeeklySubjectUpdate(
+            subject: subject,
+            planned: json['planned'] as String? ?? '',
+            covered: json['covered'] as String? ?? '',
+            next: json['nextFocus'] as String? ?? '',
+            evidence: json['evidence'] as String? ?? '',
+            support: json['supportNote'] as String? ?? '',
+          ),
+        );
+      }
+    }
+
+    final evidenceDetails = json['evidenceDetails'];
+    final evidenceMap = evidenceDetails is Map
+        ? Map<String, dynamic>.from(evidenceDetails)
+        : const <String, dynamic>{};
+    final attendanceRaw = evidenceMap['attendance'];
+    final attendance = attendanceRaw is Map
+        ? Map<String, dynamic>.from(attendanceRaw)
+        : const <String, dynamic>{};
+
+    return TeacherWeeklyLearningUpdate(
+      id: json['id'] as String? ?? '',
+      className: json['className'] as String? ?? '',
+      week: json['weekLabel'] as String? ??
+          json['week'] as String? ??
+          json['weekStart'] as String? ??
+          '',
+      subjects: subjects,
+      note: json['parentNote'] as String? ?? json['note'] as String? ?? '',
+      state: state,
+      version: json['version'] as int? ?? 1,
+      updatedAt: json['updatedAt'] as String?,
+      queuedAt: json['queuedAt'] as String?,
+      publishedAt: json['publishedAt'] as String?,
+      classSubjectId: json['classSubjectId'] as String? ?? '',
+      termId: json['termId'] as String? ?? '',
+      term: json['term'] as String? ?? '',
+      classId: json['classId'] as String? ?? '',
+      subjectId: json['subjectId'] as String? ?? '',
+      weekStart: json['weekStart'] as String? ?? '',
+      weekEnd: json['weekEnd'] as String? ?? '',
+      authorMembershipId: json['authorMembershipId'] as String? ?? '',
+      currentTeacherId: json['currentTeacherId'] as String? ?? '',
+      currentTeacherAuthorized:
+          json['currentTeacherAuthorized'] as bool? ?? true,
+      pendingSync: json['pendingSync'] as bool? ?? false,
+      approvedPlans: evidenceMap['approvedPlans'] as int? ??
+          json['approvedPlans'] as int? ??
+          0,
+      deliveredLessons: evidenceMap['deliveredLessons'] as int? ??
+          json['deliveredLessons'] as int? ??
+          0,
+      attendanceTotal: attendance['total'] as int? ??
+          json['attendanceTotal'] as int? ??
+          0,
+      attendancePresent: attendance['present'] as int? ??
+          json['attendancePresent'] as int? ??
+          0,
+      attendanceLate: attendance['late'] as int? ??
+          json['attendanceLate'] as int? ??
+          0,
+      attendanceAbsent: attendance['absent'] as int? ??
+          json['attendanceAbsent'] as int? ??
+          0,
+      attendanceExcused: attendance['excused'] as int? ??
+          json['attendanceExcused'] as int? ??
+          0,
+    );
+  }
 }
 
 class TeacherWeeklyLearningEvent {
@@ -186,12 +400,15 @@ class TeacherWeeklyLearningEvent {
 
   factory TeacherWeeklyLearningEvent.fromJson(Map<String, dynamic> json) =>
       TeacherWeeklyLearningEvent(
-        id: json['id'] as String,
-        updateId: json['updateId'] as String,
-        action: TeacherWeeklyEventAction.values.byName(json['action'] as String),
-        actorMembershipId: json['actorMembershipId'] as String,
-        version: json['version'] as int,
-        occurredAt: json['occurredAt'] as String,
+        id: json['id'] as String? ?? '',
+        updateId: json['updateId'] as String? ?? '',
+        action: TeacherWeeklyEventAction.values.firstWhere(
+          (item) => item.name == (json['action'] as String? ?? ''),
+          orElse: () => TeacherWeeklyEventAction.savedDraft,
+        ),
+        actorMembershipId: json['actorMembershipId'] as String? ?? '',
+        version: json['version'] as int? ?? 1,
+        occurredAt: json['occurredAt'] as String? ?? '',
       );
 }
 
