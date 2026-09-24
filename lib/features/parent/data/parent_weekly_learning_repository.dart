@@ -23,8 +23,10 @@ class ParentWeeklyLearningRepository {
   final ParentChildrenRepository _children;
 
   /// Families receive only canonical server-published weekly subject reports.
-  /// Queued Teacher mutations remain private/pending even if the same device can
-  /// switch between Teacher and Parent memberships.
+  /// In connected mode the server adds `visibleStudentIds` after checking the
+  /// guardian link, historical enrollment and elective eligibility for that
+  /// exact subject/week. A Teacher-visible copy without that parent scope is
+  /// deliberately ignored here.
   Future<ParentWeeklyLearningSnapshot> load() async {
     final membership = _requireParentMembership();
     final linked = (await _children.load()).children;
@@ -38,8 +40,17 @@ class ParentWeeklyLearningRepository {
       final update = TeacherWeeklyLearningUpdate.fromJson(record.payload);
       if (update.state != TeacherWeeklyPublicationState.published) continue;
 
+      final visibleStudentIds = {
+        for (final raw in (record.payload['visibleStudentIds'] as List? ?? const []))
+          if (raw is String && raw.isNotEmpty) raw,
+      };
       for (final child in linked) {
-        if (update.className != child.className) continue;
+        final serverScoped = visibleStudentIds.contains(child.id);
+        final demoScoped = !LocalDatabase.blockDemoSeeds &&
+            visibleStudentIds.isEmpty &&
+            update.className == child.className;
+        if (!serverScoped && !demoScoped) continue;
+
         final weekKey = update.weekStart.isNotEmpty ? update.weekStart : update.week;
         final key = '${child.id}|${update.className}|$weekKey';
         final group = groups.putIfAbsent(
