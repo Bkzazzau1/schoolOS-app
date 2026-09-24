@@ -90,6 +90,9 @@ class PrincipalApprovalsRepository {
           student.className,
     };
 
+    // Only server-acknowledged decisions are allowed to change visible approval
+    // state. A dirty local decision is merely queued and must remain Pending
+    // until the sync engine replaces it with the canonical server record.
     final decisions = <PrincipalApprovalDecision>[];
     for (final entityType in [assessmentDecisionType, lessonPlanReviewType]) {
       final records = await _db.getLocalRecords(
@@ -97,6 +100,7 @@ class PrincipalApprovalsRepository {
         entityType: entityType,
       );
       for (final record in records) {
+        if (record.isDirty) continue;
         decisions.add(PrincipalApprovalDecision.fromJson(record.payload));
       }
     }
@@ -279,6 +283,12 @@ class PrincipalApprovalsRepository {
         message: 'Explain the changes needed.',
       );
     }
+    if (await _hasQueuedDecision(membership.schoolId, approvalId)) {
+      return const PrincipalApprovalActionResult(
+        success: false,
+        message: 'A review decision for this submission is already queued for synchronization.',
+      );
+    }
 
     final item = (await load()).items
         .where((candidate) => candidate.id == approvalId)
@@ -342,7 +352,7 @@ class PrincipalApprovalsRepository {
       return const PrincipalApprovalActionResult(
         success: true,
         message:
-            'Lesson-plan review queued. The Teacher plan changes state only after server acknowledgement.',
+            'Lesson-plan review queued. The plan remains Pending here until the server acknowledges the decision.',
       );
     }
 
@@ -364,8 +374,24 @@ class PrincipalApprovalsRepository {
     return const PrincipalApprovalActionResult(
       success: true,
       message:
-          'Assessment review recorded offline and queued. Marks and publication remain unchanged.',
+          'Assessment review queued. It remains Pending until the server acknowledges the decision.',
     );
+  }
+
+  Future<bool> _hasQueuedDecision(String schoolId, String approvalId) async {
+    for (final entityType in [assessmentDecisionType, lessonPlanReviewType]) {
+      final records = await _db.getLocalRecords(
+        tenantId: schoolId,
+        entityType: entityType,
+      );
+      if (records.any(
+        (record) =>
+            record.isDirty && record.payload['approvalId'] == approvalId,
+      )) {
+        return true;
+      }
+    }
+    return false;
   }
 
   (String, int)? _parseLessonPlanApprovalId(String value) {
