@@ -122,7 +122,7 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
           child: Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              'Report cards are compiled by the Administrator from released assessment evidence. Approving here is a review decision, not publication - release to families remains a separate Administrator/Proprietor action. Attendance percent and a class-teacher comment are not available yet.',
+              'Report cards are compiled by the Administrator from released assessment evidence and submitted attendance registers. Approving here is a review decision, not publication - release to families remains a separate Administrator/Proprietor action. There is no class-teacher comment yet - only your own.',
             ),
           ),
         ),
