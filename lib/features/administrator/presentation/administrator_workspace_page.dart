@@ -19,6 +19,7 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/administrator_academics_repository.dart';
 import '../data/administrator_admissions_repository.dart';
 import '../data/administrator_attendance_repository.dart';
+import '../data/administrator_curriculum_repository.dart';
 import '../data/administrator_dashboard_demo_data.dart';
 import '../data/administrator_lifecycle_repository.dart';
 import '../data/administrator_notices_repository.dart';
@@ -34,6 +35,7 @@ import '../domain/administrator_dashboard_models.dart';
 import 'administrator_academics_page.dart';
 import 'administrator_admissions_page.dart';
 import 'administrator_attendance_page.dart';
+import 'administrator_curriculum_page.dart';
 import 'administrator_dashboard_page.dart';
 import 'administrator_lifecycle_page.dart';
 import 'administrator_notices_page.dart';
@@ -77,6 +79,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
   late final AdministratorAcademicsRepository _academicsRepository;
   late final AdministratorAdmissionsRepository _admissionsRepository;
   late final AdministratorAttendanceRepository _attendanceRepository;
+  late final AdministratorCurriculumRepository _curriculumRepository;
   late final AdministratorLifecycleRepository _lifecycleRepository;
   late final AdministratorNoticesRepository _noticesRepository;
   late final AdministratorOperationsRepository _operationsRepository;
@@ -99,6 +102,10 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       schoolSession: widget.schoolSession,
     );
     _attendanceRepository = AdministratorAttendanceRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
+    _curriculumRepository = AdministratorCurriculumRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -301,6 +308,16 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       return AdministratorAcademicsPage(
         schoolName: widget.membership.schoolName,
         repository: _academicsRepository,
+        students: _studentsRepository,
+        onChanged: _refreshPendingCount,
+      );
+    }
+
+    if (_activeKey == 'curriculum') {
+      return AdministratorCurriculumPage(
+        schoolName: widget.membership.schoolName,
+        repository: _curriculumRepository,
+        academics: _academicsRepository,
         students: _studentsRepository,
         onChanged: _refreshPendingCount,
       );
@@ -662,6 +679,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       'registration' => Icons.person_add_alt_1_rounded,
       'students' => Icons.groups_rounded,
       'academics' => Icons.account_tree_outlined,
+      'curriculum' => Icons.menu_book_outlined,
       'staff' => Icons.badge_outlined,
       'staff-attendance' => Icons.schedule_rounded,
       'staff-profiles' => Icons.folder_shared_outlined,
