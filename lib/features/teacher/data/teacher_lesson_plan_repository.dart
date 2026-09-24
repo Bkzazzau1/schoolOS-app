@@ -10,17 +10,27 @@ class TeacherLessonPlanSnapshot {
   const TeacherLessonPlanSnapshot({
     required this.plans,
     required this.classOptions,
+    required this.occurrenceOptions,
+    required this.deliveries,
     required this.events,
     required this.permissions,
+    this.canonical = false,
   });
 
   final List<TeacherLessonPlan> plans;
-
-  /// The teacher's real assigned classes; a plan can only be created for one of these.
   final List<String> classOptions;
-
+  final List<TeacherLessonPlanOccurrenceOption> occurrenceOptions;
+  final List<TeacherLessonDelivery> deliveries;
   final List<TeacherLessonPlanEvent> events;
   final TeacherLessonPlanPermissions permissions;
+  final bool canonical;
+
+  TeacherLessonDelivery? deliveryFor(String planId) {
+    for (final item in deliveries) {
+      if (item.planId == planId) return item;
+    }
+    return null;
+  }
 }
 
 class TeacherLessonPlanActionResult {
@@ -28,11 +38,13 @@ class TeacherLessonPlanActionResult {
     required this.success,
     required this.message,
     this.plan,
+    this.delivery,
   });
 
   final bool success;
   final String message;
   final TeacherLessonPlan? plan;
+  final TeacherLessonDelivery? delivery;
 }
 
 class TeacherLessonPlanRepository {
@@ -40,106 +52,222 @@ class TeacherLessonPlanRepository {
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
     required TeacherRoster roster,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession,
+  })  : _db = localDatabase,
+        _session = schoolSession,
         _roster = roster;
 
-  static const _planType = 'teacher_lesson_plan';
-  static const _eventType = 'teacher_lesson_plan_event';
+  static const planType = 'teacher_lesson_plan';
+  static const deliveryType = 'lesson_delivery_record';
+  static const privateScheduleType = 'teacher_timetable_schedule';
+  static const _legacyEventType = 'teacher_lesson_plan_event';
 
-  final LocalDatabase _localDatabase;
-  final SchoolSessionController _schoolSession;
+  final LocalDatabase _db;
+  final SchoolSessionController _session;
   final TeacherRoster _roster;
 
   TeacherLessonPlanPermissions permissionsFor(SchoolMembership membership) {
-    final isTeacher = membership.role == SchoolRole.teacher;
+    final teacher = membership.role == SchoolRole.teacher;
     return TeacherLessonPlanPermissions(
-      canViewAssignedPlans: isTeacher,
-      canEditDrafts: isTeacher,
-      canSubmitForApproval: isTeacher,
+      canViewAssignedPlans: teacher,
+      canEditDrafts: teacher,
+      canSubmitForApproval: teacher,
       canApprovePlans: false,
       canOverrideReviewerStatus: false,
+      canRecordDelivery: teacher,
     );
-  }
-
-  Future<List<String>> _assignedClassNames(SchoolMembership membership) async {
-    final classes = await _roster.assignedClasses(membership);
-    return {for (final c in classes) c.className}.toList()..sort();
   }
 
   Future<TeacherLessonPlanSnapshot> load() async {
-    final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
-    final assigned = await _assignedClassNames(membership);
+    final membership = _session.requireActiveMembership();
+    if (!LocalDatabase.blockDemoSeeds) {
+      return _loadDemo(membership);
+    }
 
-    final planRecords = await _localDatabase.getLocalRecords(
+    final schedule = await _db.getLocalRecord(
       tenantId: membership.schoolId,
-      entityType: _planType,
+      entityType: privateScheduleType,
+      entityId: membership.id,
     );
-    final eventRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _eventType,
+    final occurrenceOptions = _occurrences(
+      membership: membership,
+      payload: schedule?.payload ?? const <String, Object?>{},
     );
 
-    final plans = planRecords
-        .map((record) => TeacherLessonPlan.fromJson(record.payload))
-        .where((plan) => assigned.contains(plan.className))
-        .toList(growable: false)
-      ..sort((a, b) => _planOrder(a.id).compareTo(_planOrder(b.id)));
-    final planIds = {for (final plan in plans) plan.id};
-    final events = eventRecords
-        .map((record) => TeacherLessonPlanEvent.fromJson(record.payload))
-        .where((event) => planIds.contains(event.planId))
-        .toList(growable: false)
-      ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    final planRecords = await _db.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: planType,
+    );
+    final plans = <TeacherLessonPlan>[];
+    for (final record in planRecords) {
+      final plan = TeacherLessonPlan.fromJson(record.payload).copyWith(
+        pendingSync: record.isDirty,
+      );
+      if (plan.authorMembershipId == membership.id ||
+          plan.effectiveTeacherId == membership.id ||
+          plan.authorMembershipId.isEmpty) {
+        plans.add(plan);
+      }
+    }
+    plans.sort(_planOrder);
+
+    final deliveryRecords = await _db.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: deliveryType,
+    );
+    final deliveries = <TeacherLessonDelivery>[];
+    final visiblePlanIds = {for (final plan in plans) plan.id};
+    for (final record in deliveryRecords) {
+      final item = TeacherLessonDelivery.fromJson(record.payload).copyWith(
+        pendingSync: record.isDirty,
+      );
+      if (visiblePlanIds.contains(item.planId)) deliveries.add(item);
+    }
+    deliveries.sort((a, b) => b.lessonDate.compareTo(a.lessonDate));
+
+    final classes = {
+      for (final item in occurrenceOptions) item.className,
+      for (final item in plans) item.className,
+    }.where((item) => item.isNotEmpty).toList()
+      ..sort();
 
     return TeacherLessonPlanSnapshot(
       plans: plans,
-      classOptions: assigned,
-      events: events,
+      classOptions: classes,
+      occurrenceOptions: occurrenceOptions,
+      deliveries: deliveries,
+      events: const [],
       permissions: permissionsFor(membership),
+      canonical: true,
     );
   }
 
-  /// Creates a new draft lesson plan for a real assigned class.
+  List<TeacherLessonPlanOccurrenceOption> _occurrences({
+    required SchoolMembership membership,
+    required Map<String, Object?> payload,
+  }) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final monday = today.subtract(Duration(days: today.weekday - DateTime.monday));
+    final mondayIso = _isoDate(monday);
+    final publishedWeek = payload['attendanceWeekStart'] as String? ?? '';
+    if (publishedWeek != mondayIso) return const [];
+
+    final result = <TeacherLessonPlanOccurrenceOption>[];
+    for (final raw in _mapList(payload['attendanceOccurrences'])) {
+      if ((raw['effectiveTeacherId'] as String? ??
+              raw['teacherId'] as String? ??
+              '') !=
+          membership.id) {
+        continue;
+      }
+      if (raw['occurrenceStatus'] == 'cancelled' || raw['status'] == 'cancelled') {
+        continue;
+      }
+      final topics = <TeacherLessonPlanTopicOption>[];
+      for (final topic in _mapList(raw['topics'])) {
+        final id = topic['id'] as String? ?? '';
+        if (id.isEmpty) continue;
+        topics.add(
+          TeacherLessonPlanTopicOption(
+            id: id,
+            title: topic['title'] as String? ?? '',
+            sequence: topic['sequence'] as int? ?? 1,
+          ),
+        );
+      }
+      final date = raw['lessonDate'] as String? ?? '';
+      final entryId = raw['id'] as String? ?? '';
+      final classSubjectId = raw['classSubjectId'] as String? ?? '';
+      if (date.isEmpty || entryId.isEmpty || classSubjectId.isEmpty || topics.isEmpty) {
+        continue;
+      }
+      result.add(
+        TeacherLessonPlanOccurrenceOption(
+          timetableEntryId: entryId,
+          lessonDate: date,
+          classSubjectId: classSubjectId,
+          termId: raw['termId'] as String? ?? '',
+          className: raw['className'] as String? ?? '',
+          subject: raw['subject'] as String? ?? '',
+          time: raw['time'] as String? ?? '',
+          room: raw['room'] as String? ?? '',
+          periodNumber: raw['periodNumber'] as int? ?? 0,
+          topics: topics,
+        ),
+      );
+    }
+    result.sort((a, b) {
+      final byDate = a.lessonDate.compareTo(b.lessonDate);
+      if (byDate != 0) return byDate;
+      final byTime = a.time.compareTo(b.time);
+      if (byTime != 0) return byTime;
+      return a.className.compareTo(b.className);
+    });
+    return result;
+  }
+
   Future<TeacherLessonPlanActionResult> createPlan({
-    required String className,
-    required String week,
-    required String topic,
+    required TeacherLessonPlanOccurrenceOption occurrence,
+    required TeacherLessonPlanTopicOption topic,
   }) async {
-    final membership = _schoolSession.requireActiveMembership();
+    final membership = _session.requireActiveMembership();
     if (!permissionsFor(membership).canEditDrafts) {
-      return const TeacherLessonPlanActionResult(success: false, message: 'This membership cannot create lesson plans.');
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'This membership cannot create lesson plans.',
+      );
     }
-    if (!(await _assignedClassNames(membership)).contains(className)) {
-      return const TeacherLessonPlanActionResult(success: false, message: 'You are not assigned to this class.');
+    final current = await load();
+    if (!current.occurrenceOptions.any((item) => item.id == occurrence.id)) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'This lesson occurrence is no longer assigned to you. Reload first.',
+      );
     }
+    if (current.plans.any((plan) =>
+        plan.timetableEntryId == occurrence.timetableEntryId &&
+        plan.lessonDate == occurrence.lessonDate)) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'This lesson occurrence already has a plan.',
+      );
+    }
+    if (!occurrence.topics.any((item) => item.id == topic.id)) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'Choose a curriculum topic from this occurrence\'s active term.',
+      );
+    }
+
+    final id = 'plan|${occurrence.timetableEntryId}|${occurrence.lessonDate}';
     final plan = TeacherLessonPlan(
-      id: 'LP-${DateTime.now().microsecondsSinceEpoch}',
-      className: className,
-      week: week,
-      topic: topic,
+      id: id,
+      className: occurrence.className,
+      week: occurrence.lessonDate,
+      topic: topic.title,
       status: TeacherLessonPlanStatus.draft,
-      updatedLabel: 'Draft created · sync pending',
+      updatedLabel: 'Draft created locally',
+      timetableEntryId: occurrence.timetableEntryId,
+      lessonDate: occurrence.lessonDate,
+      classSubjectId: occurrence.classSubjectId,
+      termId: occurrence.termId,
+      subject: occurrence.subject,
+      time: occurrence.time,
+      room: occurrence.room,
+      topicId: topic.id,
+      effectiveTeacherId: membership.id,
+      authorMembershipId: membership.id,
+      pendingSync: true,
     );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _planType,
-      entityId: plan.id,
-      payload: plan.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _planType,
-      entityId: plan.id,
+    await _writePlan(
+      membership: membership,
+      plan: plan,
+      action: 'saveDraft',
       operation: SyncOperation.create,
-      payload: plan.toJson(),
     );
     return TeacherLessonPlanActionResult(
       success: true,
-      message: 'New lesson plan created as a draft.',
+      message: 'Occurrence lesson plan created locally and queued for server validation.',
       plan: plan,
     );
   }
@@ -147,57 +275,34 @@ class TeacherLessonPlanRepository {
   Future<TeacherLessonPlanActionResult> saveDraft({
     required TeacherLessonPlan plan,
   }) async {
-    final membership = _schoolSession.requireActiveMembership();
-    final permissions = permissionsFor(membership);
-    if (!permissions.canEditDrafts) {
-      return const TeacherLessonPlanActionResult(
-        success: false,
-        message: 'This membership cannot edit Teacher lesson plans.',
-      );
+    final membership = _session.requireActiveMembership();
+    final current = await _readPlan(membership, plan.id);
+    if (current == null) {
+      return const TeacherLessonPlanActionResult(success: false, message: 'Lesson plan not found.');
     }
-    if (!(await _assignedClassNames(membership)).contains(plan.className)) {
-      return const TeacherLessonPlanActionResult(
-        success: false,
-        message: 'This class is not one of your assigned classes.',
-      );
-    }
-
-    final existingRecord = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _planType,
-      entityId: plan.id,
-    );
-    if (existingRecord == null) {
-      return const TeacherLessonPlanActionResult(
-        success: false,
-        message: 'Lesson plan not found in the assigned Teacher workspace.',
-      );
-    }
-
-    final existing = TeacherLessonPlan.fromJson(existingRecord.payload);
-    if (!existing.teacherEditable) {
+    if (!current.teacherEditable) {
       return TeacherLessonPlanActionResult(
         success: false,
-        message: '${teacherLessonPlanStatusLabel(existing.status)} plans are locked for teacher editing until reviewer action.',
+        message: '${teacherLessonPlanStatusLabel(current.status)} plans are locked for Teacher editing.',
+        plan: current,
       );
     }
-
     final next = plan.copyWith(
-      status: existing.status == TeacherLessonPlanStatus.needsChanges
+      status: current.status == TeacherLessonPlanStatus.needsChanges
           ? TeacherLessonPlanStatus.needsChanges
           : TeacherLessonPlanStatus.draft,
-      updatedLabel: 'Draft saved · sync pending',
-      version: existing.version + 1,
+      updatedLabel: 'Draft saved locally · sync pending',
+      pendingSync: true,
     );
-    await _writePlanAndEvent(
+    await _writePlan(
       membership: membership,
       plan: next,
-      action: TeacherLessonPlanEventAction.savedDraft,
+      action: 'saveDraft',
+      operation: SyncOperation.update,
     );
-
     return TeacherLessonPlanActionResult(
       success: true,
-      message: 'Draft saved locally and queued for synchronization.',
+      message: 'Draft saved locally and queued. Canonical plan metadata stays server-controlled.',
       plan: next,
     );
   }
@@ -205,40 +310,20 @@ class TeacherLessonPlanRepository {
   Future<TeacherLessonPlanActionResult> submit({
     required TeacherLessonPlan plan,
   }) async {
-    final membership = _schoolSession.requireActiveMembership();
-    final permissions = permissionsFor(membership);
-    if (!permissions.canSubmitForApproval) {
-      return const TeacherLessonPlanActionResult(
-        success: false,
-        message: 'This membership cannot submit Teacher lesson plans.',
-      );
+    final membership = _session.requireActiveMembership();
+    final current = await _readPlan(membership, plan.id);
+    if (current == null) {
+      return const TeacherLessonPlanActionResult(success: false, message: 'Lesson plan not found.');
     }
-    if (!(await _assignedClassNames(membership)).contains(plan.className)) {
-      return const TeacherLessonPlanActionResult(
-        success: false,
-        message: 'This class is not one of your assigned classes.',
-      );
-    }
-
-    final existingRecord = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _planType,
-      entityId: plan.id,
-    );
-    if (existingRecord == null) {
-      return const TeacherLessonPlanActionResult(
-        success: false,
-        message: 'Lesson plan not found in the assigned Teacher workspace.',
-      );
-    }
-    final existing = TeacherLessonPlan.fromJson(existingRecord.payload);
-    if (!existing.teacherEditable) {
+    if (!current.teacherEditable) {
       return TeacherLessonPlanActionResult(
         success: false,
-        message: '${teacherLessonPlanStatusLabel(existing.status)} plans cannot be resubmitted until reviewer action.',
+        message: current.waitingForServer
+            ? 'This submission is already queued.'
+            : 'This plan is locked until reviewer action.',
+        plan: current,
       );
     }
-
     if (plan.objectives.trim().isEmpty ||
         plan.activities.trim().isEmpty ||
         plan.assessment.trim().isEmpty) {
@@ -247,90 +332,246 @@ class TeacherLessonPlanRepository {
         message: 'Add learning objectives, teaching activities and assessment evidence before submission.',
       );
     }
-
-    final next = plan.copyWith(
-      status: TeacherLessonPlanStatus.submitted,
-      updatedLabel: 'Submitted · sync pending',
-      version: existing.version + 1,
+    final queued = plan.copyWith(
+      status: TeacherLessonPlanStatus.queuedSubmission,
+      updatedLabel: 'Submission queued · awaiting server acknowledgement',
+      pendingSync: true,
+      clearReview: true,
     );
-    await _writePlanAndEvent(
+    await _writePlan(
       membership: membership,
-      plan: next,
-      action: TeacherLessonPlanEventAction.submitted,
+      plan: queued,
+      action: 'submit',
+      operation: SyncOperation.update,
     );
-
     return TeacherLessonPlanActionResult(
       success: true,
-      message: 'Plan submitted locally and queued for approval review. This is not an approval.',
-      plan: next,
+      message: 'Lesson plan submission queued. It is not submitted or approved until the server acknowledges it.',
+      plan: queued,
     );
   }
 
-  Future<void> _writePlanAndEvent({
-    required SchoolMembership membership,
+  Future<TeacherLessonPlanActionResult> saveDeliveryDraft({
     required TeacherLessonPlan plan,
-    required TeacherLessonPlanEventAction action,
+    required String reflection,
+    required String homework,
+    required bool topicCompleted,
+  }) => _writeDelivery(
+        plan: plan,
+        reflection: reflection,
+        homework: homework,
+        topicCompleted: topicCompleted,
+        deliver: false,
+      );
+
+  Future<TeacherLessonPlanActionResult> recordDelivered({
+    required TeacherLessonPlan plan,
+    required String reflection,
+    required String homework,
+    required bool topicCompleted,
+  }) => _writeDelivery(
+        plan: plan,
+        reflection: reflection,
+        homework: homework,
+        topicCompleted: topicCompleted,
+        deliver: true,
+      );
+
+  Future<TeacherLessonPlanActionResult> _writeDelivery({
+    required TeacherLessonPlan plan,
+    required String reflection,
+    required String homework,
+    required bool topicCompleted,
+    required bool deliver,
   }) async {
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _planType,
-      entityId: plan.id,
-      payload: plan.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _planType,
-      entityId: plan.id,
-      operation: SyncOperation.update,
-      payload: plan.toJson(),
-    );
-
-    final now = DateTime.now().toUtc().toIso8601String();
-    final event = TeacherLessonPlanEvent(
-      id: '${plan.id}-${action.name}-${DateTime.now().microsecondsSinceEpoch}',
-      planId: plan.id,
-      action: action,
-      actorMembershipId: membership.id,
-      version: plan.version,
-      occurredAt: now,
-    );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _eventType,
-      entityId: event.id,
-      payload: event.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _eventType,
-      entityId: event.id,
-      operation: SyncOperation.create,
-      payload: event.toJson(),
-    );
-  }
-
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    final records = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _planType,
-    );
-    if (records.isNotEmpty) return;
-    for (final plan in teacherLessonPlans) {
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: _planType,
-        entityId: plan.id,
-        payload: plan.toJson(),
+    final membership = _session.requireActiveMembership();
+    if (!plan.canonicalApproved) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'Only a server-approved lesson plan can become delivery evidence.',
       );
     }
+    final date = DateTime.tryParse(plan.lessonDate);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (date == null || date.isAfter(today)) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'Lesson delivery can be recorded only on or after the scheduled lesson date.',
+      );
+    }
+    if (plan.effectiveTeacherId.isNotEmpty && plan.effectiveTeacherId != membership.id) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'This occurrence is no longer assigned to your Teacher membership.',
+      );
+    }
+
+    final id = 'delivery|${plan.timetableEntryId}|${plan.lessonDate}';
+    final existing = await _db.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: deliveryType,
+      entityId: id,
+    );
+    final current = existing == null
+        ? TeacherLessonDelivery(
+            id: id,
+            planId: plan.id,
+            timetableEntryId: plan.timetableEntryId,
+            lessonDate: plan.lessonDate,
+            topicId: plan.topicId,
+            state: TeacherLessonDeliveryState.draft,
+          )
+        : TeacherLessonDelivery.fromJson(existing.payload).copyWith(
+            pendingSync: existing.isDirty,
+          );
+    if (current.locked) {
+      return TeacherLessonPlanActionResult(
+        success: false,
+        message: current.state == TeacherLessonDeliveryState.queued
+            ? 'Lesson delivery is already queued and locked until server acknowledgement.'
+            : 'Delivered lesson evidence is canonical and locked.',
+        delivery: current,
+      );
+    }
+
+    final next = current.copyWith(
+      state: deliver
+          ? TeacherLessonDeliveryState.queued
+          : TeacherLessonDeliveryState.draft,
+      reflection: reflection.trim(),
+      homework: homework.trim(),
+      topicCompleted: topicCompleted,
+      pendingSync: true,
+    );
+    await _db.upsertLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: deliveryType,
+      entityId: id,
+      payload: next.toLocalJson(),
+      serverVersion: existing?.serverVersion,
+      isDirty: true,
+    );
+    await _db.queueMutation(
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      entityType: deliveryType,
+      entityId: id,
+      operation: existing == null ? SyncOperation.create : SyncOperation.update,
+      payload: next.toMutationJson(action: deliver ? 'deliver' : 'saveDraft'),
+      baseVersion: existing?.serverVersion,
+    );
+    return TeacherLessonPlanActionResult(
+      success: true,
+      message: deliver
+          ? 'Lesson delivery queued. Syllabus progress changes only after server acknowledgement.'
+          : 'Delivery reflection saved locally and queued.',
+      delivery: next,
+    );
   }
 
-  int _planOrder(String id) {
-    final index = teacherLessonPlans.indexWhere((plan) => plan.id == id);
-    return index < 0 ? teacherLessonPlans.length : index;
+  Future<TeacherLessonPlan?> _readPlan(
+    SchoolMembership membership,
+    String id,
+  ) async {
+    final record = await _db.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: planType,
+      entityId: id,
+    );
+    if (record == null) return null;
+    return TeacherLessonPlan.fromJson(record.payload).copyWith(
+      pendingSync: record.isDirty,
+    );
+  }
+
+  Future<void> _writePlan({
+    required SchoolMembership membership,
+    required TeacherLessonPlan plan,
+    required String action,
+    required SyncOperation operation,
+  }) async {
+    final existing = await _db.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: planType,
+      entityId: plan.id,
+    );
+    await _db.upsertLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: planType,
+      entityId: plan.id,
+      payload: plan.toLocalJson(),
+      serverVersion: existing?.serverVersion,
+      isDirty: true,
+    );
+    await _db.queueMutation(
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      entityType: planType,
+      entityId: plan.id,
+      operation: operation,
+      payload: plan.toMutationJson(action: action),
+      baseVersion: existing?.serverVersion,
+    );
+  }
+
+  Future<TeacherLessonPlanSnapshot> _loadDemo(SchoolMembership membership) async {
+    final records = await _db.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: planType,
+    );
+    if (records.isEmpty) {
+      for (final plan in teacherLessonPlans) {
+        await _db.upsertLocalRecord(
+          tenantId: membership.schoolId,
+          entityType: planType,
+          entityId: plan.id,
+          payload: plan.toLocalJson(),
+        );
+      }
+    }
+    final seeded = await _db.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: planType,
+    );
+    final plans = [
+      for (final record in seeded)
+        TeacherLessonPlan.fromJson(record.payload).copyWith(
+          pendingSync: record.isDirty,
+        ),
+    ]..sort(_planOrder);
+    final classes = {for (final item in plans) item.className}.toList()..sort();
+    final events = await _db.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _legacyEventType,
+    );
+    return TeacherLessonPlanSnapshot(
+      plans: plans,
+      classOptions: classes,
+      occurrenceOptions: const [],
+      deliveries: const [],
+      events: [
+        for (final record in events)
+          TeacherLessonPlanEvent.fromJson(record.payload),
+      ],
+      permissions: permissionsFor(membership),
+      canonical: false,
+    );
+  }
+
+  List<Map<String, Object?>> _mapList(Object? raw) => [
+        for (final item in raw is List ? raw : const [])
+          if (item is Map) Map<String, Object?>.from(item),
+      ];
+
+  String _isoDate(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  int _planOrder(TeacherLessonPlan a, TeacherLessonPlan b) {
+    final byDate = b.lessonDate.compareTo(a.lessonDate);
+    if (byDate != 0) return byDate;
+    final byTime = a.time.compareTo(b.time);
+    if (byTime != 0) return byTime;
+    return a.className.compareTo(b.className);
   }
 }
