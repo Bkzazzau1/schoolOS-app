@@ -183,7 +183,14 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     required Map<String, Object?> schedule,
     required Map<String, List<TeacherAttendanceTopicOption>> topicOptions,
   }) {
-    if (schedule.containsKey('attendanceOccurrences')) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekStart =
+        today.subtract(Duration(days: today.weekday - DateTime.monday));
+    final currentWeekStart = _isoDate(weekStart);
+    final publishedWeekStart = schedule['attendanceWeekStart'] as String? ?? '';
+    if (schedule.containsKey('attendanceOccurrences') &&
+        publishedWeekStart == currentWeekStart) {
       return _publishedOccurrences(
         membership: membership,
         rawOccurrences: schedule['attendanceOccurrences'],
@@ -191,14 +198,11 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
       );
     }
 
-    // Compatibility fallback for a pre-upgrade private schedule cached before
-    // the server began publishing explicit occurrence authority.
+    // Compatibility and stale-snapshot fallback. The recurring schedule is
+    // safe to project into the current week; a published occurrence snapshot
+    // is accepted only for the exact week it was generated for.
     final entries = _mapList(schedule['entries']);
     final overrides = _mapList(schedule['overrides']);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final weekStart =
-        today.subtract(Duration(days: today.weekday - DateTime.monday));
     final overrideByOccurrence = <String, Map<String, Object?>>{};
     for (final override in overrides) {
       final entryId = override['timetableEntryId'] as String? ?? '';
