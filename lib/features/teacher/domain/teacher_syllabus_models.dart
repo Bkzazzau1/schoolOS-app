@@ -9,6 +9,7 @@ class TeacherSyllabusRow {
     required this.topic,
     required this.approvedStatus,
     required this.plannedLessons,
+    this.canonicalTopicId = '',
   });
 
   final String className;
@@ -17,7 +18,13 @@ class TeacherSyllabusRow {
   final TeacherSyllabusStatus approvedStatus;
   final int plannedLessons;
 
-  String get id => '$className-W$week';
+  /// Server-backed rows use the canonical CurriculumTopic UUID. Demo rows keep
+  /// the historic class/week identifier so standalone demo behaviour remains.
+  final String canonicalTopicId;
+
+  String get id => canonicalTopicId.isNotEmpty
+      ? canonicalTopicId
+      : '$className-W$week';
 
   bool matches(String query, {TeacherSyllabusStatus? reportedStatus}) {
     final q = query.trim().toLowerCase();
@@ -28,6 +35,8 @@ class TeacherSyllabusRow {
   }
 
   Map<String, Object?> toJson() => {
+        'id': id,
+        'canonicalTopicId': canonicalTopicId,
         'className': className,
         'week': week,
         'topic': topic,
@@ -35,12 +44,18 @@ class TeacherSyllabusRow {
         'plannedLessons': plannedLessons,
       };
 
-  factory TeacherSyllabusRow.fromJson(Map<String, dynamic> json) => TeacherSyllabusRow(
+  factory TeacherSyllabusRow.fromJson(Map<String, dynamic> json) =>
+      TeacherSyllabusRow(
         className: json['className'] as String,
         week: json['week'] as int,
         topic: json['topic'] as String,
-        approvedStatus: TeacherSyllabusStatus.values.byName(json['approvedStatus'] as String),
+        approvedStatus: TeacherSyllabusStatus.values.byName(
+          json['approvedStatus'] as String,
+        ),
         plannedLessons: json['plannedLessons'] as int,
+        canonicalTopicId: json['canonicalTopicId'] as String? ??
+            json['id'] as String? ??
+            '',
       );
 }
 
@@ -73,11 +88,14 @@ class TeacherSyllabusProgressRecord {
         'updatedAt': updatedAt,
       };
 
-  factory TeacherSyllabusProgressRecord.fromJson(Map<String, dynamic> json) => TeacherSyllabusProgressRecord(
+  factory TeacherSyllabusProgressRecord.fromJson(Map<String, dynamic> json) =>
+      TeacherSyllabusProgressRecord(
         id: json['id'] as String,
         className: json['className'] as String,
         week: json['week'] as int,
-        reportedStatus: TeacherSyllabusStatus.values.byName(json['reportedStatus'] as String),
+        reportedStatus: TeacherSyllabusStatus.values.byName(
+          json['reportedStatus'] as String,
+        ),
         actorMembershipId: json['actorMembershipId'] as String,
         version: json['version'] as int,
         updatedAt: json['updatedAt'] as String,
@@ -110,10 +128,13 @@ class TeacherSyllabusProgressEvent {
         'occurredAt': occurredAt,
       };
 
-  factory TeacherSyllabusProgressEvent.fromJson(Map<String, dynamic> json) => TeacherSyllabusProgressEvent(
+  factory TeacherSyllabusProgressEvent.fromJson(Map<String, dynamic> json) =>
+      TeacherSyllabusProgressEvent(
         id: json['id'] as String,
         recordId: json['recordId'] as String,
-        action: TeacherSyllabusProgressAction.values.byName(json['action'] as String),
+        action: TeacherSyllabusProgressAction.values.byName(
+          json['action'] as String,
+        ),
         actorMembershipId: json['actorMembershipId'] as String,
         version: json['version'] as int,
         occurredAt: json['occurredAt'] as String,

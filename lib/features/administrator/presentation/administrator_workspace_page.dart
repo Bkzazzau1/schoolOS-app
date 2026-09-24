@@ -1,19 +1,18 @@
-import '../data/administrator_overview.dart';
-import '../../../core/appearance/school_logo.dart';
-import '../../proprietor/data/staff_server_api.dart';
-import '../../notifications/presentation/notifications_bell.dart';
-import '../../../core/sync/sync_scope.dart';
-import '../../proprietor/data/owner_staff_profile_repository.dart';
-import '../../proprietor/data/payroll_batch_repository.dart';
-import '../../proprietor/data/staff_proposal_repository.dart';
-import '../../proprietor/presentation/owner_staff_profiles_page.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
+import '../../../core/appearance/school_logo.dart';
 import '../../../core/database/local_database.dart';
+import '../../../core/sync/sync_scope.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../notifications/presentation/notifications_bell.dart';
+import '../../proprietor/data/owner_staff_profile_repository.dart';
+import '../../proprietor/data/payroll_batch_repository.dart';
+import '../../proprietor/data/staff_proposal_repository.dart';
+import '../../proprietor/data/staff_server_api.dart';
+import '../../proprietor/presentation/owner_staff_profiles_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/administrator_academics_repository.dart';
@@ -23,6 +22,7 @@ import '../data/administrator_dashboard_demo_data.dart';
 import '../data/administrator_lifecycle_repository.dart';
 import '../data/administrator_notices_repository.dart';
 import '../data/administrator_operations_repository.dart';
+import '../data/administrator_overview.dart';
 import '../data/administrator_records_repository.dart';
 import '../data/administrator_registration_repository.dart';
 import '../data/administrator_staff_attendance_repository.dart';
@@ -34,6 +34,7 @@ import '../domain/administrator_dashboard_models.dart';
 import 'administrator_academics_page.dart';
 import 'administrator_admissions_page.dart';
 import 'administrator_attendance_page.dart';
+import 'administrator_curriculum_page.dart';
 import 'administrator_dashboard_page.dart';
 import 'administrator_lifecycle_page.dart';
 import 'administrator_notices_page.dart';
@@ -203,15 +204,13 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Scholarship / discount requests will connect to the shared concession workflow; only the Proprietor can approve them.',
+            'Scholarship / discount requests connect to the shared concession workflow; only the Proprietor can approve them.',
           ),
         ),
       );
       return;
     }
-
-    final exists = _navigation.any((item) => item.key == key);
-    if (!exists) return;
+    if (!_navigation.any((item) => item.key == key)) return;
     setState(() {
       if (key == 'registration') _registrationApplicant = null;
       _activeKey = key;
@@ -222,7 +221,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'The public admissions website is an online web surface. Website Manager controls its public content; offline Administrator work remains available here.',
+          'The public admissions website is an online web surface. Website Manager controls public content; offline Administrator work remains available here.',
         ),
       ),
     );
@@ -248,146 +247,127 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       );
 
   Widget _buildContent() {
-    if (_activeKey == 'dashboard') {
-      return AdministratorDashboardPage(
-        repository: AdministratorOverviewRepository(
+    switch (_activeKey) {
+      case 'dashboard':
+        return AdministratorDashboardPage(
+          repository: AdministratorOverviewRepository(
+            students: _studentsRepository,
+            admissions: _admissionsRepository,
+            records: _recordsRepository,
+            lifecycle: _lifecycleRepository,
+            staff: _staffRepository,
+          ),
+          schoolName: widget.membership.schoolName,
+          onActionRequested: _select,
+        );
+      case 'admissions':
+        return AdministratorAdmissionsPage(
+          schoolName: widget.membership.schoolName,
+          repository: _admissionsRepository,
+          onRegistrationRequested: _handoffToRegistration,
+          onOpenPublicWebsite: _openPublicAdmissionsWebsite,
+          onAdmissionsChanged: _refreshPendingCount,
+        );
+      case 'website':
+        return AdministratorWebsitePage(
+          schoolName: widget.membership.schoolName,
+          repository: _websiteRepository,
+          onSettingsChanged: _refreshPendingCount,
+        );
+      case 'registration':
+        return AdministratorRegistrationPage(
+          schoolName: widget.membership.schoolName,
+          repository: _registrationRepository,
+          sourceApplicant: _registrationApplicant,
+          onRegistrationChanged: _refreshPendingCount,
+        );
+      case 'students':
+        return AdministratorStudentsPage(
+          schoolName: widget.membership.schoolName,
+          repository: _studentsRepository,
+          onRegisterStudent: () => _select('registration'),
+        );
+      case 'academics':
+        return AdministratorAcademicsPage(
+          schoolName: widget.membership.schoolName,
+          repository: _academicsRepository,
           students: _studentsRepository,
-          admissions: _admissionsRepository,
-          records: _recordsRepository,
-          lifecycle: _lifecycleRepository,
-          staff: _staffRepository,
-        ),
-        schoolName: widget.membership.schoolName,
-        onActionRequested: _select,
-      );
+          onChanged: _refreshPendingCount,
+        );
+      case 'curriculum':
+        return AdministratorCurriculumPage(
+          schoolName: widget.membership.schoolName,
+          repository: _academicsRepository,
+          onChanged: _refreshPendingCount,
+        );
+      case 'staff':
+        return AdministratorStaffPage(
+          schoolName: widget.membership.schoolName,
+          repository: _staffRepository,
+          proposals: StaffProposalRepository(
+            remote: StaffServerScope.maybeOf(context),
+            database: widget.localDatabase,
+            session: widget.schoolSession,
+          ),
+        );
+      case 'staff-profiles':
+        return OwnerStaffProfilesPage(
+          repository: OwnerStaffProfileRepository(
+            database: widget.localDatabase,
+            session: widget.schoolSession,
+          ),
+          proposals: StaffProposalRepository(
+            remote: StaffServerScope.maybeOf(context),
+            database: widget.localDatabase,
+            session: widget.schoolSession,
+          ),
+          payrollBatches: PayrollBatchRepository(
+            confirm: ServerConfirmScope.maybeOf(context),
+            database: widget.localDatabase,
+            session: widget.schoolSession,
+          ),
+          onChanged: _refreshPendingCount,
+        );
+      case 'staff-attendance':
+        return AdministratorStaffAttendancePage(
+          schoolName: widget.membership.schoolName,
+          repository: _staffAttendanceRepository,
+          onAttendanceChanged: _refreshPendingCount,
+        );
+      case 'records':
+        return AdministratorRecordsPage(
+          schoolName: widget.membership.schoolName,
+          repository: _recordsRepository,
+        );
+      case 'lifecycle':
+        return AdministratorLifecyclePage(
+          schoolName: widget.membership.schoolName,
+          repository: _lifecycleRepository,
+          students: _studentsRepository,
+        );
+      case 'attendance':
+        return AdministratorAttendancePage(
+          schoolName: widget.membership.schoolName,
+          repository: _attendanceRepository,
+          students: _studentsRepository,
+        );
+      case 'operations':
+        return AdministratorOperationsPage(
+          schoolName: widget.membership.schoolName,
+          repository: _operationsRepository,
+        );
+      case 'notices':
+        return AdministratorNoticesPage(
+          schoolName: widget.membership.schoolName,
+          repository: _noticesRepository,
+          onNoticesChanged: _refreshPendingCount,
+        );
+      default:
+        return _UpcomingAdministratorFeature(
+          item: _activeItem,
+          onDashboard: () => setState(() => _activeKey = 'dashboard'),
+        );
     }
-
-    if (_activeKey == 'admissions') {
-      return AdministratorAdmissionsPage(
-        schoolName: widget.membership.schoolName,
-        repository: _admissionsRepository,
-        onRegistrationRequested: _handoffToRegistration,
-        onOpenPublicWebsite: _openPublicAdmissionsWebsite,
-        onAdmissionsChanged: _refreshPendingCount,
-      );
-    }
-
-    if (_activeKey == 'website') {
-      return AdministratorWebsitePage(
-        schoolName: widget.membership.schoolName,
-        repository: _websiteRepository,
-        onSettingsChanged: _refreshPendingCount,
-      );
-    }
-
-    if (_activeKey == 'registration') {
-      return AdministratorRegistrationPage(
-        schoolName: widget.membership.schoolName,
-        repository: _registrationRepository,
-        sourceApplicant: _registrationApplicant,
-        onRegistrationChanged: _refreshPendingCount,
-      );
-    }
-
-    if (_activeKey == 'students') {
-      return AdministratorStudentsPage(
-        schoolName: widget.membership.schoolName,
-        repository: _studentsRepository,
-        onRegisterStudent: () => _select('registration'),
-      );
-    }
-
-    if (_activeKey == 'academics') {
-      return AdministratorAcademicsPage(
-        schoolName: widget.membership.schoolName,
-        repository: _academicsRepository,
-        students: _studentsRepository,
-        onChanged: _refreshPendingCount,
-      );
-    }
-
-    if (_activeKey == 'staff') {
-      return AdministratorStaffPage(
-        schoolName: widget.membership.schoolName,
-        repository: _staffRepository,
-        proposals: StaffProposalRepository(
-          remote: StaffServerScope.maybeOf(context),
-          database: widget.localDatabase,
-          session: widget.schoolSession,
-        ),
-      );
-    }
-
-    if (_activeKey == 'staff-profiles') {
-      return OwnerStaffProfilesPage(
-        repository: OwnerStaffProfileRepository(
-          database: widget.localDatabase,
-          session: widget.schoolSession,
-        ),
-        proposals: StaffProposalRepository(
-          remote: StaffServerScope.maybeOf(context),
-          database: widget.localDatabase,
-          session: widget.schoolSession,
-        ),
-        payrollBatches: PayrollBatchRepository(
-          confirm: ServerConfirmScope.maybeOf(context),
-          database: widget.localDatabase,
-          session: widget.schoolSession,
-        ),
-        onChanged: _refreshPendingCount,
-      );
-    }
-
-    if (_activeKey == 'staff-attendance') {
-      return AdministratorStaffAttendancePage(
-        schoolName: widget.membership.schoolName,
-        repository: _staffAttendanceRepository,
-        onAttendanceChanged: _refreshPendingCount,
-      );
-    }
-
-    if (_activeKey == 'records') {
-      return AdministratorRecordsPage(
-        schoolName: widget.membership.schoolName,
-        repository: _recordsRepository,
-      );
-    }
-
-    if (_activeKey == 'lifecycle') {
-      return AdministratorLifecyclePage(
-        schoolName: widget.membership.schoolName,
-        repository: _lifecycleRepository,
-        students: _studentsRepository,
-      );
-    }
-
-    if (_activeKey == 'attendance') {
-      return AdministratorAttendancePage(
-        schoolName: widget.membership.schoolName,
-        repository: _attendanceRepository,
-        students: _studentsRepository,
-      );
-    }
-
-    if (_activeKey == 'operations') {
-      return AdministratorOperationsPage(
-        schoolName: widget.membership.schoolName,
-        repository: _operationsRepository,
-      );
-    }
-
-    if (_activeKey == 'notices') {
-      return AdministratorNoticesPage(
-        schoolName: widget.membership.schoolName,
-        repository: _noticesRepository,
-        onNoticesChanged: _refreshPendingCount,
-      );
-    }
-
-    return _UpcomingAdministratorFeature(
-      item: _activeItem,
-      onDashboard: () => setState(() => _activeKey = 'dashboard'),
-    );
   }
 
   @override
@@ -469,19 +449,9 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             color: Theme.of(context).colorScheme.surfaceContainerLow,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _activeItem.label,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-                const Badge(
-                  label: Text('5'),
-                  child: Icon(Icons.notifications_outlined),
-                ),
-              ],
+            child: Text(
+              _activeItem.label,
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
           Expanded(child: _buildContent()),
@@ -493,7 +463,6 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
   Widget _buildWide(BuildContext context, BoxConstraints constraints) {
     final extended = constraints.maxWidth >= 1180;
     final theme = Theme.of(context);
-
     return Scaffold(
       body: Row(
         children: [
@@ -563,7 +532,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                     Padding(
                       padding: const EdgeInsets.all(14),
                       child: Text(
-                        'ROLE BOUNDARY\nOperational records and workflows only. Academic decisions, proprietor governance and confidential payroll remain with authorized roles.',
+                        'ROLE BOUNDARY\nOperational records, academic structure and curriculum administration. Academic judgement and proprietor governance remain with authorized roles.',
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
@@ -600,23 +569,12 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                               decoration: const InputDecoration(
                                 isDense: true,
                                 prefixIcon: Icon(Icons.search_rounded),
-                                hintText:
-                                    'Search student, guardian, staff, document...',
+                                hintText: 'Search student, guardian, staff, document...',
                               ),
                             ),
                           ),
-                        if (constraints.maxWidth >= 980)
-                          const SizedBox(width: 10),
-                        Badge(
-                          label: const Text('5'),
-                          child: IconButton(
-                            tooltip: 'Notifications',
-                            onPressed: () {},
-                            icon: const Icon(Icons.notifications_outlined),
-                          ),
-                        ),
                         if (widget.schoolSession.canSwitchSchool) ...[
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           _SchoolSwitcherButton(
                             activeMembership: widget.membership,
                             memberships: widget.schoolSession.memberships,
@@ -654,25 +612,24 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
     );
   }
 
-  static IconData _iconFor(String key) {
-    return switch (key) {
-      'dashboard' => Icons.dashboard_rounded,
-      'admissions' => Icons.filter_alt_outlined,
-      'website' => Icons.language_rounded,
-      'registration' => Icons.person_add_alt_1_rounded,
-      'students' => Icons.groups_rounded,
-      'academics' => Icons.account_tree_outlined,
-      'staff' => Icons.badge_outlined,
-      'staff-attendance' => Icons.schedule_rounded,
-      'staff-profiles' => Icons.folder_shared_outlined,
-      'records' => Icons.folder_copy_outlined,
-      'lifecycle' => Icons.swap_horiz_rounded,
-      'attendance' => Icons.fact_check_outlined,
-      'operations' => Icons.hub_outlined,
-      'notices' => Icons.campaign_outlined,
-      _ => Icons.circle_outlined,
-    };
-  }
+  static IconData _iconFor(String key) => switch (key) {
+        'dashboard' => Icons.dashboard_rounded,
+        'admissions' => Icons.filter_alt_outlined,
+        'website' => Icons.language_rounded,
+        'registration' => Icons.person_add_alt_1_rounded,
+        'students' => Icons.groups_rounded,
+        'academics' => Icons.account_tree_outlined,
+        'curriculum' => Icons.menu_book_outlined,
+        'staff' => Icons.badge_outlined,
+        'staff-attendance' => Icons.schedule_rounded,
+        'staff-profiles' => Icons.folder_shared_outlined,
+        'records' => Icons.folder_copy_outlined,
+        'lifecycle' => Icons.swap_horiz_rounded,
+        'attendance' => Icons.fact_check_outlined,
+        'operations' => Icons.hub_outlined,
+        'notices' => Icons.campaign_outlined,
+        _ => Icons.circle_outlined,
+      };
 }
 
 class _UpcomingAdministratorFeature extends StatelessWidget {
@@ -685,55 +642,52 @@ class _UpcomingAdministratorFeature extends StatelessWidget {
   final VoidCallback onDashboard;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Card(
-            elevation: 0,
-            child: Padding(
-              padding: const EdgeInsets.all(26),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _AdministratorWorkspacePageState._iconFor(item.key),
-                    size: 42,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    item.label,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'This administrator feature is visible in the real website navigation and will be ported next in sequence. It is intentionally not simulated here.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 18),
-                  FilledButton.icon(
-                    onPressed: onDashboard,
-                    icon: const Icon(Icons.dashboard_rounded),
-                    label: const Text('Back to dashboard'),
-                  ),
-                ],
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Card(
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(26),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _AdministratorWorkspacePageState._iconFor(item.key),
+                      size: 42,
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      item.label,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'This administrator feature is not simulated here until its real data contract is available.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      onPressed: onDashboard,
+                      icon: const Icon(Icons.dashboard_rounded),
+                      label: const Text('Back to dashboard'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 class _AdminBrand extends StatelessWidget {
   const _AdminBrand({required this.extended});
-
   final bool extended;
 
   @override
@@ -789,20 +743,20 @@ class _AdminNavTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
-      child: ListTile(
-        selected: selected,
-        selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: Icon(_AdministratorWorkspacePageState._iconFor(item.key)),
-        title: extended ? Text(item.label) : null,
-        contentPadding: EdgeInsets.symmetric(horizontal: extended ? 12 : 14),
-        onTap: onTap,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+        child: ListTile(
+          selected: selected,
+          selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          leading: Icon(_AdministratorWorkspacePageState._iconFor(item.key)),
+          title: extended ? Text(item.label) : null,
+          contentPadding: EdgeInsets.symmetric(horizontal: extended ? 12 : 14),
+          onTap: onTap,
+        ),
+      );
 }
 
 class _SchoolTitle extends StatelessWidget {
@@ -810,29 +764,27 @@ class _SchoolTitle extends StatelessWidget {
   final SchoolMembership membership;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SchoolLogo(schoolName: membership.schoolName),
-        const SizedBox(width: 10),
-        Flexible(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                membership.schoolName,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const Text('Administrator'),
-            ],
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SchoolLogo(schoolName: membership.schoolName),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  membership.schoolName,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const Text('Administrator'),
+              ],
+            ),
           ),
-        ),
-      ],
-    );
-  }
+        ],
+      );
 }
 
 class _SchoolSwitcherButton extends StatelessWidget {
@@ -847,40 +799,38 @@ class _SchoolSwitcherButton extends StatelessWidget {
   final ValueChanged<SchoolMembership> onSelected;
 
   @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<SchoolMembership>(
-      tooltip: 'Switch school',
-      onSelected: onSelected,
-      icon: const Icon(Icons.swap_horiz_rounded),
-      itemBuilder: (context) => [
-        for (final membership in memberships)
-          PopupMenuItem<SchoolMembership>(
-            value: membership,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 24,
-                  child: membership.id == activeMembership.id
-                      ? const Icon(Icons.check_rounded, size: 18)
-                      : null,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(membership.schoolName),
-                      Text(
-                        membership.roleLabel,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+  Widget build(BuildContext context) => PopupMenuButton<SchoolMembership>(
+        tooltip: 'Switch school',
+        onSelected: onSelected,
+        icon: const Icon(Icons.swap_horiz_rounded),
+        itemBuilder: (context) => [
+          for (final membership in memberships)
+            PopupMenuItem<SchoolMembership>(
+              value: membership,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 24,
+                    child: membership.id == activeMembership.id
+                        ? const Icon(Icons.check_rounded, size: 18)
+                        : null,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(membership.schoolName),
+                        Text(
+                          membership.roleLabel,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-      ],
-    );
-  }
+        ],
+      );
 }

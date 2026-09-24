@@ -16,6 +16,9 @@ class AdministratorAcademicsRepository {
   static const sessionEntityType = 'academic_session';
   static const termEntityType = 'academic_term';
   static const classEntityType = 'academic_class';
+  static const subjectEntityType = 'academic_subject';
+  static const classSubjectEntityType = 'academic_class_subject';
+  static const curriculumTopicEntityType = 'academic_curriculum_topic';
   static const batchEntityType = 'academic_progression_batch';
 
   final LocalDatabase _localDatabase;
@@ -46,6 +49,18 @@ class AdministratorAcademicsRepository {
     final classRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: classEntityType,
+    );
+    final subjectRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: subjectEntityType,
+    );
+    final classSubjectRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: classSubjectEntityType,
+    );
+    final topicRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: curriculumTopicEntityType,
     );
     final batchRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
@@ -88,6 +103,47 @@ class AdministratorAcademicsRepository {
       return order != 0 ? order : a.name.compareTo(b.name);
     });
 
+    final subjects = subjectRecords
+        .map(
+          (record) => AdministratorSubject.fromJson(
+            record.payload,
+            pendingSync: record.isDirty,
+          ),
+        )
+        .toList();
+    subjects.sort((a, b) => a.name.compareTo(b.name));
+
+    final classSubjects = classSubjectRecords
+        .map(
+          (record) => AdministratorClassSubject.fromJson(
+            record.payload,
+            pendingSync: record.isDirty,
+          ),
+        )
+        .toList();
+    classSubjects.sort((a, b) {
+      final byClass = a.className.compareTo(b.className);
+      if (byClass != 0) return byClass;
+      final left = a.subject.isEmpty ? a.subjectId : a.subject;
+      final right = b.subject.isEmpty ? b.subjectId : b.subject;
+      return left.compareTo(right);
+    });
+
+    final topics = topicRecords
+        .map(
+          (record) => AdministratorCurriculumTopic.fromJson(
+            record.payload,
+            pendingSync: record.isDirty,
+          ),
+        )
+        .toList();
+    topics.sort((a, b) {
+      final bySubject = a.classSubjectId.compareTo(b.classSubjectId);
+      if (bySubject != 0) return bySubject;
+      final byTerm = a.termId.compareTo(b.termId);
+      return byTerm != 0 ? byTerm : a.sequence.compareTo(b.sequence);
+    });
+
     final batches = batchRecords
         .map(
           (record) => AdministratorProgressionBatch.fromJson(
@@ -101,6 +157,9 @@ class AdministratorAcademicsRepository {
       sessions: sessions,
       terms: terms,
       classes: classes,
+      subjects: subjects,
+      classSubjects: classSubjects,
+      topics: topics,
       batches: batches,
     );
   }
@@ -113,6 +172,15 @@ class AdministratorAcademicsRepository {
 
   Future<void> saveClass(AdministratorAcademicClass academicClass) =>
       _save(classEntityType, academicClass.id, academicClass.toJson());
+
+  Future<void> saveSubject(AdministratorSubject subject) =>
+      _save(subjectEntityType, subject.id, subject.toJson());
+
+  Future<void> saveClassSubject(AdministratorClassSubject classSubject) =>
+      _save(classSubjectEntityType, classSubject.id, classSubject.toJson());
+
+  Future<void> saveCurriculumTopic(AdministratorCurriculumTopic topic) =>
+      _save(curriculumTopicEntityType, topic.id, topic.toJson());
 
   Future<void> saveBatch(AdministratorProgressionBatch batch) =>
       _save(batchEntityType, batch.id, batch.toJson());
@@ -161,6 +229,10 @@ class AdministratorAcademicsRepository {
     const jss1Id = '31111111-1111-4111-8111-111111111111';
     const jss2Id = '32222222-2222-4222-8222-222222222222';
     const jss3Id = '33333333-3333-4333-8333-333333333333';
+    const firstTermId = '41111111-1111-4111-8111-111111111111';
+    const mathematicsId = '51111111-1111-4111-8111-111111111111';
+    const englishId = '52222222-2222-4222-8222-222222222222';
+    const basicScienceId = '53333333-3333-4333-8333-333333333333';
 
     for (final session in const [
       AdministratorAcademicSession(
@@ -190,7 +262,7 @@ class AdministratorAcademicsRepository {
 
     for (final term in const [
       AdministratorAcademicTerm(
-        id: '41111111-1111-4111-8111-111111111111',
+        id: firstTermId,
         sessionId: currentSessionId,
         code: 'T1',
         name: 'First Term',
@@ -268,6 +340,93 @@ class AdministratorAcademicsRepository {
         entityType: classEntityType,
         entityId: academicClass.id,
         payload: academicClass.toJson(),
+      );
+    }
+
+    for (final subject in const [
+      AdministratorSubject(
+        id: mathematicsId,
+        code: 'MATH',
+        name: 'Mathematics',
+        shortName: 'Maths',
+        section: 'Secondary',
+        isActive: true,
+      ),
+      AdministratorSubject(
+        id: englishId,
+        code: 'ENG',
+        name: 'English Language',
+        shortName: 'English',
+        section: '',
+        isActive: true,
+      ),
+      AdministratorSubject(
+        id: basicScienceId,
+        code: 'BSC',
+        name: 'Basic Science',
+        shortName: 'Basic Sci.',
+        section: 'Secondary',
+        isActive: true,
+      ),
+    ]) {
+      await _localDatabase.upsertLocalRecord(
+        tenantId: membership.schoolId,
+        entityType: subjectEntityType,
+        entityId: subject.id,
+        payload: subject.toJson(),
+      );
+    }
+
+    const demoRequirements = [
+      (id: '61111111-1111-4111-8111-111111111111', classId: jss1Id, subjectId: mathematicsId, periods: 5),
+      (id: '62222222-2222-4222-8222-222222222222', classId: jss1Id, subjectId: englishId, periods: 5),
+      (id: '63333333-3333-4333-8333-333333333333', classId: jss1Id, subjectId: basicScienceId, periods: 4),
+      (id: '64444444-4444-4444-8444-444444444444', classId: jss2Id, subjectId: mathematicsId, periods: 5),
+      (id: '65555555-5555-4555-8555-555555555555', classId: jss2Id, subjectId: englishId, periods: 5),
+      (id: '66666666-6666-4666-8666-666666666666', classId: jss2Id, subjectId: basicScienceId, periods: 4),
+    ];
+    for (final item in demoRequirements) {
+      final requirement = AdministratorClassSubject(
+        id: item.id,
+        sessionId: currentSessionId,
+        classId: item.classId,
+        subjectId: item.subjectId,
+        requirement: 'compulsory',
+        periodsPerWeek: item.periods,
+        isActive: true,
+      );
+      await _localDatabase.upsertLocalRecord(
+        tenantId: membership.schoolId,
+        entityType: classSubjectEntityType,
+        entityId: requirement.id,
+        payload: requirement.toJson(),
+      );
+    }
+
+    const firstMathRequirement = '61111111-1111-4111-8111-111111111111';
+    for (final topic in const [
+      AdministratorCurriculumTopic(
+        id: '71111111-1111-4111-8111-111111111111',
+        classSubjectId: firstMathRequirement,
+        termId: firstTermId,
+        sequence: 1,
+        title: 'Whole numbers and place value',
+        description: 'Read, write, compare and operate with whole numbers.',
+      ),
+      AdministratorCurriculumTopic(
+        id: '72222222-2222-4222-8222-222222222222',
+        classSubjectId: firstMathRequirement,
+        termId: firstTermId,
+        sequence: 2,
+        title: 'Fractions and decimals',
+        description: 'Equivalent fractions, decimals and basic operations.',
+      ),
+    ]) {
+      await _localDatabase.upsertLocalRecord(
+        tenantId: membership.schoolId,
+        entityType: curriculumTopicEntityType,
+        entityId: topic.id,
+        payload: topic.toJson(),
       );
     }
   }

@@ -19,6 +19,12 @@ const administratorQuickActions = <AdministratorQuickAction>[
         'Manage sessions, terms, class progression routes and end-of-session bulk progression.',
   ),
   AdministratorQuickAction(
+    key: 'curriculum',
+    title: 'Subjects & Curriculum',
+    description:
+        'Maintain the subject catalog, class curriculum requirements and term topics.',
+  ),
+  AdministratorQuickAction(
     key: 'lifecycle',
     title: 'Transfers & Promotion',
     description:
@@ -44,6 +50,7 @@ const administratorNavigation = <AdministratorNavItem>[
   AdministratorNavItem(key: 'registration', label: 'Student Registration'),
   AdministratorNavItem(key: 'students', label: 'Students & Families'),
   AdministratorNavItem(key: 'academics', label: 'Academic Structure'),
+  AdministratorNavItem(key: 'curriculum', label: 'Subjects & Curriculum'),
   AdministratorNavItem(key: 'staff', label: 'Staff Records'),
   AdministratorNavItem(key: 'staff-profiles', label: 'Staff Profiles'),
   AdministratorNavItem(key: 'staff-attendance', label: 'Staff Attendance'),
@@ -55,6 +62,6 @@ const administratorNavigation = <AdministratorNavItem>[
 ];
 
 const administratorAuthorityBoundary =
-    'Administrator manages operational records and workflows. The role can maintain the academic calendar/class structure and process an academically approved progression batch, but cannot independently decide academic results or progression outcomes, override section leadership, expose confidential payroll, approve safeguarding outcomes, approve a scholarship or discount, or make other proprietor governance decisions.';
+    'Administrator manages operational records and workflows. The role can maintain the academic calendar/class structure and curriculum records and process an academically approved progression batch, but cannot independently decide academic results or progression outcomes, override section leadership, expose confidential payroll, approve safeguarding outcomes, approve a scholarship or discount, or make other proprietor governance decisions.';
 
 const administratorScopeLabel = 'Whole-school administration';

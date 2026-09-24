@@ -45,6 +45,33 @@ String _dateLabel(Object? value) {
   return '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
 }
 
+List<ParentChildSubjectProgress> _canonicalSubjects(
+  Map<String, Object?>? canonical,
+) {
+  if (canonical == null) return const [];
+  final rawEligibility = canonical['subjectEligibility'];
+  if (rawEligibility is! Map) return const [];
+  final eligibility = Map<String, Object?>.from(rawEligibility);
+  return [
+    for (final raw in (eligibility['eligibleSubjects'] as List? ?? const []))
+      if (raw is Map)
+        () {
+          final subject = Map<String, Object?>.from(raw);
+          final name = subject['name'] as String? ?? '';
+          final requirement = subject['requirement'] as String? ?? 'compulsory';
+          final periods = subject['periodsPerWeek'] as int? ?? 0;
+          final status = requirement == 'elective'
+              ? 'Selected elective'
+              : 'Compulsory';
+          final periodLabel = periods > 0 ? ' · $periods periods/week' : '';
+          return ParentChildSubjectProgress(
+            subject: name.isEmpty ? (subject['code'] as String? ?? 'Subject') : name,
+            progress: '$status$periodLabel',
+          );
+        }(),
+  ];
+}
+
 class ParentChildrenRepository {
   ParentChildrenRepository({
     required LocalDatabase localDatabase,
@@ -177,7 +204,7 @@ class ParentChildrenRepository {
           paymentAccount: _notRecorded,
           paymentPlan: _notRecorded,
           activities: _notRecorded,
-          subjects: const [],
+          subjects: _canonicalSubjects(canonical),
           timeline: [
             for (final event in progression)
               ParentChildTimelineEvent(

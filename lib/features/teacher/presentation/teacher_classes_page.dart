@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/teacher_classes_demo_data.dart';
 import '../data/teacher_classes_repository.dart';
 import '../domain/teacher_classes_models.dart';
 
@@ -24,7 +23,7 @@ class _TeacherClassesPageState extends State<TeacherClassesPage> {
   late Future<TeacherClassesSnapshot> _future;
   final _queryController = TextEditingController();
   String _query = '';
-  String _selectedId = 'jss2a';
+  String _selectedId = '';
 
   @override
   void initState() {
@@ -37,6 +36,10 @@ class _TeacherClassesPageState extends State<TeacherClassesPage> {
     _queryController.dispose();
     super.dispose();
   }
+
+  void _reload() => setState(() {
+        _future = widget.repository.load();
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +55,7 @@ class _TeacherClassesPageState extends State<TeacherClassesPage> {
                 schoolName: widget.schoolName,
                 controller: _queryController,
                 onChanged: (value) => setState(() => _query = value),
+                onRefresh: _reload,
               ),
               const SizedBox(height: 16),
               _Hero(onNavigate: widget.onNavigate),
@@ -68,11 +72,7 @@ class _TeacherClassesPageState extends State<TeacherClassesPage> {
                     );
                   }
                   if (snapshot.hasError || !snapshot.hasData) {
-                    return _ErrorCard(
-                      onRetry: () => setState(() {
-                        _future = widget.repository.load();
-                      }),
-                    );
+                    return _ErrorCard(onRetry: _reload);
                   }
                   return _ClassesContent(
                     snapshot: snapshot.requireData,
@@ -96,11 +96,13 @@ class _Header extends StatelessWidget {
     required this.schoolName,
     required this.controller,
     required this.onChanged,
+    required this.onRefresh,
   });
 
   final String schoolName;
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -125,20 +127,32 @@ class _Header extends StatelessWidget {
                   .headlineMedium
                   ?.copyWith(fontWeight: FontWeight.w900),
             ),
-            Text('$schoolName · Kaduna Campus'),
+            Text(schoolName),
           ],
         ),
-        SizedBox(
-          width: 360,
-          child: TextField(
-            controller: controller,
-            onChanged: onChanged,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search_rounded),
-              hintText: 'Search class or topic...',
-              isDense: true,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 340,
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search_rounded),
+                  hintText: 'Search class, subject or topic...',
+                  isDense: true,
+                ),
+              ),
             ),
-          ),
+            IconButton(
+              tooltip: 'Refresh assignments',
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
         ),
       ],
     );
@@ -147,6 +161,7 @@ class _Header extends StatelessWidget {
 
 class _Hero extends StatelessWidget {
   const _Hero({required this.onNavigate});
+
   final ValueChanged<String> onNavigate;
 
   @override
@@ -162,17 +177,17 @@ class _Hero extends StatelessWidget {
           runSpacing: 12,
           children: [
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
+              constraints: const BoxConstraints(maxWidth: 760),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'MY TEACHING ASSIGNMENTS',
+                    'CANONICAL TEACHING RESPONSIBILITY',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Classes you are responsible for',
+                    'Classes assigned to your Teacher account',
                     style: Theme.of(context)
                         .textTheme
                         .headlineSmall
@@ -180,7 +195,7 @@ class _Hero extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Each class connects directly to attendance, lesson plans, syllabus, assignments and assessment work.',
+                    'These assignments come from the school curriculum and Principal teaching assignments. Session, class, subject, periods and current-term topics are server-authoritative.',
                   ),
                 ],
               ),
@@ -219,11 +234,26 @@ class _ClassesContent extends StatelessWidget {
         elevation: 0,
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('No classes are assigned to you yet. The owner or the administrator assigns classes to teachers.'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'No active teaching assignments',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'A Principal must assign a subject from the canonical class curriculum to your active Teacher account before it appears here.',
+              ),
+            ],
+          ),
         ),
       );
     }
-    final filtered = snapshot.assignments.where((item) => item.matches(query)).toList();
+
+    final filtered = snapshot.assignments
+        .where((item) => item.matches(query))
+        .toList(growable: false);
     final current = snapshot.assignments.firstWhere(
       (item) => item.id == selectedId,
       orElse: () => snapshot.assignments.first,
@@ -232,6 +262,8 @@ class _ClassesContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _Summary(snapshot: snapshot),
+        const SizedBox(height: 16),
         if (filtered.isEmpty)
           const Card(
             elevation: 0,
@@ -247,7 +279,7 @@ class _ClassesContent extends StatelessWidget {
             children: [
               for (final item in filtered)
                 SizedBox(
-                  width: 300,
+                  width: 310,
                   child: _ClassOverviewCard(
                     item: item,
                     selected: item.id == current.id,
@@ -259,27 +291,7 @@ class _ClassesContent extends StatelessWidget {
         const SizedBox(height: 16),
         _ClassDetail(item: current, onNavigate: onNavigate),
         const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 900;
-            final focus = _TeachingFocus(item: current, onNavigate: onNavigate);
-            const activity = _ClassActivity();
-            if (compact) {
-              return const Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [],
-              )._withChildren([focus, const SizedBox(height: 16), activity]);
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: focus),
-                const SizedBox(width: 16),
-                const Expanded(child: activity),
-              ],
-            );
-          },
-        ),
+        _TopicsCard(item: current, onNavigate: onNavigate),
         const SizedBox(height: 16),
         const _BoundaryCard(),
       ],
@@ -287,10 +299,55 @@ class _ClassesContent extends StatelessWidget {
   }
 }
 
-extension on Column {
-  Column _withChildren(List<Widget> value) => Column(
-        crossAxisAlignment: crossAxisAlignment,
-        children: value,
+class _Summary extends StatelessWidget {
+  const _Summary({required this.snapshot});
+
+  final TeacherClassesSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final periods = snapshot.assignments.fold<int>(
+      0,
+      (sum, item) => sum + item.periodsPerWeek,
+    );
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        _Metric(label: 'Assignments', value: '${snapshot.assignments.length}'),
+        _Metric(label: 'Periods / week', value: '$periods'),
+        _Metric(label: 'Roster entries', value: '${snapshot.totalStudents}'),
+      ],
+    );
+  }
+}
+
+class _Metric extends StatelessWidget {
+  const _Metric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 180,
+        child: Card(
+          elevation: 0,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
 }
 
@@ -323,42 +380,62 @@ class _ClassOverviewCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(item.subject),
-                        Text(
-                          item.name,
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    '${item.progress}%',
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text('${item.students} students · Room ${item.room}'),
-              const SizedBox(height: 10),
-              LinearProgressIndicator(value: item.progress / 100),
-              const SizedBox(height: 10),
-              Text('Next: ${item.nextLesson}'),
+              Text(item.subject),
               const SizedBox(height: 2),
-              Text(item.topic, style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text(
+                item.name,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+              ),
+              const SizedBox(height: 10),
+              _MetaLine(
+                icon: Icons.calendar_today_outlined,
+                text: item.sessionName.isNotEmpty
+                    ? item.sessionName
+                    : (item.sessionId.isNotEmpty ? item.sessionId : 'Session not published'),
+              ),
+              _MetaLine(
+                icon: Icons.schedule_outlined,
+                text: item.periodsPerWeek > 0
+                    ? '${item.periodsPerWeek} periods/week'
+                    : 'Periods not configured',
+              ),
+              _MetaLine(
+                icon: Icons.groups_outlined,
+                text: '${item.students} current students',
+              ),
+              _MetaLine(
+                icon: Icons.menu_book_outlined,
+                text: item.currentTerm.isNotEmpty
+                    ? item.currentTerm
+                    : 'No active term',
+              ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _MetaLine extends StatelessWidget {
+  const _MetaLine({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 5),
+        child: Row(
+          children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 7),
+            Expanded(child: Text(text)),
+          ],
+        ),
+      );
 }
 
 class _ClassDetail extends StatelessWidget {
@@ -386,7 +463,7 @@ class _ClassDetail extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'SELECTED CLASS',
+                      'SELECTED CANONICAL ASSIGNMENT',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
                     ),
                     Text(
@@ -396,10 +473,10 @@ class _ClassDetail extends StatelessWidget {
                           .titleLarge
                           ?.copyWith(fontWeight: FontWeight.w900),
                     ),
-                    Text('${item.students} students · Room ${item.room} · Next lesson ${item.nextLesson}'),
                   ],
                 ),
-                const Chip(label: Text('On track')),
+                if (item.currentTerm.isNotEmpty)
+                  Chip(label: Text(item.currentTerm)),
               ],
             ),
             const SizedBox(height: 16),
@@ -407,10 +484,28 @@ class _ClassDetail extends StatelessWidget {
               spacing: 12,
               runSpacing: 12,
               children: [
-                _DetailKpi(label: 'Attendance', value: '${item.attendance}%', hint: 'Recent average'),
-                _DetailKpi(label: 'Class average', value: '${item.classAverage}%', hint: 'Latest assessments'),
-                _DetailKpi(label: 'Syllabus', value: '${item.progress}%', hint: 'Term coverage'),
-                _DetailKpi(label: 'Pending marking', value: '${item.pendingMarking}', hint: 'Submissions'),
+                _DetailKpi(
+                  label: 'Academic session',
+                  value: item.sessionName.isNotEmpty
+                      ? item.sessionName
+                      : (item.sessionId.isNotEmpty ? item.sessionId : '—'),
+                  hint: 'Canonical session',
+                ),
+                _DetailKpi(
+                  label: 'Periods / week',
+                  value: item.periodsPerWeek > 0 ? '${item.periodsPerWeek}' : '—',
+                  hint: 'From class curriculum',
+                ),
+                _DetailKpi(
+                  label: 'Current students',
+                  value: '${item.students}',
+                  hint: 'Active class roster',
+                ),
+                _DetailKpi(
+                  label: 'Attendance',
+                  value: item.attendance > 0 ? '${item.attendance}%' : '—',
+                  hint: 'Latest recorded register',
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -423,14 +518,19 @@ class _ClassDetail extends StatelessWidget {
 }
 
 class _DetailKpi extends StatelessWidget {
-  const _DetailKpi({required this.label, required this.value, required this.hint});
+  const _DetailKpi({
+    required this.label,
+    required this.value,
+    required this.hint,
+  });
+
   final String label;
   final String value;
   final String hint;
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        width: 190,
+        width: 210,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -443,7 +543,12 @@ class _DetailKpi extends StatelessWidget {
               children: [
                 Text(label),
                 const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
                 Text(hint, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
@@ -452,17 +557,89 @@ class _DetailKpi extends StatelessWidget {
       );
 }
 
+class _TopicsCard extends StatelessWidget {
+  const _TopicsCard({required this.item, required this.onNavigate});
+
+  final TeacherClassAssignment item;
+  final ValueChanged<String> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    final topics = [...item.curriculumTopics]
+      ..sort((a, b) => a.sequence.compareTo(b.sequence));
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.currentTerm.isEmpty
+                          ? 'Current-term curriculum'
+                          : '${item.currentTerm} curriculum',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+                    ),
+                    const SizedBox(height: 3),
+                    const Text('Topics published for this class-subject assignment.'),
+                  ],
+                ),
+                TextButton.icon(
+                  onPressed: () => onNavigate('syllabus'),
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: const Text('Open syllabus'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (topics.isEmpty)
+              const Text(
+                'No topics have been published for the active term yet.',
+              )
+            else
+              for (final topic in topics)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    radius: 16,
+                    child: Text('${topic.sequence}'),
+                  ),
+                  title: Text(
+                    topic.title,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: topic.description.trim().isEmpty
+                      ? null
+                      : Text(topic.description),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ActionGrid extends StatelessWidget {
   const _ActionGrid({required this.onNavigate});
+
   final ValueChanged<String> onNavigate;
 
   static const _actions = <(String, String, String, IconData)>[
-    ('Take attendance', 'Open the attendance register for this class.', 'attendance', Icons.fact_check_outlined),
-    ('Lesson plans', 'Create or continue the next class lesson plan.', 'lesson-plans', Icons.description_outlined),
-    ('Syllabus progress', 'Track completed and upcoming curriculum topics.', 'syllabus', Icons.menu_book_outlined),
-    ('Assignments', 'Create work, mark submissions and review missing work.', 'assignments', Icons.assignment_outlined),
-    ('Assessments', 'Enter CA scores and review class performance.', 'assessments', Icons.grading_outlined),
-    ('Class students', 'Open the authorized class roster and student profiles.', 'students', Icons.groups_rounded),
+    ('Take attendance', 'Open the attendance register.', 'attendance', Icons.fact_check_outlined),
+    ('Lesson plans', 'Prepare teaching from the class curriculum.', 'lesson-plans', Icons.description_outlined),
+    ('Syllabus', 'Review current-term curriculum topics.', 'syllabus', Icons.menu_book_outlined),
+    ('Assignments', 'Create and review class work.', 'assignments', Icons.assignment_outlined),
+    ('Assessments', 'Open continuous assessment work.', 'assessments', Icons.grading_outlined),
+    ('Class students', 'Open the authorized current roster.', 'students', Icons.groups_rounded),
   ];
 
   @override
@@ -473,7 +650,7 @@ class _ActionGrid extends StatelessWidget {
       children: [
         for (final action in _actions)
           SizedBox(
-            width: 310,
+            width: 300,
             child: OutlinedButton(
               onPressed: () => onNavigate(action.$3),
               style: OutlinedButton.styleFrom(
@@ -489,7 +666,10 @@ class _ActionGrid extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(action.$1, style: const TextStyle(fontWeight: FontWeight.w900)),
+                        Text(
+                          action.$1,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
                         const SizedBox(height: 3),
                         Text(action.$2),
                       ],
@@ -504,117 +684,25 @@ class _ActionGrid extends StatelessWidget {
   }
 }
 
-class _TeachingFocus extends StatelessWidget {
-  const _TeachingFocus({required this.item, required this.onNavigate});
-  final TeacherClassAssignment item;
-  final ValueChanged<String> onNavigate;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text('Current teaching focus', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-                ),
-                Chip(label: Text(item.name)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _FocusRow(label: 'Current topic', value: item.topic),
-            const _FocusRow(label: 'Next action', value: 'Complete classwork and record coverage'),
-            const _FocusRow(label: 'Suggested preparation', value: '5-question recap activity'),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => onNavigate('ai'),
-                icon: const Icon(Icons.auto_awesome_rounded),
-                label: const Text('Ask Teacher AI for this class'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FocusRow extends StatelessWidget {
-  const _FocusRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
-          ],
-        ),
-      );
-}
-
-class _ClassActivity extends StatelessWidget {
-  const _ClassActivity();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Row(
-              children: [
-                Expanded(
-                  child: Text('Class activity', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-                ),
-                Text('This week'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            for (final item in teacherClassActivity)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                leading: const Icon(Icons.check_circle_outline_rounded),
-                title: Text(item),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _BoundaryCard extends StatelessWidget {
   const _BoundaryCard();
 
   @override
   Widget build(BuildContext context) => Card(
         elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
+        child: const Padding(
+          padding: EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Class evidence & authority boundary', style: TextStyle(fontWeight: FontWeight.w900)),
-              const SizedBox(height: 6),
-              const Text(teacherClassesBoundary),
-              const SizedBox(height: 8),
-              Text(teacherClassAiBoundary, style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                'Assignment authority',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Teachers can work only with classes and subjects published to their own active Teacher membership. Class membership follows the pupils’ current enrollment; promotion, transfer or graduation must not leave a pupil attached to an old teaching roster.',
+              ),
             ],
           ),
         ),
@@ -623,6 +711,7 @@ class _BoundaryCard extends StatelessWidget {
 
 class _ErrorCard extends StatelessWidget {
   const _ErrorCard({required this.onRetry});
+
   final VoidCallback onRetry;
 
   @override

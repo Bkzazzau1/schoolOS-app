@@ -1,12 +1,14 @@
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
-import '../../administrator/data/administrator_attendance_desk.dart' show sectionOfClass;
+import '../../administrator/data/administrator_attendance_desk.dart'
+    show sectionOfClass;
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_students_models.dart';
-import '../../teacher/data/teacher_assessment_repository.dart' show teacherAssessmentRegisterEntityType;
-import '../../teacher/data/teacher_syllabus_demo_data.dart' show teacherSyllabusRows;
-import '../../teacher/data/teacher_syllabus_repository.dart' show teacherSyllabusProgressEntityType;
+import '../../teacher/data/teacher_assessment_repository.dart'
+    show teacherAssessmentRegisterEntityType;
+import '../../teacher/data/teacher_syllabus_repository.dart'
+    show teacherSyllabusProgressEntityType;
 import '../../teacher/domain/teacher_assessment_models.dart';
 import '../../teacher/domain/teacher_syllabus_models.dart';
 import '../domain/principal_academics_models.dart';
@@ -23,20 +25,20 @@ class PrincipalAcademicsSnapshot {
 
   final List<PrincipalAcademicClass> classes;
 
-  /// Always empty: no real assessment carries a subject label yet (a score sheet only records a class and a
-  /// free-text title), so there is no real way to aggregate performance by subject school-wide.
+  /// Empty until assessment records carry a canonical subject id. A free-text
+  /// assessment title is not sufficient authority for school-wide subject ranking.
   final List<PrincipalSubjectPerformance> subjects;
 
-  /// Always empty: identifying a genuine academic "risk" needs human judgement over a pattern, which is not
-  /// something any real source in the app produces automatically.
+  /// Academic risk remains a human/AI interpretation layer, not an invented
+  /// status inferred from incomplete operational records.
   final List<PrincipalAcademicRisk> risks;
 
   final PrincipalAcademicsPermissions permissions;
 }
 
-const _noConcernRecorded = 'No leadership note has been recorded for this class yet.';
+const _noConcernRecorded =
+    'No leadership note has been recorded for this class yet.';
 
-/// The level bucket of a class name, e.g. "JSS 2A" -> "JSS 2", "SS1A" -> "SS 1".
 String _levelOf(String className) {
   final match = RegExp(r'^([A-Za-z]+)\s*([0-9]+)').firstMatch(className);
   if (match == null) return className;
@@ -56,37 +58,36 @@ class PrincipalAcademicsRepository {
         _assignments = assignments,
         _attendance = attendance;
 
+  static const _sessionType = 'academic_session';
+  static const _termType = 'academic_term';
+  static const _topicType = 'academic_curriculum_topic';
+
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final AdministratorStudentsRepository _students;
   final PrincipalAssignmentsRepository _assignments;
   final PrincipalAttendanceRepository _attendance;
 
-  PrincipalAcademicsPermissions permissionsFor(SchoolMembership membership) => PrincipalAcademicsPermissions(
+  PrincipalAcademicsPermissions permissionsFor(SchoolMembership membership) =>
+      PrincipalAcademicsPermissions(
         canViewSecondaryAcademics: membership.role == SchoolRole.principal,
         canLeadSecondaryInterventions: membership.role == SchoolRole.principal,
         canManagePrimary: false,
         canManageEarlyYears: false,
       );
 
-  Future<Map<String, List<AdministratorStudentRecord>>> _secondaryRegisterByClass() async {
+  Future<Map<String, List<AdministratorStudentRecord>>>
+      _secondaryRegisterByClass() async {
     final register = (await _students.load()).students.where(
-      (s) => s.status != AdministratorStudentStatus.transferredOut && sectionOfClass(s.className) == 'Secondary',
+      (student) =>
+          student.status == AdministratorStudentStatus.active &&
+          sectionOfClass(student.className) == 'Secondary',
     );
     final byClass = <String, List<AdministratorStudentRecord>>{};
-    for (final s in register) {
-      byClass.putIfAbsent(s.className, () => []).add(s);
+    for (final student in register) {
+      byClass.putIfAbsent(student.className, () => []).add(student);
     }
     return byClass;
-  }
-
-  Future<Map<String, int>> _teachersPerClass() async {
-    final assignments = (await _assignments.load()).assignments;
-    final byClass = <String, Set<String>>{};
-    for (final a in assignments) {
-      byClass.putIfAbsent(a.className, () => {}).add(a.teacherId);
-    }
-    return {for (final entry in byClass.entries) entry.key: entry.value.length};
   }
 
   Future<Map<String, int>> _attendancePerClass() async {
@@ -94,8 +95,12 @@ class PrincipalAcademicsRepository {
     return {for (final row in rows) row.className: row.rate};
   }
 
-  Future<Map<String, List<TeacherAssessmentRegisterItem>>> _assessmentsPerClass(String schoolId) async {
-    final records = await _localDatabase.getLocalRecords(tenantId: schoolId, entityType: teacherAssessmentRegisterEntityType);
+  Future<Map<String, List<TeacherAssessmentRegisterItem>>>
+      _assessmentsPerClass(String schoolId) async {
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: schoolId,
+      entityType: teacherAssessmentRegisterEntityType,
+    );
     final byClass = <String, List<TeacherAssessmentRegisterItem>>{};
     for (final record in records) {
       final item = TeacherAssessmentRegisterItem.fromJson(record.payload);
@@ -104,65 +109,172 @@ class PrincipalAcademicsRepository {
     return byClass;
   }
 
-  Future<Map<String, TeacherSyllabusProgressRecord>> _syllabusProgressById(String schoolId) async {
-    final records = await _localDatabase.getLocalRecords(tenantId: schoolId, entityType: teacherSyllabusProgressEntityType);
-    return {
-      for (final record in records) TeacherSyllabusProgressRecord.fromJson(record.payload).id: TeacherSyllabusProgressRecord.fromJson(record.payload),
+  Future<String> _activeSessionId(String schoolId) async {
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: schoolId,
+      entityType: _sessionType,
+    );
+    for (final record in records) {
+      if (record.payload['status'] == 'active') {
+        return record.payload['id'] as String? ?? record.entityId;
+      }
+    }
+    return '';
+  }
+
+  Future<String> _activeTermId(String schoolId, String sessionId) async {
+    if (sessionId.isEmpty) return '';
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: schoolId,
+      entityType: _termType,
+    );
+    for (final record in records) {
+      final payload = record.payload;
+      if (payload['sessionId'] == sessionId && payload['status'] == 'active') {
+        return payload['id'] as String? ?? record.entityId;
+      }
+    }
+    return '';
+  }
+
+  Future<Map<String, TeacherSyllabusProgressRecord>> _progressByTopic(
+    String schoolId,
+  ) async {
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: schoolId,
+      entityType: teacherSyllabusProgressEntityType,
+    );
+    final result = <String, TeacherSyllabusProgressRecord>{};
+    for (final record in records) {
+      final item = TeacherSyllabusProgressRecord.fromJson(record.payload);
+      result[item.id] = item;
+    }
+    return result;
+  }
+
+  Future<Map<String, List<String>>> _topicIdsByClass({
+    required String schoolId,
+    required String termId,
+    required PrincipalAssignmentsSnapshot assignmentSnapshot,
+  }) async {
+    if (termId.isEmpty) return const {};
+    final classByRequirement = {
+      for (final item in assignmentSnapshot.curriculumRequirements)
+        if (item.isActive) item.id: item.className,
     };
-  }
+    if (classByRequirement.isEmpty) return const {};
 
-  /// The share of [className]'s approved-scheme topics reported complete, as a whole percentage. `0` when the
-  /// class has no approved scheme of work uploaded at all (see [PrincipalAcademicClass.hasSyllabusScheme]).
-  int _syllabusCoverage(String className, Map<String, TeacherSyllabusProgressRecord> progressById) {
-    final rows = teacherSyllabusRows.where((row) => row.className == className).toList();
-    if (rows.isEmpty) return 0;
-    final done = rows.where((row) => (progressById[row.id]?.reportedStatus ?? row.approvedStatus) == TeacherSyllabusStatus.completed).length;
-    return (done * 100 / rows.length).round();
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: schoolId,
+      entityType: _topicType,
+    );
+    final byClass = <String, List<String>>{};
+    for (final record in records) {
+      final payload = record.payload;
+      if (payload['termId'] != termId) continue;
+      final classSubjectId = payload['classSubjectId'] as String? ?? '';
+      final className = classByRequirement[classSubjectId];
+      if (className == null) continue;
+      final id = payload['id'] as String? ?? record.entityId;
+      byClass.putIfAbsent(className, () => []).add(id);
+    }
+    return byClass;
   }
-
-  /// Whether any topic in [className]'s approved scheme is currently reported behind.
-  bool _syllabusBehind(String className, Map<String, TeacherSyllabusProgressRecord> progressById) => teacherSyllabusRows
-      .where((row) => row.className == className)
-      .any((row) => (progressById[row.id]?.reportedStatus ?? row.approvedStatus) == TeacherSyllabusStatus.behind);
 
   Future<PrincipalAcademicsSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
+    final schoolId = membership.schoolId;
 
     final registerByClass = await _secondaryRegisterByClass();
-    final teachersByClass = await _teachersPerClass();
     final attendanceByClass = await _attendancePerClass();
-    final assessmentsByClass = await _assessmentsPerClass(membership.schoolId);
-    final syllabusProgressById = await _syllabusProgressById(membership.schoolId);
+    final assessmentsByClass = await _assessmentsPerClass(schoolId);
+    final assignmentSnapshot = await _assignments.load();
+    final teachersByClass = <String, Set<String>>{};
+    for (final assignment in assignmentSnapshot.assignments) {
+      teachersByClass
+          .putIfAbsent(assignment.className, () => <String>{})
+          .add(assignment.teacherId);
+    }
 
-    final classNames = registerByClass.keys.toList()..sort();
+    final activeSessionId = await _activeSessionId(schoolId);
+    final activeTermId = await _activeTermId(schoolId, activeSessionId);
+    final topicsByClass = await _topicIdsByClass(
+      schoolId: schoolId,
+      termId: activeTermId,
+      assignmentSnapshot: assignmentSnapshot,
+    );
+    final progressByTopic = await _progressByTopic(schoolId);
+
+    final classNames = <String>{
+      ...registerByClass.keys,
+      ...assignmentSnapshot.classOptions,
+    }.toList()
+      ..sort();
+
     final classes = [
       for (final className in classNames)
         () {
-          final items = assessmentsByClass[className] ?? const <TeacherAssessmentRegisterItem>[];
-          final hasEvidence = items.isNotEmpty;
+          final assessmentItems =
+              assessmentsByClass[className] ?? const <TeacherAssessmentRegisterItem>[];
+          final hasEvidence = assessmentItems.isNotEmpty;
           final average = !hasEvidence
               ? 0
-              : (items.fold<double>(0, (sum, item) => sum + (item.maximumScore == 0 ? 0 : item.average / item.maximumScore * 100)) / items.length).round();
-          final totalEntered = items.fold<int>(0, (sum, item) => sum + item.entered);
-          final totalExpected = items.fold<int>(0, (sum, item) => sum + item.total);
-          final assessments = totalExpected == 0 ? 0 : (totalEntered * 100 / totalExpected).round();
-          final hasScheme = teacherSyllabusRows.any((row) => row.className == className);
+              : (assessmentItems.fold<double>(
+                        0,
+                        (sum, item) =>
+                            sum +
+                            (item.maximumScore == 0
+                                ? 0
+                                : item.average / item.maximumScore * 100),
+                      ) /
+                      assessmentItems.length)
+                  .round();
+          final totalEntered = assessmentItems.fold<int>(
+            0,
+            (sum, item) => sum + item.entered,
+          );
+          final totalExpected = assessmentItems.fold<int>(
+            0,
+            (sum, item) => sum + item.total,
+          );
+          final assessments = totalExpected == 0
+              ? 0
+              : (totalEntered * 100 / totalExpected).round();
+
+          final topicIds = topicsByClass[className] ?? const <String>[];
+          final completed = topicIds
+              .where(
+                (id) =>
+                    progressByTopic[id]?.reportedStatus ==
+                    TeacherSyllabusStatus.completed,
+              )
+              .length;
+          final syllabus = topicIds.isEmpty
+              ? 0
+              : (completed * 100 / topicIds.length).round();
+          final hasScheme = topicIds.isNotEmpty;
+
           final status = !hasEvidence
               ? PrincipalAcademicStatus.notEvaluated
               : (average >= 75
                   ? PrincipalAcademicStatus.strong
-                  : (average >= 60 ? PrincipalAcademicStatus.onTrack : (average >= 45 ? PrincipalAcademicStatus.watch : PrincipalAcademicStatus.behind)));
+                  : (average >= 60
+                      ? PrincipalAcademicStatus.onTrack
+                      : (average >= 45
+                          ? PrincipalAcademicStatus.watch
+                          : PrincipalAcademicStatus.behind)));
+
           return PrincipalAcademicClass(
             name: className,
             level: _levelOf(className),
-            students: registerByClass[className]!.length,
+            students: registerByClass[className]?.length ?? 0,
             average: average,
             attendance: attendanceByClass[className] ?? 0,
-            syllabus: _syllabusCoverage(className, syllabusProgressById),
+            syllabus: syllabus,
             hasSyllabusScheme: hasScheme,
-            syllabusBehind: hasScheme && _syllabusBehind(className, syllabusProgressById),
+            syllabusBehind: false,
             assessments: assessments,
-            teachers: teachersByClass[className] ?? 0,
+            teachers: teachersByClass[className]?.length ?? 0,
             trend: 0,
             status: status,
             concern: _noConcernRecorded,
