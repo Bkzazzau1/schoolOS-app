@@ -43,6 +43,10 @@ class PrincipalTeachingAssignment {
     required this.subject,
     required this.teacherId,
     required this.periodsPerWeek,
+    this.classSubjectId = '',
+    this.sessionId = '',
+    this.accessReady = false,
+    this.pendingSync = false,
     this.version = 1,
   });
 
@@ -51,38 +55,66 @@ class PrincipalTeachingAssignment {
   final String subject;
   final String teacherId;
   final int periodsPerWeek;
+  final String classSubjectId;
+  final String sessionId;
+  final bool accessReady;
+  final bool pendingSync;
   final int version;
 
-  PrincipalTeachingAssignment copyWith({String? teacherId, int? version}) => PrincipalTeachingAssignment(
+  PrincipalTeachingAssignment copyWith({
+    String? teacherId,
+    bool? accessReady,
+    bool? pendingSync,
+    int? version,
+  }) =>
+      PrincipalTeachingAssignment(
         id: id,
         className: className,
         subject: subject,
         teacherId: teacherId ?? this.teacherId,
         periodsPerWeek: periodsPerWeek,
+        classSubjectId: classSubjectId,
+        sessionId: sessionId,
+        accessReady: accessReady ?? this.accessReady,
+        pendingSync: pendingSync ?? this.pendingSync,
         version: version ?? this.version,
       );
 
-  Map<String, Object?> toJson() => {
+  Map<String, Object?> toJson({String transferReason = ''}) => {
         'id': id,
-        'className': className,
-        'subject': subject,
-        'teacherId': teacherId,
-        'periodsPerWeek': periodsPerWeek,
-        'version': version,
+        'classSubjectId': classSubjectId,
+        'teacherStaffId': teacherId,
+        'transferReason': transferReason,
+        'isActive': true,
       };
 
-  factory PrincipalTeachingAssignment.fromJson(Map<String, Object?> json) => PrincipalTeachingAssignment(
-        id: json['id']! as String,
-        className: json['className']! as String,
-        subject: json['subject']! as String,
-        teacherId: json['teacherId']! as String,
-        periodsPerWeek: json['periodsPerWeek']! as int,
+  factory PrincipalTeachingAssignment.fromJson(
+    Map<String, Object?> json, {
+    bool pendingSync = false,
+  }) =>
+      PrincipalTeachingAssignment(
+        id: json['id'] as String? ?? '',
+        className: json['className'] as String? ?? '',
+        subject: json['subject'] as String? ?? '',
+        teacherId: json['teacherStaffId'] as String? ?? json['teacherId'] as String? ?? '',
+        periodsPerWeek: json['periodsPerWeek'] as int? ?? 0,
+        classSubjectId: json['classSubjectId'] as String? ?? '',
+        sessionId: json['sessionId'] as String? ?? '',
+        accessReady: json['accessReady'] as bool? ?? false,
+        pendingSync: pendingSync,
         version: json['version'] as int? ?? 1,
       );
 }
 
 class PrincipalUnassignedSubject {
-  const PrincipalUnassignedSubject({required this.className, required this.subject, required this.periods});
+  const PrincipalUnassignedSubject({
+    required this.classSubjectId,
+    required this.className,
+    required this.subject,
+    required this.periods,
+  });
+
+  final String classSubjectId;
   final String className;
   final String subject;
   final int periods;
