@@ -116,6 +116,7 @@ class BillingAutomation {
         'period_required' => 'Billing period required',
         'awaiting_meter' => 'Waiting for roster meter',
         'ready_to_initialize' => 'Ready to initialize',
+        'ready_to_invoice' => 'Ready to invoice',
         'scheduled' => 'Scheduled',
         'invoice_outstanding' => 'Invoice outstanding',
         _ => state.isEmpty || state == 'unknown' ? 'Not available' : state,
