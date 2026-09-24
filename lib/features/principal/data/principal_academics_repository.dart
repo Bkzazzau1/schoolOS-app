@@ -15,11 +15,47 @@ import '../domain/principal_academics_models.dart';
 import 'principal_assignments_repository.dart';
 import 'principal_attendance_repository.dart';
 
+class PrincipalClassworkOversight {
+  const PrincipalClassworkOversight({
+    required this.id,
+    required this.title,
+    required this.className,
+    required this.subject,
+    required this.teacher,
+    required this.state,
+    required this.dueAt,
+    required this.maximumScore,
+    required this.totalStudents,
+    required this.submissions,
+    required this.marked,
+    required this.lateSubmissions,
+    required this.publicationRevision,
+  });
+
+  final String id;
+  final String title;
+  final String className;
+  final String subject;
+  final String teacher;
+  final String state;
+  final String dueAt;
+  final int maximumScore;
+  final int totalStudents;
+  final int submissions;
+  final int marked;
+  final int lateSubmissions;
+  final int publicationRevision;
+
+  int get unsubmitted => (totalStudents - submissions).clamp(0, totalStudents);
+  int get unmarked => (submissions - marked).clamp(0, submissions);
+}
+
 class PrincipalAcademicsSnapshot {
   const PrincipalAcademicsSnapshot({
     required this.classes,
     required this.subjects,
     required this.risks,
+    required this.classwork,
     required this.permissions,
   });
 
@@ -32,6 +68,11 @@ class PrincipalAcademicsSnapshot {
   /// Academic risk remains a human/AI interpretation layer, not an invented
   /// status inferred from incomplete operational records.
   final List<PrincipalAcademicRisk> risks;
+
+  /// Read-only Teacher-issued work for the Principal's Secondary scope. Student
+  /// draft responses are never included; counts come from canonical assignment
+  /// publication/submission evidence maintained by the server.
+  final List<PrincipalClassworkOversight> classwork;
 
   final PrincipalAcademicsPermissions permissions;
 }
@@ -61,6 +102,7 @@ class PrincipalAcademicsRepository {
   static const _sessionType = 'academic_session';
   static const _termType = 'academic_term';
   static const _topicType = 'academic_curriculum_topic';
+  static const _classworkType = 'academic_assignment';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -181,6 +223,52 @@ class PrincipalAcademicsRepository {
     return byClass;
   }
 
+  Future<List<PrincipalClassworkOversight>> _classworkForTerm({
+    required String schoolId,
+    required String termId,
+  }) async {
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: schoolId,
+      entityType: _classworkType,
+    );
+    final result = <PrincipalClassworkOversight>[];
+    for (final record in records) {
+      final payload = record.payload;
+      if ((payload['section'] as String? ?? '').trim().toLowerCase() !=
+          'secondary') {
+        continue;
+      }
+      if (termId.isNotEmpty && payload['termId'] != termId) continue;
+      result.add(
+        PrincipalClassworkOversight(
+          id: payload['id'] as String? ?? record.entityId,
+          title: payload['title'] as String? ?? '',
+          className: payload['className'] as String? ?? '',
+          subject: payload['subject'] as String? ?? '',
+          teacher: payload['currentTeacher'] as String? ??
+              payload['author'] as String? ??
+              'Teacher',
+          state: payload['state'] as String? ?? 'draft',
+          dueAt: payload['dueAt'] as String? ?? '',
+          maximumScore: (payload['maximumScore'] as num?)?.toInt() ?? 0,
+          totalStudents: (payload['totalStudents'] as num?)?.toInt() ?? 0,
+          submissions: (payload['submissions'] as num?)?.toInt() ?? 0,
+          marked: (payload['marked'] as num?)?.toInt() ?? 0,
+          lateSubmissions: (payload['lateSubmissions'] as num?)?.toInt() ?? 0,
+          publicationRevision:
+              (payload['publicationRevision'] as num?)?.toInt() ?? 0,
+        ),
+      );
+    }
+    result.sort((a, b) {
+      final byDue = a.dueAt.compareTo(b.dueAt);
+      if (byDue != 0) return byDue;
+      final byClass = a.className.compareTo(b.className);
+      return byClass != 0 ? byClass : a.subject.compareTo(b.subject);
+    });
+    return result;
+  }
+
   Future<PrincipalAcademicsSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
     final schoolId = membership.schoolId;
@@ -204,6 +292,10 @@ class PrincipalAcademicsRepository {
       assignmentSnapshot: assignmentSnapshot,
     );
     final progressByTopic = await _progressByTopic(schoolId);
+    final classwork = await _classworkForTerm(
+      schoolId: schoolId,
+      termId: activeTermId,
+    );
 
     final classNames = <String>{
       ...registerByClass.keys,
@@ -286,6 +378,7 @@ class PrincipalAcademicsRepository {
       classes: classes,
       subjects: const [],
       risks: const [],
+      classwork: classwork,
       permissions: permissionsFor(membership),
     );
   }
