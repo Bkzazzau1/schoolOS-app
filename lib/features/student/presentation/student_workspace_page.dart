@@ -19,6 +19,7 @@ class _StudentNavItem {
 }
 
 const _studentNavigation = <_StudentNavItem>[
+  _StudentNavItem('profile', 'My profile', Icons.badge_outlined),
   _StudentNavItem('performance', 'Performance', Icons.insights_rounded),
   _StudentNavItem('cbt', 'CBT', Icons.quiz_outlined),
   _StudentNavItem('planner', 'Study plan', Icons.checklist_rounded),
@@ -44,7 +45,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   late final StudentCbtRepository _cbtRepository;
   Map<String, Object?> _state = {};
   Timer? _timer;
-  String _activeKey = 'performance';
+  String _activeKey = 'profile';
   bool _busy = true;
   String? _error;
   int _pendingSyncCount = 0;
@@ -57,12 +58,26 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
           _state['deadline']! as String,
         ).difference(DateTime.now()).inSeconds.clamp(0, 600);
 
+  Map<String, Object?> get _canonicalProfile {
+    final raw = _state['canonicalProfile'];
+    return raw is Map ? Map<String, Object?>.from(raw) : const {};
+  }
+
+  List<Map<String, Object?>> get _enrollmentHistory => [
+        for (final item in (_canonicalProfile['enrollmentHistory'] as List? ?? const []))
+          if (item is Map) Map<String, Object?>.from(item),
+      ];
+
+  List<Map<String, Object?>> get _progressionHistory => [
+        for (final item in (_canonicalProfile['progressionHistory'] as List? ?? const []))
+          if (item is Map) Map<String, Object?>.from(item),
+      ];
+
   _StudentNavItem get _activeItem => _studentNavigation.firstWhere(
         (item) => item.key == _activeKey,
         orElse: () => _studentNavigation.first,
       );
 
-  // Real, teacher-published CBTs for this student's real class.
   List<StudentCbtAvailableSet> _cbtSets = const [];
   bool _cbtLoading = true;
   String? _cbtError;
@@ -120,6 +135,16 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   void onSynced() {
     _refreshPendingCount();
     _loadCbtSets();
+    _reloadWorkspaceState();
+  }
+
+  Future<void> _reloadWorkspaceState() async {
+    try {
+      final state = await _repository.load();
+      if (mounted) setState(() => _state = state);
+    } catch (_) {
+      // The existing workspace error state is reserved for explicit user actions.
+    }
   }
 
   void _refreshPendingCount() {
@@ -249,6 +274,123 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
       ],
     ),
   );
+
+  String _dateLabel(Object? raw) {
+    if (raw is! String || raw.isEmpty) return '—';
+    final value = DateTime.tryParse(raw);
+    if (value == null) return raw;
+    return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+  }
+
+  String _progressionLabel(Map<String, Object?> event) {
+    final workflow = event['workflow'] as String? ?? 'Class update';
+    final from = event['fromClass'] as String? ?? '';
+    final to = event['toClass'] as String? ?? '';
+    if (from.isNotEmpty && to.isNotEmpty) return '$workflow · $from → $to';
+    if (from.isNotEmpty) return '$workflow · $from';
+    if (to.isNotEmpty) return '$workflow · $to';
+    return workflow;
+  }
+
+  Widget _profile() {
+    final profile = _canonicalProfile;
+    if (profile.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+        children: [
+          _sectionHeader(
+            title: 'My student record',
+            description: 'Your official identity, current class and class history come from the canonical SchoolOS roster.',
+          ),
+          const _SectionCard(
+            title: 'Waiting for canonical profile',
+            subtitle: 'The device has not received your private server profile yet.',
+            child: Text('Connect and sync. SchoolOS will never substitute demo student details for a real signed-in pupil.'),
+          ),
+        ],
+      );
+    }
+
+    final status = profile['status'] as String? ?? 'unknown';
+    final className = profile['className'] as String? ?? 'No active class';
+    final section = profile['academicSection'] as String? ?? '—';
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+      children: [
+        _sectionHeader(
+          title: 'My student record',
+          description: 'Read-only facts from your canonical school record. Current class is determined only by your active enrollment.',
+        ),
+        _SectionCard(
+          title: profile['name'] as String? ?? 'Student',
+          subtitle: '${profile['admissionNumber'] ?? '—'} · ${profile['studentId'] ?? '—'}',
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _InfoTile(label: 'Current class', value: className),
+              _InfoTile(label: 'Section', value: section),
+              _InfoTile(label: 'Status', value: status),
+              _InfoTile(label: 'Date of birth', value: _dateLabel(profile['dateOfBirth'])),
+              _InfoTile(label: 'Gender', value: profile['gender'] as String? ?? '—'),
+              _InfoTile(label: 'Primary guardian', value: profile['primaryGuardian'] as String? ?? '—'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _SectionCard(
+          title: 'Class & enrollment history',
+          subtitle: 'Old placements are preserved. Promotion or class movement creates history instead of overwriting the previous class.',
+          child: _enrollmentHistory.isEmpty
+              ? const Text('No canonical enrollment history has synced yet.')
+              : Column(
+                  children: [
+                    for (final item in _enrollmentHistory)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          item['status'] == 'active'
+                              ? Icons.school_rounded
+                              : Icons.history_rounded,
+                        ),
+                        title: Text(
+                          item['className'] as String? ?? 'Class',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Text(
+                          '${item['academicSection'] ?? '—'} · ${_dateLabel(item['startedAt'])} → ${item['endedAt'] == null ? 'Current' : _dateLabel(item['endedAt'])}',
+                        ),
+                        trailing: Chip(label: Text(item['status'] as String? ?? 'unknown')),
+                      ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 16),
+        _SectionCard(
+          title: 'Progression decisions',
+          subtitle: 'Promotion, class change, transfer and graduation decisions are preserved with their approval state.',
+          child: _progressionHistory.isEmpty
+              ? const Text('No progression decision has been recorded yet.')
+              : Column(
+                  children: [
+                    for (final event in _progressionHistory)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.trending_up_rounded),
+                        title: Text(
+                          _progressionLabel(event),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Text(
+                          '${event['status'] ?? 'unknown'} · ${_dateLabel(event['completedAt'] ?? event['requestedAt'])}${(event['approvedBy'] as String? ?? '').isEmpty ? '' : ' · Approved by ${event['approvedBy']}'}',
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
 
   Widget _performance() => ListView(
     padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
@@ -502,11 +644,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
                                 style: const TextStyle(fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 6),
-                              for (
-                                var j = 0;
-                                j < studentPracticeQuestions[i].options.length;
-                                j++
-                              )
+                              for (var j = 0; j < studentPracticeQuestions[i].options.length; j++)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 4),
                                   child: OutlinedButton(
@@ -645,6 +783,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   );
 
   Widget _content() => switch (_activeKey) {
+    'profile' => _profile(),
     'cbt' => _cbt(),
     'planner' => _planner(),
     _ => _performance(),
@@ -846,6 +985,31 @@ class _SchoolSwitcherButton extends StatelessWidget {
               child: Text('${membership.schoolName} · ${membership.roleLabel}'),
             ),
         ],
+      );
+}
+
+class _InfoTile extends StatelessWidget {
+  const _InfoTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 210,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 3),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+          ],
+        ),
       );
 }
 

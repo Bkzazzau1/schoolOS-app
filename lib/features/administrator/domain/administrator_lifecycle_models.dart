@@ -31,33 +31,26 @@ class AdministratorLifecycleRecord {
     this.note = '',
   });
 
-  /// The record's own id. For the older records it is the student's id, so a student's id is [studentId] when this is empty.
   final String id;
   final String studentName;
   final String workflow;
   final String change;
   final AdministratorLifecycleStatus status;
-
-  /// The student this change is for.
   final String studentId;
-
-  /// For a class change or promotion: where the student is, and where they move to.
   final String fromClass;
   final String toClass;
   final String requestedAt;
   final String completedAt;
-
-  /// Who approved a promotion (the decision belongs to academic leadership, not administration).
   final String approvedBy;
-
-  /// For a transfer out: the student's records pack has been prepared.
   final bool recordsPackReady;
   final String note;
 
   String get student => studentId.isEmpty ? id : studentId;
 
-  /// Changes the student's class, once completed.
+  /// Promotion/class change moves to another class. Repeat opens a new
+  /// enrollment period in the same class and is therefore not a class move.
   bool get movesClass => (isPromotion || isClassChange) && toClass.isNotEmpty;
+  bool get isAcademicProgression => isPromotion || isRepeat;
 
   AdministratorLifecycleRecord copyWith({
     String? change,
@@ -84,6 +77,7 @@ class AdministratorLifecycleRecord {
       );
 
   bool get isPromotion => workflow == 'Promotion';
+  bool get isRepeat => workflow == 'Repeat';
   bool get isTransferOut => workflow == 'Transfer out';
   bool get isClassChange => workflow == 'Class change';
   bool get isAlumni => workflow == 'Alumni';
@@ -135,10 +129,10 @@ class AdministratorLifecyclePermissions {
 }
 
 const administratorLifecycleAuthorityBoundary =
-    'Administration executes approved lifecycle changes; academic promotion decisions require authorized academic leadership.';
+    'Administration executes approved lifecycle changes; promotion and repeat decisions require authorized academic leadership.';
 
 const administratorLifecycleHistoryBoundary =
-    'Historical class and enrollment records must be appended rather than overwritten so prior placement and enrollment history remain auditable.';
+    'Historical class and enrollment records must be appended rather than overwritten so prior placement and progression history remain auditable.';
 
 const administratorLifecycleOpenBoundary =
-    'Open is an operational review on this website surface. It must not be upgraded into an approval, promotion decision, withdrawal decision or destructive class-history rewrite unless a separate authorized workflow explicitly provides that action.';
+    'Open is an operational review on this website surface. It must not be upgraded into an approval, promotion/repeat decision, withdrawal decision or destructive class-history rewrite unless a separate authorized workflow explicitly provides that action.';

@@ -48,6 +48,32 @@ const studentPracticeQuestions = [
   ),
 ];
 
+const _demoCanonicalProfile = <String, Object?>{
+  'canonicalStudentId': 'demo-student',
+  'studentId': 'STU-DEMO-001',
+  'admissionNumber': 'DEMO/2026/001',
+  'name': 'Demo Student',
+  'dateOfBirth': '2013-06-15',
+  'gender': 'Student',
+  'status': 'Demo only',
+  'academicSection': 'Secondary',
+  'className': 'JSS 2A',
+  'enrollmentActive': true,
+  'primaryGuardian': 'Demo Guardian',
+  'enrollmentHistory': [
+    {
+      'id': 'demo-enrollment-1',
+      'academicSection': 'Secondary',
+      'className': 'JSS 2A',
+      'status': 'active',
+      'billable': false,
+      'startedAt': '2026-09-01T00:00:00Z',
+      'endedAt': null,
+    },
+  ],
+  'progressionHistory': [],
+};
+
 class StudentRepository {
   StudentRepository({
     required this.database,
@@ -60,6 +86,7 @@ class StudentRepository {
   final SchoolMembership membership;
   final DateTime Function() now;
   static const entityType = '_student_personal_workspace';
+  static const canonicalProfileEntityType = 'student_class_link';
 
   void _check() {
     final active = session.requireActiveMembership();
@@ -77,17 +104,29 @@ class StudentRepository {
       entityType: entityType,
       entityId: membership.id,
     );
+    final canonical = await database.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: canonicalProfileEntityType,
+      entityId: membership.id,
+    );
     _check();
-    return Map<String, Object?>.from(record?.payload ?? {});
+    return {
+      ...Map<String, Object?>.from(record?.payload ?? {}),
+      if (canonical != null)
+        'canonicalProfile': Map<String, Object?>.from(canonical.payload)
+      else if (!LocalDatabase.blockDemoSeeds)
+        'canonicalProfile': Map<String, Object?>.from(_demoCanonicalProfile),
+    };
   }
 
   Future<void> _save(Map<String, Object?> state) async {
     _check();
+    final personal = Map<String, Object?>.from(state)..remove('canonicalProfile');
     await database.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: entityType,
       entityId: membership.id,
-      payload: state,
+      payload: personal,
     );
   }
 

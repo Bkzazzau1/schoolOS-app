@@ -23,6 +23,28 @@ String _initialsOf(String name) {
       : (parts.first[0] + parts.last[0]).toUpperCase();
 }
 
+String _progressionDescription(Map<String, Object?> item) {
+  final workflow = item['workflow'] as String? ?? 'Class update';
+  final from = item['fromClass'] as String? ?? '';
+  final to = item['toClass'] as String? ?? '';
+  if (from.isNotEmpty && to.isNotEmpty) {
+    if (workflow == 'Repeat' && from.toLowerCase() == to.toLowerCase()) {
+      return 'Repeat · remains in $from';
+    }
+    return '$workflow · $from → $to';
+  }
+  if (from.isNotEmpty) return '$workflow · $from';
+  if (to.isNotEmpty) return '$workflow · $to';
+  return workflow;
+}
+
+String _dateLabel(Object? value) {
+  if (value is! String || value.isEmpty) return '';
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) return value;
+  return '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
+}
+
 class ParentChildrenRepository {
   ParentChildrenRepository({
     required LocalDatabase localDatabase,
@@ -36,9 +58,6 @@ class ParentChildrenRepository {
        _attendance = attendance,
        _ledger = ledger;
 
-  /// Server-connected schools receive a private family-link record whose entity
-  /// id is the Parent membership id. Standalone demo mode keeps the old fixed
-  /// sample links. A real parent account never falls back to those demo pupils.
   static const _linkEntityType = 'parent_family_link';
   static const _seedChildIds = ['STU-001', 'PRI-003'];
 
@@ -48,36 +67,48 @@ class ParentChildrenRepository {
   final AdministratorAttendanceRepository _attendance;
   final FinanceLedgerRepository _ledger;
 
-  Future<List<String>> _linkedChildIds(SchoolMembership membership) async {
+  Future<Map<String, Object?>?> _familyPayload(
+    SchoolMembership membership,
+  ) async {
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
       entityType: _linkEntityType,
       entityId: membership.id,
     );
     if (existing != null) {
-      return List<String>.from(
-        existing.payload['childIds'] as List? ?? const <String>[],
-      );
+      return Map<String, Object?>.from(existing.payload);
     }
-
-    if (LocalDatabase.blockDemoSeeds) {
-      // The sync round may still be downloading the server-generated family
-      // link. Empty is safer than showing somebody else's demo children.
-      return const [];
-    }
-
+    if (LocalDatabase.blockDemoSeeds) return null;
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: _linkEntityType,
       entityId: membership.id,
       payload: {'childIds': _seedChildIds},
     );
-    return _seedChildIds;
+    return {'childIds': _seedChildIds};
+  }
+
+  Future<List<String>> _linkedChildIds(SchoolMembership membership) async {
+    final payload = await _familyPayload(membership);
+    return List<String>.from(
+      payload?['childIds'] as List? ?? const <String>[],
+    );
   }
 
   Future<ParentChildrenSnapshot> load() async {
     final membership = _requireParentMembership();
-    final childIds = await _linkedChildIds(membership);
+    final familyPayload = await _familyPayload(membership);
+    final canonicalChildren = [
+      for (final item in (familyPayload?['children'] as List? ?? const []))
+        if (item is Map) Map<String, Object?>.from(item),
+    ];
+    final childIds = canonicalChildren.isNotEmpty
+        ? canonicalChildren
+            .map((item) => item['studentId'] as String? ?? '')
+            .where((id) => id.isNotEmpty)
+            .toList(growable: false)
+        : await _linkedChildIds(membership);
+
     final register = (await _students.load()).students;
     final accounts = await _ledger.accounts();
     final attendanceSnapshot = await _attendance.load(students: register);
@@ -92,13 +123,29 @@ class ParentChildrenRepository {
           break;
         }
       }
-      if (student == null) continue;
+      Map<String, Object?>? canonical;
+      for (final candidate in canonicalChildren) {
+        if (candidate['studentId'] == id) {
+          canonical = candidate;
+          break;
+        }
+      }
+      if (student == null && canonical == null) continue;
 
+      final name = canonical != null
+          ? (canonical['name'] as String? ?? '')
+          : student!.name;
+      if (name.isEmpty) continue;
+      final className = canonical != null
+          ? (canonical['className'] as String? ?? '')
+          : (student?.className ?? '');
+      final section = canonical != null
+          ? (canonical['academicSection'] as String? ?? _notRecorded)
+          : (className.isEmpty ? _notRecorded : sectionOfClass(className));
       final account = accounts.where((item) => item.student.id == id).firstOrNull;
       final todayEvent = attendanceSnapshot.events
           .where(
-            (event) =>
-                !event.isUnknown && key(event.student) == key(student!.name),
+            (event) => !event.isUnknown && key(event.student) == key(name),
           )
           .firstOrNull;
       final attendanceLabel = todayEvent == null
@@ -106,15 +153,21 @@ class ParentChildrenRepository {
           : (todayEvent.countsAsPresent
                 ? 'Present today'
                 : todayEvent.status.label);
+      final progression = [
+        for (final item in (canonical?['progressionHistory'] as List? ?? const []))
+          if (item is Map) Map<String, Object?>.from(item),
+      ];
 
       children.add(
         ParentLinkedChild(
-          id: student.id,
-          name: student.name,
-          initials: _initialsOf(student.name),
-          className: student.className,
-          section: sectionOfClass(student.className),
-          admissionNumber: _notRecorded,
+          id: id,
+          name: name,
+          initials: _initialsOf(name),
+          className: className.isEmpty ? _notRecorded : className,
+          section: section,
+          admissionNumber: canonical != null
+              ? (canonical['admissionNumber'] as String? ?? _notRecorded)
+              : _notRecorded,
           classTeacher: _notRecorded,
           attendanceLabel: attendanceLabel,
           learningLabel: _notRecorded,
@@ -125,8 +178,18 @@ class ParentChildrenRepository {
           paymentPlan: _notRecorded,
           activities: _notRecorded,
           subjects: const [],
-          timeline: const [],
-          active: student.status == AdministratorStudentStatus.active,
+          timeline: [
+            for (final event in progression)
+              ParentChildTimelineEvent(
+                dateLabel: _dateLabel(
+                  event['completedAt'] ?? event['requestedAt'],
+                ),
+                description: _progressionDescription(event),
+              ),
+          ],
+          active: canonical != null
+              ? (canonical['active'] as bool? ?? false)
+              : (student?.status == AdministratorStudentStatus.active),
           presentToday: todayEvent?.countsAsPresent ?? false,
         ),
       );
@@ -134,7 +197,9 @@ class ParentChildrenRepository {
 
     return ParentChildrenSnapshot(
       familyAccountId: membership.id,
-      academicPeriod: _notRecorded,
+      academicPeriod: canonicalChildren.isNotEmpty
+          ? 'Canonical enrollment history'
+          : _notRecorded,
       children: children,
     );
   }
@@ -154,7 +219,6 @@ class ParentChildrenRepository {
     );
   }
 
-  /// Stores a server-confirmed family link under the active Parent membership.
   Future<void> replaceLinkedChildren({
     required List<String> childIds,
   }) async {

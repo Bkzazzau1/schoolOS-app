@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../data/administrator_lifecycle_repository.dart';
 import '../domain/administrator_students_models.dart';
 
-// Each dialog owns and disposes its own text boxes (disposing them from the caller is too early, while the dialog fades).
-
 class LifecycleRequestChoice {
-  const LifecycleRequestChoice({required this.student, required this.workflow, required this.toClass, required this.note});
+  const LifecycleRequestChoice({
+    required this.student,
+    required this.workflow,
+    required this.toClass,
+    required this.note,
+  });
 
   final AdministratorStudentRecord student;
   final String workflow;
@@ -14,8 +17,10 @@ class LifecycleRequestChoice {
   final String note;
 }
 
-/// Asks which student, what kind of change, and where they move to. Returns null when cancelled.
-Future<LifecycleRequestChoice?> askLifecycleRequest(BuildContext context, List<AdministratorStudentRecord> students) =>
+Future<LifecycleRequestChoice?> askLifecycleRequest(
+  BuildContext context,
+  List<AdministratorStudentRecord> students,
+) =>
     showDialog<LifecycleRequestChoice>(
       context: context,
       builder: (context) => _RequestDialog(students: students),
@@ -43,15 +48,17 @@ class _RequestDialogState extends State<_RequestDialog> {
     super.dispose();
   }
 
-  bool get _movesClass => _workflow != 'Transfer out';
+  bool get _needsDestination =>
+      _workflow == 'Class change' || _workflow == 'Promotion';
 
   @override
   Widget build(BuildContext context) {
-    final ready = _student != null && (!_movesClass || _toClass.text.trim().isNotEmpty);
+    final ready = _student != null &&
+        (!_needsDestination || _toClass.text.trim().isNotEmpty);
     return AlertDialog(
-      title: const Text('New student change'),
+      title: const Text('New student progression / lifecycle change'),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: const BoxConstraints(maxWidth: 500),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -63,28 +70,50 @@ class _RequestDialogState extends State<_RequestDialog> {
                 decoration: const InputDecoration(labelText: 'Student'),
                 items: [
                   for (final s in widget.students)
-                    DropdownMenuItem(value: s, child: Text('${s.name} · ${s.className}', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(
+                      value: s,
+                      child: Text(
+                        '${s.name} · ${s.className}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                 ],
                 onChanged: (v) => setState(() => _student = v),
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-              isExpanded: true,
+                isExpanded: true,
                 key: const ValueKey('lifecycle-workflow'),
                 initialValue: _workflow,
                 decoration: const InputDecoration(labelText: 'What is changing'),
                 items: [
-                  for (final w in AdministratorLifecycleRepository.requestable) DropdownMenuItem(value: w, child: Text(w)),
+                  for (final w in AdministratorLifecycleRepository.requestable)
+                    DropdownMenuItem(value: w, child: Text(w)),
                 ],
-                onChanged: (v) => setState(() => _workflow = v ?? _workflow),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() {
+                    _workflow = v;
+                    if (!_needsDestination) _toClass.clear();
+                  });
+                },
               ),
-              if (_movesClass) ...[
+              if (_workflow == 'Repeat') ...[
+                const SizedBox(height: 10),
+                const Text(
+                  'Repeat keeps the pupil in the same class for a new enrollment period. It is an academic progression decision and requires academic approval before completion.',
+                ),
+              ],
+              if (_needsDestination) ...[
                 const SizedBox(height: 10),
                 TextField(
                   key: const ValueKey('lifecycle-to-class'),
                   controller: _toClass,
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(labelText: 'Moves to which class', hintText: 'For example JSS 2A'),
+                  decoration: const InputDecoration(
+                    labelText: 'Moves to which class',
+                    hintText: 'For example JSS 2A',
+                  ),
                 ),
               ],
               const SizedBox(height: 10),
@@ -92,7 +121,9 @@ class _RequestDialogState extends State<_RequestDialog> {
                 key: const ValueKey('lifecycle-note'),
                 controller: _note,
                 decoration: InputDecoration(
-                  labelText: _movesClass ? 'Note (optional)' : 'Where the student is going (optional)',
+                  labelText: _workflow == 'Transfer out'
+                      ? 'Where the student is going (optional)'
+                      : 'Note (optional)',
                 ),
               ),
             ],
@@ -100,13 +131,21 @@ class _RequestDialogState extends State<_RequestDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           key: const ValueKey('lifecycle-start'),
           onPressed: ready
               ? () => Navigator.pop(
                     context,
-                    LifecycleRequestChoice(student: _student!, workflow: _workflow, toClass: _toClass.text.trim(), note: _note.text.trim()),
+                    LifecycleRequestChoice(
+                      student: _student!,
+                      workflow: _workflow,
+                      toClass: _toClass.text.trim(),
+                      note: _note.text.trim(),
+                    ),
                   )
               : null,
           child: const Text('Start change'),
@@ -116,16 +155,27 @@ class _RequestDialogState extends State<_RequestDialog> {
   }
 }
 
-/// Asks who approved a promotion. Returns null when cancelled, otherwise a non-empty name.
-Future<String?> askApprover(BuildContext context, {required String studentName}) => showDialog<String>(
+Future<String?> askApprover(
+  BuildContext context, {
+  required String studentName,
+  required String workflow,
+}) =>
+    showDialog<String>(
       context: context,
-      builder: (context) => _ApproverDialog(studentName: studentName),
+      builder: (context) => _ApproverDialog(
+        studentName: studentName,
+        workflow: workflow,
+      ),
     );
 
 class _ApproverDialog extends StatefulWidget {
-  const _ApproverDialog({required this.studentName});
+  const _ApproverDialog({
+    required this.studentName,
+    required this.workflow,
+  });
 
   final String studentName;
+  final String workflow;
 
   @override
   State<_ApproverDialog> createState() => _ApproverDialogState();
@@ -142,28 +192,35 @@ class _ApproverDialogState extends State<_ApproverDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: Text('Process promotion for ${widget.studentName}'),
+        title: Text('Process ${widget.workflow.toLowerCase()} for ${widget.studentName}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'A promotion is an academic decision. Administration only processes it once academic leadership has approved it.',
+            Text(
+              '${widget.workflow} is an academic decision. Administration only processes it once academic leadership has approved it.',
             ),
             const SizedBox(height: 10),
             TextField(
               key: const ValueKey('lifecycle-approver'),
               controller: _name,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(labelText: 'Approved by (name and role)'),
+              decoration: const InputDecoration(
+                labelText: 'Approved by (name and role)',
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             key: const ValueKey('lifecycle-approver-confirm'),
-            onPressed: _name.text.trim().isEmpty ? null : () => Navigator.pop(context, _name.text.trim()),
-            child: const Text('Process promotion'),
+            onPressed: _name.text.trim().isEmpty
+                ? null
+                : () => Navigator.pop(context, _name.text.trim()),
+            child: Text('Process ${widget.workflow.toLowerCase()}'),
           ),
         ],
       );
