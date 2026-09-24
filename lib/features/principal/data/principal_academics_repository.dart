@@ -46,8 +46,8 @@ class PrincipalClassworkOversight {
   final int lateSubmissions;
   final int publicationRevision;
 
-  int get unsubmitted => (totalStudents - submissions).clamp(0, totalStudents);
-  int get unmarked => (submissions - marked).clamp(0, submissions);
+  int get unsubmitted => totalStudents > submissions ? totalStudents - submissions : 0;
+  int get unmarked => submissions > marked ? submissions - marked : 0;
 }
 
 class PrincipalAcademicsSnapshot {
