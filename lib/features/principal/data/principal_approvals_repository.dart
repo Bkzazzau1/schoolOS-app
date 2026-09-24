@@ -144,7 +144,10 @@ class PrincipalApprovalsRepository {
     for (final record in records) {
       final payload = record.payload;
       final className = payload['className'] as String? ?? '';
-      if (!secondaryClasses.contains(className) || payload['state'] != 'submitted') {
+      final canonicalSecondary =
+          (payload['section'] as String? ?? '').trim().toLowerCase() == 'secondary';
+      if ((!canonicalSecondary && !secondaryClasses.contains(className)) ||
+          payload['state'] != 'submitted') {
         continue;
       }
       final version = payload['version'] as int? ?? 0;
