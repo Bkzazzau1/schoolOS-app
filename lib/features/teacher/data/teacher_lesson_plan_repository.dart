@@ -147,63 +147,165 @@ class TeacherLessonPlanRepository {
   }) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final monday = today.subtract(Duration(days: today.weekday - DateTime.monday));
-    final mondayIso = _isoDate(monday);
-    final publishedWeek = payload['attendanceWeekStart'] as String? ?? '';
-    if (publishedWeek != mondayIso) return const [];
+    final todayIso = _isoDate(today);
+    final generatedOn = payload['planningGeneratedOn'] as String? ?? '';
+    final published = _mapList(payload['planningOccurrences']);
+    if (generatedOn == todayIso && published.isNotEmpty) {
+      return _publishedPlanningOccurrences(
+        membership: membership,
+        rawOccurrences: published,
+      );
+    }
+    return _rebuildPlanningOccurrences(
+      membership: membership,
+      payload: payload,
+      today: today,
+    );
+  }
+
+  List<TeacherLessonPlanOccurrenceOption> _publishedPlanningOccurrences({
+    required SchoolMembership membership,
+    required List<Map<String, Object?>> rawOccurrences,
+  }) {
+    final result = <TeacherLessonPlanOccurrenceOption>[];
+    for (final raw in rawOccurrences) {
+      final parsed = _parseOccurrence(raw, membership.id);
+      if (parsed != null) result.add(parsed);
+    }
+    result.sort(_occurrenceOrder);
+    return result;
+  }
+
+  List<TeacherLessonPlanOccurrenceOption> _rebuildPlanningOccurrences({
+    required SchoolMembership membership,
+    required Map<String, Object?> payload,
+    required DateTime today,
+  }) {
+    final horizon = payload['planningHorizonDays'] as int? ?? 21;
+    final end = today.add(Duration(days: horizon > 0 ? horizon - 1 : 20));
+    final entries = _mapList(payload['entries']);
+    final overrides = _mapList(payload['overrides']);
+    final overrideByOccurrence = <String, Map<String, Object?>>{};
+    for (final override in overrides) {
+      final entryId = override['timetableEntryId'] as String? ?? '';
+      final lessonDate = override['lessonDate'] as String? ?? '';
+      if (entryId.isNotEmpty && lessonDate.isNotEmpty) {
+        overrideByOccurrence['$entryId|$lessonDate'] = override;
+      }
+    }
 
     final result = <TeacherLessonPlanOccurrenceOption>[];
-    for (final raw in _mapList(payload['attendanceOccurrences'])) {
-      if ((raw['effectiveTeacherId'] as String? ??
-              raw['teacherId'] as String? ??
-              '') !=
-          membership.id) {
+    final included = <String>{};
+    final entryIds = <String>{};
+    for (final entry in entries) {
+      final entryId = entry['id'] as String? ?? '';
+      final weekday = entry['dayOfWeek'] as int? ?? 0;
+      final termStart = DateTime.tryParse(entry['termStartsOn'] as String? ?? '');
+      final termEnd = DateTime.tryParse(entry['termEndsOn'] as String? ?? '');
+      if (entryId.isEmpty || weekday < 1 || weekday > 7 || termStart == null || termEnd == null) {
         continue;
       }
-      if (raw['occurrenceStatus'] == 'cancelled' || raw['status'] == 'cancelled') {
+      entryIds.add(entryId);
+      var date = today;
+      while (!date.isAfter(end)) {
+        if (date.weekday == weekday && !date.isBefore(termStart) && !date.isAfter(termEnd)) {
+          final dateIso = _isoDate(date);
+          final override = overrideByOccurrence['$entryId|$dateIso'];
+          if (override?['status'] != 'cancelled' && override?['isCancelled'] != true) {
+            final effectiveTeacher = override?['teacherId'] as String? ??
+                entry['teacherId'] as String? ??
+                membership.id;
+            if (effectiveTeacher == membership.id) {
+              final rawLesson = override?['lesson'];
+              final source = rawLesson is Map
+                  ? Map<String, Object?>.from(rawLesson)
+                  : Map<String, Object?>.from(entry);
+              source['id'] = entryId;
+              source['lessonDate'] = dateIso;
+              source['teacherId'] = membership.id;
+              source['effectiveTeacherId'] = membership.id;
+              source['room'] = override?['room'] as String? ??
+                  source['room'] as String? ??
+                  '';
+              final parsed = _parseOccurrence(source, membership.id);
+              if (parsed != null && included.add(parsed.id)) result.add(parsed);
+            }
+          }
+        }
+        date = date.add(const Duration(days: 1));
+      }
+    }
+
+    // Future substitution into this Teacher can exist even when the base entry
+    // is not part of their recurring assignment list.
+    for (final override in overrides) {
+      if (override['teacherId'] != membership.id ||
+          override['status'] != 'substitution' ||
+          override['isCancelled'] == true) {
         continue;
       }
-      final topics = <TeacherLessonPlanTopicOption>[];
-      for (final topic in _mapList(raw['topics'])) {
-        final id = topic['id'] as String? ?? '';
-        if (id.isEmpty) continue;
-        topics.add(
-          TeacherLessonPlanTopicOption(
-            id: id,
-            title: topic['title'] as String? ?? '',
-            sequence: topic['sequence'] as int? ?? 1,
-          ),
-        );
-      }
-      final date = raw['lessonDate'] as String? ?? '';
-      final entryId = raw['id'] as String? ?? '';
-      final classSubjectId = raw['classSubjectId'] as String? ?? '';
-      if (date.isEmpty || entryId.isEmpty || classSubjectId.isEmpty || topics.isEmpty) {
+      final entryId = override['timetableEntryId'] as String? ?? '';
+      final date = DateTime.tryParse(override['lessonDate'] as String? ?? '');
+      if (entryId.isEmpty || date == null || date.isBefore(today) || date.isAfter(end)) {
         continue;
       }
-      result.add(
-        TeacherLessonPlanOccurrenceOption(
-          timetableEntryId: entryId,
-          lessonDate: date,
-          classSubjectId: classSubjectId,
-          termId: raw['termId'] as String? ?? '',
-          className: raw['className'] as String? ?? '',
-          subject: raw['subject'] as String? ?? '',
-          time: raw['time'] as String? ?? '',
-          room: raw['room'] as String? ?? '',
-          periodNumber: raw['periodNumber'] as int? ?? 0,
-          topics: topics,
+      final rawLesson = override['lesson'];
+      if (rawLesson is! Map) continue;
+      final source = Map<String, Object?>.from(rawLesson);
+      source['id'] = entryId;
+      source['lessonDate'] = _isoDate(date);
+      source['teacherId'] = membership.id;
+      source['effectiveTeacherId'] = membership.id;
+      source['room'] = override['room'] as String? ?? source['room'] as String? ?? '';
+      final parsed = _parseOccurrence(source, membership.id);
+      if (parsed != null && included.add(parsed.id)) result.add(parsed);
+    }
+
+    result.sort(_occurrenceOrder);
+    return result;
+  }
+
+  TeacherLessonPlanOccurrenceOption? _parseOccurrence(
+    Map<String, Object?> raw,
+    String membershipId,
+  ) {
+    final effectiveTeacher = raw['effectiveTeacherId'] as String? ??
+        raw['teacherId'] as String? ??
+        '';
+    if (effectiveTeacher != membershipId) return null;
+    if (raw['occurrenceStatus'] == 'cancelled' || raw['status'] == 'cancelled') {
+      return null;
+    }
+    final topics = <TeacherLessonPlanTopicOption>[];
+    for (final topic in _mapList(raw['topics'])) {
+      final id = topic['id'] as String? ?? '';
+      if (id.isEmpty) continue;
+      topics.add(
+        TeacherLessonPlanTopicOption(
+          id: id,
+          title: topic['title'] as String? ?? '',
+          sequence: topic['sequence'] as int? ?? 1,
         ),
       );
     }
-    result.sort((a, b) {
-      final byDate = a.lessonDate.compareTo(b.lessonDate);
-      if (byDate != 0) return byDate;
-      final byTime = a.time.compareTo(b.time);
-      if (byTime != 0) return byTime;
-      return a.className.compareTo(b.className);
-    });
-    return result;
+    final date = raw['lessonDate'] as String? ?? '';
+    final entryId = raw['id'] as String? ?? '';
+    final classSubjectId = raw['classSubjectId'] as String? ?? '';
+    if (date.isEmpty || entryId.isEmpty || classSubjectId.isEmpty || topics.isEmpty) {
+      return null;
+    }
+    return TeacherLessonPlanOccurrenceOption(
+      timetableEntryId: entryId,
+      lessonDate: date,
+      classSubjectId: classSubjectId,
+      termId: raw['termId'] as String? ?? '',
+      className: raw['className'] as String? ?? '',
+      subject: raw['subject'] as String? ?? '',
+      time: raw['time'] as String? ?? '',
+      room: raw['room'] as String? ?? '',
+      periodNumber: raw['periodNumber'] as int? ?? 0,
+      topics: topics,
+    );
   }
 
   Future<TeacherLessonPlanActionResult> createPlan({
@@ -211,6 +313,12 @@ class TeacherLessonPlanRepository {
     required TeacherLessonPlanTopicOption topic,
   }) async {
     final membership = _session.requireActiveMembership();
+    if (!LocalDatabase.blockDemoSeeds) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'Canonical occurrence plans require a server-backed timetable.',
+      );
+    }
     if (!permissionsFor(membership).canEditDrafts) {
       return const TeacherLessonPlanActionResult(
         success: false,
@@ -278,21 +386,26 @@ class TeacherLessonPlanRepository {
     final membership = _session.requireActiveMembership();
     final current = await _readPlan(membership, plan.id);
     if (current == null) {
-      return const TeacherLessonPlanActionResult(success: false, message: 'Lesson plan not found.');
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'Lesson plan not found.',
+      );
     }
     if (!current.teacherEditable) {
       return TeacherLessonPlanActionResult(
         success: false,
-        message: '${teacherLessonPlanStatusLabel(current.status)} plans are locked for Teacher editing.',
+        message:
+            '${teacherLessonPlanStatusLabel(current.status)} plans are locked for Teacher editing.',
         plan: current,
       );
     }
+    final demo = !LocalDatabase.blockDemoSeeds;
     final next = plan.copyWith(
       status: current.status == TeacherLessonPlanStatus.needsChanges
           ? TeacherLessonPlanStatus.needsChanges
           : TeacherLessonPlanStatus.draft,
-      updatedLabel: 'Draft saved locally · sync pending',
-      pendingSync: true,
+      updatedLabel: demo ? 'Draft saved in demo' : 'Draft saved locally · sync pending',
+      pendingSync: !demo,
     );
     await _writePlan(
       membership: membership,
@@ -302,7 +415,9 @@ class TeacherLessonPlanRepository {
     );
     return TeacherLessonPlanActionResult(
       success: true,
-      message: 'Draft saved locally and queued. Canonical plan metadata stays server-controlled.',
+      message: demo
+          ? 'Demo lesson-plan draft saved locally.'
+          : 'Draft saved locally and queued. Canonical plan metadata stays server-controlled.',
       plan: next,
     );
   }
@@ -313,7 +428,10 @@ class TeacherLessonPlanRepository {
     final membership = _session.requireActiveMembership();
     final current = await _readPlan(membership, plan.id);
     if (current == null) {
-      return const TeacherLessonPlanActionResult(success: false, message: 'Lesson plan not found.');
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'Lesson plan not found.',
+      );
     }
     if (!current.teacherEditable) {
       return TeacherLessonPlanActionResult(
@@ -329,9 +447,31 @@ class TeacherLessonPlanRepository {
         plan.assessment.trim().isEmpty) {
       return const TeacherLessonPlanActionResult(
         success: false,
-        message: 'Add learning objectives, teaching activities and assessment evidence before submission.',
+        message:
+            'Add learning objectives, teaching activities and assessment evidence before submission.',
       );
     }
+
+    if (!LocalDatabase.blockDemoSeeds) {
+      final submitted = plan.copyWith(
+        status: TeacherLessonPlanStatus.submitted,
+        updatedLabel: 'Submitted in demo',
+        pendingSync: false,
+        clearReview: true,
+      );
+      await _writePlan(
+        membership: membership,
+        plan: submitted,
+        action: 'submit',
+        operation: SyncOperation.update,
+      );
+      return TeacherLessonPlanActionResult(
+        success: true,
+        message: 'Demo lesson plan marked submitted locally.',
+        plan: submitted,
+      );
+    }
+
     final queued = plan.copyWith(
       status: TeacherLessonPlanStatus.queuedSubmission,
       updatedLabel: 'Submission queued · awaiting server acknowledgement',
@@ -346,7 +486,8 @@ class TeacherLessonPlanRepository {
     );
     return TeacherLessonPlanActionResult(
       success: true,
-      message: 'Lesson plan submission queued. It is not submitted or approved until the server acknowledges it.',
+      message:
+          'Lesson plan submission queued. It is not submitted or approved until the server acknowledges it.',
       plan: queued,
     );
   }
@@ -356,7 +497,8 @@ class TeacherLessonPlanRepository {
     required String reflection,
     required String homework,
     required bool topicCompleted,
-  }) => _writeDelivery(
+  }) =>
+      _writeDelivery(
         plan: plan,
         reflection: reflection,
         homework: homework,
@@ -369,7 +511,8 @@ class TeacherLessonPlanRepository {
     required String reflection,
     required String homework,
     required bool topicCompleted,
-  }) => _writeDelivery(
+  }) =>
+      _writeDelivery(
         plan: plan,
         reflection: reflection,
         homework: homework,
@@ -384,6 +527,12 @@ class TeacherLessonPlanRepository {
     required bool topicCompleted,
     required bool deliver,
   }) async {
+    if (!LocalDatabase.blockDemoSeeds) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'Canonical lesson delivery is available only in server-backed mode.',
+      );
+    }
     final membership = _session.requireActiveMembership();
     if (!plan.canonicalApproved) {
       return const TeacherLessonPlanActionResult(
@@ -397,10 +546,12 @@ class TeacherLessonPlanRepository {
     if (date == null || date.isAfter(today)) {
       return const TeacherLessonPlanActionResult(
         success: false,
-        message: 'Lesson delivery can be recorded only on or after the scheduled lesson date.',
+        message:
+            'Lesson delivery can be recorded only on or after the scheduled lesson date.',
       );
     }
-    if (plan.effectiveTeacherId.isNotEmpty && plan.effectiveTeacherId != membership.id) {
+    if (plan.effectiveTeacherId.isNotEmpty &&
+        plan.effectiveTeacherId != membership.id) {
       return const TeacherLessonPlanActionResult(
         success: false,
         message: 'This occurrence is no longer assigned to your Teacher membership.',
@@ -496,14 +647,16 @@ class TeacherLessonPlanRepository {
       entityType: planType,
       entityId: plan.id,
     );
+    final connected = LocalDatabase.blockDemoSeeds;
     await _db.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: planType,
       entityId: plan.id,
       payload: plan.toLocalJson(),
       serverVersion: existing?.serverVersion,
-      isDirty: true,
+      isDirty: connected,
     );
+    if (!connected) return;
     await _db.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
@@ -515,7 +668,9 @@ class TeacherLessonPlanRepository {
     );
   }
 
-  Future<TeacherLessonPlanSnapshot> _loadDemo(SchoolMembership membership) async {
+  Future<TeacherLessonPlanSnapshot> _loadDemo(
+    SchoolMembership membership,
+  ) async {
     final records = await _db.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: planType,
@@ -566,6 +721,17 @@ class TeacherLessonPlanRepository {
 
   String _isoDate(DateTime value) =>
       '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  int _occurrenceOrder(
+    TeacherLessonPlanOccurrenceOption a,
+    TeacherLessonPlanOccurrenceOption b,
+  ) {
+    final byDate = a.lessonDate.compareTo(b.lessonDate);
+    if (byDate != 0) return byDate;
+    final byTime = a.time.compareTo(b.time);
+    if (byTime != 0) return byTime;
+    return a.className.compareTo(b.className);
+  }
 
   int _planOrder(TeacherLessonPlan a, TeacherLessonPlan b) {
     final byDate = b.lessonDate.compareTo(a.lessonDate);
