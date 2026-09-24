@@ -1,7 +1,8 @@
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
-import '../../administrator/data/administrator_attendance_desk.dart' show sectionOfClass;
+import '../../administrator/data/administrator_attendance_desk.dart'
+    show sectionOfClass;
 import '../../administrator/data/administrator_attendance_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_students_models.dart';
@@ -11,9 +12,15 @@ import '../domain/parent_children_models.dart';
 const _notRecorded = 'Not recorded yet';
 
 String _initialsOf(String name) {
-  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
   if (parts.isEmpty) return '';
-  return parts.length == 1 ? parts.first[0].toUpperCase() : (parts.first[0] + parts.last[0]).toUpperCase();
+  return parts.length == 1
+      ? parts.first[0].toUpperCase()
+      : (parts.first[0] + parts.last[0]).toUpperCase();
 }
 
 class ParentChildrenRepository {
@@ -23,19 +30,16 @@ class ParentChildrenRepository {
     required AdministratorStudentsRepository students,
     required AdministratorAttendanceRepository attendance,
     required FinanceLedgerRepository ledger,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession,
-        _students = students,
-        _attendance = attendance,
-        _ledger = ledger;
+  }) : _localDatabase = localDatabase,
+       _schoolSession = schoolSession,
+       _students = students,
+       _attendance = attendance,
+       _ledger = ledger;
 
-  /// Which real students are linked to a guardian family account. There is no real guardian
-  /// onboarding/linking workflow anywhere in the app yet, so this starts from a fixed seed —
-  /// the same "a real workflow will replace this seed later" pattern used for Admissions and
-  /// Registration — but every field about the linked child below is computed live from the
-  /// real student, attendance and finance registers, not invented.
+  /// Server-connected schools receive a private family-link record whose entity
+  /// id is the Parent membership id. Standalone demo mode keeps the old fixed
+  /// sample links. A real parent account never falls back to those demo pupils.
   static const _linkEntityType = 'parent_family_link';
-  static const _linkId = 'link';
   static const _seedChildIds = ['STU-001', 'PRI-003'];
 
   final LocalDatabase _localDatabase;
@@ -48,15 +52,24 @@ class ParentChildrenRepository {
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
       entityType: _linkEntityType,
-      entityId: _linkId,
+      entityId: membership.id,
     );
     if (existing != null) {
-      return List<String>.from(existing.payload['childIds'] as List? ?? _seedChildIds);
+      return List<String>.from(
+        existing.payload['childIds'] as List? ?? const <String>[],
+      );
     }
+
+    if (LocalDatabase.blockDemoSeeds) {
+      // The sync round may still be downloading the server-generated family
+      // link. Empty is safer than showing somebody else's demo children.
+      return const [];
+    }
+
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: _linkEntityType,
-      entityId: _linkId,
+      entityId: membership.id,
       payload: {'childIds': _seedChildIds},
     );
     return _seedChildIds;
@@ -73,41 +86,50 @@ class ParentChildrenRepository {
     final children = <ParentLinkedChild>[];
     for (final id in childIds) {
       AdministratorStudentRecord? student;
-      for (final s in register) {
-        if (s.id == id) {
-          student = s;
+      for (final candidate in register) {
+        if (candidate.id == id) {
+          student = candidate;
           break;
         }
       }
       if (student == null) continue;
 
-      final account = accounts.where((a) => a.student.id == id).firstOrNull;
+      final account = accounts.where((item) => item.student.id == id).firstOrNull;
       final todayEvent = attendanceSnapshot.events
-          .where((e) => !e.isUnknown && key(e.student) == key(student!.name))
+          .where(
+            (event) =>
+                !event.isUnknown && key(event.student) == key(student!.name),
+          )
           .firstOrNull;
-      final attendanceLabel = todayEvent == null ? _notRecorded : (todayEvent.countsAsPresent ? 'Present today' : todayEvent.status.label);
+      final attendanceLabel = todayEvent == null
+          ? _notRecorded
+          : (todayEvent.countsAsPresent
+                ? 'Present today'
+                : todayEvent.status.label);
 
-      children.add(ParentLinkedChild(
-        id: student.id,
-        name: student.name,
-        initials: _initialsOf(student.name),
-        className: student.className,
-        section: sectionOfClass(student.className),
-        admissionNumber: _notRecorded,
-        classTeacher: _notRecorded,
-        attendanceLabel: attendanceLabel,
-        learningLabel: _notRecorded,
-        house: _notRecorded,
-        currentBalance: account?.balance ?? 0,
-        transport: _notRecorded,
-        paymentAccount: _notRecorded,
-        paymentPlan: _notRecorded,
-        activities: _notRecorded,
-        subjects: const [],
-        timeline: const [],
-        active: student.status == AdministratorStudentStatus.active,
-        presentToday: todayEvent?.countsAsPresent ?? false,
-      ));
+      children.add(
+        ParentLinkedChild(
+          id: student.id,
+          name: student.name,
+          initials: _initialsOf(student.name),
+          className: student.className,
+          section: sectionOfClass(student.className),
+          admissionNumber: _notRecorded,
+          classTeacher: _notRecorded,
+          attendanceLabel: attendanceLabel,
+          learningLabel: _notRecorded,
+          house: _notRecorded,
+          currentBalance: account?.balance ?? 0,
+          transport: _notRecorded,
+          paymentAccount: _notRecorded,
+          paymentPlan: _notRecorded,
+          activities: _notRecorded,
+          subjects: const [],
+          timeline: const [],
+          active: student.status == AdministratorStudentStatus.active,
+          presentToday: todayEvent?.countsAsPresent ?? false,
+        ),
+      );
     }
 
     return ParentChildrenSnapshot(
@@ -132,8 +154,7 @@ class ParentChildrenRepository {
     );
   }
 
-  /// With a school server, the family's real linked-child list and confirmed identity details
-  /// arrive this way instead of the local seed.
+  /// Stores a server-confirmed family link under the active Parent membership.
   Future<void> replaceLinkedChildren({
     required List<String> childIds,
   }) async {
@@ -141,13 +162,15 @@ class ParentChildrenRepository {
     final ids = <String>{};
     for (final id in childIds) {
       if (id.trim().isEmpty || !ids.add(id)) {
-        throw StateError('Server family payload contains an invalid linked child id.');
+        throw StateError(
+          'Server family payload contains an invalid linked child id.',
+        );
       }
     }
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: _linkEntityType,
-      entityId: _linkId,
+      entityId: membership.id,
       payload: {'childIds': childIds},
       isDirty: false,
     );
@@ -156,7 +179,9 @@ class ParentChildrenRepository {
   SchoolMembership _requireParentMembership() {
     final membership = _schoolSession.requireActiveMembership();
     if (membership.role != SchoolRole.parent) {
-      throw StateError('Linked family records require an active Parent membership.');
+      throw StateError(
+        'Linked family records require an active Parent membership.',
+      );
     }
     return membership;
   }
