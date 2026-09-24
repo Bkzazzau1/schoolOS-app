@@ -138,7 +138,9 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
           subject: register.lesson.subject.isEmpty
               ? occurrenceLesson.subject
               : register.lesson.subject,
-          time: register.lesson.time.isEmpty ? occurrenceLesson.time : register.lesson.time,
+          time: register.lesson.time.isEmpty
+              ? occurrenceLesson.time
+              : register.lesson.time,
           room: occurrenceLesson.room,
           periodNumber: register.lesson.periodNumber == 0
               ? occurrenceLesson.periodNumber
@@ -163,9 +165,8 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     );
   }
 
-  Future<Map<String, List<TeacherAttendanceTopicOption>>> _topicOptionsByClassSubject(
-    SchoolMembership membership,
-  ) async {
+  Future<Map<String, List<TeacherAttendanceTopicOption>>>
+      _topicOptionsByClassSubject(SchoolMembership membership) async {
     final classes = await _roster.assignedClasses(membership);
     return {
       for (final assigned in classes)
@@ -186,7 +187,8 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     final overrides = _mapList(schedule['overrides']);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final weekStart = today.subtract(Duration(days: today.weekday - DateTime.monday));
+    final weekStart =
+        today.subtract(Duration(days: today.weekday - DateTime.monday));
     final overrideByOccurrence = <String, Map<String, Object?>>{};
     for (final override in overrides) {
       final entryId = override['timetableEntryId'] as String? ?? '';
@@ -209,10 +211,13 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
       if (date.isAfter(today)) continue;
       final dateIso = _isoDate(date);
       final override = overrideByOccurrence['$entryId|$dateIso'];
-      if (override?['status'] == 'cancelled' || override?['isCancelled'] == true) continue;
+      if (override?['status'] == 'cancelled' ||
+          override?['isCancelled'] == true) {
+        continue;
+      }
       final effectiveTeacher = override?['teacherId'] as String? ??
           entry['teacherId'] as String? ??
-          membership.id;
+          '';
       if (effectiveTeacher != membership.id) continue;
       final source = override?['lesson'] is Map
           ? Map<String, Object?>.from(override!['lesson'] as Map)
@@ -230,13 +235,16 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     // A substitute Teacher receives the override even when the base recurring
     // entry is not part of their own assignment payload.
     for (final override in overrides) {
-      if (override['teacherId'] != membership.id || override['status'] != 'substitution') {
+      if (override['teacherId'] != membership.id ||
+          override['status'] != 'substitution') {
         continue;
       }
       final entryId = override['timetableEntryId'] as String? ?? '';
       if (baseEntryIds.contains(entryId)) continue;
       final date = DateTime.tryParse(override['lessonDate'] as String? ?? '');
-      if (date == null || date.isBefore(weekStart) || date.isAfter(today)) continue;
+      if (date == null || date.isBefore(weekStart) || date.isAfter(today)) {
+        continue;
+      }
       final rawLesson = override['lesson'];
       if (rawLesson is! Map) continue;
       final source = Map<String, Object?>.from(rawLesson);
@@ -262,7 +270,7 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     required Map<String, List<TeacherAttendanceTopicOption>> topicOptions,
   }) {
     final classSubjectId = source['classSubjectId'] as String? ?? '';
-    final eligible = _mapList(source['eligibleStudents']);
+    final eligible = _eligibleForOccurrence(source, lessonDate);
     final registerId = _registerId(entryId, lessonDate);
     return TeacherAttendanceRegister(
       lesson: TeacherAttendanceLesson(
@@ -293,6 +301,18 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
       ],
       submissionState: TeacherAttendanceSubmissionState.draft,
     );
+  }
+
+  List<Map<String, Object?>> _eligibleForOccurrence(
+    Map<String, Object?> source,
+    String lessonDate,
+  ) {
+    final rawByDate = source['eligibleStudentsByDate'];
+    if (rawByDate is Map) {
+      final dated = rawByDate[lessonDate];
+      if (dated != null) return _mapList(dated);
+    }
+    return _mapList(source['eligibleStudents']);
   }
 
   TeacherAttendanceRegister _reconcileDraftRoster(
@@ -326,10 +346,13 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
         mutate: (register) => register.copyWith(
           entries: [
             for (final entry in register.entries)
-              entry.studentId == studentId ? entry.copyWith(status: status) : entry,
+              entry.studentId == studentId
+                  ? entry.copyWith(status: status)
+                  : entry,
           ],
         ),
-        successMessage: 'Attendance status saved locally and queued for synchronization.',
+        successMessage:
+            'Attendance status saved locally and queued for synchronization.',
       );
 
   @override
@@ -346,7 +369,8 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
               entry.studentId == studentId ? entry.copyWith(note: note) : entry,
           ],
         ),
-        successMessage: 'Attendance note saved locally and queued for synchronization.',
+        successMessage:
+            'Attendance note saved locally and queued for synchronization.',
       );
 
   @override
@@ -357,7 +381,8 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
       _editRegister(
         lessonId: lessonId,
         mutate: (register) {
-          final selected = register.lesson.topicOptions.where((item) => item.id == topicId);
+          final selected =
+              register.lesson.topicOptions.where((item) => item.id == topicId);
           final title = selected.isEmpty ? '' : selected.first.title;
           return register.copyWith(
             lesson: register.lesson.copyWith(topicId: topicId, topic: title),
@@ -380,7 +405,8 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
               entry.copyWith(status: TeacherAttendanceStatus.present),
           ],
         ),
-        successMessage: 'All eligible students marked present locally. Review before submitting.',
+        successMessage:
+            'All eligible students marked present locally. Review before submitting.',
       );
 
   @override
@@ -399,45 +425,73 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
         message: 'Attendance register not found.',
       );
     }
+    if (register.submissionState == TeacherAttendanceSubmissionState.queued) {
+      return TeacherAttendanceActionResult(
+        success: false,
+        message:
+            'This attendance submission is already queued and is waiting for server acknowledgement.',
+        register: register,
+      );
+    }
     if (register.submissionState == TeacherAttendanceSubmissionState.submitted) {
       return TeacherAttendanceActionResult(
         success: false,
-        message: 'This occurrence has already been submitted. Later changes require an audited correction workflow.',
+        message:
+            'This occurrence is canonically submitted. Later changes require an audited correction workflow.',
         register: register,
       );
     }
     if (register.entries.isEmpty) {
       return TeacherAttendanceActionResult(
         success: false,
-        message: 'This lesson has no canonical subject-eligible students to submit.',
+        message:
+            'This lesson has no canonical subject-eligible students to submit.',
         register: register,
       );
     }
     if (register.unmarkedCount > 0) {
       return TeacherAttendanceActionResult(
         success: false,
-        message: '${register.unmarkedCount} eligible student(s) are still unmarked. Give every student an explicit status before submission.',
+        message:
+            '${register.unmarkedCount} eligible student(s) are still unmarked. Give every student an explicit status before submission.',
         register: register,
       );
     }
 
-    final submitted = register.copyWith(
-      submissionState: TeacherAttendanceSubmissionState.submitted,
-      submittedAt: DateTime.now().toUtc().toIso8601String(),
-      submittedByMembershipId: membership.id,
+    if (!LocalDatabase.blockDemoSeeds) {
+      final submitted = register.copyWith(
+        submissionState: TeacherAttendanceSubmissionState.submitted,
+        submittedAt: DateTime.now().toUtc().toIso8601String(),
+        submittedByMembershipId: membership.id,
+        pendingSync: false,
+      );
+      await _persistAndQueue(membership, submitted);
+      return TeacherAttendanceActionResult(
+        success: true,
+        message: 'Demo attendance marked submitted locally.',
+        register: submitted,
+      );
+    }
+
+    final queued = register.copyWith(
+      submissionState: TeacherAttendanceSubmissionState.queued,
       pendingSync: true,
+      clearSubmission: true,
     );
-    await _persistAndQueue(membership, submitted);
+    await _persistAndQueue(membership, queued);
     return TeacherAttendanceActionResult(
       success: true,
-      message: 'Subject attendance submitted locally and queued. It becomes canonical only after server acknowledgement.',
-      register: submitted,
+      message:
+          'Attendance submission queued. It is not canonical until the server acknowledges it.',
+      register: queued,
     );
   }
 
   Future<TeacherAttendanceActionResult> _editRegister({
     required String lessonId,
-    required TeacherAttendanceRegister Function(TeacherAttendanceRegister register) mutate,
+    required TeacherAttendanceRegister Function(
+      TeacherAttendanceRegister register,
+    ) mutate,
     required String successMessage,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
@@ -454,10 +508,12 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
         message: 'Attendance register not found.',
       );
     }
-    if (register.submissionState == TeacherAttendanceSubmissionState.submitted) {
+    if (register.submissionState != TeacherAttendanceSubmissionState.draft) {
       return TeacherAttendanceActionResult(
         success: false,
-        message: 'Submitted attendance is locked. Use an audited correction workflow for later changes.',
+        message: register.submissionState == TeacherAttendanceSubmissionState.queued
+            ? 'Submission is queued and locked locally while server acknowledgement is pending.'
+            : 'Canonical submitted attendance is locked. Use an audited correction workflow for later changes.',
         register: register,
       );
     }
@@ -521,7 +577,9 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     );
   }
 
-  Future<TeacherAttendanceSnapshot> _loadDemo(SchoolMembership membership) async {
+  Future<TeacherAttendanceSnapshot> _loadDemo(
+    SchoolMembership membership,
+  ) async {
     final registers = <TeacherAttendanceRegister>[];
     for (final lesson in teacherAttendanceLessons) {
       final existing = await _localDatabase.getLocalRecord(
@@ -571,7 +629,8 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
 
   String _weekLabel(DateTime value) {
     final today = DateTime(value.year, value.month, value.day);
-    final start = today.subtract(Duration(days: today.weekday - DateTime.monday));
+    final start =
+        today.subtract(Duration(days: today.weekday - DateTime.monday));
     final end = start.add(const Duration(days: 6));
     return '${_shortDate(start)}–${_shortDate(end)}';
   }
@@ -579,7 +638,10 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
   String _shortDate(DateTime value) =>
       '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
 
-  int _registerOrder(TeacherAttendanceRegister a, TeacherAttendanceRegister b) {
+  int _registerOrder(
+    TeacherAttendanceRegister a,
+    TeacherAttendanceRegister b,
+  ) {
     final byDate = b.lesson.lessonDate.compareTo(a.lesson.lessonDate);
     if (byDate != 0) return byDate;
     final byTime = a.lesson.time.compareTo(b.lesson.time);
