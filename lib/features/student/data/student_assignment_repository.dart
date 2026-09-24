@@ -340,16 +340,16 @@ class StudentAssignmentRepository {
   }
 
   String _submissionId(SchoolMembership membership, String assignmentId) {
-    final hash = _fnv1a64(assignmentId);
+    final hash = _fnv1a32(assignmentId);
     return 'sub-${membership.id}-$hash';
   }
 
-  String _fnv1a64(String value) {
-    var hash = 0xcbf29ce484222325;
+  String _fnv1a32(String value) {
+    var hash = 0x811c9dc5;
     for (final unit in value.codeUnits) {
       hash ^= unit;
-      hash = (hash * 0x100000001b3) & 0xffffffffffffffff;
+      hash = (hash * 0x01000193) & 0xffffffff;
     }
-    return hash.toRadixString(16).padLeft(16, '0');
+    return hash.toRadixString(16).padLeft(8, '0');
   }
 }
