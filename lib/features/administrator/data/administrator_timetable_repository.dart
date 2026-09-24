@@ -79,7 +79,7 @@ class AdministratorTimetableRepository {
     for (final record in entryRecords) {
       final payload = Map<String, Object?>.from(record.payload);
       final termId = payload['termId'] as String? ?? '';
-      if (activeTerm != null && termId != activeTerm.id) continue;
+      if (activeTerm == null || termId != activeTerm.id) continue;
       final classSubjectId = payload['classSubjectId'] as String? ?? '';
       final requirement = curriculumById[classSubjectId];
       if (requirement == null && record.isDirty) continue;
@@ -114,19 +114,21 @@ class AdministratorTimetableRepository {
       return a.className.compareTo(b.className);
     });
 
+    final activeEntryIds = {for (final entry in entries) entry.id};
     final overrideRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: overrideEntityType,
     );
-    final overrides = overrideRecords
-        .map(
-          (record) => AdministratorTimetableOverride.fromJson(
-            record.payload,
-            pendingSync: record.isDirty,
-          ),
-        )
-        .toList(growable: false)
-      ..sort((a, b) => a.lessonDate.compareTo(b.lessonDate));
+    final overrides = <AdministratorTimetableOverride>[];
+    for (final record in overrideRecords) {
+      final override = AdministratorTimetableOverride.fromJson(
+        record.payload,
+        pendingSync: record.isDirty,
+      );
+      if (!activeEntryIds.contains(override.timetableEntryId)) continue;
+      overrides.add(override);
+    }
+    overrides.sort((a, b) => a.lessonDate.compareTo(b.lessonDate));
 
     return AdministratorTimetableSnapshot(
       activeTerm: activeTerm,
