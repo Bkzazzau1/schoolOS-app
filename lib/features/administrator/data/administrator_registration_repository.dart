@@ -42,6 +42,9 @@ class AdministratorRegistrationRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
+  SchoolMembership get activeMembership =>
+      _schoolSession.requireActiveMembership();
+
   RegistrationPermissions permissionsFor(SchoolMembership membership) {
     return RegistrationPermissions(
       canRegisterStudent: membership.role == SchoolRole.administrator,
