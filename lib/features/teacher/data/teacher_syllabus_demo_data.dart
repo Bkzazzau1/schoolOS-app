@@ -48,23 +48,18 @@ const teacherSyllabusRows = <TeacherSyllabusRow>[
   TeacherSyllabusRow(className: 'SS1A', week: 8, topic: 'Revision', approvedStatus: TeacherSyllabusStatus.upcoming, plannedLessons: 2),
 ];
 
-String teacherSyllabusNextTopic(String className) => switch (className) {
-      'JSS 2A' || 'JSS 2B' => 'Word Problems',
-      'JSS 3A' => 'Variation',
-      'SS1A' => 'Graphs',
-      _ => '',
-    };
+// These helpers are presentation hints only. In server-backed schools the real
+// approved topics and progress come from TeacherRoster/TeacherSyllabusRepository,
+// so never infer a specific next topic or pacing claim from these demo constants.
+String teacherSyllabusNextTopic(String className) => 'See approved topics below';
 
-String teacherSyllabusPacingLabel(String className) =>
-    className == 'JSS 2B' ? 'Behind' : 'On track';
+String teacherSyllabusPacingLabel(String className) => 'From reported coverage';
 
-String teacherSyllabusPacingHint(String className) => className == 'JSS 2B'
-    ? '2 lessons behind expected pace'
-    : 'On track with school pacing';
+String teacherSyllabusPacingHint(String className) =>
+    'Pacing is based on the approved topics and teacher reports below.';
 
-String teacherSyllabusAiInsight(String className) => className == 'JSS 2B'
-    ? 'Recent timetable completion suggests the class may remain behind unless one lesson is recovered during the next two weeks. Prioritize core equation-solving skills before moving into word problems.'
-    : 'Current lesson completion and topic updates indicate that this class is broadly aligned with the school scheme of work.';
+String teacherSyllabusAiInsight(String className) =>
+    'Review the approved topic sequence and the teacher-reported completion evidence before planning recovery or acceleration.';
 
 const teacherSyllabusAuthorityBoundary =
     'Teachers may report what has been taught for their assigned classes, but they cannot silently change the school-approved scheme of work. Topic reordering, removal or curriculum replacement requires authorized academic approval.';
