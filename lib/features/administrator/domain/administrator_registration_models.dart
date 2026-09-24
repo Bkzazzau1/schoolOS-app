@@ -42,6 +42,9 @@ class StudentRegistrationRecord {
     this.sourceApplicantReference,
     this.canonicalActive = false,
     this.canonicalStudentId = '',
+    this.credentialsProvisioned = false,
+    this.studentLoginId = '',
+    this.parentLoginId = '',
   });
 
   final String registrationId;
@@ -79,6 +82,12 @@ class StudentRegistrationRecord {
   /// activation. This is the safe identity for future QR/barcode references.
   final String canonicalStudentId;
 
+  /// Server-owned confirmation that Student and Parent login identities and
+  /// memberships were provisioned in the same activation transaction.
+  final bool credentialsProvisioned;
+  final String studentLoginId;
+  final String parentLoginId;
+
   String get fullName => [firstName, otherName, surname]
       .where((part) => part.trim().isNotEmpty)
       .join(' ');
@@ -114,6 +123,9 @@ class StudentRegistrationRecord {
     String? sourceApplicantReference,
     bool? canonicalActive,
     String? canonicalStudentId,
+    bool? credentialsProvisioned,
+    String? studentLoginId,
+    String? parentLoginId,
   }) {
     return StudentRegistrationRecord(
       registrationId: registrationId ?? this.registrationId,
@@ -147,6 +159,10 @@ class StudentRegistrationRecord {
           sourceApplicantReference ?? this.sourceApplicantReference,
       canonicalActive: canonicalActive ?? this.canonicalActive,
       canonicalStudentId: canonicalStudentId ?? this.canonicalStudentId,
+      credentialsProvisioned:
+          credentialsProvisioned ?? this.credentialsProvisioned,
+      studentLoginId: studentLoginId ?? this.studentLoginId,
+      parentLoginId: parentLoginId ?? this.parentLoginId,
     );
   }
 
@@ -178,6 +194,9 @@ class StudentRegistrationRecord {
         'sourceApplicantReference': sourceApplicantReference,
         'canonicalActive': canonicalActive,
         'canonicalStudentId': canonicalStudentId,
+        'credentialsProvisioned': credentialsProvisioned,
+        'studentLoginId': studentLoginId,
+        'parentLoginId': parentLoginId,
       };
 
   factory StudentRegistrationRecord.fromJson(Map<String, Object?> json) {
@@ -216,6 +235,9 @@ class StudentRegistrationRecord {
       sourceApplicantReference: json['sourceApplicantReference'] as String?,
       canonicalActive: json['canonicalActive'] as bool? ?? false,
       canonicalStudentId: json['canonicalStudentId'] as String? ?? '',
+      credentialsProvisioned: json['credentialsProvisioned'] as bool? ?? false,
+      studentLoginId: json['studentLoginId'] as String? ?? '',
+      parentLoginId: json['parentLoginId'] as String? ?? '',
     );
   }
 }
@@ -240,4 +262,4 @@ const registrationQrSafetyBoundary =
     'QR/barcode must use a safe opaque server identifier only. Do not encode date of birth, guardian phone, health information or fee balance directly.';
 
 const registrationActivationBoundary =
-    'Local completion may be queued offline. Canonical Active status and billing begin only after the SchoolOS server accepts registration and creates the active enrollment; finance, transport and meal setup remain separate workflows.';
+    'Local completion may be queued offline. Canonical Active status, login provisioning and billing begin only after the SchoolOS server accepts registration and creates the active enrollment; finance, transport and meal setup remain separate workflows.';
