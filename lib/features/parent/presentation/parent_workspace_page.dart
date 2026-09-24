@@ -23,6 +23,7 @@ import '../../sync_center/presentation/sync_center_page.dart';
 import '../../teacher/presentation/teacher_workspace_page.dart';
 import '../../transport/data/transport_rider_assignment_repository.dart';
 import '../data/parent_ai_repository.dart';
+import '../data/parent_assignments_repository.dart';
 import '../data/parent_attendance_repository.dart';
 import '../data/parent_children_repository.dart';
 import '../data/parent_dashboard_demo_data.dart';
@@ -36,6 +37,7 @@ import '../data/parent_school_life_repository.dart';
 import '../data/parent_weekly_learning_repository.dart';
 import '../domain/parent_dashboard_models.dart';
 import 'parent_ai_page.dart';
+import 'parent_assignments_page.dart';
 import 'parent_attendance_page.dart';
 import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
@@ -72,11 +74,13 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
 
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+  int _assignmentsRefresh = 0;
 
   late final ParentDashboardRepository _dashboardRepository;
   late final ParentChildrenRepository _childrenRepository;
   late final ParentLearningProgressRepository _learningProgressRepository;
   late final ParentWeeklyLearningRepository _weeklyLearningRepository;
+  late final ParentAssignmentsRepository _assignmentsRepository;
   late final ParentAttendanceRepository _attendanceRepository;
   late final ParentFinanceRepository _financeRepository;
   late final ParentMessagesRepository _messagesRepository;
@@ -114,6 +118,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
       children: _childrenRepository,
+    );
+    _assignmentsRepository = ParentAssignmentsRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
     );
     _attendanceRepository = ParentAttendanceRepository(
       localDatabase: widget.localDatabase,
@@ -193,7 +201,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
   }
 
   @override
-  void onSynced() => _refreshPendingCount();
+  void onSynced() {
+    _refreshPendingCount();
+    if (mounted) setState(() => _assignmentsRefresh++);
+  }
 
   void _refreshPendingCount() {
     final count = widget.localDatabase.pendingCount(
@@ -287,6 +298,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
           ),
         'weekly-learning' => ParentWeeklyLearningPage(
             repository: _weeklyLearningRepository,
+          ),
+        'assignments' => ParentAssignmentsPage(
+            key: ValueKey('parent-assignments-$_assignmentsRefresh'),
+            repository: _assignmentsRepository,
           ),
         'attendance' => ParentAttendancePage(
             repository: _attendanceRepository,
@@ -512,6 +527,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
         'children' => Icons.family_restroom_rounded,
         'progress' => Icons.trending_up_rounded,
         'weekly-learning' => Icons.menu_book_outlined,
+        'assignments' => Icons.assignment_outlined,
         'attendance' => Icons.fact_check_outlined,
         'finance' => Icons.account_balance_wallet_outlined,
         'messages' => Icons.mail_outline_rounded,
