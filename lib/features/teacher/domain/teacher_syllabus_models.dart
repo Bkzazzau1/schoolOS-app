@@ -17,14 +17,9 @@ class TeacherSyllabusRow {
   final String topic;
   final TeacherSyllabusStatus approvedStatus;
   final int plannedLessons;
-
-  /// Server-backed rows use the canonical CurriculumTopic UUID. Demo rows keep
-  /// the historic class/week identifier so standalone demo behaviour remains.
   final String canonicalTopicId;
 
-  String get id => canonicalTopicId.isNotEmpty
-      ? canonicalTopicId
-      : '$className-W$week';
+  String get id => canonicalTopicId.isNotEmpty ? canonicalTopicId : '$className-W$week';
 
   bool matches(String query, {TeacherSyllabusStatus? reportedStatus}) {
     final q = query.trim().toLowerCase();
@@ -44,18 +39,17 @@ class TeacherSyllabusRow {
         'plannedLessons': plannedLessons,
       };
 
-  factory TeacherSyllabusRow.fromJson(Map<String, dynamic> json) =>
-      TeacherSyllabusRow(
-        className: json['className'] as String,
-        week: json['week'] as int,
-        topic: json['topic'] as String,
-        approvedStatus: TeacherSyllabusStatus.values.byName(
-          json['approvedStatus'] as String,
+  factory TeacherSyllabusRow.fromJson(Map<String, dynamic> json) => TeacherSyllabusRow(
+        className: json['className'] as String? ?? '',
+        week: json['week'] as int? ?? 1,
+        topic: json['topic'] as String? ?? '',
+        approvedStatus: TeacherSyllabusStatus.values.firstWhere(
+          (item) => item.name == (json['approvedStatus'] as String? ?? ''),
+          orElse: () => TeacherSyllabusStatus.upcoming,
         ),
-        plannedLessons: json['plannedLessons'] as int,
-        canonicalTopicId: json['canonicalTopicId'] as String? ??
-            json['id'] as String? ??
-            '',
+        plannedLessons: json['plannedLessons'] as int? ?? 1,
+        canonicalTopicId:
+            json['canonicalTopicId'] as String? ?? json['id'] as String? ?? '',
       );
 }
 
@@ -68,6 +62,13 @@ class TeacherSyllabusProgressRecord {
     required this.actorMembershipId,
     required this.version,
     required this.updatedAt,
+    this.classSubjectId = '',
+    this.subject = '',
+    this.topic = '',
+    this.termId = '',
+    this.deliveredLessons = 0,
+    this.latestDeliveryDate = '',
+    this.evidenceDeliveryIds = const [],
   });
 
   final String id;
@@ -77,6 +78,13 @@ class TeacherSyllabusProgressRecord {
   final String actorMembershipId;
   final int version;
   final String updatedAt;
+  final String classSubjectId;
+  final String subject;
+  final String topic;
+  final String termId;
+  final int deliveredLessons;
+  final String latestDeliveryDate;
+  final List<String> evidenceDeliveryIds;
 
   Map<String, Object?> toJson() => {
         'id': id,
@@ -86,19 +94,37 @@ class TeacherSyllabusProgressRecord {
         'actorMembershipId': actorMembershipId,
         'version': version,
         'updatedAt': updatedAt,
+        'classSubjectId': classSubjectId,
+        'subject': subject,
+        'topic': topic,
+        'termId': termId,
+        'deliveredLessons': deliveredLessons,
+        'latestDeliveryDate': latestDeliveryDate,
+        'evidenceDeliveryIds': evidenceDeliveryIds,
       };
 
   factory TeacherSyllabusProgressRecord.fromJson(Map<String, dynamic> json) =>
       TeacherSyllabusProgressRecord(
-        id: json['id'] as String,
-        className: json['className'] as String,
-        week: json['week'] as int,
-        reportedStatus: TeacherSyllabusStatus.values.byName(
-          json['reportedStatus'] as String,
+        id: json['id'] as String? ?? '',
+        className: json['className'] as String? ?? '',
+        week: json['week'] as int? ?? 1,
+        reportedStatus: TeacherSyllabusStatus.values.firstWhere(
+          (item) => item.name == (json['reportedStatus'] as String? ?? ''),
+          orElse: () => TeacherSyllabusStatus.inProgress,
         ),
-        actorMembershipId: json['actorMembershipId'] as String,
-        version: json['version'] as int,
-        updatedAt: json['updatedAt'] as String,
+        actorMembershipId: json['actorMembershipId'] as String? ?? '',
+        version: json['version'] as int? ?? 1,
+        updatedAt: json['updatedAt'] as String? ?? '',
+        classSubjectId: json['classSubjectId'] as String? ?? '',
+        subject: json['subject'] as String? ?? '',
+        topic: json['topic'] as String? ?? '',
+        termId: json['termId'] as String? ?? '',
+        deliveredLessons: json['deliveredLessons'] as int? ?? 0,
+        latestDeliveryDate: json['latestDeliveryDate'] as String? ?? '',
+        evidenceDeliveryIds: [
+          for (final item in (json['evidenceDeliveryIds'] as List? ?? const []))
+            if (item is String) item,
+        ],
       );
 }
 
@@ -130,14 +156,15 @@ class TeacherSyllabusProgressEvent {
 
   factory TeacherSyllabusProgressEvent.fromJson(Map<String, dynamic> json) =>
       TeacherSyllabusProgressEvent(
-        id: json['id'] as String,
-        recordId: json['recordId'] as String,
-        action: TeacherSyllabusProgressAction.values.byName(
-          json['action'] as String,
+        id: json['id'] as String? ?? '',
+        recordId: json['recordId'] as String? ?? '',
+        action: TeacherSyllabusProgressAction.values.firstWhere(
+          (item) => item.name == (json['action'] as String? ?? ''),
+          orElse: () => TeacherSyllabusProgressAction.markedInProgress,
         ),
-        actorMembershipId: json['actorMembershipId'] as String,
-        version: json['version'] as int,
-        occurredAt: json['occurredAt'] as String,
+        actorMembershipId: json['actorMembershipId'] as String? ?? '',
+        version: json['version'] as int? ?? 1,
+        occurredAt: json['occurredAt'] as String? ?? '',
       );
 }
 
