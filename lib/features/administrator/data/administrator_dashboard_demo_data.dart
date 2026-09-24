@@ -13,10 +13,16 @@ const administratorQuickActions = <AdministratorQuickAction>[
     description: 'Search and maintain student and guardian records.',
   ),
   AdministratorQuickAction(
+    key: 'academics',
+    title: 'Academic Structure',
+    description:
+        'Manage sessions, terms, class progression routes and end-of-session bulk progression.',
+  ),
+  AdministratorQuickAction(
     key: 'lifecycle',
     title: 'Transfers & Promotion',
     description:
-        'Process transfers, withdrawals, promotion and alumni transitions.',
+        'Process individual transfers, withdrawals, promotion and alumni transitions.',
   ),
   AdministratorQuickAction(
     key: 'records',
@@ -37,6 +43,7 @@ const administratorNavigation = <AdministratorNavItem>[
   AdministratorNavItem(key: 'website', label: 'Website Manager'),
   AdministratorNavItem(key: 'registration', label: 'Student Registration'),
   AdministratorNavItem(key: 'students', label: 'Students & Families'),
+  AdministratorNavItem(key: 'academics', label: 'Academic Structure'),
   AdministratorNavItem(key: 'staff', label: 'Staff Records'),
   AdministratorNavItem(key: 'staff-profiles', label: 'Staff Profiles'),
   AdministratorNavItem(key: 'staff-attendance', label: 'Staff Attendance'),
@@ -48,10 +55,6 @@ const administratorNavigation = <AdministratorNavItem>[
 ];
 
 const administratorAuthorityBoundary =
-    'Administrator manages operational records and workflows. The role can create and maintain operational records and request scholarships or discounts, but cannot finalize academic results, override section leadership, expose confidential payroll, approve safeguarding outcomes, approve a scholarship or discount, or make other proprietor governance decisions.';
+    'Administrator manages operational records and workflows. The role can maintain the academic calendar/class structure and process an academically approved progression batch, but cannot independently decide academic results or progression outcomes, override section leadership, expose confidential payroll, approve safeguarding outcomes, approve a scholarship or discount, or make other proprietor governance decisions.';
 
-// There is no real academic-term calendar or campus/branch record anywhere in the app yet
-// (the same gap found and documented on the Principal role's Profile and Performance screens),
-// so the workspace shell shows a fixed, honest scope label instead of an invented term or
-// campus name.
 const administratorScopeLabel = 'Whole-school administration';
