@@ -97,8 +97,11 @@ class SchoolTransportRoute {
         vehicle: json['vehicle'] as String,
         driver: json['driver'] as String,
         assistant: json['assistant'] as String,
-        riders: json['riders'] as int,
-        stops: json['stops'] as int,
+        // SQLite/JSON round-trips can hand back a num (e.g. a double) instead
+        // of a plain int for these fields, which would throw a runtime
+        // TypeError on a bare `as int` cast.
+        riders: (json['riders'] as num?)?.toInt() ?? 0,
+        stops: (json['stops'] as num?)?.toInt() ?? 0,
         morning: json['morning'] as String,
         afternoon: json['afternoon'] as String,
         status: TransportRouteStatus.values.byName(json['status'] as String),

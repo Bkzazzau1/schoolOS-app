@@ -78,6 +78,9 @@ class TransportRepository {
           entityType: _entityType,
           entityId: route.id,
           payload: route.toJson(),
+          // Explicit for clarity: isDirty already defaults to false, so this
+          // seed write does not enqueue a spurious create/update mutation.
+          isDirty: false,
         );
       }
       records = await _localDatabase.getLocalRecords(
@@ -180,17 +183,28 @@ class TransportRepository {
       afternoonsByRoute.putIfAbsent(run.routeId, () => run);
     }
 
+    // Incidents and vehicle defects are ongoing hazards, not one-day log
+    // entries: an incident still awaiting resolution, or a defect still open
+    // and trip-blocking, is a real condition affecting today's operations
+    // even if it was reported before today. Scoping this aggregation to
+    // serviceDate == today alone silently dropped a still-open item reported
+    // on an earlier day, which could show "0 blocking defects" on today's
+    // control overview for a vehicle that is actually still blocked. Both
+    // loops below aggregate by open/unresolved status instead, regardless of
+    // when the record was originally reported.
     final incidentCounts = <String, int>{};
     final urgentIncidentCounts = <String, int>{};
     for (final record in incidentRecords) {
       final payload = record.payload;
       final routeId = payload['routeId'] as String? ?? '';
-      final serviceDate = payload['serviceDate'] as String? ?? '';
-      if (routeId.isEmpty || serviceDate != today) continue;
+      if (routeId.isEmpty) continue;
+      final status = (payload['status'] as String? ?? '').toLowerCase();
+      final resolved =
+          status == 'resolved' || status == 'closed' || status == 'cleared';
+      if (resolved) continue;
       incidentCounts[routeId] = (incidentCounts[routeId] ?? 0) + 1;
-      final status = payload['status'] as String? ?? '';
       final urgent = payload['requiresImmediateEscalation'] as bool? ?? false;
-      if (urgent && status != 'resolved') {
+      if (urgent) {
         urgentIncidentCounts[routeId] =
             (urgentIncidentCounts[routeId] ?? 0) + 1;
       }
@@ -201,16 +215,16 @@ class TransportRepository {
     for (final record in defectRecords) {
       final payload = record.payload;
       final routeId = payload['routeId'] as String? ?? '';
-      final serviceDate = payload['serviceDate'] as String? ?? '';
-      if (routeId.isEmpty || serviceDate != today) continue;
-      defectCounts[routeId] = (defectCounts[routeId] ?? 0) + 1;
-
+      if (routeId.isEmpty) continue;
       final status = (payload['status'] as String? ?? '').toLowerCase();
       final closed = status == 'cleared' ||
           status == 'resolved' ||
           status == 'closed';
+      if (closed) continue;
+      defectCounts[routeId] = (defectCounts[routeId] ?? 0) + 1;
+
       final blocksTrip = payload['blocksTrip'] as bool? ?? false;
-      if (blocksTrip && !closed) {
+      if (blocksTrip) {
         blockingDefectCounts[routeId] =
             (blockingDefectCounts[routeId] ?? 0) + 1;
       }

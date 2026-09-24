@@ -437,7 +437,14 @@ class TransportVehicleReadinessRepository {
     if (record == null) return;
 
     var nextStatus = route.status;
-    if (clearance == TransportVehicleClearanceStatus.maintenance) {
+    if (clearance == TransportVehicleClearanceStatus.maintenance ||
+        clearance == TransportVehicleClearanceStatus.held) {
+      // The legacy route.status only distinguishes "available" from
+      // "maintenance" (route.isAvailable is `status != maintenance`), so a
+      // held vehicle must also flip the legacy status to maintenance.
+      // Otherwise a held vehicle keeps whatever status it had before
+      // (preparing/arrived/onRoute) and isAvailable stays true, making a
+      // vehicle Transport Control just held still look assignable/available.
       nextStatus = TransportRouteStatus.maintenance;
     } else if (clearance == TransportVehicleClearanceStatus.released &&
         route.status == TransportRouteStatus.maintenance) {
