@@ -106,7 +106,11 @@ class TeacherAttendanceLesson {
     return '$className · $subject$period$date';
   }
 
-  TeacherAttendanceLesson copyWith({String? topicId, String? topic}) =>
+  TeacherAttendanceLesson copyWith({
+    String? topicId,
+    String? topic,
+    List<TeacherAttendanceTopicOption>? topicOptions,
+  }) =>
       TeacherAttendanceLesson(
         id: id,
         timetableEntryId: timetableEntryId,
@@ -120,7 +124,7 @@ class TeacherAttendanceLesson {
         periodNumber: periodNumber,
         topicId: topicId ?? this.topicId,
         topic: topic ?? this.topic,
-        topicOptions: topicOptions,
+        topicOptions: topicOptions ?? this.topicOptions,
       );
 
   Map<String, Object?> toJson() => {
@@ -220,9 +224,18 @@ class TeacherAttendanceRegister {
         ],
       };
 
+  /// Rich local cache keeps presentation metadata that the mutation contract
+  /// intentionally omits. It is never treated as server acknowledgement.
+  Map<String, Object?> toLocalJson() => {
+        'lesson': lesson.toJson(),
+        'entries': [for (final entry in entries) entry.toJson()],
+        'submissionState': submissionState.name,
+        'submittedAt': submittedAt,
+        'submittedByMembershipId': submittedByMembershipId,
+      };
+
   factory TeacherAttendanceRegister.fromJson(Map<String, dynamic> json) {
-    // New canonical payloads are flat; legacy standalone demo payloads retain a
-    // nested `lesson`. Supporting both keeps demo mode independent of backend mode.
+    // New canonical payloads are flat; local/demo payloads retain a nested lesson.
     final rawLesson = json['lesson'];
     final lesson = rawLesson is Map
         ? TeacherAttendanceLesson.fromJson(Map<String, dynamic>.from(rawLesson))
