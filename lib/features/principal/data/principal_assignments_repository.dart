@@ -1,14 +1,12 @@
+import 'dart:math';
+
 import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
-import '../../administrator/data/administrator_attendance_desk.dart' show sectionOfClass;
-import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_staff_models.dart';
-import '../../administrator/domain/administrator_students_models.dart';
 import '../../proprietor/data/owner_staff_profile_repository.dart';
 import '../domain/principal_assignments_models.dart';
-import 'principal_assignments_demo_data.dart';
 
 class PrincipalAssignmentsSnapshot {
   const PrincipalAssignmentsSnapshot({
@@ -16,16 +14,17 @@ class PrincipalAssignmentsSnapshot {
     required this.teachers,
     required this.transfers,
     required this.classOptions,
+    required this.subjectOptions,
+    required this.unassigned,
     required this.permissions,
   });
 
   final List<PrincipalTeachingAssignment> assignments;
   final List<PrincipalAssignmentTeacher> teachers;
   final List<PrincipalAssignmentTransfer> transfers;
-
-  /// The real Secondary class names drawn from the school's one real student register.
   final List<String> classOptions;
-
+  final List<String> subjectOptions;
+  final List<PrincipalUnassignedSubject> unassigned;
   final PrincipalAssignmentPermissions permissions;
 }
 
@@ -37,86 +36,153 @@ class PrincipalAssignmentActionResult {
 
 bool _teaches(AdministratorStaffRecord record) => record.role.toLowerCase().contains('teacher');
 
+class _CurriculumOffering {
+  const _CurriculumOffering({
+    required this.id,
+    required this.className,
+    required this.subject,
+    required this.periods,
+  });
+
+  final String id;
+  final String className;
+  final String subject;
+  final int periods;
+}
+
 class PrincipalAssignmentsRepository {
   PrincipalAssignmentsRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
-    required AdministratorStudentsRepository students,
+    required Object students,
     required OwnerStaffProfileRepository staff,
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession,
-        _students = students,
         _staff = staff;
 
-  static const _assignmentType = 'principal_teaching_assignment';
-  static const _teacherType = 'principal_assignment_teacher';
+  static const _assignmentType = 'academic_teaching_assignment';
+  static const _classSubjectType = 'academic_class_subject';
+  static const _classType = 'academic_class';
   static const _transferType = 'principal_assignment_transfer';
-  static const _historyType = 'principal_assignment_history';
-  static const _accessType = 'teaching_record_access_grant';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
-  final AdministratorStudentsRepository _students;
   final OwnerStaffProfileRepository _staff;
 
-  PrincipalAssignmentPermissions permissionsFor(SchoolMembership membership) => PrincipalAssignmentPermissions(
+  PrincipalAssignmentPermissions permissionsFor(SchoolMembership membership) =>
+      PrincipalAssignmentPermissions(
         canManageSecondaryAssignments: membership.role == SchoolRole.principal,
-        canCreateProvisionalTargets: membership.role == SchoolRole.principal,
+        canCreateProvisionalTargets: false,
         canTransferWork: membership.role == SchoolRole.principal,
         canManagePrimary: false,
       );
 
-  Future<List<String>> _secondaryClassOptions() async {
-    final register = (await _students.load()).students;
-    final names = {
-      for (final s in register)
-        if (s.status != AdministratorStudentStatus.transferredOut && sectionOfClass(s.className) == 'Secondary') s.className,
-    };
-    return names.toList()..sort();
+  Future<List<_CurriculumOffering>> _secondaryCurriculum(
+    SchoolMembership membership,
+  ) async {
+    final classRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _classType,
+    );
+    final secondaryClassIds = <String>{};
+    for (final record in classRecords) {
+      if (record.isDirty) continue;
+      final section = record.payload['section'] as String? ?? '';
+      final active = record.payload['isActive'] as bool? ?? true;
+      if (section.toLowerCase() == 'secondary' && active) {
+        secondaryClassIds.add(record.entityId);
+      }
+    }
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _classSubjectType,
+    );
+    final values = <_CurriculumOffering>[];
+    for (final record in records) {
+      if (record.isDirty) continue;
+      final payload = record.payload;
+      final classId = payload['classId'] as String? ?? '';
+      if (!secondaryClassIds.contains(classId)) continue;
+      if (!(payload['isActive'] as bool? ?? true)) continue;
+      final className = payload['className'] as String? ?? '';
+      final subject = payload['subjectName'] as String? ?? '';
+      if (className.isEmpty || subject.isEmpty) continue;
+      values.add(
+        _CurriculumOffering(
+          id: record.entityId,
+          className: className,
+          subject: subject,
+          periods: payload['periodsPerWeek'] as int? ?? 1,
+        ),
+      );
+    }
+    values.sort((a, b) {
+      final byClass = a.className.compareTo(b.className);
+      return byClass != 0 ? byClass : a.subject.compareTo(b.subject);
+    });
+    return values;
   }
 
-  /// Real Secondary teaching staff, plus any provisional target created through a transfer (a real local
-  /// record). There is no real per-subject qualification record anywhere yet, so every real teacher is
-  /// treated as assignable to any subject; the principal remains responsible for that judgment, the same
-  /// way the website's fixed qualification list never verified anything either.
   Future<List<PrincipalAssignmentTeacher>> _secondaryTeachers(
-    SchoolMembership membership,
     List<PrincipalTeachingAssignment> assignments,
+    List<String> subjectOptions,
   ) async {
     final all = await _staff.people();
-    final real = [
-      for (final s in all)
-        if (s.section == 'Secondary' && _teaches(s))
+    return [
+      for (final person in all)
+        if (person.section == 'Secondary' && _teaches(person))
           PrincipalAssignmentTeacher(
-            id: s.id,
-            name: s.name,
-            department: 'Not recorded yet',
-            qualifiedSubjects: principalAssignmentSubjects,
-            weeklyPeriods: assignments.where((a) => a.teacherId == s.id).fold<int>(0, (sum, a) => sum + a.periodsPerWeek),
+            id: person.id,
+            name: person.name,
+            department: 'Staff profile',
+            // SchoolOS does not infer professional qualification from a job title.
+            // Until a verified subject-qualification domain is added, curriculum
+            // assignment is an explicit Principal responsibility.
+            qualifiedSubjects: subjectOptions,
+            weeklyPeriods: assignments
+                .where((item) => item.teacherId == person.id)
+                .fold<int>(0, (sum, item) => sum + item.periodsPerWeek),
           ),
-    ];
-    final teacherRecords = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _teacherType);
-    final provisional = teacherRecords
-        .map((record) => PrincipalAssignmentTeacher.fromJson(record.payload))
-        .where((t) => t.provisional)
-        .toList();
-    return [...real, ...provisional]..sort((a, b) => a.id.compareTo(b.id));
+    ]..sort((a, b) => a.name.compareTo(b.name));
   }
 
   Future<PrincipalAssignmentsSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
+    final curriculum = await _secondaryCurriculum(membership);
+    final offeringIds = {for (final item in curriculum) item.id};
 
     final assignmentRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _assignmentType,
     );
-    final assignments = assignmentRecords
-        .map((record) => PrincipalTeachingAssignment.fromJson(record.payload))
-        .toList(growable: false)
-      ..sort((a, b) => a.id.compareTo(b.id));
+    final assignments = <PrincipalTeachingAssignment>[];
+    for (final record in assignmentRecords) {
+      final value = PrincipalTeachingAssignment.fromJson(
+        record.payload,
+        pendingSync: record.isDirty,
+      );
+      if (!offeringIds.contains(value.classSubjectId)) continue;
+      assignments.add(value);
+    }
+    assignments.sort((a, b) {
+      final byClass = a.className.compareTo(b.className);
+      return byClass != 0 ? byClass : a.subject.compareTo(b.subject);
+    });
 
-    final teachers = await _secondaryTeachers(membership, assignments);
-    final classOptions = await _secondaryClassOptions();
+    final classOptions = {for (final item in curriculum) item.className}.toList()..sort();
+    final subjectOptions = {for (final item in curriculum) item.subject}.toList()..sort();
+    final teachers = await _secondaryTeachers(assignments, subjectOptions);
+    final assignedOfferingIds = {for (final item in assignments) item.classSubjectId};
+    final unassigned = [
+      for (final item in curriculum)
+        if (!assignedOfferingIds.contains(item.id))
+          PrincipalUnassignedSubject(
+            classSubjectId: item.id,
+            className: item.className,
+            subject: item.subject,
+            periods: item.periods,
+          ),
+    ];
 
     final transferRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
@@ -132,6 +198,8 @@ class PrincipalAssignmentsRepository {
       teachers: teachers,
       transfers: transfers,
       classOptions: classOptions,
+      subjectOptions: subjectOptions,
+      unassigned: unassigned,
       permissions: permissionsFor(membership),
     );
   }
@@ -144,51 +212,48 @@ class PrincipalAssignmentsRepository {
   }) async {
     final membership = _schoolSession.requireActiveMembership();
     if (!permissionsFor(membership).canManageSecondaryAssignments) {
-      return const PrincipalAssignmentActionResult(success: false, message: 'This membership cannot manage Secondary teaching assignments.');
+      return const PrincipalAssignmentActionResult(
+        success: false,
+        message: 'This membership cannot manage Secondary teaching assignments.',
+      );
     }
-    if (!(await _secondaryClassOptions()).contains(className)) {
-      return const PrincipalAssignmentActionResult(success: false, message: 'That class is outside the active Secondary leadership scope.');
+    final curriculum = await _secondaryCurriculum(membership);
+    final offering = curriculum.where(
+      (item) => item.className == className && item.subject == subject,
+    ).firstOrNull;
+    if (offering == null) {
+      return const PrincipalAssignmentActionResult(
+        success: false,
+        message: 'Choose a class-subject that exists in the canonical Secondary curriculum.',
+      );
     }
-    if (periodsPerWeek < 1 || periodsPerWeek > 10) {
-      return const PrincipalAssignmentActionResult(success: false, message: 'Periods per week must be between 1 and 10.');
-    }
-
     final snapshot = await load();
     final teacher = snapshot.teachers.where((item) => item.id == teacherId).firstOrNull;
     if (teacher == null) {
-      return const PrincipalAssignmentActionResult(success: false, message: 'Choose a valid teacher.');
+      return const PrincipalAssignmentActionResult(success: false, message: 'Choose a real Secondary teacher in the staff directory.');
     }
-    if (!teacher.canTeach(subject)) {
-      return PrincipalAssignmentActionResult(success: false, message: '${teacher.name} is not listed as qualified for $subject.');
+    if (snapshot.assignments.any((item) => item.classSubjectId == offering.id)) {
+      return PrincipalAssignmentActionResult(
+        success: false,
+        message: '$className · $subject already has a teaching responsibility. Transfer it instead.',
+      );
     }
-    if (snapshot.assignments.any((item) => item.className == className && item.subject == subject)) {
-      return PrincipalAssignmentActionResult(success: false, message: '$className already has a $subject assignment. Transfer or edit the existing responsibility instead.');
-    }
-
-    final id = 'ASN-${DateTime.now().microsecondsSinceEpoch}';
+    final id = _newId();
     final assignment = PrincipalTeachingAssignment(
       id: id,
       className: className,
       subject: subject,
       teacherId: teacherId,
-      periodsPerWeek: periodsPerWeek,
+      periodsPerWeek: offering.periods,
+      classSubjectId: offering.id,
+      accessReady: false,
+      pendingSync: true,
     );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _assignmentType,
-      entityId: id,
-      payload: assignment.toJson(),
-      isDirty: true,
+    await _persist(membership, assignment, operation: SyncOperation.create);
+    return PrincipalAssignmentActionResult(
+      success: true,
+      message: '${teacher.name} assigned to $subject for $className. ${offering.periods} periods/week comes from the canonical curriculum. Queued for server confirmation.',
     );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _assignmentType,
-      entityId: id,
-      operation: SyncOperation.create,
-      payload: assignment.toJson(),
-    );
-    return PrincipalAssignmentActionResult(success: true, message: '${teacher.name} assigned to $subject for $className. Saved offline and queued for sync.');
   }
 
   Future<PrincipalAssignmentActionResult> transferAssignment({
@@ -199,167 +264,102 @@ class PrincipalAssignmentsRepository {
     required String reason,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
-    final permissions = permissionsFor(membership);
-    if (!permissions.canTransferWork) {
+    if (!permissionsFor(membership).canTransferWork) {
       return const PrincipalAssignmentActionResult(success: false, message: 'This membership cannot transfer Secondary teaching work.');
+    }
+    if ((newStaffName ?? '').trim().isNotEmpty) {
+      return const PrincipalAssignmentActionResult(
+        success: false,
+        message: 'Onboard the new staff member first. Canonical teaching responsibility cannot be assigned to a provisional person.',
+      );
     }
     final normalizedReason = reason.trim();
     if (normalizedReason.isEmpty) {
       return const PrincipalAssignmentActionResult(success: false, message: 'Add a transfer reason so the handover remains auditable.');
     }
-
     final snapshot = await load();
     final assignment = snapshot.assignments.where((item) => item.id == assignmentId).firstOrNull;
     if (assignment == null) {
       return const PrincipalAssignmentActionResult(success: false, message: 'Teaching assignment not found.');
     }
-
-    PrincipalAssignmentTeacher target;
-    if ((existingTeacherId ?? '').trim().isNotEmpty) {
-      final match = snapshot.teachers.where((item) => item.id == existingTeacherId).firstOrNull;
-      if (match == null) {
-        return const PrincipalAssignmentActionResult(success: false, message: 'Choose a valid receiving teacher.');
-      }
-      target = match;
-    } else {
-      if (!permissions.canCreateProvisionalTargets) {
-        return const PrincipalAssignmentActionResult(success: false, message: 'This membership cannot create a provisional teaching target.');
-      }
-      final name = (newStaffName ?? '').trim();
-      if (name.isEmpty) {
-        return const PrincipalAssignmentActionResult(success: false, message: 'Add the new staff member’s name.');
-      }
-      final targetId = 'PST-${DateTime.now().microsecondsSinceEpoch}';
-      target = PrincipalAssignmentTeacher(
-        id: targetId,
-        name: name,
-        department: (newStaffDepartment ?? '').trim().isEmpty ? 'Pending onboarding' : newStaffDepartment!.trim(),
-        qualifiedSubjects: [assignment.subject],
-        weeklyPeriods: 0,
-        provisional: true,
-      );
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: _teacherType,
-        entityId: target.id,
-        payload: target.toJson(),
-        isDirty: true,
-      );
-      await _localDatabase.queueMutation(
-        tenantId: membership.schoolId,
-        membershipId: membership.id,
-        entityType: _teacherType,
-        entityId: target.id,
-        operation: SyncOperation.create,
-        payload: target.toJson(),
-      );
+    final targetId = (existingTeacherId ?? '').trim();
+    final target = snapshot.teachers.where((item) => item.id == targetId).firstOrNull;
+    if (target == null) {
+      return const PrincipalAssignmentActionResult(success: false, message: 'Choose a real receiving teacher.');
     }
-
     if (target.id == assignment.teacherId) {
       return const PrincipalAssignmentActionResult(success: false, message: 'Choose a different receiving teacher.');
     }
-    if (!target.canTeach(assignment.subject)) {
-      return PrincipalAssignmentActionResult(success: false, message: '${target.name} is not listed as qualified for ${assignment.subject}. Transfer was not made.');
+    final existing = await _localDatabase.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _assignmentType,
+      entityId: assignment.id,
+    );
+    if (existing == null) {
+      return const PrincipalAssignmentActionResult(success: false, message: 'Teaching assignment is not available locally. Sync and retry.');
     }
-
-    final now = DateTime.now().toUtc().toIso8601String();
-    final transferId = 'TRN-${DateTime.now().microsecondsSinceEpoch}';
-    final oldVersion = assignment.version;
-    final updated = assignment.copyWith(teacherId: target.id, version: oldVersion + 1);
-    final transfer = PrincipalAssignmentTransfer(
-      id: transferId,
-      assignmentId: assignment.id,
-      className: assignment.className,
-      subject: assignment.subject,
-      fromTeacherId: assignment.teacherId,
-      toTeacherId: target.id,
-      reason: normalizedReason,
-      transferredByMembershipId: membership.id,
-      transferredAt: now,
-      recordScope: principalTransferRecordScope,
-      previousAssignmentVersion: oldVersion,
-      newAssignmentVersion: updated.version,
-    );
-    final access = PrincipalTeachingRecordAccess(
-      id: 'ACCESS-${assignment.id}-${target.id}',
-      assignmentId: assignment.id,
-      teacherId: target.id,
-      className: assignment.className,
-      subject: assignment.subject,
-      recordScope: principalTransferRecordScope,
-      grantedByMembershipId: membership.id,
-      grantedAt: now,
-      provisionalTarget: target.provisional,
-    );
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _historyType,
-      entityId: '${assignment.id}-v$oldVersion',
-      payload: {...assignment.toJson(), 'archivedAt': now, 'transferId': transferId},
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _historyType,
-      entityId: '${assignment.id}-v$oldVersion',
-      operation: SyncOperation.create,
-      payload: {...assignment.toJson(), 'archivedAt': now, 'transferId': transferId},
-    );
+    final updated = assignment.copyWith(teacherId: target.id, pendingSync: true);
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: _assignmentType,
-      entityId: updated.id,
-      payload: updated.toJson(),
+      entityId: assignment.id,
+      payload: updated.toJson(transferReason: normalizedReason),
+      serverVersion: existing.serverVersion,
       isDirty: true,
     );
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
       entityType: _assignmentType,
-      entityId: updated.id,
+      entityId: assignment.id,
       operation: SyncOperation.update,
-      payload: updated.toJson(),
+      payload: updated.toJson(transferReason: normalizedReason),
+      baseVersion: existing.serverVersion,
     );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _transferType,
-      entityId: transfer.id,
-      payload: transfer.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _transferType,
-      entityId: transfer.id,
-      operation: SyncOperation.create,
-      payload: transfer.toJson(),
-    );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _accessType,
-      entityId: access.id,
-      payload: access.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _accessType,
-      entityId: access.id,
-      operation: SyncOperation.create,
-      payload: access.toJson(),
-    );
-
-    final accessMessage = target.provisional
-        ? ' The complete teaching handover is preserved now and will become available when this provisional target is linked to the staff account.'
-        : ' The receiving teacher now inherits the teaching-record access package for this responsibility.';
     return PrincipalAssignmentActionResult(
       success: true,
-      message: '${assignment.className} · ${assignment.subject} transferred to ${target.name}.$accessMessage',
+      message: '${assignment.className} · ${assignment.subject} transfer to ${target.name} queued. Access moves only after server confirmation.',
     );
+  }
+
+  Future<void> _persist(
+    SchoolMembership membership,
+    PrincipalTeachingAssignment assignment, {
+    required SyncOperation operation,
+  }) async {
+    final existing = await _localDatabase.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _assignmentType,
+      entityId: assignment.id,
+    );
+    final payload = assignment.toJson();
+    await _localDatabase.upsertLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _assignmentType,
+      entityId: assignment.id,
+      payload: payload,
+      serverVersion: existing?.serverVersion,
+      isDirty: true,
+    );
+    await _localDatabase.queueMutation(
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      entityType: _assignmentType,
+      entityId: assignment.id,
+      operation: operation,
+      payload: payload,
+      baseVersion: existing?.serverVersion,
+    );
+  }
+
+  static String _newId() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    String hex(int value) => value.toRadixString(16).padLeft(2, '0');
+    final value = bytes.map(hex).join();
+    return '${value.substring(0, 8)}-${value.substring(8, 12)}-${value.substring(12, 16)}-${value.substring(16, 20)}-${value.substring(20)}';
   }
 }
 
