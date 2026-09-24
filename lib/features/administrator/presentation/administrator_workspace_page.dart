@@ -28,6 +28,7 @@ import '../data/administrator_registration_repository.dart';
 import '../data/administrator_staff_attendance_repository.dart';
 import '../data/administrator_staff_repository.dart';
 import '../data/administrator_students_repository.dart';
+import '../data/administrator_timetable_repository.dart';
 import '../data/administrator_website_repository.dart';
 import '../domain/administrator_admissions_models.dart';
 import '../domain/administrator_dashboard_models.dart';
@@ -44,6 +45,7 @@ import 'administrator_registration_page.dart';
 import 'administrator_staff_attendance_page.dart';
 import 'administrator_staff_page.dart';
 import 'administrator_students_page.dart';
+import 'administrator_timetable_page.dart';
 import 'administrator_website_page.dart';
 
 class AdministratorWorkspacePage extends StatefulWidget {
@@ -86,6 +88,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
   late final AdministratorStaffAttendanceRepository _staffAttendanceRepository;
   late final AdministratorStaffRepository _staffRepository;
   late final AdministratorStudentsRepository _studentsRepository;
+  late final AdministratorTimetableRepository _timetableRepository;
   late final AdministratorWebsiteRepository _websiteRepository;
 
   @override
@@ -134,6 +137,12 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
     _studentsRepository = AdministratorStudentsRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+    );
+    _timetableRepository = AdministratorTimetableRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+      academics: _academicsRepository,
+      staff: _staffRepository,
     );
     _websiteRepository = AdministratorWebsiteRepository(
       localDatabase: widget.localDatabase,
@@ -298,6 +307,12 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
         return AdministratorCurriculumPage(
           schoolName: widget.membership.schoolName,
           repository: _academicsRepository,
+          onChanged: _refreshPendingCount,
+        );
+      case 'timetable':
+        return AdministratorTimetablePage(
+          schoolName: widget.membership.schoolName,
+          repository: _timetableRepository,
           onChanged: _refreshPendingCount,
         );
       case 'staff':
@@ -532,7 +547,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                     Padding(
                       padding: const EdgeInsets.all(14),
                       child: Text(
-                        'ROLE BOUNDARY\nOperational records, academic structure and curriculum administration. Academic judgement and proprietor governance remain with authorized roles.',
+                        'ROLE BOUNDARY\nOperational records, academic structure, curriculum and timetable administration. Academic judgement and proprietor governance remain with authorized roles.',
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
@@ -620,6 +635,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
         'students' => Icons.groups_rounded,
         'academics' => Icons.account_tree_outlined,
         'curriculum' => Icons.menu_book_outlined,
+        'timetable' => Icons.calendar_month_outlined,
         'staff' => Icons.badge_outlined,
         'staff-attendance' => Icons.schedule_rounded,
         'staff-profiles' => Icons.folder_shared_outlined,
