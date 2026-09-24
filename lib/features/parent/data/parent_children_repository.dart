@@ -27,7 +27,12 @@ String _progressionDescription(Map<String, Object?> item) {
   final workflow = item['workflow'] as String? ?? 'Class update';
   final from = item['fromClass'] as String? ?? '';
   final to = item['toClass'] as String? ?? '';
-  if (from.isNotEmpty && to.isNotEmpty) return '$workflow · $from → $to';
+  if (from.isNotEmpty && to.isNotEmpty) {
+    if (workflow == 'Repeat' && from.toLowerCase() == to.toLowerCase()) {
+      return 'Repeat · remains in $from';
+    }
+    return '$workflow · $from → $to';
+  }
   if (from.isNotEmpty) return '$workflow · $from';
   if (to.isNotEmpty) return '$workflow · $to';
   return workflow;
@@ -53,9 +58,6 @@ class ParentChildrenRepository {
        _attendance = attendance,
        _ledger = ledger;
 
-  /// Server-connected schools receive a private family-link record whose entity
-  /// id is the Parent membership id. Standalone demo mode keeps the old fixed
-  /// sample links. A real parent account never falls back to those demo pupils.
   static const _linkEntityType = 'parent_family_link';
   static const _seedChildIds = ['STU-001', 'PRI-003'];
 
@@ -130,10 +132,16 @@ class ParentChildrenRepository {
       }
       if (student == null && canonical == null) continue;
 
-      final name = canonical?['name'] as String? ?? student!.name;
-      final className = canonical?['className'] as String? ?? student?.className ?? '';
-      final section = canonical?['academicSection'] as String? ??
-          (className.isEmpty ? _notRecorded : sectionOfClass(className));
+      final name = canonical != null
+          ? (canonical['name'] as String? ?? '')
+          : student!.name;
+      if (name.isEmpty) continue;
+      final className = canonical != null
+          ? (canonical['className'] as String? ?? '')
+          : (student?.className ?? '');
+      final section = canonical != null
+          ? (canonical['academicSection'] as String? ?? _notRecorded)
+          : (className.isEmpty ? _notRecorded : sectionOfClass(className));
       final account = accounts.where((item) => item.student.id == id).firstOrNull;
       final todayEvent = attendanceSnapshot.events
           .where(
@@ -157,8 +165,9 @@ class ParentChildrenRepository {
           initials: _initialsOf(name),
           className: className.isEmpty ? _notRecorded : className,
           section: section,
-          admissionNumber:
-              canonical?['admissionNumber'] as String? ?? _notRecorded,
+          admissionNumber: canonical != null
+              ? (canonical['admissionNumber'] as String? ?? _notRecorded)
+              : _notRecorded,
           classTeacher: _notRecorded,
           attendanceLabel: attendanceLabel,
           learningLabel: _notRecorded,
@@ -178,8 +187,9 @@ class ParentChildrenRepository {
                 description: _progressionDescription(event),
               ),
           ],
-          active: canonical?['active'] as bool? ??
-              (student?.status == AdministratorStudentStatus.active),
+          active: canonical != null
+              ? (canonical['active'] as bool? ?? false)
+              : (student?.status == AdministratorStudentStatus.active),
           presentToday: todayEvent?.countsAsPresent ?? false,
         ),
       );
@@ -209,7 +219,6 @@ class ParentChildrenRepository {
     );
   }
 
-  /// Stores a server-confirmed family link under the active Parent membership.
   Future<void> replaceLinkedChildren({
     required List<String> childIds,
   }) async {
