@@ -111,7 +111,8 @@ class AdministratorRegistrationRepository {
     if (!permissionsFor(membership).canRegisterStudent) {
       return const AdministratorRegistrationActionResult(
         success: false,
-        message: 'This membership cannot create or complete student registrations.',
+        message:
+            'This membership cannot create or complete student registrations.',
       );
     }
 
@@ -127,13 +128,15 @@ class AdministratorRegistrationRepository {
         if (applicant.isClosed) {
           return AdministratorRegistrationActionResult(
             success: false,
-            message: '${applicant.name}\'s application is closed: ${applicant.closedReason}',
+            message:
+                '${applicant.name}\'s application is closed: ${applicant.closedReason}',
           );
         }
         if (applicant.stage.index < AdmissionStage.accepted.index) {
           return AdministratorRegistrationActionResult(
             success: false,
-            message: 'The offer to ${applicant.name} has not been accepted yet. Accept it in Admissions before completing registration.',
+            message:
+                'The offer to ${applicant.name} has not been accepted yet. Accept it in Admissions before completing registration.',
           );
         }
       }
@@ -160,9 +163,6 @@ class AdministratorRegistrationRepository {
       );
     }
 
-    // A guardian's phone number identifies one parent. Another child may share
-    // it only under the same guardian (a sibling); the same number under a
-    // different guardian is a conflict, not a new parent.
     final phone = normalizeNigerianPhone(record.guardianPhone);
     if (phone == null) {
       return const AdministratorRegistrationActionResult(
@@ -177,17 +177,17 @@ class AdministratorRegistrationRepository {
     )).where((r) => r.entityId != record.registrationId);
     StudentRegistrationRecord? sibling;
     for (final other in others) {
-      final o = StudentRegistrationRecord.fromJson(other.payload);
-      if (normalizeNigerianPhone(o.guardianPhone) != phone) continue;
-      if (normalizeName(o.primaryGuardian) !=
+      final candidate = StudentRegistrationRecord.fromJson(other.payload);
+      if (normalizeNigerianPhone(candidate.guardianPhone) != phone) continue;
+      if (normalizeName(candidate.primaryGuardian) !=
           normalizeName(record.primaryGuardian)) {
         return AdministratorRegistrationActionResult(
           success: false,
           message:
-              'This phone number already belongs to guardian ${o.primaryGuardian} (child ${o.fullName}). A phone number identifies one parent. Use the same guardian name to register a sibling, or correct the number.',
+              'This phone number already belongs to guardian ${candidate.primaryGuardian} (child ${candidate.fullName}). A phone number identifies one parent. Use the same guardian name to register a sibling, or correct the number.',
         );
       }
-      sibling ??= o;
+      sibling ??= candidate;
     }
 
     final normalized = record.copyWith(
@@ -221,14 +221,16 @@ class AdministratorRegistrationRepository {
     );
 
     if (completed && applicantReference != null && applicantReference.isNotEmpty) {
-      await AdministratorAdmissionsRepository(localDatabase: _localDatabase, schoolSession: _schoolSession)
-          .markRegistered(applicantReference);
+      await AdministratorAdmissionsRepository(
+        localDatabase: _localDatabase,
+        schoolSession: _schoolSession,
+      ).markRegistered(applicantReference);
     }
 
     return AdministratorRegistrationActionResult(
       success: true,
       message: (completed
-              ? 'Registration completed offline. Student status is Active and queued for sync; finance and optional services remain separate workflows.'
+              ? 'Registration completion saved offline and queued for sync. The student becomes canonical Active and billable only after the SchoolOS server accepts this change.'
               : 'Registration draft saved offline and queued for sync.') +
           (sibling == null
               ? ''
