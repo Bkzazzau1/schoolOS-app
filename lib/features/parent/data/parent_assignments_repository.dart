@@ -110,12 +110,38 @@ class ParentAssignmentsRepository {
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession;
 
+  static const _familyLinkEntityType = 'parent_family_link';
+
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+
+  Future<Set<String>> _currentLinkedStudentIds(
+    SchoolMembership membership,
+  ) async {
+    final record = await _localDatabase.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _familyLinkEntityType,
+      entityId: membership.id,
+    );
+    if (record == null) return const <String>{};
+    final ids = <String>{};
+    for (final raw in (record.payload['children'] as List? ?? const [])) {
+      if (raw is! Map) continue;
+      final studentId = raw['studentId'] as String? ?? '';
+      if (studentId.isNotEmpty) ids.add(studentId);
+    }
+    if (ids.isNotEmpty) return ids;
+    for (final raw in (record.payload['childIds'] as List? ?? const [])) {
+      if (raw is String && raw.isNotEmpty) ids.add(raw);
+    }
+    return ids;
+  }
 
   Future<List<ParentAssignment>> load() async {
     final membership = _schoolSession.requireActiveMembership();
     if (membership.role != SchoolRole.parent) return const [];
+    final currentLinkedIds = await _currentLinkedStudentIds(membership);
+    if (LocalDatabase.blockDemoSeeds && currentLinkedIds.isEmpty) return const [];
 
     final submissionRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
@@ -126,6 +152,10 @@ class ParentAssignmentsRepository {
       final payload = record.payload;
       if ((payload['state'] as String? ?? 'draft') == 'draft') continue;
       final item = ParentAssignmentSubmission.fromJson(payload);
+      if (LocalDatabase.blockDemoSeeds &&
+          !currentLinkedIds.contains(item.studentId)) {
+        continue;
+      }
       submissionsByAssignment
           .putIfAbsent(item.assignmentId, () => <ParentAssignmentSubmission>[])
           .add(item);
@@ -146,14 +176,23 @@ class ParentAssignmentsRepository {
             ParentAssignmentRecipient.fromJson(
               Map<String, Object?>.from(raw),
             ),
-      ];
-      // Connected Family sync deliberately publishes only this guardian's
-      // linked recipients. Old cached records without that field are ignored
-      // rather than guessed from class name or another family record.
+      ].where((recipient) {
+        if (!LocalDatabase.blockDemoSeeds) return true;
+        return currentLinkedIds.contains(recipient.studentId);
+      }).toList(growable: false);
+
+      // Sync visibility alone cannot revoke a record already downloaded because
+      // the cursor moves past newly invisible records. Intersecting the cached
+      // recipient snapshot with the current whole-record guardian link prevents
+      // stale assignment access after a child is unlinked.
       if (LocalDatabase.blockDemoSeeds && recipients.isEmpty) continue;
+      final assignmentId = payload['id'] as String? ?? '';
+      final allowedRecipientIds = {
+        for (final recipient in recipients) recipient.studentId,
+      };
       assignments.add(
         ParentAssignment(
-          id: payload['id'] as String? ?? '',
+          id: assignmentId,
           title: payload['title'] as String? ?? '',
           instructions: payload['instructions'] as String? ?? '',
           className: payload['className'] as String? ?? '',
@@ -166,8 +205,13 @@ class ParentAssignmentsRepository {
           publicationRevision:
               (payload['publicationRevision'] as num?)?.toInt() ?? 0,
           recipients: recipients,
-          submissions: submissionsByAssignment[payload['id'] as String? ?? ''] ??
-              const [],
+          submissions: [
+            for (final submission
+                in submissionsByAssignment[assignmentId] ?? const <ParentAssignmentSubmission>[])
+              if (!LocalDatabase.blockDemoSeeds ||
+                  allowedRecipientIds.contains(submission.studentId))
+                submission,
+          ],
         ),
       );
     }
