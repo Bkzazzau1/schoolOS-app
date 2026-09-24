@@ -10,8 +10,10 @@ import '../../../shared/models/school_membership.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../data/student_assignment_repository.dart';
 import '../data/student_cbt_repository.dart';
 import '../data/student_repository.dart';
+import 'student_assignments_page.dart';
 
 class _StudentNavItem {
   const _StudentNavItem(this.key, this.label, this.icon);
@@ -25,6 +27,7 @@ const _studentNavigation = <_StudentNavItem>[
   _StudentNavItem('profile', 'My profile', Icons.badge_outlined),
   _StudentNavItem('subjects', 'My subjects', Icons.menu_book_outlined),
   _StudentNavItem('performance', 'Performance', Icons.insights_rounded),
+  _StudentNavItem('assignments', 'Assignments', Icons.assignment_outlined),
   _StudentNavItem('cbt', 'CBT', Icons.quiz_outlined),
   _StudentNavItem('planner', 'Study plan', Icons.checklist_rounded),
 ];
@@ -48,6 +51,7 @@ class StudentWorkspacePage extends StatefulWidget {
 class _StudentWorkspacePageState extends State<StudentWorkspacePage>
     with SyncRefresh<StudentWorkspacePage> {
   late final StudentRepository _repository;
+  late final StudentAssignmentRepository _assignmentRepository;
   late final StudentCbtRepository _cbtRepository;
   final _task = TextEditingController();
   Timer? _timer;
@@ -57,6 +61,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   bool _busy = true;
   String? _error;
   int _pendingSyncCount = 0;
+  int _assignmentRefresh = 0;
 
   List<StudentCbtAvailableSet> _cbtSets = const [];
   bool _cbtLoading = true;
@@ -131,6 +136,10 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
       session: widget.schoolSession,
       membership: widget.membership,
     );
+    _assignmentRepository = StudentAssignmentRepository(
+      localDatabase: widget.localDatabase,
+      schoolSession: widget.schoolSession,
+    );
     _cbtRepository = StudentCbtRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
@@ -175,6 +184,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
     _refreshPendingCount();
     _loadCbtSets();
     _reloadWorkspaceState();
+    if (mounted) setState(() => _assignmentRefresh++);
   }
 
   Future<void> _reloadWorkspaceState() async {
@@ -986,6 +996,11 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   Widget _content() => switch (_activeKey) {
         'profile' => _profile(),
         'subjects' => _subjects(),
+        'assignments' => StudentAssignmentsPage(
+            key: ValueKey('student-assignments-$_assignmentRefresh'),
+            repository: _assignmentRepository,
+            onMutationQueued: _refreshPendingCount,
+          ),
         'cbt' => _cbt(),
         'planner' => _planner(),
         _ => _performance(),
