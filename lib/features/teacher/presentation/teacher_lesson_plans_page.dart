@@ -32,6 +32,8 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
   final _homework = TextEditingController();
 
   String? _selectedId;
+  String _selectedTopicId = '';
+  String _selectedTopicTitle = '';
   String _query = '';
   String? _notice;
   bool _busy = false;
@@ -56,9 +58,7 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
     super.dispose();
   }
 
-  void _reload() {
-    setState(() => _future = widget.repository.load());
-  }
+  void _reload() => setState(() => _future = widget.repository.load());
 
   void _selectPlan(
     TeacherLessonPlan plan,
@@ -67,6 +67,8 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
     final delivery = snapshot.deliveryFor(plan.id);
     setState(() {
       _selectedId = plan.id;
+      _selectedTopicId = plan.topicId;
+      _selectedTopicTitle = plan.topic;
       _objectives.text = plan.objectives;
       _starter.text = plan.starter;
       _activities.text = plan.activities;
@@ -79,7 +81,41 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
     });
   }
 
+  List<TeacherLessonPlanTopicOption> _topicOptionsFor(
+    TeacherLessonPlanSnapshot snapshot,
+    TeacherLessonPlan plan,
+  ) {
+    final byId = <String, TeacherLessonPlanTopicOption>{};
+    for (final occurrence in snapshot.occurrenceOptions) {
+      if (occurrence.classSubjectId != plan.classSubjectId ||
+          occurrence.termId != plan.termId) {
+        continue;
+      }
+      for (final topic in occurrence.topics) {
+        byId[topic.id] = topic;
+      }
+    }
+    if (plan.topicId.isNotEmpty) {
+      byId.putIfAbsent(
+        plan.topicId,
+        () => TeacherLessonPlanTopicOption(
+          id: plan.topicId,
+          title: plan.topic,
+          sequence: 0,
+        ),
+      );
+    }
+    final values = byId.values.toList()
+      ..sort((a, b) {
+        final bySequence = a.sequence.compareTo(b.sequence);
+        return bySequence != 0 ? bySequence : a.title.compareTo(b.title);
+      });
+    return values;
+  }
+
   TeacherLessonPlan _editorPlan(TeacherLessonPlan base) => base.copyWith(
+        topicId: _selectedTopicId.isEmpty ? base.topicId : _selectedTopicId,
+        topic: _selectedTopicTitle.isEmpty ? base.topic : _selectedTopicTitle,
         objectives: _objectives.text,
         starter: _starter.text,
         activities: _activities.text,
@@ -157,21 +193,21 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
     if (!snapshot.canonical) {
       setState(() {
         _notice =
-            'Standalone demo keeps the seeded lesson-plan examples. New canonical plans require a real timetable occurrence.';
+            'Standalone demo keeps seeded lesson-plan examples. Canonical plans require a real timetable occurrence.';
       });
       return;
     }
-    final plannedOccurrences = {
+    final planned = {
       for (final plan in snapshot.plans)
         '${plan.timetableEntryId}|${plan.lessonDate}',
     };
     final available = snapshot.occurrenceOptions
-        .where((item) => !plannedOccurrences.contains(item.id))
+        .where((item) => !planned.contains(item.id))
         .toList(growable: false);
     if (available.isEmpty) {
       setState(() {
         _notice =
-            'Every currently published lesson occurrence already has a plan, or no current-week occurrence is available.';
+            'Every occurrence in the current planning horizon already has a plan, or no authorized occurrence with curriculum topics is available.';
       });
       return;
     }
@@ -190,6 +226,8 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
       _notice = result.message;
       if (result.success && result.plan != null) {
         _selectedId = result.plan!.id;
+        _selectedTopicId = result.plan!.topicId;
+        _selectedTopicTitle = result.plan!.topic;
       }
     });
     if (result.success) {
@@ -239,6 +277,11 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
         final plan = data.plans.firstWhere((item) => item.id == _selectedId);
         final delivery = data.deliveryFor(plan.id);
         final filtered = data.plans.where((item) => item.matches(_query)).toList();
+        final topicOptions = _topicOptionsFor(data, plan);
+        if (_selectedTopicId.isEmpty) {
+          _selectedTopicId = plan.topicId;
+          _selectedTopicTitle = plan.topic;
+        }
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -263,12 +306,21 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
                   const SizedBox(height: 16),
                   _PlanEditor(
                     plan: plan,
+                    topicOptions: topicOptions,
+                    selectedTopicId: _selectedTopicId,
                     busy: _busy,
                     objectives: _objectives,
                     starter: _starter,
                     activities: _activities,
                     assessment: _assessment,
                     resources: _resources,
+                    onTopicChanged: (id) {
+                      final topic = topicOptions.firstWhere((item) => item.id == id);
+                      setState(() {
+                        _selectedTopicId = topic.id;
+                        _selectedTopicTitle = topic.title;
+                      });
+                    },
                     onGenerateAi: plan.teacherEditable ? _generateAiDraft : null,
                     onSave: plan.teacherEditable ? () => _saveDraft(plan) : null,
                     onSubmit: plan.teacherEditable ? () => _submit(plan) : null,
@@ -325,7 +377,7 @@ class _Header extends StatelessWidget {
         runSpacing: 12,
         children: [
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+            constraints: const BoxConstraints(maxWidth: 760),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -342,7 +394,7 @@ class _Header extends StatelessWidget {
                 ),
                 Text(
                   canonical
-                      ? 'Plan a real timetable occurrence, submit it for Secondary review, then record what was actually delivered.'
+                      ? 'Plan authorized occurrences in the rolling 21-day timetable horizon, submit for review, then record what was actually delivered.'
                       : 'Standalone demo lesson-plan workspace.',
                 ),
               ],
@@ -350,6 +402,7 @@ class _Header extends StatelessWidget {
           ),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
               OutlinedButton(
                 onPressed: () => onNavigate('timetable'),
@@ -387,7 +440,7 @@ class _EmptyState extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620),
+            constraints: const BoxConstraints(maxWidth: 650),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -396,8 +449,8 @@ class _EmptyState extends StatelessWidget {
                 Text(
                   canonical
                       ? (canCreate
-                          ? 'No lesson plans yet. Create one from a real current-week timetable occurrence.'
-                          : 'No current-week lesson occurrence with an approved curriculum topic is available to plan.')
+                          ? 'No lesson plans yet. Create one from an authorized occurrence in the current 21-day planning horizon.'
+                          : 'No authorized occurrence with an approved curriculum topic is available in the current planning horizon.')
                       : 'No lesson-plan demo records are available.',
                   textAlign: TextAlign.center,
                 ),
@@ -547,7 +600,7 @@ class _OccurrenceCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Occurrence identity, class, subject, date and curriculum topic are server-authoritative and cannot be moved by the Teacher after plan creation.',
+                'Occurrence, class, subject and date are fixed. The approved curriculum topic may be corrected while the plan is Draft or Returned; submission locks it for review.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -577,24 +630,30 @@ class _Meta extends StatelessWidget {
 class _PlanEditor extends StatelessWidget {
   const _PlanEditor({
     required this.plan,
+    required this.topicOptions,
+    required this.selectedTopicId,
     required this.busy,
     required this.objectives,
     required this.starter,
     required this.activities,
     required this.assessment,
     required this.resources,
+    required this.onTopicChanged,
     required this.onGenerateAi,
     required this.onSave,
     required this.onSubmit,
   });
 
   final TeacherLessonPlan plan;
+  final List<TeacherLessonPlanTopicOption> topicOptions;
+  final String selectedTopicId;
   final bool busy;
   final TextEditingController objectives;
   final TextEditingController starter;
   final TextEditingController activities;
   final TextEditingController assessment;
   final TextEditingController resources;
+  final ValueChanged<String> onTopicChanged;
   final VoidCallback? onGenerateAi;
   final VoidCallback? onSave;
   final VoidCallback? onSubmit;
@@ -602,6 +661,10 @@ class _PlanEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final editable = plan.teacherEditable;
+    final ids = {for (final item in topicOptions) item.id};
+    final topicValue = ids.contains(selectedTopicId)
+        ? selectedTopicId
+        : (ids.contains(plan.topicId) ? plan.topicId : null);
     return Card(
       elevation: 0,
       child: Padding(
@@ -609,19 +672,21 @@ class _PlanEditor extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Lesson preparation',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                      ),
-                      Text('Plan against the fixed occurrence and curriculum topic above.'),
-                    ],
-                  ),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Lesson preparation',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                    ),
+                    Text('Prepare evidence for this fixed timetable occurrence.'),
+                  ],
                 ),
                 FilledButton.tonalIcon(
                   onPressed: onGenerateAi,
@@ -631,6 +696,34 @@ class _PlanEditor extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
+            if (topicOptions.isNotEmpty) ...[
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: topicValue,
+                decoration: const InputDecoration(
+                  labelText: 'Approved curriculum topic',
+                  helperText:
+                      'Editable only while the plan is Draft or Returned for changes.',
+                ),
+                items: [
+                  for (final topic in topicOptions)
+                    DropdownMenuItem(
+                      value: topic.id,
+                      child: Text(
+                        topic.sequence > 0
+                            ? '${topic.sequence}. ${topic.title}'
+                            : topic.title,
+                      ),
+                    ),
+                ],
+                onChanged: editable
+                    ? (value) {
+                        if (value != null) onTopicChanged(value);
+                      }
+                    : null,
+              ),
+              const SizedBox(height: 14),
+            ],
             _TextArea(
               label: 'Learning objectives',
               controller: objectives,
@@ -681,7 +774,7 @@ class _PlanEditor extends StatelessWidget {
               Text(
                 plan.status == TeacherLessonPlanStatus.queuedSubmission
                     ? 'Submission is queued and locked locally until the server responds.'
-                    : 'This plan is locked for Teacher editing until a reviewer returns it for changes.',
+                    : 'This plan is locked for Teacher editing unless a reviewer returns it for changes.',
               ),
             ],
           ],
@@ -748,7 +841,8 @@ class _DeliveryPanel extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final reached = lessonDate == null || !lessonDate.isAfter(today);
-    final enabled = approved && reached && !locked;
+    final enabled =
+        approved && reached && !locked && plan.currentTeacherAuthorized;
 
     return Card(
       elevation: 0,
@@ -776,15 +870,24 @@ class _DeliveryPanel extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (!approved)
-              const Text('Delivery opens only after the server confirms Principal approval of this lesson plan.')
+              const Text(
+                'Delivery opens only after the server confirms Principal approval of this lesson plan.',
+              )
+            else if (!plan.currentTeacherAuthorized)
+              const Text(
+                'You can view this historical plan, but the occurrence is no longer assigned to your Teacher membership.',
+              )
             else if (!reached)
-              const Text('This occurrence is still in the future. Delivery evidence cannot be recorded yet.'),
+              const Text(
+                'This occurrence is still in the future. Delivery evidence cannot be recorded yet.',
+              ),
             const SizedBox(height: 10),
             _TextArea(
               label: 'Teacher reflection',
               controller: reflection,
               enabled: enabled,
-              hint: 'What worked, what learners struggled with, and what should change next?',
+              hint:
+                  'What worked, what learners struggled with, and what should change next?',
               lines: 4,
             ),
             _TextArea(
@@ -799,7 +902,7 @@ class _DeliveryPanel extends StatelessWidget {
               onChanged: enabled ? (value) => onTopicCompleted(value ?? false) : null,
               title: const Text('Curriculum topic completed by this delivered lesson'),
               subtitle: const Text(
-                'This is the evidence that can move canonical syllabus coverage to Completed after server acknowledgement.',
+                'This evidence can move canonical syllabus coverage to Completed only after server acknowledgement.',
               ),
             ),
             if (delivery != null && delivery!.attendanceState != null) ...[
@@ -827,7 +930,9 @@ class _DeliveryPanel extends StatelessWidget {
             ),
             if (state == TeacherLessonDeliveryState.queued) ...[
               const SizedBox(height: 8),
-              const Text('Delivery is queued, not canonical. Syllabus coverage remains unchanged until the server accepts it.'),
+              const Text(
+                'Delivery is queued, not canonical. Syllabus coverage remains unchanged until the server accepts it.',
+              ),
             ],
           ],
         ),
@@ -981,7 +1086,7 @@ class _BoundaryCard extends StatelessWidget {
               ),
               SizedBox(height: 6),
               Text(
-                'The timetable occurrence and approved curriculum topic define what may be planned. Teacher submission does not equal Principal approval. A queued delivery does not equal a delivered lesson, and syllabus completion is generated only from server-accepted delivery evidence.',
+                'The timetable occurrence defines where and when the plan belongs. A Teacher may choose or correct only an approved curriculum topic while the plan remains editable. Submission does not equal Principal approval. A queued delivery does not equal a delivered lesson, and syllabus completion is generated only from server-accepted delivery evidence.',
               ),
               SizedBox(height: 6),
               Text(
@@ -1031,7 +1136,8 @@ class _NewPlanDialogState extends State<_NewPlanDialog> {
                 ],
                 onChanged: (value) {
                   if (value == null) return;
-                  final next = widget.occurrences.firstWhere((item) => item.id == value);
+                  final next = widget.occurrences
+                      .firstWhere((item) => item.id == value);
                   setState(() {
                     _occurrence = next;
                     _topic = next.topics.first;
@@ -1043,7 +1149,9 @@ class _NewPlanDialogState extends State<_NewPlanDialog> {
                 key: ValueKey(_occurrence.id),
                 isExpanded: true,
                 initialValue: _topic.id,
-                decoration: const InputDecoration(labelText: 'Approved curriculum topic'),
+                decoration: const InputDecoration(
+                  labelText: 'Approved curriculum topic',
+                ),
                 items: [
                   for (final item in _occurrence.topics)
                     DropdownMenuItem(
@@ -1054,7 +1162,8 @@ class _NewPlanDialogState extends State<_NewPlanDialog> {
                 onChanged: (value) {
                   if (value == null) return;
                   setState(() {
-                    _topic = _occurrence.topics.firstWhere((item) => item.id == value);
+                    _topic = _occurrence.topics
+                        .firstWhere((item) => item.id == value);
                   });
                 },
               ),
