@@ -136,19 +136,24 @@ class PrincipalTimetableRepository {
       tenantId: membership.schoolId,
       entityType: _entryEntity,
     );
+    final entries = [
+      for (final record in entryRecords)
+        if (activeTermId.isNotEmpty &&
+            record.payload['isActive'] != false &&
+            record.payload['termId'] == activeTermId)
+          Map<String, Object?>.from(record.payload),
+    ];
+    final entryIds = {
+      for (final entry in entries) entry['id'] as String? ?? '',
+    };
     final overrideRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _overrideEntity,
     );
-    final entries = [
-      for (final record in entryRecords)
-        if (record.payload['isActive'] != false &&
-            (activeTermId.isEmpty || record.payload['termId'] == activeTermId))
-          Map<String, Object?>.from(record.payload),
-    ];
     final overrides = [
       for (final record in overrideRecords)
-        Map<String, Object?>.from(record.payload),
+        if (entryIds.contains(record.payload['timetableEntryId']))
+          Map<String, Object?>.from(record.payload),
     ];
     final lessons = _weekLessons(
       entries: entries,
