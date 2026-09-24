@@ -41,6 +41,7 @@ class TeacherTimetableRepository {
   TeacherTimetableRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    Object? roster,
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession;
 
