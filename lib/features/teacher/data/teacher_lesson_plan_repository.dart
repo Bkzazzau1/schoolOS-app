@@ -99,8 +99,13 @@ class TeacherLessonPlanRepository {
     );
     final plans = <TeacherLessonPlan>[];
     for (final record in planRecords) {
-      final plan = TeacherLessonPlan.fromJson(record.payload).copyWith(
+      final parsed = TeacherLessonPlan.fromJson(record.payload);
+      final authorized = parsed.effectiveTeacherId == membership.id &&
+          parsed.occurrenceStatus != 'cancelled' &&
+          parsed.occurrenceStatus != 'uncovered';
+      final plan = parsed.copyWith(
         pendingSync: record.isDirty,
+        currentTeacherAuthorized: authorized,
       );
       if (plan.authorMembershipId == membership.id ||
           plan.effectiveTeacherId == membership.id ||
@@ -196,22 +201,27 @@ class TeacherLessonPlanRepository {
 
     final result = <TeacherLessonPlanOccurrenceOption>[];
     final included = <String>{};
-    final entryIds = <String>{};
     for (final entry in entries) {
       final entryId = entry['id'] as String? ?? '';
       final weekday = entry['dayOfWeek'] as int? ?? 0;
       final termStart = DateTime.tryParse(entry['termStartsOn'] as String? ?? '');
       final termEnd = DateTime.tryParse(entry['termEndsOn'] as String? ?? '');
-      if (entryId.isEmpty || weekday < 1 || weekday > 7 || termStart == null || termEnd == null) {
+      if (entryId.isEmpty ||
+          weekday < 1 ||
+          weekday > 7 ||
+          termStart == null ||
+          termEnd == null) {
         continue;
       }
-      entryIds.add(entryId);
       var date = today;
       while (!date.isAfter(end)) {
-        if (date.weekday == weekday && !date.isBefore(termStart) && !date.isAfter(termEnd)) {
+        if (date.weekday == weekday &&
+            !date.isBefore(termStart) &&
+            !date.isAfter(termEnd)) {
           final dateIso = _isoDate(date);
           final override = overrideByOccurrence['$entryId|$dateIso'];
-          if (override?['status'] != 'cancelled' && override?['isCancelled'] != true) {
+          if (override?['status'] != 'cancelled' &&
+              override?['isCancelled'] != true) {
             final effectiveTeacher = override?['teacherId'] as String? ??
                 entry['teacherId'] as String? ??
                 membership.id;
@@ -236,8 +246,6 @@ class TeacherLessonPlanRepository {
       }
     }
 
-    // Future substitution into this Teacher can exist even when the base entry
-    // is not part of their recurring assignment list.
     for (final override in overrides) {
       if (override['teacherId'] != membership.id ||
           override['status'] != 'substitution' ||
@@ -246,7 +254,10 @@ class TeacherLessonPlanRepository {
       }
       final entryId = override['timetableEntryId'] as String? ?? '';
       final date = DateTime.tryParse(override['lessonDate'] as String? ?? '');
-      if (entryId.isEmpty || date == null || date.isBefore(today) || date.isAfter(end)) {
+      if (entryId.isEmpty ||
+          date == null ||
+          date.isBefore(today) ||
+          date.isAfter(end)) {
         continue;
       }
       final rawLesson = override['lesson'];
@@ -256,7 +267,8 @@ class TeacherLessonPlanRepository {
       source['lessonDate'] = _isoDate(date);
       source['teacherId'] = membership.id;
       source['effectiveTeacherId'] = membership.id;
-      source['room'] = override['room'] as String? ?? source['room'] as String? ?? '';
+      source['room'] =
+          override['room'] as String? ?? source['room'] as String? ?? '';
       final parsed = _parseOccurrence(source, membership.id);
       if (parsed != null && included.add(parsed.id)) result.add(parsed);
     }
@@ -291,7 +303,10 @@ class TeacherLessonPlanRepository {
     final date = raw['lessonDate'] as String? ?? '';
     final entryId = raw['id'] as String? ?? '';
     final classSubjectId = raw['classSubjectId'] as String? ?? '';
-    if (date.isEmpty || entryId.isEmpty || classSubjectId.isEmpty || topics.isEmpty) {
+    if (date.isEmpty ||
+        entryId.isEmpty ||
+        classSubjectId.isEmpty ||
+        topics.isEmpty) {
       return null;
     }
     return TeacherLessonPlanOccurrenceOption(
@@ -365,6 +380,8 @@ class TeacherLessonPlanRepository {
       topicId: topic.id,
       effectiveTeacherId: membership.id,
       authorMembershipId: membership.id,
+      occurrenceStatus: 'scheduled',
+      currentTeacherAuthorized: true,
       pendingSync: true,
     );
     await _writePlan(
@@ -375,7 +392,8 @@ class TeacherLessonPlanRepository {
     );
     return TeacherLessonPlanActionResult(
       success: true,
-      message: 'Occurrence lesson plan created locally and queued for server validation.',
+      message:
+          'Occurrence lesson plan created locally and queued for server validation.',
       plan: plan,
     );
   }
@@ -395,7 +413,7 @@ class TeacherLessonPlanRepository {
       return TeacherLessonPlanActionResult(
         success: false,
         message:
-            '${teacherLessonPlanStatusLabel(current.status)} plans are locked for Teacher editing.',
+            '${teacherLessonPlanStatusLabel(current.status)} plans are not editable by this Teacher.',
         plan: current,
       );
     }
@@ -404,7 +422,8 @@ class TeacherLessonPlanRepository {
       status: current.status == TeacherLessonPlanStatus.needsChanges
           ? TeacherLessonPlanStatus.needsChanges
           : TeacherLessonPlanStatus.draft,
-      updatedLabel: demo ? 'Draft saved in demo' : 'Draft saved locally · sync pending',
+      updatedLabel:
+          demo ? 'Draft saved in demo' : 'Draft saved locally · sync pending',
       pendingSync: !demo,
     );
     await _writePlan(
@@ -438,7 +457,7 @@ class TeacherLessonPlanRepository {
         success: false,
         message: current.waitingForServer
             ? 'This submission is already queued.'
-            : 'This plan is locked until reviewer action.',
+            : 'This plan is not editable by this Teacher.',
         plan: current,
       );
     }
@@ -530,7 +549,8 @@ class TeacherLessonPlanRepository {
     if (!LocalDatabase.blockDemoSeeds) {
       return const TeacherLessonPlanActionResult(
         success: false,
-        message: 'Canonical lesson delivery is available only in server-backed mode.',
+        message:
+            'Canonical lesson delivery is available only in server-backed mode.',
       );
     }
     final membership = _session.requireActiveMembership();
@@ -538,6 +558,12 @@ class TeacherLessonPlanRepository {
       return const TeacherLessonPlanActionResult(
         success: false,
         message: 'Only a server-approved lesson plan can become delivery evidence.',
+      );
+    }
+    if (!plan.currentTeacherAuthorized) {
+      return const TeacherLessonPlanActionResult(
+        success: false,
+        message: 'This occurrence is no longer assigned to your Teacher membership.',
       );
     }
     final date = DateTime.tryParse(plan.lessonDate);
@@ -548,13 +574,6 @@ class TeacherLessonPlanRepository {
         success: false,
         message:
             'Lesson delivery can be recorded only on or after the scheduled lesson date.',
-      );
-    }
-    if (plan.effectiveTeacherId.isNotEmpty &&
-        plan.effectiveTeacherId != membership.id) {
-      return const TeacherLessonPlanActionResult(
-        success: false,
-        message: 'This occurrence is no longer assigned to your Teacher membership.',
       );
     }
 
@@ -631,8 +650,14 @@ class TeacherLessonPlanRepository {
       entityId: id,
     );
     if (record == null) return null;
-    return TeacherLessonPlan.fromJson(record.payload).copyWith(
+    final parsed = TeacherLessonPlan.fromJson(record.payload);
+    final authorized = !LocalDatabase.blockDemoSeeds ||
+        (parsed.effectiveTeacherId == membership.id &&
+            parsed.occurrenceStatus != 'cancelled' &&
+            parsed.occurrenceStatus != 'uncovered');
+    return parsed.copyWith(
       pendingSync: record.isDirty,
+      currentTeacherAuthorized: authorized,
     );
   }
 
@@ -693,6 +718,7 @@ class TeacherLessonPlanRepository {
       for (final record in seeded)
         TeacherLessonPlan.fromJson(record.payload).copyWith(
           pendingSync: record.isDirty,
+          currentTeacherAuthorized: true,
         ),
     ]..sort(_planOrder);
     final classes = {for (final item in plans) item.className}.toList()..sort();
