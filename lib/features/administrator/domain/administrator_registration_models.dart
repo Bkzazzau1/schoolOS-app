@@ -210,11 +210,12 @@ String admissionNumberForSection(String section) {
     _ => 'EYR',
   };
   final serial = section == 'Primary' ? '014' : '009';
-  return 'BGA/KD/$code/26/$serial';
+  final year = (DateTime.now().year % 100).toString().padLeft(2, '0');
+  return 'BGA/KD/$code/$year/$serial';
 }
 
 const registrationQrSafetyBoundary =
-    'QR/barcode must use a safe opaque identifier only. Do not encode date of birth, guardian phone, health information or fee balance directly.';
+    'QR/barcode must use a safe opaque server identifier only. Do not encode date of birth, guardian phone, health information or fee balance directly.';
 
 const registrationActivationBoundary =
-    'Registration remains Admission in progress until completion. Finance account setup is prepared after activation; optional transport and meal enrollment stay separate service workflows.';
+    'Local completion may be queued offline. Canonical Active status and billing begin only after the SchoolOS server accepts registration and creates the active enrollment; finance, transport and meal setup remain separate workflows.';
