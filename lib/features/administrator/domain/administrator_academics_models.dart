@@ -150,6 +150,150 @@ class AdministratorAcademicClass {
       );
 }
 
+class AdministratorSubject {
+  const AdministratorSubject({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.shortName,
+    required this.section,
+    required this.isActive,
+    this.pendingSync = false,
+  });
+
+  final String id;
+  final String code;
+  final String name;
+  final String shortName;
+  final String section;
+  final bool isActive;
+  final bool pendingSync;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'code': code,
+        'name': name,
+        'shortName': shortName,
+        'section': section,
+        'isActive': isActive,
+      };
+
+  factory AdministratorSubject.fromJson(
+    Map<String, Object?> json, {
+    bool pendingSync = false,
+  }) =>
+      AdministratorSubject(
+        id: json['id'] as String? ?? '',
+        code: json['code'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        shortName: json['shortName'] as String? ?? '',
+        section: json['section'] as String? ?? '',
+        isActive: json['isActive'] as bool? ?? true,
+        pendingSync: pendingSync,
+      );
+}
+
+class AdministratorClassSubject {
+  const AdministratorClassSubject({
+    required this.id,
+    required this.sessionId,
+    required this.classId,
+    required this.subjectId,
+    required this.requirement,
+    required this.periodsPerWeek,
+    required this.isActive,
+    this.className = '',
+    this.subjectCode = '',
+    this.subject = '',
+    this.pendingSync = false,
+  });
+
+  final String id;
+  final String sessionId;
+  final String classId;
+  final String className;
+  final String subjectId;
+  final String subjectCode;
+  final String subject;
+  final String requirement;
+  final int periodsPerWeek;
+  final bool isActive;
+  final bool pendingSync;
+
+  bool get compulsory => requirement == 'compulsory';
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'sessionId': sessionId,
+        'classId': classId,
+        'subjectId': subjectId,
+        'requirement': requirement,
+        'periodsPerWeek': periodsPerWeek,
+        'isActive': isActive,
+      };
+
+  factory AdministratorClassSubject.fromJson(
+    Map<String, Object?> json, {
+    bool pendingSync = false,
+  }) =>
+      AdministratorClassSubject(
+        id: json['id'] as String? ?? '',
+        sessionId: json['sessionId'] as String? ?? '',
+        classId: json['classId'] as String? ?? '',
+        className: json['className'] as String? ?? '',
+        subjectId: json['subjectId'] as String? ?? '',
+        subjectCode: json['subjectCode'] as String? ?? '',
+        subject: json['subject'] as String? ?? '',
+        requirement: json['requirement'] as String? ?? 'compulsory',
+        periodsPerWeek: json['periodsPerWeek'] as int? ?? 1,
+        isActive: json['isActive'] as bool? ?? true,
+        pendingSync: pendingSync,
+      );
+}
+
+class AdministratorCurriculumTopic {
+  const AdministratorCurriculumTopic({
+    required this.id,
+    required this.classSubjectId,
+    required this.termId,
+    required this.sequence,
+    required this.title,
+    required this.description,
+    this.pendingSync = false,
+  });
+
+  final String id;
+  final String classSubjectId;
+  final String termId;
+  final int sequence;
+  final String title;
+  final String description;
+  final bool pendingSync;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'classSubjectId': classSubjectId,
+        'termId': termId,
+        'sequence': sequence,
+        'title': title,
+        'description': description,
+      };
+
+  factory AdministratorCurriculumTopic.fromJson(
+    Map<String, Object?> json, {
+    bool pendingSync = false,
+  }) =>
+      AdministratorCurriculumTopic(
+        id: json['id'] as String? ?? '',
+        classSubjectId: json['classSubjectId'] as String? ?? '',
+        termId: json['termId'] as String? ?? '',
+        sequence: json['sequence'] as int? ?? 1,
+        title: json['title'] as String? ?? '',
+        description: json['description'] as String? ?? '',
+        pendingSync: pendingSync,
+      );
+}
+
 class AdministratorProgressionDecision {
   const AdministratorProgressionDecision({
     required this.studentId,
@@ -254,12 +398,18 @@ class AdministratorAcademicsSnapshot {
     required this.sessions,
     required this.terms,
     required this.classes,
+    required this.subjects,
+    required this.classSubjects,
+    required this.topics,
     required this.batches,
   });
 
   final List<AdministratorAcademicSession> sessions;
   final List<AdministratorAcademicTerm> terms;
   final List<AdministratorAcademicClass> classes;
+  final List<AdministratorSubject> subjects;
+  final List<AdministratorClassSubject> classSubjects;
+  final List<AdministratorCurriculumTopic> topics;
   final List<AdministratorProgressionBatch> batches;
 
   AdministratorAcademicSession? get activeSession =>
@@ -268,6 +418,19 @@ class AdministratorAcademicsSnapshot {
   AdministratorAcademicTerm? activeTermFor(String sessionId) => terms
       .where((item) => item.sessionId == sessionId && item.status == 'active')
       .firstOrNull;
+
+  List<AdministratorClassSubject> subjectsForClass(
+    String sessionId,
+    String classId,
+  ) =>
+      classSubjects
+          .where(
+            (item) =>
+                item.sessionId == sessionId &&
+                item.classId == classId &&
+                item.isActive,
+          )
+          .toList(growable: false);
 }
 
 extension _FirstOrNull<T> on Iterable<T> {
