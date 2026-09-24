@@ -82,6 +82,8 @@ class TeacherLessonPlan {
     this.topicId = '',
     this.effectiveTeacherId = '',
     this.authorMembershipId = '',
+    this.occurrenceStatus = '',
+    this.currentTeacherAuthorized = true,
     this.submittedByMembershipId,
     this.submittedAt,
     this.reviewedAt,
@@ -112,6 +114,8 @@ class TeacherLessonPlan {
   final String topicId;
   final String effectiveTeacherId;
   final String authorMembershipId;
+  final String occurrenceStatus;
+  final bool currentTeacherAuthorized;
   final String? submittedByMembershipId;
   final String? submittedAt;
   final String? reviewedAt;
@@ -119,8 +123,9 @@ class TeacherLessonPlan {
   final bool pendingSync;
 
   bool get teacherEditable =>
-      status == TeacherLessonPlanStatus.draft ||
-      status == TeacherLessonPlanStatus.needsChanges;
+      currentTeacherAuthorized &&
+      (status == TeacherLessonPlanStatus.draft ||
+          status == TeacherLessonPlanStatus.needsChanges);
   bool get waitingForServer => status == TeacherLessonPlanStatus.queuedSubmission;
   bool get canonicalApproved => status == TeacherLessonPlanStatus.approved;
 
@@ -154,6 +159,8 @@ class TeacherLessonPlan {
     String? topicId,
     String? effectiveTeacherId,
     String? authorMembershipId,
+    String? occurrenceStatus,
+    bool? currentTeacherAuthorized,
     String? submittedByMembershipId,
     String? submittedAt,
     String? reviewedAt,
@@ -184,6 +191,9 @@ class TeacherLessonPlan {
         topicId: topicId ?? this.topicId,
         effectiveTeacherId: effectiveTeacherId ?? this.effectiveTeacherId,
         authorMembershipId: authorMembershipId ?? this.authorMembershipId,
+        occurrenceStatus: occurrenceStatus ?? this.occurrenceStatus,
+        currentTeacherAuthorized:
+            currentTeacherAuthorized ?? this.currentTeacherAuthorized,
         submittedByMembershipId:
             submittedByMembershipId ?? this.submittedByMembershipId,
         submittedAt: submittedAt ?? this.submittedAt,
@@ -228,6 +238,8 @@ class TeacherLessonPlan {
         'topicId': topicId,
         'effectiveTeacherId': effectiveTeacherId,
         'authorMembershipId': authorMembershipId,
+        'occurrenceStatus': occurrenceStatus,
+        'currentTeacherAuthorized': currentTeacherAuthorized,
         'submittedByMembershipId': submittedByMembershipId,
         'submittedAt': submittedAt,
         'reviewedAt': reviewedAt,
@@ -271,6 +283,9 @@ class TeacherLessonPlan {
       topicId: json['topicId'] as String? ?? '',
       effectiveTeacherId: json['effectiveTeacherId'] as String? ?? '',
       authorMembershipId: json['authorMembershipId'] as String? ?? '',
+      occurrenceStatus: json['occurrenceStatus'] as String? ?? '',
+      currentTeacherAuthorized:
+          json['currentTeacherAuthorized'] as bool? ?? true,
       submittedByMembershipId: json['submittedByMembershipId'] as String?,
       submittedAt: json['submittedAt'] as String?,
       reviewedAt: json['reviewedAt'] as String?,
