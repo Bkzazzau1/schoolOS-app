@@ -45,7 +45,7 @@ class AdministratorLifecycleRepository {
       entityType: _entityType,
     );
 
-    if (records.isEmpty) {
+    if (records.isEmpty && !LocalDatabase.blockDemoSeeds) {
       for (final item in [...administratorLifecycleWebsiteSeed, ...administratorLifecycleDemoExtras]) {
         await _localDatabase.upsertLocalRecord(
           tenantId: membership.schoolId,
@@ -81,8 +81,14 @@ class AdministratorLifecycleRepository {
     );
   }
 
-  /// The workflows an administrator can start from this desk.
-  static const requestable = ['Class change', 'Promotion', 'Transfer out'];
+  /// Distinct workflows matter: Repeat is an academic decision to open a new
+  /// enrollment period in the same class, not a generic class change.
+  static const requestable = [
+    'Class change',
+    'Promotion',
+    'Repeat',
+    'Transfer out',
+  ];
 
   SchoolMembership _requireAdministrator() {
     final membership = _schoolSession.requireActiveMembership();
@@ -95,9 +101,6 @@ class AdministratorLifecycleRepository {
   AdministratorLifecycleActionResult _refused(StateError error) =>
       AdministratorLifecycleActionResult(success: false, message: error.message);
 
-  /// Starts a change for a student. Class changes and promotions name the class the student moves to.
-  ///
-  /// [student] is the student as they stand now (after earlier changes).
   Future<AdministratorLifecycleActionResult> request({
     required AdministratorStudentRecord student,
     required String workflow,
@@ -111,48 +114,76 @@ class AdministratorLifecycleRepository {
       return _refused(error);
     }
     if (!requestable.contains(workflow)) {
-      return const AdministratorLifecycleActionResult(success: false, message: 'Choose what kind of change this is.');
+      return const AdministratorLifecycleActionResult(
+        success: false,
+        message: 'Choose what kind of change this is.',
+      );
     }
     if (student.status == AdministratorStudentStatus.transferredOut) {
-      return AdministratorLifecycleActionResult(success: false, message: '${student.name} has already left the school.');
+      return AdministratorLifecycleActionResult(
+        success: false,
+        message: '${student.name} has already left the school.',
+      );
     }
+
     final target = toClass.trim();
-    final movesClass = workflow != 'Transfer out';
-    if (movesClass) {
+    final needsDestination = workflow == 'Class change' || workflow == 'Promotion';
+    if (needsDestination) {
       if (target.isEmpty) {
-        return const AdministratorLifecycleActionResult(success: false, message: 'Say which class the student moves to.');
+        return const AdministratorLifecycleActionResult(
+          success: false,
+          message: 'Say which class the student moves to.',
+        );
       }
       if (target.toLowerCase() == student.className.trim().toLowerCase()) {
-        return AdministratorLifecycleActionResult(success: false, message: '${student.name} is already in $target.');
+        return AdministratorLifecycleActionResult(
+          success: false,
+          message: workflow == 'Promotion'
+              ? '${student.name} cannot be promoted to the same class. Use Repeat when the academic decision is to remain in ${student.className}.'
+              : '${student.name} is already in $target.',
+        );
       }
     }
+
     final existing = (await load()).records;
-    if (existing.any((r) => r.isPending && r.student == student.id && r.workflow == workflow)) {
+    if (existing.any(
+      (r) => r.isPending && r.student == student.id && r.workflow == workflow,
+    )) {
       return AdministratorLifecycleActionResult(
         success: false,
         message: '${student.name} already has a pending ${workflow.toLowerCase()}.',
       );
     }
 
+    final repeat = workflow == 'Repeat';
     final now = DateTime.now();
     final record = AdministratorLifecycleRecord(
       id: 'LC-${now.microsecondsSinceEpoch}',
       studentName: student.name,
       workflow: workflow,
-      change: movesClass ? '${student.className} → $target' : (note.trim().isEmpty ? 'Awaiting records pack' : note.trim()),
+      change: repeat
+          ? 'Repeat · ${student.className}'
+          : needsDestination
+              ? '${student.className} → $target'
+              : (note.trim().isEmpty ? 'Awaiting records pack' : note.trim()),
       status: AdministratorLifecycleStatus.pending,
       studentId: student.id,
-      fromClass: movesClass ? student.className : '',
-      toClass: movesClass ? target : '',
+      fromClass: (needsDestination || repeat) ? student.className : '',
+      toClass: repeat ? student.className : (needsDestination ? target : ''),
       requestedAt: now.toUtc().toIso8601String(),
       note: note.trim(),
     );
     await _save(membership, record, isNew: true);
-    return AdministratorLifecycleActionResult(success: true, message: '$workflow started for ${student.name}.', record: record);
+    return AdministratorLifecycleActionResult(
+      success: true,
+      message: '$workflow started for ${student.name}.',
+      record: record,
+    );
   }
 
-  /// A transfer out can only be completed once the student's records pack has been prepared.
-  Future<AdministratorLifecycleActionResult> markRecordsPackReady(AdministratorLifecycleRecord record) async {
+  Future<AdministratorLifecycleActionResult> markRecordsPackReady(
+    AdministratorLifecycleRecord record,
+  ) async {
     final SchoolMembership membership;
     try {
       membership = _requireAdministrator();
@@ -160,16 +191,29 @@ class AdministratorLifecycleRepository {
       return _refused(error);
     }
     if (!record.isPending || !record.isTransferOut) {
-      return const AdministratorLifecycleActionResult(success: false, message: 'Only a pending transfer has a records pack.');
+      return const AdministratorLifecycleActionResult(
+        success: false,
+        message: 'Only a pending transfer has a records pack.',
+      );
     }
-    final updated = record.copyWith(recordsPackReady: true, change: 'Records pack ready');
+    final updated = record.copyWith(
+      recordsPackReady: true,
+      change: 'Records pack ready',
+    );
     await _save(membership, updated, isNew: false);
-    return AdministratorLifecycleActionResult(success: true, message: 'Records pack marked ready.', record: updated);
+    return AdministratorLifecycleActionResult(
+      success: true,
+      message: 'Records pack marked ready.',
+      record: updated,
+    );
   }
 
-  /// Carries out a pending change. A promotion needs the name of who approved it (academic leadership decides, the
-  /// administrator only processes it); a transfer out needs the records pack to be ready.
-  Future<AdministratorLifecycleActionResult> complete(AdministratorLifecycleRecord record, {String approvedBy = ''}) async {
+  /// Promotion and Repeat are academic decisions. Administration processes the
+  /// already-approved decision and records the approver for the audit trail.
+  Future<AdministratorLifecycleActionResult> complete(
+    AdministratorLifecycleRecord record, {
+    String approvedBy = '',
+  }) async {
     final SchoolMembership membership;
     try {
       membership = _requireAdministrator();
@@ -177,25 +221,35 @@ class AdministratorLifecycleRepository {
       return _refused(error);
     }
     if (!record.isPending) {
-      return const AdministratorLifecycleActionResult(success: false, message: 'This change is not pending.');
-    }
-    if (record.isPromotion && approvedBy.trim().isEmpty) {
       return const AdministratorLifecycleActionResult(
         success: false,
-        message: 'A promotion is an academic decision. Enter who approved it before processing it.',
+        message: 'This change is not pending.',
+      );
+    }
+    if (record.isAcademicProgression && approvedBy.trim().isEmpty) {
+      return AdministratorLifecycleActionResult(
+        success: false,
+        message:
+            'A ${record.workflow.toLowerCase()} is an academic decision. Enter who approved it before processing it.',
       );
     }
     if (record.isTransferOut && !record.recordsPackReady) {
-      return const AdministratorLifecycleActionResult(success: false, message: 'Prepare the records pack before completing the transfer.');
+      return const AdministratorLifecycleActionResult(
+        success: false,
+        message: 'Prepare the records pack before completing the transfer.',
+      );
     }
     if (record.isAlumni) {
-      return const AdministratorLifecycleActionResult(success: false, message: 'Alumni are managed from Alumni Management.');
+      return const AdministratorLifecycleActionResult(
+        success: false,
+        message: 'Alumni are managed from Alumni Management.',
+      );
     }
     final updated = record.copyWith(
       status: AdministratorLifecycleStatus.completed,
       completedAt: DateTime.now().toUtc().toIso8601String(),
       approvedBy: approvedBy.trim(),
-      change: record.movesClass ? record.change : 'Completed',
+      change: (record.movesClass || record.isRepeat) ? record.change : 'Completed',
     );
     await _save(membership, updated, isNew: false);
     return AdministratorLifecycleActionResult(
@@ -205,8 +259,10 @@ class AdministratorLifecycleRepository {
     );
   }
 
-  /// Stops a pending change. The record is kept, with the reason, so the history stays complete.
-  Future<AdministratorLifecycleActionResult> cancel(AdministratorLifecycleRecord record, String reason) async {
+  Future<AdministratorLifecycleActionResult> cancel(
+    AdministratorLifecycleRecord record,
+    String reason,
+  ) async {
     final SchoolMembership membership;
     try {
       membership = _requireAdministrator();
@@ -214,7 +270,10 @@ class AdministratorLifecycleRepository {
       return _refused(error);
     }
     if (!record.isPending) {
-      return const AdministratorLifecycleActionResult(success: false, message: 'This change is not pending.');
+      return const AdministratorLifecycleActionResult(
+        success: false,
+        message: 'This change is not pending.',
+      );
     }
     final updated = record.copyWith(
       status: AdministratorLifecycleStatus.cancelled,
@@ -223,10 +282,18 @@ class AdministratorLifecycleRepository {
       change: 'Cancelled',
     );
     await _save(membership, updated, isNew: false);
-    return AdministratorLifecycleActionResult(success: true, message: '${record.workflow} cancelled.', record: updated);
+    return AdministratorLifecycleActionResult(
+      success: true,
+      message: '${record.workflow} cancelled.',
+      record: updated,
+    );
   }
 
-  Future<void> _save(SchoolMembership membership, AdministratorLifecycleRecord record, {required bool isNew}) async {
+  Future<void> _save(
+    SchoolMembership membership,
+    AdministratorLifecycleRecord record, {
+    required bool isNew,
+  }) async {
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
       entityType: _entityType,
@@ -253,7 +320,11 @@ class AdministratorLifecycleRepository {
 }
 
 class AdministratorLifecycleActionResult {
-  const AdministratorLifecycleActionResult({required this.success, required this.message, this.record});
+  const AdministratorLifecycleActionResult({
+    required this.success,
+    required this.message,
+    this.record,
+  });
 
   final bool success;
   final String message;
