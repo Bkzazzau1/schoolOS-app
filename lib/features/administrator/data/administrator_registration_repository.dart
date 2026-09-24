@@ -52,9 +52,11 @@ class AdministratorRegistrationRepository {
     AdmissionApplicant? sourceApplicant,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
-    final seed = sourceApplicant == null
-        ? administratorRegistrationWebsiteSeed
-        : _fromApplicant(sourceApplicant);
+    final seed = sourceApplicant != null
+        ? _fromApplicant(sourceApplicant)
+        : LocalDatabase.blockDemoSeeds
+            ? _newLiveDraft()
+            : administratorRegistrationWebsiteSeed;
 
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
@@ -239,6 +241,31 @@ class AdministratorRegistrationRepository {
     );
   }
 
+  StudentRegistrationRecord _newLiveDraft() {
+    final now = DateTime.now();
+    final stamp = now.microsecondsSinceEpoch.toString();
+    final serial = stamp.substring(stamp.length - 6);
+    final studentSuffix = stamp.substring(stamp.length - 10);
+    final year = (now.year % 100).toString().padLeft(2, '0');
+    return administratorRegistrationWebsiteSeed.copyWith(
+      registrationId: 'REG-$stamp',
+      firstName: '',
+      surname: '',
+      otherName: '',
+      dateOfBirth: '',
+      previousSchool: '',
+      address: '',
+      admissionNumber: 'BGA/KD/PRI/$year/$serial',
+      studentId: 'STU-$studentSuffix',
+      primaryGuardian: '',
+      guardianPhone: '',
+      guardianEmail: '',
+      familyAccount: 'Create new family account',
+      siblingLink: 'No existing sibling',
+      status: StudentRegistrationStatus.inProgress,
+    );
+  }
+
   StudentRegistrationRecord _fromApplicant(AdmissionApplicant applicant) {
     final names = applicant.name.trim().split(RegExp(r'\s+'));
     final firstName = names.isEmpty ? '' : names.first;
@@ -252,6 +279,7 @@ class AdministratorRegistrationRepository {
       'Secondary' => 'SEC',
       _ => 'EYR',
     };
+    final year = (DateTime.now().year % 100).toString().padLeft(2, '0');
 
     return administratorRegistrationWebsiteSeed.copyWith(
       registrationId: 'REG-${applicant.reference}',
@@ -262,8 +290,8 @@ class AdministratorRegistrationRepository {
           ? 'Early Years'
           : applicant.section,
       proposedClass: applicant.className,
-      admissionNumber: 'BGA/KD/$code/26/$serial',
-      studentId: 'STU-NEW-$serial',
+      admissionNumber: 'BGA/KD/$code/$year/$serial',
+      studentId: 'STU-$serial',
       primaryGuardian: applicant.guardian,
       guardianPhone: applicant.phone,
       guardianEmail: '',
@@ -279,13 +307,13 @@ class AdministratorRegistrationRepository {
     if (reference != null && reference.isNotEmpty) {
       return _digitsFromReference(reference);
     }
-    final match = RegExp(r'(\d{3})$').firstMatch(record.admissionNumber);
-    return match?.group(1) ?? '014';
+    final match = RegExp(r'(\d{3,8})$').firstMatch(record.admissionNumber);
+    return match?.group(1) ?? _digitsFromReference(record.registrationId);
   }
 
   String _digitsFromReference(String reference) {
     final digits = reference.replaceAll(RegExp(r'\D'), '');
-    if (digits.length >= 3) return digits.substring(digits.length - 3);
-    return digits.padLeft(3, '0');
+    if (digits.length >= 6) return digits.substring(digits.length - 6);
+    return digits.padLeft(6, '0');
   }
 }
