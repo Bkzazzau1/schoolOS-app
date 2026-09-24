@@ -237,4 +237,27 @@ class _FakeAssignmentRepository implements TeacherAssignmentRepository {
       assignment: draft,
     );
   }
+
+  @override
+  Future<TeacherAssignmentActionResult> revise(TeacherAssignment assignment) async =>
+      const TeacherAssignmentActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherAssignmentActionResult> close(TeacherAssignment assignment) async =>
+      const TeacherAssignmentActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherAssignmentActionResult> gradeSubmission(
+    TeacherAssignmentSubmission submission, {
+    required double score,
+    required String feedback,
+  }) async =>
+      const TeacherAssignmentActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherAssignmentActionResult> returnSubmission(
+    TeacherAssignmentSubmission submission, {
+    required String feedback,
+  }) async =>
+      const TeacherAssignmentActionResult(success: false, message: 'Not used in this test.');
 }

@@ -9,8 +9,9 @@ import 'package:schoolos_app/features/parent/data/parent_children_repository.dar
 import 'package:schoolos_app/features/parent/data/parent_learning_progress_repository.dart';
 import 'package:schoolos_app/features/parent/domain/parent_learning_progress_models.dart';
 import 'package:schoolos_app/features/proprietor/data/concession_repository.dart';
-import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart' show teacherAssessmentEntityType;
 import 'package:schoolos_app/features/teacher/data/teacher_roster.dart';
+import 'package:schoolos_app/features/teacher/domain/teacher_assessment_models.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
@@ -55,9 +56,46 @@ void main() {
     );
   }
 
-  // Records a real assessment score for a real student, exactly the way the real Teacher screen
-  // would: create the assessment for the real assigned class, then save a real score against it.
-  Future<void> recordRealScore({
+  // Assessments now gate Student/Parent visibility on the canonical RELEASED
+  // state (see ParentLearningProgressRepository) - a family never sees a mark
+  // before the school has released it, so these helpers build a real
+  // assessment record directly at the state under test, using the same real
+  // class roster a Teacher would (never a fabricated student list).
+  Future<TeacherAssessment> buildRealAssessment({
+    required SchoolMembership teacherMembership,
+    required String className,
+    required String title,
+    required int maximumScore,
+    required String studentId,
+    required int score,
+    required TeacherAssessmentState state,
+  }) async {
+    final roster = TeacherRoster(
+      database: db!,
+      session: session,
+      students: AdministratorStudentsRepository(localDatabase: db!, schoolSession: session),
+    );
+    final students = await roster.studentsIn(className);
+    return TeacherAssessment(
+      id: 'assessment-$className-$title',
+      title: title,
+      className: className,
+      subject: '',
+      type: TeacherAssessmentType.ca,
+      maximumScore: maximumScore,
+      state: state,
+      entries: [
+        for (final student in students)
+          TeacherAssessmentEntry(
+            studentId: student.id,
+            studentName: student.name,
+            score: student.id == studentId ? score.toDouble() : null,
+          ),
+      ],
+    );
+  }
+
+  Future<void> recordReleasedScore({
     required SchoolMembership teacherMembership,
     required String className,
     required String title,
@@ -65,23 +103,21 @@ void main() {
     required String studentId,
     required int score,
   }) async {
-    await session.selectSchool(teacherMembership);
-    final roster = TeacherRoster(
-      database: db!,
-      session: session,
-      students: AdministratorStudentsRepository(localDatabase: db!, schoolSession: session),
+    final assessment = await buildRealAssessment(
+      teacherMembership: teacherMembership,
+      className: className,
+      title: title,
+      maximumScore: maximumScore,
+      studentId: studentId,
+      score: score,
+      state: TeacherAssessmentState.released,
     );
-    final assessments = TeacherAssessmentRepository(localDatabase: db!, schoolSession: session, roster: roster);
-    final created = await assessments.createAssessment(className: className, title: title, maximumScore: maximumScore);
-    expect(created.success, isTrue, reason: created.message);
-    final sheet = created.sheet!;
-    final scored = [
-      for (final entry in sheet.entries)
-        entry.studentId == studentId ? entry.copyWith(score: score) : entry,
-    ];
-    final saved = await assessments.saveProgress(sheet.copyWith(entries: scored));
-    expect(saved.success, isTrue, reason: saved.message);
-    await session.selectSchool(parent);
+    await db!.upsertLocalRecord(
+      tenantId: teacherMembership.schoolId,
+      entityType: teacherAssessmentEntityType,
+      entityId: assessment.id,
+      payload: assessment.toJson(),
+    );
   }
 
   tearDown(() => db?.close());
@@ -104,9 +140,33 @@ void main() {
     }
   });
 
-  test('a real recorded score becomes real evidence and average for the right child only', () async {
+  test('an unreleased score is never visible to the family, even after it is entered', () async {
     await setUpFamily();
-    await recordRealScore(
+    final published = await buildRealAssessment(
+      teacherMembership: mathsTeacher,
+      className: 'JSS 2A',
+      title: 'CA 1',
+      maximumScore: 20,
+      studentId: 'STU-001',
+      score: 15,
+      state: TeacherAssessmentState.published,
+    );
+    await db!.upsertLocalRecord(
+      tenantId: mathsTeacher.schoolId,
+      entityType: teacherAssessmentEntityType,
+      entityId: published.id,
+      payload: published.toJson(),
+    );
+
+    final snapshot = await learning.load();
+    final maryam = snapshot.childById('STU-001')!;
+    expect(maryam.averagePercent, 0);
+    expect(maryam.evidence, isEmpty);
+  });
+
+  test('a released score becomes real evidence and average for the right child only', () async {
+    await setUpFamily();
+    await recordReleasedScore(
       teacherMembership: mathsTeacher,
       className: 'JSS 2A',
       title: 'CA 1',
@@ -124,7 +184,7 @@ void main() {
     expect(maryam.evidence.single.label, 'CA 1');
     expect(maryam.evidence.single.value, '15/20 (75%)');
     expect(maryam.timeline, hasLength(1));
-    expect(maryam.timeline.single.detail, 'Score recorded: 15/20');
+    expect(maryam.timeline.single.detail, 'Score released: 15/20');
     expect(maryam.insight, contains('1 recorded assessment'));
 
     // Hafsa is unaffected by her sibling's real score in her sibling's real class.
@@ -132,9 +192,9 @@ void main() {
     expect(hafsa.evidence, isEmpty);
   });
 
-  test('an average blends every real recorded score for that child, unentered scores are excluded', () async {
+  test('an average blends every released score for that child, unentered scores are excluded', () async {
     await setUpFamily();
-    await recordRealScore(
+    await recordReleasedScore(
       teacherMembership: mathsTeacher,
       className: 'JSS 2A',
       title: 'CA 1',
@@ -142,7 +202,7 @@ void main() {
       studentId: 'STU-001',
       score: 10, // 50%
     );
-    await recordRealScore(
+    await recordReleasedScore(
       teacherMembership: mathsTeacher,
       className: 'JSS 2A',
       title: 'CA 2',
@@ -160,7 +220,7 @@ void main() {
 
   test('status is derived from the real average, not a fabricated label', () async {
     await setUpFamily();
-    await recordRealScore(
+    await recordReleasedScore(
       teacherMembership: primaryTeacher,
       className: 'Primary 3',
       title: 'Term Test',

@@ -11,7 +11,7 @@ import 'package:schoolos_app/features/principal/data/principal_incidents_reposit
 import 'package:schoolos_app/features/principal/data/principal_performance_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_incidents_models.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_staff_profile_repository.dart';
-import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart' show teacherAssessmentRegisterEntityType;
+import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart' show teacherAssessmentEntityType;
 import 'package:schoolos_app/features/teacher/domain/teacher_assessment_models.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
@@ -95,17 +95,20 @@ void main() {
 
   test('a real assessment record raises the real academic-average metric and its class row', () async {
     await setUpSchool();
-    const item = TeacherAssessmentRegisterItem(
+    const item = TeacherAssessment(
       id: 'ASM-1',
       title: 'Mid-term test',
       className: 'JSS 2B',
+      subject: 'Mathematics',
+      type: TeacherAssessmentType.test,
       maximumScore: 100,
+      state: TeacherAssessmentState.published,
+      entries: [],
       entered: 2,
-      total: 2,
-      average: 80,
-      state: TeacherAssessmentRegisterState.inProgress,
+      totalStudents: 2,
+      averagePercent: 80,
     );
-    await db!.upsertLocalRecord(tenantId: principal.schoolId, entityType: teacherAssessmentRegisterEntityType, entityId: item.id, payload: item.toJson());
+    await db!.upsertLocalRecord(tenantId: principal.schoolId, entityType: teacherAssessmentEntityType, entityId: item.id, payload: item.toJson());
     final snapshot = await performance.load();
     final metric = snapshot.metrics.firstWhere((m) => m.label == 'Academic average');
     expect(metric.hasEvidence, isTrue);

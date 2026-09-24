@@ -10,7 +10,7 @@ import 'package:schoolos_app/features/principal/data/principal_assignments_repos
 import 'package:schoolos_app/features/principal/data/principal_attendance_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_academics_models.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_staff_profile_repository.dart';
-import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart' show teacherAssessmentRegisterEntityType;
+import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart' show teacherAssessmentEntityType;
 import 'package:schoolos_app/features/teacher/data/teacher_syllabus_repository.dart' show teacherSyllabusProgressEntityType;
 import 'package:schoolos_app/features/teacher/domain/teacher_assessment_models.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_syllabus_models.dart';
@@ -135,17 +135,20 @@ void main() {
   test('a real assessment register item is reflected in the real class average and score-entry completion', () async {
     await setUpSchool();
     final membership = principal;
-    const item = TeacherAssessmentRegisterItem(
+    const item = TeacherAssessment(
       id: 'ASM-1',
       title: 'Mid-term test',
       className: 'JSS 2B',
+      subject: 'Mathematics',
+      type: TeacherAssessmentType.test,
       maximumScore: 100,
+      state: TeacherAssessmentState.published,
+      entries: [],
       entered: 1,
-      total: 2,
-      average: 80,
-      state: TeacherAssessmentRegisterState.inProgress,
+      totalStudents: 2,
+      averagePercent: 80,
     );
-    await db!.upsertLocalRecord(tenantId: membership.schoolId, entityType: teacherAssessmentRegisterEntityType, entityId: item.id, payload: item.toJson());
+    await db!.upsertLocalRecord(tenantId: membership.schoolId, entityType: teacherAssessmentEntityType, entityId: item.id, payload: item.toJson());
     final snapshot = await principalAcademics.load();
     final jss2b = snapshot.classes.singleWhere((c) => c.name == 'JSS 2B');
     expect(jss2b.status, isNot(PrincipalAcademicStatus.notEvaluated));

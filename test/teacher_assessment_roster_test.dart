@@ -11,7 +11,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
 
-// Has JSS 2A, JSS 2B and SS1A assigned in TeacherRoster's demo data.
+// Has JSS 2A and JSS 2B assigned in TeacherRoster's demo data.
 const mathsTeacher = SchoolMembership(id: 'membership-teacher-003', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
 
 // Has only Primary 3/4 assigned.
@@ -37,89 +37,102 @@ void main() {
     assessments = TeacherAssessmentRepository(localDatabase: db, schoolSession: session, roster: roster);
   }
 
+  Future<TeacherAssessment> publishFor(String className, {String title = 'CA 1', int maximumScore = 20}) async {
+    final loaded = await assessments.load();
+    final draftResult = await assessments.saveDraft(
+      loaded.draft.copyWith(className: className, title: title, maximumScore: maximumScore),
+    );
+    expect(draftResult.success, isTrue, reason: draftResult.message);
+    final publishResult = await assessments.publish(draftResult.assessment!);
+    expect(publishResult.success, isTrue, reason: publishResult.message);
+    return publishResult.assessment!;
+  }
+
   tearDown(() => db.close());
 
-  test('a new assessment for a real assigned class gets one score entry per real student, starting at zero', () async {
+  // Standalone demo mode publishes against the real class register (never a fabricated
+  // student list), and never yet has server-side authority to check which class the
+  // signed-in teacher is really assigned to - unlike canonical/server-backed mode, which
+  // enforces that through real TeachingAssignment authority instead (see
+  // TeacherAssessmentRepository's own doc comment on why demo mode stays permissive here).
+  test('publishing gets one score entry per real student in the class, starting unentered', () async {
     await setUpSchool(mathsTeacher);
     final realStudents = await roster.studentsIn('JSS 2A');
     expect(realStudents, isNotEmpty, reason: 'the demo register must have JSS 2A students for this test to be meaningful');
 
-    final result = await assessments.createAssessment(className: 'JSS 2A', title: 'CA 1', maximumScore: 20);
-    expect(result.success, isTrue, reason: result.message);
-    final sheet = result.sheet!;
-    expect(sheet.entries.map((e) => e.studentId).toSet(), realStudents.map((s) => s.id).toSet());
-    expect(sheet.entries.every((e) => e.score == 0), isTrue);
-    expect(sheet.className, 'JSS 2A');
-    expect(sheet.state, TeacherAssessmentSheetState.draft);
+    final published = await publishFor('JSS 2A');
+    expect(published.entries.map((e) => e.studentId).toSet(), realStudents.map((s) => s.id).toSet());
+    expect(published.entries.every((e) => e.score == null), isTrue);
+    expect(published.className, 'JSS 2A');
+    expect(published.state, TeacherAssessmentState.published);
   });
 
-  test('an assessment cannot be created for a class the teacher is not really assigned to', () async {
+  test('publishing is refused for a class with no real students on the register', () async {
     await setUpSchool(mathsTeacher);
-    final result = await assessments.createAssessment(className: 'JSS 3A', title: 'CA 1', maximumScore: 20);
-    expect(result.success, isFalse);
-    expect(result.message, contains('not assigned to this class'));
-    expect(db.pendingCount(tenantId: mathsTeacher.schoolId), 0);
+    final loaded = await assessments.load();
+    final draftResult = await assessments.saveDraft(
+      loaded.draft.copyWith(className: 'Not A Real Class', title: 'CA 1', maximumScore: 20),
+    );
+    expect(draftResult.success, isTrue, reason: draftResult.message);
+    final publishResult = await assessments.publish(draftResult.assessment!);
+    expect(publishResult.success, isFalse);
+    expect(publishResult.message, contains('no students'));
   });
 
-  test('a blank title or a non-positive maximum score is refused', () async {
+  test('a blank title or a non-positive maximum score is refused at publication', () async {
     await setUpSchool(mathsTeacher);
-    final blank = await assessments.createAssessment(className: 'JSS 2A', title: '   ', maximumScore: 20);
-    expect(blank.success, isFalse);
-    final zero = await assessments.createAssessment(className: 'JSS 2A', title: 'CA 1', maximumScore: 0);
-    expect(zero.success, isFalse);
+    final loaded = await assessments.load();
+    final blankTitle = await assessments.saveDraft(loaded.draft.copyWith(className: 'JSS 2A', title: '   ', maximumScore: 20));
+    expect((await assessments.publish(blankTitle.assessment!)).success, isFalse);
+    final zeroMax = await assessments.saveDraft(loaded.draft.copyWith(className: 'JSS 2A', title: 'CA 1', maximumScore: 0));
+    expect((await assessments.publish(zeroMax.assessment!)).success, isFalse);
   });
 
-  test('the register and score sheets only ever show the teacher\'s real assigned classes', () async {
+  test('the assessment library and class options only ever show the teacher\'s real assigned classes', () async {
     await setUpSchool(mathsTeacher);
-    await assessments.createAssessment(className: 'JSS 2A', title: 'CA 1', maximumScore: 20);
-    await assessments.createAssessment(className: 'JSS 2B', title: 'CA 1', maximumScore: 20);
+    await publishFor('JSS 2A');
+    await publishFor('JSS 2B');
     final snapshot = await assessments.load();
-    expect(snapshot.register.map((r) => r.className).toSet(), {'JSS 2A', 'JSS 2B'});
-    expect(snapshot.classOptions, ['JSS 2A', 'JSS 2B', 'SS1A']);
-    for (final item in snapshot.register) {
-      expect(snapshot.sheets.containsKey(item.id), isTrue);
-    }
+    expect(snapshot.assessments.map((a) => a.className).toSet(), {'JSS 2A', 'JSS 2B'});
+    expect(snapshot.options.map((o) => o.className).toList(), ['JSS 2A', 'JSS 2B']);
   });
 
-  test('a teacher with no assigned classes sees an honest empty register, not a crash', () async {
+  test('a teacher with no assigned classes sees an honest empty library, not a crash', () async {
     await setUpSchool(primaryTeacher);
     final snapshot = await assessments.load();
-    expect(snapshot.register, isEmpty);
-    expect(snapshot.classOptions, ['Primary 3', 'Primary 4']);
+    expect(snapshot.assessments, isEmpty);
+    expect(snapshot.options.map((o) => o.className).toList(), ['Primary 3', 'Primary 4']);
   });
 
-  test('saving progress records the real entered count and average, and queues sync', () async {
+  test('saving scores records the real entered count and average, and queues sync', () async {
     await setUpSchool(mathsTeacher);
-    final created = await assessments.createAssessment(className: 'JSS 2A', title: 'CA 1', maximumScore: 20);
-    final sheet = created.sheet!;
-    final entries = sheet.entries.toList();
+    final published = await publishFor('JSS 2A');
+    final entries = published.entries.toList();
     final scored = [
       entries[0].copyWith(score: 15),
       entries[1].copyWith(score: 10),
       for (var i = 2; i < entries.length; i++) entries[i],
     ];
-    final draft = sheet.copyWith(entries: scored);
 
-    final saved = await assessments.saveProgress(draft);
+    final saved = await assessments.saveScores(published.copyWith(entries: scored));
     expect(saved.success, isTrue, reason: saved.message);
 
     final snapshot = await assessments.load();
-    final item = snapshot.register.singleWhere((r) => r.id == sheet.id);
-    expect(item.entered, 2, reason: 'only the two non-zero scores count as entered');
-    expect(item.total, entries.length);
-    expect(item.average, saved.sheet!.average);
+    final item = snapshot.assessments.singleWhere((a) => a.id == published.id);
+    expect(item.entered, 2, reason: 'only the two entered scores count, unlike the earlier prototype which could not tell an entered zero from "not entered"');
+    expect(item.totalStudents, entries.length);
     expect(db.pendingCount(tenantId: mathsTeacher.schoolId), greaterThan(0));
   });
 
-  test('submitting scores locks the sheet from further teacher edits', () async {
+  test('submitting scores locks the assessment from further teacher score entry', () async {
     await setUpSchool(mathsTeacher);
-    final created = await assessments.createAssessment(className: 'JSS 2A', title: 'CA 1', maximumScore: 20);
-    final submitted = await assessments.submitScores(created.sheet!);
+    final published = await publishFor('JSS 2A');
+    final submitted = await assessments.submit(published);
     expect(submitted.success, isTrue, reason: submitted.message);
-    expect(submitted.sheet!.teacherEditable, isFalse);
+    expect(submitted.assessment!.scoresEditable, isFalse);
 
-    final reAttempt = await assessments.saveProgress(submitted.sheet!);
+    final reAttempt = await assessments.saveScores(submitted.assessment!);
     expect(reAttempt.success, isFalse);
-    expect(reAttempt.message, contains('cannot be silently rewritten'));
+    expect(reAttempt.message, contains('open'));
   });
 }
