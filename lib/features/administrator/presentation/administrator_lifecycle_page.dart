@@ -79,7 +79,10 @@ class _AdministratorLifecyclePageState
   }
 
   Future<void> _newChange() async {
-    final active = [for (final s in _students) if (s.status != AdministratorStudentStatus.transferredOut) s];
+    final active = [
+      for (final s in _students)
+        if (s.status != AdministratorStudentStatus.transferredOut) s,
+    ];
     final choice = await askLifecycleRequest(context, active);
     if (choice == null) return;
     await _finish(await widget.repository.request(
@@ -92,7 +95,14 @@ class _AdministratorLifecyclePageState
 
   Future<void> _openRecord(AdministratorLifecycleRecord record) async {
     if (!(_permissions?.canOpenOperationalReview ?? false)) return;
-    final history = _records.where((r) => r.student == record.student && r.status == AdministratorLifecycleStatus.completed && r.id != record.id).toList();
+    final history = _records
+        .where(
+          (r) =>
+              r.student == record.student &&
+              r.status == AdministratorLifecycleStatus.completed &&
+              r.id != record.id,
+        )
+        .toList();
     final action = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -107,20 +117,32 @@ class _AdministratorLifecyclePageState
                 _DetailRow(label: 'Workflow', value: record.workflow),
                 _DetailRow(label: 'Change', value: record.change),
                 _DetailRow(label: 'Status', value: record.status.label),
-                if (record.approvedBy.isNotEmpty) _DetailRow(label: 'Approved by', value: record.approvedBy),
-                if (record.note.isNotEmpty) _DetailRow(label: 'Note', value: record.note),
+                if (record.approvedBy.isNotEmpty)
+                  _DetailRow(label: 'Approved by', value: record.approvedBy),
+                if (record.note.isNotEmpty)
+                  _DetailRow(label: 'Note', value: record.note),
                 if (record.isTransferOut && record.isPending)
-                  _DetailRow(label: 'Records pack', value: record.recordsPackReady ? 'Ready' : 'Not ready yet'),
+                  _DetailRow(
+                    label: 'Records pack',
+                    value: record.recordsPackReady ? 'Ready' : 'Not ready yet',
+                  ),
                 if (history.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  const Text('Earlier changes', style: TextStyle(fontWeight: FontWeight.w900)),
-                  for (final h in history) Padding(padding: const EdgeInsets.only(top: 4), child: Text('${h.workflow}: ${h.change}')),
+                  const Text(
+                    'Earlier changes',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  for (final h in history)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('${h.workflow}: ${h.change}'),
+                    ),
                 ],
-                if (record.isPromotion) ...[
+                if (record.isAcademicProgression) ...[
                   const SizedBox(height: 12),
-                  const _BoundaryBox(
+                  _BoundaryBox(
                     text:
-                        'Promotion is an academic decision. Administration can process an approved promotion, but cannot create or override the academic decision from this lifecycle desk.',
+                        '${record.workflow} is an academic decision. Administration can process an approved decision, but cannot create or override it from this lifecycle desk.',
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -132,13 +154,28 @@ class _AdministratorLifecyclePageState
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
           if (record.isPending && !record.isAlumni) ...[
-            TextButton(key: const ValueKey('lifecycle-cancel'), onPressed: () => Navigator.of(context).pop('cancel'), child: const Text('Cancel change')),
+            TextButton(
+              key: const ValueKey('lifecycle-cancel'),
+              onPressed: () => Navigator.of(context).pop('cancel'),
+              child: const Text('Cancel change'),
+            ),
             if (record.isTransferOut && !record.recordsPackReady)
-              FilledButton(key: const ValueKey('lifecycle-pack'), onPressed: () => Navigator.of(context).pop('pack'), child: const Text('Records pack ready')),
+              FilledButton(
+                key: const ValueKey('lifecycle-pack'),
+                onPressed: () => Navigator.of(context).pop('pack'),
+                child: const Text('Records pack ready'),
+              ),
             if (!record.isTransferOut || record.recordsPackReady)
-              FilledButton(key: const ValueKey('lifecycle-complete'), onPressed: () => Navigator.of(context).pop('complete'), child: const Text('Complete')),
+              FilledButton(
+                key: const ValueKey('lifecycle-complete'),
+                onPressed: () => Navigator.of(context).pop('complete'),
+                child: const Text('Complete'),
+              ),
           ],
         ],
       ),
@@ -149,14 +186,25 @@ class _AdministratorLifecyclePageState
         await _finish(await widget.repository.markRecordsPackReady(record));
       case 'complete':
         String approvedBy = '';
-        if (record.isPromotion) {
-          final name = await askApprover(context, studentName: record.studentName);
+        if (record.isAcademicProgression) {
+          final name = await askApprover(
+            context,
+            studentName: record.studentName,
+            workflow: record.workflow,
+          );
           if (name == null) return;
           approvedBy = name;
         }
-        await _finish(await widget.repository.complete(record, approvedBy: approvedBy));
+        await _finish(
+          await widget.repository.complete(record, approvedBy: approvedBy),
+        );
       case 'cancel':
-        final reason = await askReason(context, title: 'Cancel this change for ${record.studentName}?', action: 'Cancel change', label: 'Reason (optional)');
+        final reason = await askReason(
+          context,
+          title: 'Cancel this change for ${record.studentName}?',
+          action: 'Cancel change',
+          label: 'Reason (optional)',
+        );
         if (reason == null) return;
         await _finish(await widget.repository.cancel(record, reason));
     }
@@ -324,14 +372,14 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(height: 5),
         Text(
-          'Transfers, Promotion & Status',
+          'Class Progression, Transfers & Status',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w900,
               ),
         ),
         const SizedBox(height: 6),
         Text(
-          'Process approved student status changes while preserving historical class and enrollment records. · $schoolName',
+          'Process promotion, repeat, class movement and exit workflows while preserving every historical enrollment. · $schoolName',
         ),
       ],
     );
