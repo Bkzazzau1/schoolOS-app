@@ -295,6 +295,28 @@ class _FakeAttendanceRepository implements TeacherAttendanceRepository {
   }
 
   @override
+  Future<TeacherAttendanceActionResult> setTopic({
+    required String lessonId,
+    required String topicId,
+  }) async {
+    final register = _find(lessonId);
+    final selected = register.lesson.topicOptions.where((item) => item.id == topicId);
+    final title = selected.isEmpty ? '' : selected.first.title;
+    final updated = register.copyWith(
+      lesson: register.lesson.copyWith(topicId: topicId, topic: title),
+      pendingSync: true,
+    );
+    _replace(updated);
+    return TeacherAttendanceActionResult(
+      success: true,
+      message: topicId.isEmpty
+          ? 'Curriculum topic cleared locally and queued for synchronization.'
+          : 'Curriculum topic linked to this lesson occurrence and queued for synchronization.',
+      register: updated,
+    );
+  }
+
+  @override
   Future<TeacherAttendanceActionResult> setStatus({
     required String lessonId,
     required String studentId,

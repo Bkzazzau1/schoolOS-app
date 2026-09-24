@@ -221,7 +221,7 @@ class _AdministratorTimetablePageState
               SizedBox(
                 width: 220,
                 child: DropdownButtonFormField<String>(
-                  value: _classFilter,
+                  initialValue: _classFilter,
                   decoration: const InputDecoration(
                     labelText: 'Class',
                     isDense: true,
@@ -437,7 +437,7 @@ class _AdministratorTimetablePageState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<AdministratorClassSubject>(
-                    value: selected,
+                    initialValue: selected,
                     decoration: const InputDecoration(labelText: 'Class curriculum subject'),
                     items: [
                       for (final item in requirements)
@@ -458,7 +458,7 @@ class _AdministratorTimetablePageState
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
-                    value: day,
+                    initialValue: day,
                     decoration: const InputDecoration(labelText: 'Day'),
                     items: [
                       for (var value = 1; value <= 7; value++)
@@ -473,7 +473,7 @@ class _AdministratorTimetablePageState
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
-                    value: period,
+                    initialValue: period,
                     decoration: const InputDecoration(labelText: 'Period number'),
                     items: [
                       for (var value = 1; value <= 15; value++)
@@ -582,7 +582,7 @@ class _AdministratorTimetablePageState
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: mode,
+                    initialValue: mode,
                     decoration: const InputDecoration(labelText: 'Change type'),
                     items: const [
                       DropdownMenuItem(value: 'room', child: Text('Room change / note')),
@@ -596,7 +596,7 @@ class _AdministratorTimetablePageState
                   if (mode == 'substitution') ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: substituteTeacherId.isEmpty ? null : substituteTeacherId,
+                      initialValue: substituteTeacherId.isEmpty ? null : substituteTeacherId,
                       decoration: const InputDecoration(labelText: 'Substitute Teacher membership'),
                       items: [
                         for (final teacher in snapshot.teachers)

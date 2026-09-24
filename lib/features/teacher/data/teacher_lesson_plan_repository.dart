@@ -48,13 +48,16 @@ class TeacherLessonPlanActionResult {
 }
 
 class TeacherLessonPlanRepository {
+  /// [roster] is accepted for constructor consistency with every other Teacher repository, even
+  /// though this one no longer uses it directly: canonical authorization is now derived from real
+  /// timetable occurrences (`effectiveTeacherId` on each occurrence/plan), which is more precise than
+  /// an assigned-classes list and has superseded roster-based filtering here.
   TeacherLessonPlanRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
     required TeacherRoster roster,
   })  : _db = localDatabase,
-        _session = schoolSession,
-        _roster = roster;
+        _session = schoolSession;
 
   static const planType = 'teacher_lesson_plan';
   static const deliveryType = 'lesson_delivery_record';
@@ -63,7 +66,6 @@ class TeacherLessonPlanRepository {
 
   final LocalDatabase _db;
   final SchoolSessionController _session;
-  final TeacherRoster _roster;
 
   TeacherLessonPlanPermissions permissionsFor(SchoolMembership membership) {
     final teacher = membership.role == SchoolRole.teacher;

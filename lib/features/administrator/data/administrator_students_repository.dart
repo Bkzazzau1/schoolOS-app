@@ -4,6 +4,7 @@ import '../../../shared/models/school_membership.dart';
 import '../domain/administrator_registration_models.dart';
 import '../domain/administrator_lifecycle_models.dart';
 import '../domain/administrator_students_models.dart';
+import 'administrator_demo_school.dart';
 import 'administrator_lifecycle_effects.dart';
 import 'administrator_lifecycle_repository.dart';
 import 'administrator_students_demo_data.dart';

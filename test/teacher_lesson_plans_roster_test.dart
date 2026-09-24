@@ -39,43 +39,54 @@ void main() {
 
   tearDown(() => db.close());
 
-  test('sample plans and the class options are filtered to the teacher\'s real assigned classes', () async {
+  // Standalone demo mode no longer filters the sample lesson-plan scheme by the signed-in teacher's
+  // real assigned classes: it is one fixed, honestly-labelled sample set for any teacher, since real
+  // class-scoped authorization now lives in the canonical occurrence system instead (see
+  // TeacherLessonPlanRepository's own doc comment on why `roster` is unused there).
+  test('demo mode shows the same fixed sample scheme regardless of the signed-in teacher', () async {
     await setUpSchool(mathsTeacher);
-    final snapshot = await lessonPlans.load();
-    // The sample scheme includes a JSS 3A plan (LP-201), which is not assigned to this teacher.
-    expect(snapshot.plans.any((p) => p.className == 'JSS 3A'), isFalse);
-    expect(snapshot.plans.every((p) => snapshot.classOptions.contains(p.className)), isTrue);
-    expect(snapshot.classOptions, ['JSS 2A', 'JSS 2B', 'SS1A']);
-  });
+    final forMathsTeacher = await lessonPlans.load();
+    expect(forMathsTeacher.canonical, isFalse);
+    expect(forMathsTeacher.classOptions, ['JSS 2A', 'JSS 2B', 'JSS 3A', 'SS1A']);
+    expect(forMathsTeacher.plans, hasLength(4));
 
-  test('a teacher with no assigned classes sees an honest empty list, not a crash', () async {
     await setUpSchool(newTeacher);
-    final snapshot = await lessonPlans.load();
-    expect(snapshot.plans, isEmpty);
-    expect(snapshot.classOptions, isEmpty);
+    final forNewTeacher = await lessonPlans.load();
+    expect(forNewTeacher.classOptions, forMathsTeacher.classOptions);
+    expect(forNewTeacher.plans.map((p) => p.id), forMathsTeacher.plans.map((p) => p.id));
   });
 
-  test('a new plan can only be created for a real assigned class', () async {
+  test('creating a canonical occurrence plan is honestly refused outside server-backed mode', () async {
     await setUpSchool(mathsTeacher);
-    final refused = await lessonPlans.createPlan(className: 'JSS 3A', week: 'Week 6', topic: 'Linear Equations');
-    expect(refused.success, isFalse);
-    expect(refused.message, contains('not assigned to this class'));
-
-    final result = await lessonPlans.createPlan(className: 'SS1A', week: 'Week 7', topic: 'Word Problems');
-    expect(result.success, isTrue, reason: result.message);
-    expect(result.plan!.className, 'SS1A');
-    expect(result.plan!.status, TeacherLessonPlanStatus.draft);
-
-    final snapshot = await lessonPlans.load();
-    expect(snapshot.plans.any((p) => p.id == result.plan!.id), isTrue);
-  });
-
-  test('saving a draft for a class the teacher is no longer assigned to is refused', () async {
-    await setUpSchool(mathsTeacher);
-    final created = await lessonPlans.createPlan(className: 'JSS 2A', week: 'Week 6', topic: 'Linear Equations');
-    final foreign = created.plan!.copyWith(className: 'JSS 3A');
-    final result = await lessonPlans.saveDraft(plan: foreign);
+    const occurrence = TeacherLessonPlanOccurrenceOption(
+      timetableEntryId: 'entry-1',
+      lessonDate: '2026-09-25',
+      classSubjectId: 'subject-1',
+      termId: 'term-1',
+      className: 'JSS 2A',
+      subject: 'Mathematics',
+      time: '8:00',
+      room: 'B12',
+      periodNumber: 1,
+      topics: [TeacherLessonPlanTopicOption(id: 'topic-1', title: 'Linear Equations', sequence: 1)],
+    );
+    final result = await lessonPlans.createPlan(occurrence: occurrence, topic: occurrence.topics.single);
     expect(result.success, isFalse);
-    expect(result.message, contains('not one of your assigned classes'));
+    expect(result.message, contains('server-backed timetable'));
+  });
+
+  test('a demo draft can be saved by any signed-in teacher; a locked (non-draft) plan cannot', () async {
+    await setUpSchool(mathsTeacher);
+    final snapshot = await lessonPlans.load();
+    final draft = snapshot.plans.singleWhere((p) => p.status == TeacherLessonPlanStatus.draft);
+    final approved = snapshot.plans.singleWhere((p) => p.status == TeacherLessonPlanStatus.approved);
+
+    final saved = await lessonPlans.saveDraft(plan: draft.copyWith(objectives: 'Updated objectives'));
+    expect(saved.success, isTrue, reason: saved.message);
+    expect(saved.plan!.objectives, 'Updated objectives');
+
+    final refused = await lessonPlans.saveDraft(plan: approved.copyWith(objectives: 'Should not save'));
+    expect(refused.success, isFalse);
+    expect(refused.message, contains('not editable'));
   });
 }

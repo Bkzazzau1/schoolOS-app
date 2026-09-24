@@ -289,30 +289,55 @@ class _FakeLessonPlanRepository implements TeacherLessonPlanRepository {
   Future<TeacherLessonPlanSnapshot> load() async => TeacherLessonPlanSnapshot(
         plans: plans,
         classOptions: classOptions,
+        occurrenceOptions: const [],
+        deliveries: const [],
         events: events,
         permissions: permissionsFor(_teacher),
       );
 
   @override
   Future<TeacherLessonPlanActionResult> createPlan({
-    required String className,
-    required String week,
-    required String topic,
+    required TeacherLessonPlanOccurrenceOption occurrence,
+    required TeacherLessonPlanTopicOption topic,
   }) async {
-    if (!classOptions.contains(className)) {
-      return const TeacherLessonPlanActionResult(success: false, message: 'You are not assigned to this class.');
-    }
     final plan = TeacherLessonPlan(
-      id: 'LP-NEW-${plans.length + 1}',
-      className: className,
-      week: week,
-      topic: topic,
+      id: 'plan|${occurrence.timetableEntryId}|${occurrence.lessonDate}',
+      className: occurrence.className,
+      week: occurrence.lessonDate,
+      topic: topic.title,
       status: TeacherLessonPlanStatus.draft,
       updatedLabel: 'Draft created · sync pending',
+      timetableEntryId: occurrence.timetableEntryId,
+      lessonDate: occurrence.lessonDate,
+      classSubjectId: occurrence.classSubjectId,
+      termId: occurrence.termId,
+      subject: occurrence.subject,
+      time: occurrence.time,
+      room: occurrence.room,
+      topicId: topic.id,
+      currentTeacherAuthorized: true,
     );
     plans = [...plans, plan];
     return TeacherLessonPlanActionResult(success: true, message: 'New lesson plan created as a draft.', plan: plan);
   }
+
+  @override
+  Future<TeacherLessonPlanActionResult> saveDeliveryDraft({
+    required TeacherLessonPlan plan,
+    required String reflection,
+    required String homework,
+    required bool topicCompleted,
+  }) async =>
+      const TeacherLessonPlanActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherLessonPlanActionResult> recordDelivered({
+    required TeacherLessonPlan plan,
+    required String reflection,
+    required String homework,
+    required bool topicCompleted,
+  }) async =>
+      const TeacherLessonPlanActionResult(success: false, message: 'Not used in this test.');
 
   @override
   Future<TeacherLessonPlanActionResult> saveDraft({required TeacherLessonPlan plan}) async {
@@ -399,12 +424,17 @@ class _EmptyFakeLessonPlanRepository implements TeacherLessonPlanRepository {
   Future<TeacherLessonPlanSnapshot> load() async => TeacherLessonPlanSnapshot(
         plans: const [],
         classOptions: const [],
+        occurrenceOptions: const [],
+        deliveries: const [],
         events: const [],
         permissions: permissionsFor(_teacher),
       );
 
   @override
-  Future<TeacherLessonPlanActionResult> createPlan({required String className, required String week, required String topic}) async =>
+  Future<TeacherLessonPlanActionResult> createPlan({
+    required TeacherLessonPlanOccurrenceOption occurrence,
+    required TeacherLessonPlanTopicOption topic,
+  }) async =>
       const TeacherLessonPlanActionResult(success: false, message: 'Not used in this test.');
 
   @override
@@ -413,5 +443,23 @@ class _EmptyFakeLessonPlanRepository implements TeacherLessonPlanRepository {
 
   @override
   Future<TeacherLessonPlanActionResult> submit({required TeacherLessonPlan plan}) async =>
+      const TeacherLessonPlanActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherLessonPlanActionResult> saveDeliveryDraft({
+    required TeacherLessonPlan plan,
+    required String reflection,
+    required String homework,
+    required bool topicCompleted,
+  }) async =>
+      const TeacherLessonPlanActionResult(success: false, message: 'Not used in this test.');
+
+  @override
+  Future<TeacherLessonPlanActionResult> recordDelivered({
+    required TeacherLessonPlan plan,
+    required String reflection,
+    required String homework,
+    required bool topicCompleted,
+  }) async =>
       const TeacherLessonPlanActionResult(success: false, message: 'Not used in this test.');
 }

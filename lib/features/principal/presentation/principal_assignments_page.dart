@@ -385,7 +385,7 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
               Text(
                 snapshot.activeSessionId.isEmpty
                     ? 'No active academic session has synced yet. Teaching assignments remain unavailable until the academic structure is ready.'
-                    : 'Active session: ${snapshot.activeSessionId}. ${principalAssignmentScopeBoundary}',
+                    : 'Active session: ${snapshot.activeSessionId}. $principalAssignmentScopeBoundary',
               ),
               const SizedBox(height: 6),
               const Text(
