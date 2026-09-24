@@ -60,6 +60,7 @@ class StudentRepository {
   final SchoolMembership membership;
   final DateTime Function() now;
   static const entityType = '_student_personal_workspace';
+  static const canonicalProfileEntityType = 'student_class_link';
 
   void _check() {
     final active = session.requireActiveMembership();
@@ -77,17 +78,27 @@ class StudentRepository {
       entityType: entityType,
       entityId: membership.id,
     );
+    final canonical = await database.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: canonicalProfileEntityType,
+      entityId: membership.id,
+    );
     _check();
-    return Map<String, Object?>.from(record?.payload ?? {});
+    return {
+      ...Map<String, Object?>.from(record?.payload ?? {}),
+      if (canonical != null)
+        'canonicalProfile': Map<String, Object?>.from(canonical.payload),
+    };
   }
 
   Future<void> _save(Map<String, Object?> state) async {
     _check();
+    final personal = Map<String, Object?>.from(state)..remove('canonicalProfile');
     await database.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: entityType,
       entityId: membership.id,
-      payload: state,
+      payload: personal,
     );
   }
 
