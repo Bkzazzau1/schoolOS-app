@@ -9,8 +9,6 @@ import '../../teacher/data/teacher_cbt_repository.dart'
         teacherCbtPracticeSetEntityType;
 import '../../teacher/domain/teacher_cbt_models.dart';
 
-/// One real, published CBT set available to this student, together with their
-/// own real attempt state against it.
 class StudentCbtAvailableSet {
   const StudentCbtAvailableSet({
     required this.set,
@@ -50,8 +48,8 @@ class StudentCbtRepository {
   final DateTime Function() _now;
 
   /// The signed-in student's class. In backend mode this must come from the
-  /// canonical Enrollment published by the server; real pupils never inherit
-  /// the demo JSS 2A class while their link is still downloading.
+  /// canonical Enrollment published by the server. The private profile remains
+  /// after graduation/transfer, but no active enrollment means no class CBT.
   Future<String> className() async {
     final membership = _requireStudentMembership();
     final record = await _localDatabase.getLocalRecord(
@@ -60,6 +58,11 @@ class StudentCbtRepository {
       entityId: membership.id,
     );
     if (record != null) {
+      if (record.payload['enrollmentActive'] == false) {
+        throw StateError(
+          'You do not currently have an active class enrollment for class CBTs.',
+        );
+      }
       final className = (record.payload['className'] as String? ?? '').trim();
       if (className.isNotEmpty) return className;
     }
@@ -79,8 +82,6 @@ class StudentCbtRepository {
     return _defaultStudentClassName;
   }
 
-  /// Every real, published CBT set for this student's class, each with this
-  /// student's own locally persisted attempt state.
   Future<List<StudentCbtAvailableSet>> loadAvailableSets() async {
     final membership = _requireStudentMembership();
     await ensureTeacherCbtSeeded(_localDatabase, membership.schoolId);
@@ -174,8 +175,6 @@ class StudentCbtRepository {
     await _saveAttemptState(membership, setId, {...state, 'answers': answers});
   }
 
-  /// Scores the attempt against the real correct answers the teacher set,
-  /// marks it submitted, and writes a real attempt record the teacher reads.
   Future<int> submit(String setId) async {
     final membership = _requireStudentMembership();
     final set = await _requireAvailableSet(membership, setId);
