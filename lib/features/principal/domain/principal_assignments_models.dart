@@ -9,8 +9,6 @@ class PrincipalAssignmentTeacher {
     this.qualificationRecorded = false,
   });
 
-  /// Real SchoolOS Teacher membership id. Teaching authority is attached to
-  /// this identity, not to the HR/staff-directory record id.
   final String id;
   final String name;
   final String department;
@@ -19,9 +17,6 @@ class PrincipalAssignmentTeacher {
   final bool provisional;
   final bool qualificationRecorded;
 
-  /// Until a verified qualification-to-subject matrix exists, an empty list
-  /// means "not formally classified", not "not allowed". The Principal remains
-  /// responsible for the assignment decision.
   bool canTeach(String subject) =>
       qualifiedSubjects.isEmpty || qualifiedSubjects.contains(subject);
 
@@ -100,6 +95,7 @@ class PrincipalTeachingAssignment {
     this.subjectId = '',
     this.canonicalAssignmentId = '',
     this.handoverReason = '',
+    this.pendingSync = false,
   });
 
   final String id;
@@ -113,11 +109,13 @@ class PrincipalTeachingAssignment {
   final String subjectId;
   final String canonicalAssignmentId;
   final String handoverReason;
+  final bool pendingSync;
 
   PrincipalTeachingAssignment copyWith({
     String? teacherId,
     int? version,
     String? handoverReason,
+    bool? pendingSync,
   }) =>
       PrincipalTeachingAssignment(
         id: id,
@@ -131,6 +129,7 @@ class PrincipalTeachingAssignment {
         subjectId: subjectId,
         canonicalAssignmentId: canonicalAssignmentId,
         handoverReason: handoverReason ?? this.handoverReason,
+        pendingSync: pendingSync ?? this.pendingSync,
       );
 
   Map<String, Object?> toJson() => {
@@ -148,7 +147,10 @@ class PrincipalTeachingAssignment {
         if (handoverReason.isNotEmpty) 'handoverReason': handoverReason,
       };
 
-  factory PrincipalTeachingAssignment.fromJson(Map<String, Object?> json) =>
+  factory PrincipalTeachingAssignment.fromJson(
+    Map<String, Object?> json, {
+    bool pendingSync = false,
+  }) =>
       PrincipalTeachingAssignment(
         id: json['id']! as String,
         className: json['className'] as String? ?? '',
@@ -162,6 +164,7 @@ class PrincipalTeachingAssignment {
         canonicalAssignmentId:
             json['canonicalAssignmentId'] as String? ?? '',
         handoverReason: json['handoverReason'] as String? ?? '',
+        pendingSync: pendingSync,
       );
 }
 
