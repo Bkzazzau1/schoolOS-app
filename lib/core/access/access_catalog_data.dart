@@ -51,6 +51,7 @@ const accessCatalogEntries = <CatalogEntry>[
   CatalogEntry('administrator.students', 'Students & Families', 'Administrator', {'administrator'}),
   CatalogEntry('administrator.academics', 'Academic Structure', 'Administrator', {'administrator'}),
   CatalogEntry('administrator.curriculum', 'Subjects & Curriculum', 'Administrator', {'administrator'}),
+  CatalogEntry('administrator.timetable', 'Timetable', 'Administrator', {'administrator'}),
   CatalogEntry('administrator.alumni', 'Alumni Management', 'Administrator', {'administrator'}, sensitive: true),
   CatalogEntry('administrator.staff', 'Staff Records', 'Administrator', {'administrator'}),
   CatalogEntry('administrator.staff-profiles', 'Staff Profiles', 'Administrator', {'administrator'}, sensitive: true),
