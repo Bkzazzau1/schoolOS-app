@@ -7,10 +7,12 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_scope.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/data/administrator_students_repository.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../../teacher/domain/teacher_assessment_models.dart';
+import '../../teacher/domain/teacher_cbt_models.dart';
 import '../data/student_assignment_repository.dart';
 import '../data/student_cbt_repository.dart';
 import '../data/student_repository.dart';
@@ -66,7 +68,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   int _pendingSyncCount = 0;
   int _assignmentRefresh = 0;
 
-  List<StudentCbtAvailableSet> _cbtSets = const [];
+  List<StudentCbtItem> _cbtItems = const [];
   bool _cbtLoading = true;
   String? _cbtError;
 
@@ -150,6 +152,10 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
     _cbtRepository = StudentCbtRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+      students: AdministratorStudentsRepository(
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+      ),
     );
     _resultsRepository = StudentResultsRepository(
       localDatabase: widget.localDatabase,
@@ -170,9 +176,9 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
       }
       final openId = _openSetId;
       if (openId == null || _cbtBusySetId != null) return;
-      StudentCbtAvailableSet? open;
-      for (final set in _cbtSets) {
-        if (set.set.id == openId) open = set;
+      StudentCbtItem? open;
+      for (final item in _cbtItems) {
+        if (item.test.id == openId) open = item;
       }
       if (open != null && open.started && !open.submitted) {
         if (_remainingFor(open) == 0) {
@@ -284,10 +290,10 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   Future<void> _loadCbtSets() async {
     if (mounted) setState(() => _cbtLoading = true);
     try {
-      final sets = await _cbtRepository.loadAvailableSets();
+      final items = await _cbtRepository.loadAvailable();
       if (mounted) {
         setState(() {
-          _cbtSets = sets;
+          _cbtItems = items;
           _cbtError = null;
         });
       }
@@ -303,17 +309,22 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
   }
 
   Future<void> _runCbt(
-    String setId,
-    Future<void> Function() action,
+    String testId,
+    Future<StudentCbtActionResult> Function() action,
   ) async {
     setState(() {
-      _cbtBusySetId = setId;
+      _cbtBusySetId = testId;
       _cbtError = null;
     });
     try {
-      await action();
-      final sets = await _cbtRepository.loadAvailableSets();
-      if (mounted) setState(() => _cbtSets = sets);
+      final result = await action();
+      final items = await _cbtRepository.loadAvailable();
+      if (mounted) {
+        setState(() {
+          _cbtItems = items;
+          _cbtError = result.success ? null : result.message;
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(
@@ -326,7 +337,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
     _refreshPendingCount();
   }
 
-  int _remainingFor(StudentCbtAvailableSet available) {
+  int _remainingFor(StudentCbtItem available) {
     final deadline = available.deadline;
     if (deadline == null) return 0;
     return deadline
@@ -712,24 +723,24 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
                 child: const Text('Retry'),
               ),
             )
-          : _cbtSets.isEmpty
+          : _cbtItems.isEmpty
               ? const Text('No CBT has been published for your class yet.')
               : Column(
                   children: [
-                    for (final available in _cbtSets) ...[
-                      _cbtSetCard(available),
-                      if (available != _cbtSets.last) const SizedBox(height: 12),
+                    for (final item in _cbtItems) ...[
+                      _cbtSetCard(item),
+                      if (item != _cbtItems.last) const SizedBox(height: 12),
                     ],
                   ],
                 ),
     );
   }
 
-  Widget _cbtSetCard(StudentCbtAvailableSet available) {
+  Widget _cbtSetCard(StudentCbtItem available) {
     final scheme = Theme.of(context).colorScheme;
-    final set = available.set;
-    final busy = _cbtBusySetId == set.id;
-    final open = _openSetId == set.id;
+    final test = available.test;
+    final busy = _cbtBusySetId == test.id;
+    final open = _openSetId == test.id;
     final answers = available.answers;
 
     return Container(
@@ -741,36 +752,40 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(set.title, style: const TextStyle(fontWeight: FontWeight.w900)),
+          Text(test.title, style: const TextStyle(fontWeight: FontWeight.w900)),
           const SizedBox(height: 3),
           Text(
-            '${set.questionCount} questions · ${set.durationMinutes} minutes',
+            '${test.subject.isEmpty ? '' : '${test.subject} · '}${test.questionCount} questions · ${test.durationMinutes} minutes',
             style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 10),
           if (available.submitted)
             _StatusChip(
-              label:
-                  'Submitted · Score ${available.score}/${set.questionCount}',
+              label: available.score == null
+                  ? 'Submitted · Score confirmed once synced'
+                  : 'Submitted · Score ${available.score}/${test.questionCount}',
               tone: scheme.primaryContainer,
               onTone: scheme.onPrimaryContainer,
+            )
+          else if (test.state == TeacherCbtTestState.closed)
+            _StatusChip(
+              label: 'Closed · not attempted',
+              tone: scheme.errorContainer,
+              onTone: scheme.onErrorContainer,
             )
           else if (!available.started)
             FilledButton(
               onPressed: busy
                   ? null
                   : () async {
-                      await _runCbt(
-                        set.id,
-                        () => _cbtRepository.startAttempt(set.id),
-                      );
-                      if (mounted) setState(() => _openSetId = set.id);
+                      await _runCbt(test.id, () => _cbtRepository.start(test.id));
+                      if (mounted) setState(() => _openSetId = test.id);
                     },
               child: const Text('Start CBT'),
             )
           else if (!open)
             OutlinedButton(
-              onPressed: () => setState(() => _openSetId = set.id),
+              onPressed: () => setState(() => _openSetId = test.id),
               child: Text(
                 'Resume · ${_remainingFor(available) ~/ 60}:${(_remainingFor(available) % 60).toString().padLeft(2, '0')} left',
               ),
@@ -781,7 +796,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
-            for (var i = 0; i < set.items.length; i++)
+            for (var i = 0; i < test.questions.length; i++)
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(12),
@@ -793,11 +808,11 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      '${i + 1}. ${set.items[i].prompt}',
+                      '${i + 1}. ${test.questions[i].prompt}',
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
-                    for (var j = 0; j < set.items[i].options.length; j++)
+                    for (var j = 0; j < test.questions[i].options.length; j++)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: OutlinedButton(
@@ -807,11 +822,11 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
                           onPressed: busy || _remainingFor(available) == 0
                               ? null
                               : () => _runCbt(
-                                    set.id,
-                                    () => _cbtRepository.answer(set.id, i, j),
+                                    test.id,
+                                    () => _cbtRepository.answer(test.id, i, j),
                                   ),
                           child: Text(
-                            '${answers[i] == j ? '✓ ' : ''}${set.items[i].options[j]}',
+                            '${i < answers.length && answers[i] == j ? '✓ ' : ''}${test.questions[i].options[j]}',
                           ),
                         ),
                       ),
@@ -842,10 +857,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
                         ),
                       );
                       if (confirmed == true && mounted) {
-                        await _runCbt(
-                          set.id,
-                          () => _cbtRepository.submit(set.id),
-                        );
+                        await _runCbt(test.id, () => _cbtRepository.submit(test.id));
                       }
                     },
               child: const Text('Submit CBT'),

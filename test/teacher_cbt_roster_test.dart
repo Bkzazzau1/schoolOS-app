@@ -11,11 +11,13 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
 
-// Has JSS 2A, JSS 2B and SS1A assigned in TeacherRoster's demo data.
+// Has JSS 2A and JSS 2B assigned (both Mathematics) in TeacherRoster's demo data.
 const mathsTeacher = SchoolMembership(id: 'membership-teacher-003', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
 
-// Has only Primary 3/4 assigned, so none of the sample JSS practice sets belong to them.
+// Has only Primary 3/4 assigned, so no JSS test belongs to them.
 const primaryTeacher = SchoolMembership(id: 'membership-teacher-002', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
+
+const _question = TeacherCbtQuestion(id: 'Q1', prompt: 'What is 2 + 2?', options: ['3', '4', '5'], correctIndex: 1);
 
 void main() {
   late LocalDatabase db;
@@ -39,70 +41,74 @@ void main() {
 
   tearDown(() => db.close());
 
-  test('practice sets are filtered to the teacher\'s real assigned classes', () async {
+  test('a fresh session starts with an empty draft for the teacher\'s real assigned classes, not a fabricated test', () async {
     await setUpSchool(mathsTeacher);
     final snapshot = await cbt.load();
-    expect(snapshot.sets, isNotEmpty);
-    expect(snapshot.sets.every((s) => s.className == 'JSS 2A' || s.className == 'JSS 2B'), isTrue);
-    expect(snapshot.classOptions, ['JSS 2A', 'JSS 2B', 'SS1A']);
+    expect(snapshot.tests, isEmpty);
+    expect(snapshot.options.map((o) => '${o.className} · ${o.subject}'), ['JSS 2A · Mathematics', 'JSS 2B · Mathematics']);
+    expect(snapshot.draft.className, 'JSS 2A');
+    expect(snapshot.draft.state, TeacherCbtTestState.draft);
   });
 
-  test('a teacher with no assigned classes sees an honest empty set list, not a crash', () async {
+  test('a teacher with no JSS classes sees honestly empty options, not a crash', () async {
     await setUpSchool(primaryTeacher);
     final snapshot = await cbt.load();
-    expect(snapshot.sets, isEmpty);
-    expect(snapshot.classOptions, ['Primary 3', 'Primary 4']);
-  });
-
-  test('a new draft can only be created for a real assigned class, with no invented attempts', () async {
-    await setUpSchool(mathsTeacher);
-    final refused = await cbt.createDraft(className: 'JSS 3A', title: 'Week 9 Practice');
-    expect(refused.success, isFalse);
-    expect(refused.message, contains('not assigned to this class'));
-
-    final result = await cbt.createDraft(className: 'SS1A', title: 'Week 9 Practice');
-    expect(result.success, isTrue, reason: result.message);
-    expect(result.set!.className, 'SS1A');
-    expect(result.set!.attempts, 0);
-    expect(result.set!.averageAccuracy, 0);
-    expect(result.set!.state, TeacherCbtSetState.draft);
-
-    final snapshot = await cbt.load();
-    expect(snapshot.sets.any((s) => s.id == result.set!.id), isTrue);
+    expect(snapshot.tests, isEmpty);
+    expect(snapshot.options.map((o) => o.className), ['Primary 3', 'Primary 4']);
   });
 
   test('a blank title is refused', () async {
     await setUpSchool(mathsTeacher);
-    final result = await cbt.createDraft(className: 'JSS 2A', title: '   ');
+    final snapshot = await cbt.load();
+    final result = await cbt.saveDraft(snapshot.draft);
     expect(result.success, isFalse);
+    expect(result.message, contains('Enter a title'));
   });
 
-  test('saving a draft for a class the teacher is no longer assigned to is refused', () async {
+  test('saving a valid draft adds it to the library and queues a sync mutation', () async {
     await setUpSchool(mathsTeacher);
-    final created = await cbt.createDraft(className: 'JSS 2A', title: 'Week 9 Practice');
-    final foreign = created.set!.copyWith(className: 'JSS 3A');
-    final result = await cbt.saveDraft(foreign);
-    expect(result.success, isFalse);
-    expect(result.message, contains('not one of your assigned classes'));
-  });
+    final snapshot = await cbt.load();
+    final result = await cbt.saveDraft(snapshot.draft.copyWith(title: 'Week 9 Practice'));
+    expect(result.success, isTrue, reason: result.message);
+    expect(result.test!.state, TeacherCbtTestState.draft);
 
-  test('publishing an empty draft is refused: a set needs real questions first', () async {
-    await setUpSchool(mathsTeacher);
-    final created = await cbt.createDraft(className: 'JSS 2A', title: 'Week 9 Practice');
-    final refused = await cbt.queuePublication(created.set!);
-    expect(refused.success, isFalse);
-    expect(refused.message, contains('at least one real question'));
-  });
-
-  test('publishing a draft with real questions queues the set and queues a sync mutation', () async {
-    await setUpSchool(mathsTeacher);
-    final created = await cbt.createDraft(className: 'JSS 2A', title: 'Week 9 Practice');
-    final withQuestion = created.set!.copyWith(items: const [
-      TeacherCbtQuestion(id: 'Q1', prompt: 'What is 2 + 2?', options: ['3', '4', '5'], correctIndex: 1),
-    ]);
-    final published = await cbt.queuePublication(withQuestion);
-    expect(published.success, isTrue, reason: published.message);
-    expect(published.set!.state, TeacherCbtSetState.queuedForPublication);
+    final reloaded = await cbt.load();
+    expect(reloaded.draft.id, result.test!.id);
+    expect(reloaded.draft.title, 'Week 9 Practice');
     expect(db.pendingCount(tenantId: mathsTeacher.schoolId), greaterThan(0));
+  });
+
+  test('publishing an empty draft is refused: a test needs at least one real question first', () async {
+    await setUpSchool(mathsTeacher);
+    final snapshot = await cbt.load();
+    final refused = await cbt.publish(snapshot.draft.copyWith(title: 'Week 9 Practice'));
+    expect(refused.success, isFalse);
+    expect(refused.message, contains('Every question needs'));
+  });
+
+  test('publishing a draft with a real question births one attempt per real, active roster student', () async {
+    await setUpSchool(mathsTeacher);
+    final snapshot = await cbt.load();
+    final draft = snapshot.draft.copyWith(title: 'Week 9 Practice', questions: const [_question]);
+    final published = await cbt.publish(draft);
+    expect(published.success, isTrue, reason: published.message);
+    expect(published.test!.state, TeacherCbtTestState.published);
+
+    final classRoster = await roster.studentsIn('JSS 2A');
+    expect(classRoster, isNotEmpty);
+    expect(published.test!.totalRecipients, classRoster.length);
+  });
+
+  test('a draft cannot be closed, only a published test can', () async {
+    await setUpSchool(mathsTeacher);
+    final snapshot = await cbt.load();
+    final draft = snapshot.draft.copyWith(title: 'Week 9 Practice', questions: const [_question]);
+    final refused = await cbt.close(draft);
+    expect(refused.success, isFalse);
+
+    final published = await cbt.publish(draft);
+    final closed = await cbt.close(published.test!);
+    expect(closed.success, isTrue, reason: closed.message);
+    expect(closed.test!.state, TeacherCbtTestState.closed);
   });
 }
