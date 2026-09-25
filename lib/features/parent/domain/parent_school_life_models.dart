@@ -102,6 +102,68 @@ class ParentSchoolLifeMealPlan {
       );
 }
 
+class ParentSchoolLifeExcursion {
+  const ParentSchoolLifeExcursion({
+    required this.childName,
+    required this.title,
+    required this.date,
+    required this.destination,
+    required this.status,
+  });
+
+  final String childName;
+  final String title;
+  final String date;
+  final String destination;
+  final String status;
+
+  Map<String, Object?> toJson() => {
+        'childName': childName,
+        'title': title,
+        'date': date,
+        'destination': destination,
+        'status': status,
+      };
+
+  factory ParentSchoolLifeExcursion.fromJson(Map<String, dynamic> json) =>
+      ParentSchoolLifeExcursion(
+        childName: json['childName'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        date: json['date'] as String? ?? '',
+        destination: json['destination'] as String? ?? '',
+        status: json['status'] as String? ?? '',
+      );
+}
+
+class ParentSchoolLifeAlbum {
+  const ParentSchoolLifeAlbum({
+    required this.childName,
+    required this.title,
+    required this.date,
+    required this.count,
+  });
+
+  final String childName;
+  final String title;
+  final String date;
+  final int count;
+
+  Map<String, Object?> toJson() => {
+        'childName': childName,
+        'title': title,
+        'date': date,
+        'count': count,
+      };
+
+  factory ParentSchoolLifeAlbum.fromJson(Map<String, dynamic> json) =>
+      ParentSchoolLifeAlbum(
+        childName: json['childName'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        date: json['date'] as String? ?? '',
+        count: json['count'] as int? ?? 0,
+      );
+}
+
 class ParentSchoolLifeRecognition {
   const ParentSchoolLifeRecognition({
     required this.childName,
@@ -137,6 +199,8 @@ class ParentSchoolLifeSnapshot {
     required this.todayMeal,
     required this.todayMealService,
     required this.recognition,
+    required this.excursions,
+    required this.albums,
   });
 
   final String familyAccountId;
@@ -148,6 +212,11 @@ class ParentSchoolLifeSnapshot {
   final String todayMealService;
   final List<ParentSchoolLifeRecognition> recognition;
 
+  /// Trips and albums for the child's own class only - never every trip or
+  /// album the school has recorded.
+  final List<ParentSchoolLifeExcursion> excursions;
+  final List<ParentSchoolLifeAlbum> albums;
+
   Map<String, Object?> toJson() => {
         'familyAccountId': familyAccountId,
         'activities': activities.map((item) => item.toJson()).toList(),
@@ -157,6 +226,8 @@ class ParentSchoolLifeSnapshot {
         'todayMeal': todayMeal,
         'todayMealService': todayMealService,
         'recognition': recognition.map((item) => item.toJson()).toList(),
+        'excursions': excursions.map((item) => item.toJson()).toList(),
+        'albums': albums.map((item) => item.toJson()).toList(),
       };
 
   factory ParentSchoolLifeSnapshot.fromJson(Map<String, dynamic> json) =>
@@ -178,6 +249,12 @@ class ParentSchoolLifeSnapshot {
         todayMealService: json['todayMealService'] as String? ?? '',
         recognition: _maps(json['recognition'])
             .map(ParentSchoolLifeRecognition.fromJson)
+            .toList(growable: false),
+        excursions: _maps(json['excursions'])
+            .map(ParentSchoolLifeExcursion.fromJson)
+            .toList(growable: false),
+        albums: _maps(json['albums'])
+            .map(ParentSchoolLifeAlbum.fromJson)
             .toList(growable: false),
       );
 }

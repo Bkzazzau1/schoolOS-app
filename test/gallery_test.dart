@@ -4,15 +4,16 @@ import 'package:schoolos_app/features/gallery/domain/gallery_models.dart';
 
 void main() {
   test('gallery seed matches the website media library', () {
-    expect(galleryWebsiteSeed, hasLength(4));
+    expect(galleryWebsiteSeed, hasLength(5));
     expect(galleryWebsiteSeed.map((item) => item.id).toList(), [
       'GAL-001',
       'GAL-002',
       'GAL-003',
       'GAL-004',
+      'GAL-005',
     ]);
-    expect(galleryMediaItemTotal, 107);
-    expect(galleryParentVisibleTotal, 74);
+    expect(galleryMediaItemTotal, 129);
+    expect(galleryParentVisibleTotal, 96);
     expect(galleryPublicShowcaseTotal, 19);
   });
 
@@ -60,15 +61,22 @@ void main() {
 
   test('stats are computed live from the albums, not a stale hardcoded count', () {
     final stats = galleryStats(galleryWebsiteSeed);
-    expect(stats.first.value, '4');
-    expect(stats[1].value, '107');
-    expect(stats[2].value, '74');
+    expect(stats.first.value, '5');
+    expect(stats[1].value, '129');
+    expect(stats[2].value, '96');
     expect(stats[3].value, '19');
 
     final withOneMore = [
       ...galleryWebsiteSeed,
       galleryWebsiteSeed.first,
     ];
-    expect(galleryStats(withOneMore).first.value, '5');
+    expect(galleryStats(withOneMore).first.value, '6');
+  });
+
+  test('the science trip album is linked to its real excursion and class', () {
+    final album = galleryWebsiteSeed.firstWhere((item) => item.id == 'GAL-005');
+    expect(album.excursionId, 'TRIP-001');
+    expect(album.className, 'JSS 2A');
+    expect(album.hasCanonicalTerm, isTrue);
   });
 }

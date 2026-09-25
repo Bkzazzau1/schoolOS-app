@@ -7,7 +7,9 @@ import 'package:schoolos_app/features/administrator/data/administrator_students_
 import 'package:schoolos_app/features/awards/data/award_repository.dart';
 import 'package:schoolos_app/features/awards/domain/award_models.dart';
 import 'package:schoolos_app/features/events/data/event_repository.dart';
+import 'package:schoolos_app/features/excursions/data/excursion_repository.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_ledger_repository.dart';
+import 'package:schoolos_app/features/gallery/data/gallery_repository.dart';
 import 'package:schoolos_app/features/meals/data/meal_repository.dart';
 import 'package:schoolos_app/features/parent/data/parent_children_repository.dart';
 import 'package:schoolos_app/features/parent/data/parent_school_life_repository.dart';
@@ -57,6 +59,8 @@ void main() {
       meals: MealRepository(localDatabase: database, schoolSession: session),
       awards: AwardRepository(localDatabase: database, schoolSession: session),
       transport: TransportRiderAssignmentRepository(localDatabase: database, schoolSession: session),
+      excursions: ExcursionRepository(localDatabase: database, schoolSession: session),
+      gallery: GalleryRepository(localDatabase: database, schoolSession: session),
     );
   }
 
@@ -132,6 +136,39 @@ void main() {
 
     final snapshot = await schoolLife.load();
     expect(snapshot.recognition, isEmpty, reason: 'a proprietor draft is internal-only until a real publish step exists');
+  });
+
+  test('excursions and albums reach a family only through the child\'s own real class', () async {
+    await setUpFamily();
+    final snapshot = await schoolLife.load();
+
+    // Maryam is really seeded in JSS 2A, and the Science Discovery Trip and its
+    // album are really linked to that same class - so she sees both.
+    expect(snapshot.excursions.map((e) => e.title), contains('Science Discovery Trip'));
+    final trip = snapshot.excursions.firstWhere((e) => e.title == 'Science Discovery Trip');
+    expect(trip.childName, 'Maryam Abdullahi');
+    expect(snapshot.albums.map((a) => a.title), contains('Science Discovery Trip Album'));
+    final album = snapshot.albums.firstWhere((a) => a.title == 'Science Discovery Trip Album');
+    expect(album.childName, 'Maryam Abdullahi');
+
+    // Hafsa is really seeded in Primary 3, which has no real trip or album
+    // linked to it yet, so neither list ever names her - not even the trips
+    // whose free-text label merely sounds close, like "Primary 6".
+    expect(snapshot.excursions.where((e) => e.childName == 'Hafsa Abdullahi'), isEmpty);
+    expect(snapshot.albums.where((a) => a.childName == 'Hafsa Abdullahi'), isEmpty);
+  });
+
+  test('a trip or album with no single-class link never reaches a family here', () async {
+    await setUpFamily();
+    final snapshot = await schoolLife.load();
+
+    // The Robotics club trip/album and the whole-school Sports Day album are
+    // real and parent-visible in general, but none names one specific class,
+    // so School Life - which only ever shows "your child's own class" - never
+    // lists them, even though nothing here claims a family can't see them
+    // anywhere at all.
+    expect(snapshot.excursions.map((e) => e.title), isNot(contains('Robotics Inter-School Showcase')));
+    expect(snapshot.albums.map((a) => a.title), isNot(contains('Inter-House Sports Highlights')));
   });
 
   test('only a Parent membership can load school life', () async {

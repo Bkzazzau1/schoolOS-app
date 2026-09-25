@@ -1,11 +1,13 @@
 import '../domain/gallery_models.dart';
 
-// These ids match the current-session/first-term rows seeded by
+// These ids match the current-session/first-term/JSS-2A rows seeded by
 // AdministratorAcademicsRepository, so an album here links to the same real
 // academic-structure records any role would see, not a lookalike.
 const _currentSessionName = '2026/2027';
 const _firstTermId = '41111111-1111-4111-8111-111111111111';
 const _firstTermName = 'First Term';
+const _jss2Id = '32222222-2222-4222-8222-222222222222';
+const _jss2Name = 'JSS 2A';
 
 const galleryWebsiteSeed = <GalleryMediaItem>[
   GalleryMediaItem(
@@ -71,6 +73,26 @@ const galleryWebsiteSeed = <GalleryMediaItem>[
     termId: _firstTermId,
     termName: _firstTermName,
     sessionName: _currentSessionName,
+  ),
+  GalleryMediaItem(
+    id: 'GAL-005',
+    title: 'Science Discovery Trip Album',
+    album: 'Science Discovery Trip',
+    audience: 'JSS 2A',
+    owner: 'Science Department',
+    date: '27 Sep 2026',
+    count: 22,
+    visibility: GalleryVisibility.parents,
+    consent: 'Checked',
+    note: 'Photos from the JSS 2A visit to Kaduna Science Centre.',
+    termId: _firstTermId,
+    termName: _firstTermName,
+    sessionName: _currentSessionName,
+    classId: _jss2Id,
+    className: _jss2Name,
+    // The album for the excursion itself - this is "the album in the excursion".
+    excursionId: 'TRIP-001',
+    excursionTitle: 'Science Discovery Trip',
   ),
 ];
 

@@ -15,7 +15,9 @@ import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../events/data/event_repository.dart';
+import '../../excursions/data/excursion_repository.dart';
 import '../../finance_office/data/finance_ledger_repository.dart';
+import '../../gallery/data/gallery_repository.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
 import '../../meals/data/meal_repository.dart';
 import '../../proprietor/data/concession_repository.dart';
@@ -162,6 +164,8 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
       meals: MealRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
       awards: AwardRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
       transport: TransportRiderAssignmentRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      excursions: ExcursionRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+      gallery: GalleryRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
     );
     _documentsRepository = ParentDocumentsRepository(
       localDatabase: widget.localDatabase,

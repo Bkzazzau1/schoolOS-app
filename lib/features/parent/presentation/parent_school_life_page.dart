@@ -69,6 +69,11 @@ class _ParentSchoolLifePageState extends State<ParentSchoolLifePage> {
                     right: _MealsCard(snapshot: data),
                   ),
                   const SizedBox(height: 16),
+                  _ResponsivePair(
+                    left: _ExcursionsCard(excursions: data.excursions),
+                    right: _AlbumsCard(albums: data.albums),
+                  ),
+                  const SizedBox(height: 16),
                   _RecognitionCard(items: data.recognition),
                   const SizedBox(height: 12),
                   const _BoundaryCard(
@@ -275,6 +280,61 @@ class _EventsCard extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: Text('${event.dateLabel} · ${event.scope}'),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _ExcursionsCard extends StatelessWidget {
+  const _ExcursionsCard({required this.excursions});
+
+  final List<ParentSchoolLifeExcursion> excursions;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Excursions',
+      subtitle: "Trips for your child's own class only.",
+      child: excursions.isEmpty
+          ? const _EmptyLine('No trips recorded yet for your children\'s classes.')
+          : Column(
+              children: [
+                for (final trip in excursions)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.directions_bus_filled_outlined),
+                    title: Text(trip.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    subtitle: Text('${trip.childName} · ${trip.date} · ${trip.destination}'),
+                    trailing: Chip(visualDensity: VisualDensity.compact, label: Text(trip.status)),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _AlbumsCard extends StatelessWidget {
+  const _AlbumsCard({required this.albums});
+
+  final List<ParentSchoolLifeAlbum> albums;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Album',
+      subtitle: "Photos for your child's own class only.",
+      child: albums.isEmpty
+          ? const _EmptyLine('No album recorded yet for your children\'s classes.')
+          : Column(
+              children: [
+                for (final album in albums)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.photo_library_outlined),
+                    title: Text(album.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    subtitle: Text('${album.childName} · ${album.date} · ${album.count} media items'),
                   ),
               ],
             ),

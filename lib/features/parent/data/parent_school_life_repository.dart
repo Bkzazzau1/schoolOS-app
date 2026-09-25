@@ -4,6 +4,9 @@ import '../../../shared/models/school_membership.dart';
 import '../../awards/data/award_repository.dart';
 import '../../awards/domain/award_models.dart';
 import '../../events/data/event_repository.dart';
+import '../../excursions/data/excursion_repository.dart';
+import '../../gallery/data/gallery_repository.dart';
+import '../../gallery/domain/gallery_models.dart';
 import '../../meals/data/meal_repository.dart';
 import '../../meals/domain/meal_models.dart';
 import '../../transport/data/transport_rider_assignment_repository.dart';
@@ -24,12 +27,16 @@ class ParentSchoolLifeRepository {
     required MealRepository meals,
     required AwardRepository awards,
     required TransportRiderAssignmentRepository transport,
+    required ExcursionRepository excursions,
+    required GalleryRepository gallery,
   })  : _schoolSession = schoolSession,
         _children = children,
         _events = events,
         _meals = meals,
         _awards = awards,
-        _transport = transport;
+        _transport = transport,
+        _excursions = excursions,
+        _gallery = gallery;
 
   final SchoolSessionController _schoolSession;
   final ParentChildrenRepository _children;
@@ -37,12 +44,16 @@ class ParentSchoolLifeRepository {
   final MealRepository _meals;
   final AwardRepository _awards;
   final TransportRiderAssignmentRepository _transport;
+  final ExcursionRepository _excursions;
+  final GalleryRepository _gallery;
 
   /// Every section here reads a real source shared with another role's screen, never a fixed sample:
   /// [EventRepository] (the same school-wide events Proprietor manages), a real per-student transport
   /// assignment ([TransportRiderAssignmentRepository], the same record Administrator assigns), the real
-  /// whole-school weekly menu ([MealRepository]), and real recognitions ([AwardRepository]) matched to
-  /// a linked child by name, excluding internal-only drafts.
+  /// whole-school weekly menu ([MealRepository]), real recognitions ([AwardRepository]) matched to
+  /// a linked child by name, excluding internal-only drafts, and real trips/albums ([ExcursionRepository],
+  /// [GalleryRepository]) matched to a linked child's own class - never every trip or album the school
+  /// has recorded, only the ones for the class the child is actually in.
   ///
   /// Two sections stay honestly empty because no real per-student source exists for them yet:
   /// [ParentSchoolLifeSnapshot.activities] (Activities only tracks section-level programmes and an
@@ -99,6 +110,34 @@ class ParentSchoolLifeRepository {
             ),
     ];
 
+    final excursionSnapshot = await _excursions.load();
+    final excursions = <ParentSchoolLifeExcursion>[
+      for (final child in linked)
+        for (final trip in excursionSnapshot.trips)
+          if (_sameClass(trip.className, child.className))
+            ParentSchoolLifeExcursion(
+              childName: child.name,
+              title: trip.title,
+              date: trip.date,
+              destination: trip.destination,
+              status: trip.status.label,
+            ),
+    ];
+
+    final gallerySnapshot = await _gallery.load();
+    final albums = <ParentSchoolLifeAlbum>[
+      for (final child in linked)
+        for (final item in gallerySnapshot.items)
+          if (item.visibility != GalleryVisibility.internal &&
+              _sameClass(item.className, child.className))
+            ParentSchoolLifeAlbum(
+              childName: child.name,
+              title: item.title,
+              date: item.date,
+              count: item.count,
+            ),
+    ];
+
     return ParentSchoolLifeSnapshot(
       familyAccountId: membership.id,
       activities: const [],
@@ -108,6 +147,8 @@ class ParentSchoolLifeRepository {
       todayMeal: todayMeal,
       todayMealService: todayMealService,
       recognition: recognition,
+      excursions: excursions,
+      albums: albums,
     );
   }
 
@@ -121,6 +162,16 @@ class ParentSchoolLifeRepository {
 }
 
 bool _sameName(String a, String b) => a.trim().toLowerCase() == b.trim().toLowerCase();
+
+/// A trip or album reaches a family only when it names the child's own
+/// class. An item with no class link (a club, or one covering more than one
+/// class) never reaches Parent here, even though the school itself can see
+/// it - "family-visible" always means "this is my child's own class", never
+/// "some trip somewhere in the school".
+bool _sameClass(String itemClassName, String childClassName) =>
+    itemClassName.trim().isNotEmpty &&
+    childClassName.trim().isNotEmpty &&
+    itemClassName.trim().toLowerCase() == childClassName.trim().toLowerCase();
 
 String _weekdayName(DateTime dateTime) => const {
       1: 'Monday',
