@@ -386,7 +386,10 @@ class TransportIncidentDefectControlRepository {
     String note = '',
   }) async {
     final at = _now();
-    final id = '$caseId:$eventType:${DateTime.now().microsecondsSinceEpoch}';
+    // Not built from caseId: a defect id already carries a membership id, the date, the
+    // period and the item, and adding an event type and a timestamp on top of that can pass
+    // the 128 characters the server accepts for an entity id. caseId stays in the payload.
+    final id = '$eventType:${manager.id}:${DateTime.now().microsecondsSinceEpoch}';
     final payload = <String, Object?>{
       'id': id,
       'caseId': caseId,
