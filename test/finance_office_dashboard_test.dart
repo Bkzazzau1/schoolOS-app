@@ -3,8 +3,8 @@ import 'package:schoolos_app/features/finance_office/data/finance_office_dashboa
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 void main() {
-  test('finance office preserves exact fifteen website destinations', () {
-    expect(financeOfficeNavigation.length, 15);
+  test('finance office preserves exact sixteen website destinations', () {
+    expect(financeOfficeNavigation.length, 16);
     expect(financeOfficeNavigation.map((item) => item.label).toList(), [
       'Dashboard',
       'Fee Structure',
@@ -21,6 +21,7 @@ void main() {
       'Payroll Handoff',
       'Reports',
       'Finance AI',
+      'Community',
     ]);
   });
 

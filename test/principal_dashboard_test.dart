@@ -63,13 +63,14 @@ void main() {
 
   tearDown(() => db?.close());
 
-  test('principal workspace preserves the fourteen website destinations plus Staff Profiles', () {
-    expect(principalNavigation.length, 15);
+  test('principal workspace preserves every real website destination', () {
+    expect(principalNavigation.length, 17);
     expect(principalNavigation.map((item) => item.label).toList(), [
       'Dashboard',
       'Teachers',
       'Staff Profiles',
       'Teaching Assignments',
+      'Class Teachers',
       'Academics',
       'Students',
       'Attendance',
@@ -81,6 +82,7 @@ void main() {
       'Principal AI',
       'School Performance',
       'Profile',
+      'Community',
     ]);
   });
 

@@ -7,6 +7,8 @@ import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/driver_afternoon_run_repository.dart';
@@ -74,6 +76,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefr
     _DriverNavItem('incidents', 'Incidents', Icons.report_problem_outlined),
     _DriverNavItem('messages', 'Messages & Alerts', Icons.mail_outline_rounded),
     _DriverNavItem('history', 'Trip History & Profile', Icons.history_rounded),
+    _DriverNavItem('community', 'Community', Icons.forum_outlined),
   ];
 
   /// The screens the owner allows this person (all of them until their access is known).
@@ -209,6 +212,15 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefr
             onMessagesChanged: _refreshPendingCount,
           ),
         'history' => DriverHistoryPage(repository: _historyRepository),
+        'community' => CommunityPage(
+            schoolName: widget.membership.schoolName,
+            repository: CommunityRepository(
+              localDatabase: widget.localDatabase,
+              schoolSession: widget.schoolSession,
+            ),
+            onBack: () => setState(() => _activeKey = 'dashboard'),
+            onCommunityChanged: _refreshPendingCount,
+          ),
         _ => DriverDashboardPage(
             repository: _dashboardRepository,
             onNavigate: _select,

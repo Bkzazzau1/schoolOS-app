@@ -68,6 +68,7 @@ const administratorNavigation = <AdministratorNavItem>[
   AdministratorNavItem(key: 'attendance', label: 'Attendance Desk'),
   AdministratorNavItem(key: 'operations', label: 'Operations'),
   AdministratorNavItem(key: 'notices', label: 'Notices'),
+  AdministratorNavItem(key: 'community', label: 'Community'),
 ];
 
 const administratorAuthorityBoundary =

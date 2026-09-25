@@ -25,6 +25,7 @@ const teacherNavigation = <TeacherNavItem>[
   TeacherNavItem(key: 'ai', label: 'Teacher AI'),
   TeacherNavItem(key: 'performance', label: 'My Performance'),
   TeacherNavItem(key: 'profile', label: 'Profile'),
+  TeacherNavItem(key: 'community', label: 'Community'),
 ];
 
 const teacherKpis = <TeacherKpi>[

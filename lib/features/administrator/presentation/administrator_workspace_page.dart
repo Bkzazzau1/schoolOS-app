@@ -6,6 +6,8 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_scope.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../proprietor/data/owner_staff_profile_repository.dart';
@@ -402,6 +404,16 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
           repository: _noticesRepository,
           onNoticesChanged: _refreshPendingCount,
         );
+      case 'community':
+        return CommunityPage(
+          schoolName: widget.membership.schoolName,
+          repository: CommunityRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => setState(() => _activeKey = 'dashboard'),
+          onCommunityChanged: _refreshPendingCount,
+        );
       default:
         return _UpcomingAdministratorFeature(
           item: _activeItem,
@@ -671,6 +683,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
         'attendance' => Icons.fact_check_outlined,
         'operations' => Icons.hub_outlined,
         'notices' => Icons.campaign_outlined,
+        'community' => Icons.forum_outlined,
         _ => Icons.circle_outlined,
       };
 }

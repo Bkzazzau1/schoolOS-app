@@ -18,6 +18,7 @@ const financeOfficeNavigation = <FinanceOfficeNavItem>[
   FinanceOfficeNavItem(key: 'payroll', label: 'Payroll Handoff'),
   FinanceOfficeNavItem(key: 'reports', label: 'Reports'),
   FinanceOfficeNavItem(key: 'ai', label: 'Finance AI'),
+  FinanceOfficeNavItem(key: 'community', label: 'Community'),
 ];
 
 const financeOfficeScopeBoundary =

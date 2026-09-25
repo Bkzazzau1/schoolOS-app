@@ -11,6 +11,8 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_attendance_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
@@ -223,6 +225,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
         'ai' => PrincipalAIPage(membership: widget.membership, onNavigate: _select),
         'performance' => PrincipalPerformancePage(membership: widget.membership, repository: _performance, onNavigate: _select),
         'profile' => PrincipalProfilePage(repository: _profile, schoolName: widget.membership.schoolName, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'community' => CommunityPage(schoolName: widget.membership.schoolName, repository: CommunityRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession), onBack: () => _select('dashboard'), onCommunityChanged: _refreshPendingCount),
         _ => _UpcomingPrincipalFeature(item: _activeItem, onDashboard: () => _select('dashboard')),
       };
 
@@ -290,6 +293,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
         'ai' => Icons.auto_awesome_rounded,
         'performance' => Icons.insights_rounded,
         'profile' => Icons.person_outline_rounded,
+        'community' => Icons.forum_outlined,
         _ => Icons.circle_outlined,
       };
 }

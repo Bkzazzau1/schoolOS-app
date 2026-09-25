@@ -11,6 +11,8 @@ import '../../administrator/data/administrator_attendance_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../awards/data/award_repository.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../events/data/event_repository.dart';
 import '../../finance_office/data/finance_ledger_repository.dart';
@@ -322,6 +324,12 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
             repository: _discussionsRepository,
             onQueueChanged: _refreshPendingCount,
           ),
+        'community' => CommunityPage(
+            schoolName: widget.membership.schoolName,
+            repository: CommunityRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+            onBack: () => _select('dashboard'),
+            onCommunityChanged: _refreshPendingCount,
+          ),
         'school-life' => ParentSchoolLifePage(
             repository: _schoolLifeRepository,
             onNavigate: _select,
@@ -542,6 +550,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
         'documents' => Icons.description_outlined,
         'ai' => Icons.auto_awesome_rounded,
         'transferverify' => Icons.shield_outlined,
+        'community' => Icons.forum_outlined,
         _ => Icons.circle_outlined,
       };
 }

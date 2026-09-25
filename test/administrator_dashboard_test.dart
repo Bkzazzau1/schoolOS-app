@@ -65,8 +65,8 @@ void main() {
     expect(o.pipeline.firstWhere((p) => p.title == 'Registered').detail, '1');
   });
 
-  test('administrator workspace exposes the twelve website destinations plus Staff Profiles', () {
-    expect(administratorNavigation, hasLength(13));
+  test('administrator workspace exposes every real website destination', () {
+    expect(administratorNavigation, hasLength(19));
     expect(
       administratorNavigation.map((item) => item.label).toList(),
       [
@@ -75,6 +75,11 @@ void main() {
         'Website Manager',
         'Student Registration',
         'Students & Families',
+        'Academic Structure',
+        'Subjects & Curriculum',
+        'Timetable & Scheduling',
+        'Assessment Release',
+        'Report Cards',
         'Staff Records',
         'Staff Profiles',
         'Staff Attendance',
@@ -83,6 +88,7 @@ void main() {
         'Attendance Desk',
         'Operations',
         'Notices',
+        'Community',
       ],
     );
   });

@@ -11,6 +11,8 @@ import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
@@ -190,6 +192,12 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         ),
         'reports' => FinanceReportsPage(ledger: _ledger, schoolName: widget.membership.schoolName),
         'ai' => FinanceAiPage(ledger: _ledger),
+        'community' => CommunityPage(
+          schoolName: widget.membership.schoolName,
+          repository: CommunityRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+          onBack: () => _select('dashboard'),
+          onCommunityChanged: _refreshPendingCount,
+        ),
         _ => _UpcomingFinanceFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
@@ -436,6 +444,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         'payroll' => Icons.badge_outlined,
         'reports' => Icons.assessment_outlined,
         'ai' => Icons.auto_awesome_rounded,
+        'community' => Icons.forum_outlined,
         _ => Icons.circle_outlined,
       };
 }

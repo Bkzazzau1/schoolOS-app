@@ -8,6 +8,8 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_students_models.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
 import '../../notifications/presentation/notifications_bell.dart';
@@ -40,7 +42,7 @@ class StaffWorkspacePage extends StatefulWidget {
   State<StaffWorkspacePage> createState() => _StaffWorkspacePageState();
 }
 
-enum _StaffTab { profile, students }
+enum _StaffTab { profile, students, community }
 
 class _StaffWorkspacePageState extends State<StaffWorkspacePage> with SyncRefresh<StaffWorkspacePage> {
   late final StaffSelfServiceRepository _repository;
@@ -158,10 +160,17 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> with SyncRefres
     final destinations = const [
       NavigationDestination(icon: Icon(Icons.badge_outlined), selectedIcon: Icon(Icons.badge_rounded), label: 'My Profile'),
       NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups_rounded), label: 'Students'),
+      NavigationDestination(icon: Icon(Icons.forum_outlined), selectedIcon: Icon(Icons.forum_rounded), label: 'Community'),
     ];
     final content = switch (_tab) {
       _StaffTab.profile => _ProfileTab(repository: _repository),
       _StaffTab.students => _StudentsTab(repository: _students),
+      _StaffTab.community => CommunityPage(
+          schoolName: widget.membership.schoolName,
+          repository: CommunityRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+          onBack: () => setState(() => _tab = _StaffTab.profile),
+          onCommunityChanged: _refreshPendingCount,
+        ),
     };
     return LayoutBuilder(
       builder: (context, constraints) {

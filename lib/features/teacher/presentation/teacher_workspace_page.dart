@@ -8,6 +8,8 @@ import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
@@ -212,6 +214,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         'ai' => TeacherAiPage(repository: _teacherAi, onNavigate: _select),
         'performance' => TeacherPerformancePage(repository: _performance, onNavigate: _select),
         'profile' => TeacherProfilePage(repository: _profile, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'community' => CommunityPage(
+            schoolName: widget.membership.schoolName,
+            repository: CommunityRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+            onBack: () => _select('dashboard'),
+            onCommunityChanged: _refreshPendingCount,
+          ),
         _ => TeacherDashboardPage(schoolName: widget.membership.schoolName, onNavigate: _select),
       };
 
@@ -430,6 +438,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         'ai' => Icons.auto_awesome_rounded,
         'performance' => Icons.insights_rounded,
         'profile' => Icons.person_outline_rounded,
+        'community' => Icons.forum_outlined,
         _ => Icons.circle_outlined,
       };
 }

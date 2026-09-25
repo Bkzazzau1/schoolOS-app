@@ -8,6 +8,8 @@ import '../../../core/sync/sync_scope.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_students_repository.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
@@ -34,6 +36,7 @@ const _studentNavigation = <_StudentNavItem>[
   _StudentNavItem('assignments', 'Assignments', Icons.assignment_outlined),
   _StudentNavItem('cbt', 'CBT', Icons.quiz_outlined),
   _StudentNavItem('planner', 'Study plan', Icons.checklist_rounded),
+  _StudentNavItem('community', 'Community', Icons.forum_outlined),
 ];
 
 class StudentWorkspacePage extends StatefulWidget {
@@ -1094,6 +1097,12 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
           ),
         'cbt' => _cbt(),
         'planner' => _planner(),
+        'community' => CommunityPage(
+            schoolName: widget.membership.schoolName,
+            repository: CommunityRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+            onBack: () => setState(() => _activeKey = 'profile'),
+            onCommunityChanged: _refreshPendingCount,
+          ),
         _ => _performance(),
       };
 
