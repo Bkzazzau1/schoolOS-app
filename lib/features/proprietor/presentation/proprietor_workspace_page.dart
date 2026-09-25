@@ -6,6 +6,8 @@ import '../data/owner_access_scope.dart';
 import '../../alumni/data/alumni_server_api.dart';
 import '../../alumni/presentation/alumni_management_page.dart';
 import '../../billing/presentation/billing_scope.dart';
+import '../../transferverify/data/bad_debt_classification_repository.dart';
+import '../../transferverify/presentation/bad_debt_classification_page.dart';
 import 'owner_access_page.dart';
 import 'proprietor_subscription_page.dart';
 import '../../../core/sync/sync_scope.dart';
@@ -127,6 +129,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined),
     _OwnerNavItem('access', 'Access & Activities', Icons.admin_panel_settings_outlined),
     _OwnerNavItem('alumni', 'Alumni', Icons.diversity_3_outlined),
+    _OwnerNavItem('transferverify', 'TransferVerify', Icons.shield_outlined),
     _OwnerNavItem('subscriptions', 'Subscriptions', Icons.workspace_premium_outlined),
   ];
 
@@ -754,6 +757,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
       'alumni' => AlumniManagementPage(
           manager: widget.membership,
           api: AlumniServerScope.maybeOf(context),
+        ),
+      'transferverify' => BadDebtClassificationPage(
+          repository: BadDebtClassificationRepository(
+            localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
         ),
       'subscriptions' => BillingScope.maybeOf(context) == null
           ? const _SubscriptionsUnavailable()
