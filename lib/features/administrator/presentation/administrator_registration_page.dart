@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../proprietor/data/staff_server_api.dart';
+import '../../transferverify/data/transfer_verify_network_api.dart';
+import '../../transferverify/presentation/transfer_verify_identity_check_card.dart';
 import '../data/administrator_registration_demo_data.dart';
 import '../data/administrator_registration_repository.dart';
 import '../domain/administrator_admissions_models.dart';
@@ -249,6 +251,12 @@ class _AdministratorRegistrationPageState
               const SizedBox(height: 16),
               _documentsCard(record),
             ],
+            const SizedBox(height: 16),
+            TransferVerifyIdentityCheckCard(
+              membership: membership,
+              api: TransferVerifyNetworkScope.maybeOf(context),
+              guardianPhoneController: _guardianPhone,
+            ),
             if (record.credentialsProvisioned &&
                 record.canonicalStudentId.isNotEmpty) ...[
               const SizedBox(height: 16),

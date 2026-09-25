@@ -5,10 +5,12 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/domain/administrator_students_models.dart';
 import '../data/bad_debt_classification_repository.dart';
 import '../data/transfer_verify_associations_api.dart';
+import '../data/transfer_verify_network_api.dart';
 import '../domain/bad_debt_classification_models.dart';
 import 'bad_debt_money.dart';
 import 'publish_transfer_verify_dialog.dart';
 import 'transfer_verify_associations_page.dart';
+import 'transfer_verify_requests_page.dart';
 
 /// A school's own Bad Debt Classification workspace - classify, edit while
 /// unpublished, resolve, and (owner only) publish to TransferVerify. Nothing
@@ -113,6 +115,20 @@ class _BadDebtClassificationPageState extends State<BadDebtClassificationPage> w
     );
   }
 
+  void _openRequests() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Verification Requests')),
+          body: TransferVerifyRequestsPage(
+            api: TransferVerifyNetworkScope.maybeOf(context),
+            membership: widget.membership,
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _withdraw(BadDebtClassification item) async {
     final result = await widget.repository.withdrawPublication(item);
     if (!mounted) return;
@@ -193,6 +209,11 @@ class _BadDebtClassificationPageState extends State<BadDebtClassificationPage> w
                       onPressed: _openAssociations,
                       icon: const Icon(Icons.groups_outlined, size: 18),
                       label: const Text('Associations'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _openRequests,
+                      icon: const Icon(Icons.fact_check_outlined, size: 18),
+                      label: const Text('Requests'),
                     ),
                     FilledButton.icon(
                       onPressed: data.permissions.canClassify ? () => _openClassifyDialog(data) : null,

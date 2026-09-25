@@ -21,6 +21,7 @@ import '../features/proprietor/data/owner_access_repository.dart';
 import '../features/proprietor/data/owner_access_source.dart';
 import '../features/proprietor/data/staff_server_api.dart';
 import '../features/transferverify/data/transfer_verify_associations_api.dart';
+import '../features/transferverify/data/transfer_verify_network_api.dart';
 import '../core/sync/sync_puller.dart';
 import '../core/tenancy/school_session_controller.dart';
 import '../shared/models/school_membership.dart';
@@ -44,6 +45,7 @@ class AppServices {
     this.staffServer,
     this.alumniServer,
     this.transferVerifyAssociations,
+    this.transferVerifyNetwork,
     this.serverConfirm,
   });
 
@@ -77,6 +79,7 @@ class AppServices {
   final StaffServerApi? staffServer;
   final AlumniServerApi? alumniServer;
   final TransferVerifyAssociationsApi? transferVerifyAssociations;
+  final TransferVerifyNetworkApi? transferVerifyNetwork;
   final ServerConfirm? serverConfirm;
 
   bool get usesBackend => auth != null;
@@ -128,6 +131,7 @@ class AppServices {
     StaffServerApi? staffServer;
     AlumniServerApi? alumniServer;
     TransferVerifyAssociationsApi? transferVerifyAssociations;
+    TransferVerifyNetworkApi? transferVerifyNetwork;
     ServerConfirm? serverConfirm;
     LocalOwnerAccess? localAccess;
     LocalDatabase.blockDemoSeeds = apiConfig.enabled;
@@ -166,6 +170,7 @@ class AppServices {
         schoolSession: schoolSession,
       );
       transferVerifyAssociations = TransferVerifyAssociationsApi(api: api);
+      transferVerifyNetwork = TransferVerifyNetworkApi(api: api);
       access = AccessController(api: api, store: localDatabase);
       notifications = NotificationsController(api: api, store: localDatabase);
       final followUp = RoundFollowUp(
@@ -207,6 +212,7 @@ class AppServices {
       staffServer: staffServer,
       alumniServer: alumniServer,
       transferVerifyAssociations: transferVerifyAssociations,
+      transferVerifyNetwork: transferVerifyNetwork,
       serverConfirm: serverConfirm,
     );
     final active = schoolSession.activeMembership;

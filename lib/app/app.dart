@@ -7,6 +7,7 @@ import '../features/account/presentation/proprietor_account_shell.dart';
 import '../features/administrator/presentation/administrator_workspace_page.dart';
 import '../features/alumni/data/alumni_server_api.dart';
 import '../features/transferverify/data/transfer_verify_associations_api.dart';
+import '../features/transferverify/data/transfer_verify_network_api.dart';
 import '../features/alumni/presentation/alumni_workspace_page.dart';
 import '../features/authentication/presentation/login_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
@@ -266,6 +267,10 @@ class SchoolOsApp extends StatelessWidget {
             final transferVerifyAssociations = services.transferVerifyAssociations;
             if (transferVerifyAssociations != null) {
               tree = TransferVerifyAssociationsScope(api: transferVerifyAssociations, child: tree);
+            }
+            final transferVerifyNetwork = services.transferVerifyNetwork;
+            if (transferVerifyNetwork != null) {
+              tree = TransferVerifyNetworkScope(api: transferVerifyNetwork, child: tree);
             }
             final ownerAccess = services.ownerAccess;
             if (ownerAccess != null) {
