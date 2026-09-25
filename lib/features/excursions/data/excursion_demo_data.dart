@@ -1,5 +1,14 @@
 import '../domain/excursion_models.dart';
 
+// These ids match the current-session/first-term/JSS-2A rows seeded by
+// AdministratorAcademicsRepository, so a trip logged here links to the same
+// real academic-structure records any role would see, not a lookalike.
+const _currentSessionName = '2026/2027';
+const _firstTermId = '41111111-1111-4111-8111-111111111111';
+const _firstTermName = 'First Term';
+const _jss2Id = '32222222-2222-4222-8222-222222222222';
+const _jss2Name = 'JSS 2A';
+
 const excursionWebsiteSeed = <SchoolTrip>[
   SchoolTrip(
     id: 'TRIP-001',
@@ -14,6 +23,11 @@ const excursionWebsiteSeed = <SchoolTrip>[
     emergency: 'Manifest + emergency contacts pending final review',
     status: TripStatus.consentOpen,
     note: 'Science learning visit with supervised groups and guardian approval.',
+    termId: _firstTermId,
+    termName: _firstTermName,
+    sessionName: _currentSessionName,
+    classId: _jss2Id,
+    className: _jss2Name,
   ),
   SchoolTrip(
     id: 'TRIP-002',
@@ -28,6 +42,11 @@ const excursionWebsiteSeed = <SchoolTrip>[
     emergency: 'Complete',
     status: TripStatus.ready,
     note: 'History and cultural-learning visit with class-teacher supervision.',
+    termId: _firstTermId,
+    termName: _firstTermName,
+    sessionName: _currentSessionName,
+    // No Primary 6 class exists in the seeded academic structure yet, so this
+    // stays without a single class link rather than pointing at a wrong one.
   ),
   SchoolTrip(
     id: 'TRIP-003',
@@ -42,6 +61,9 @@ const excursionWebsiteSeed = <SchoolTrip>[
     emergency: 'Group contact list ready',
     status: TripStatus.consentOpen,
     note: 'Short age-appropriate supervised nature activity within the school environment.',
+    termId: _firstTermId,
+    termName: _firstTermName,
+    sessionName: _currentSessionName,
   ),
   SchoolTrip(
     id: 'TRIP-004',
@@ -56,6 +78,10 @@ const excursionWebsiteSeed = <SchoolTrip>[
     emergency: 'Complete',
     status: TripStatus.ready,
     note: 'Club representation at an inter-school technology showcase.',
+    termId: _firstTermId,
+    termName: _firstTermName,
+    sessionName: _currentSessionName,
+    // A club, not one class, so it has no single class link either.
   ),
 ];
 
