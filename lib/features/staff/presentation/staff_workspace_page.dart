@@ -2,15 +2,24 @@ import 'package:flutter/material.dart';
 
 import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/database/local_database.dart';
+import '../../../core/sync/sync_scope.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_students_models.dart';
+import '../../administrator/presentation/administrator_workspace_page.dart';
+import '../../dashboard/presentation/dashboard_page.dart';
+import '../../finance_office/presentation/finance_office_workspace_page.dart';
+import '../../notifications/presentation/notifications_bell.dart';
+import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/data/owner_staff_profile_repository.dart';
 import '../../proprietor/data/staff_onboarding_repository.dart';
 import '../../proprietor/data/staff_server_api.dart';
 import '../../proprietor/domain/owner_staff_profile_models.dart';
+import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../proprietor/presentation/staff_onboarding_page.dart';
+import '../../sync_center/presentation/sync_center_page.dart';
+import '../../teacher/presentation/teacher_workspace_page.dart';
 import '../data/staff_self_service_repository.dart';
 
 class StaffWorkspacePage extends StatefulWidget {
@@ -33,10 +42,11 @@ class StaffWorkspacePage extends StatefulWidget {
 
 enum _StaffTab { profile, students }
 
-class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
+class _StaffWorkspacePageState extends State<StaffWorkspacePage> with SyncRefresh<StaffWorkspacePage> {
   late final StaffSelfServiceRepository _repository;
   late final AdministratorStudentsRepository _students;
   _StaffTab _tab = _StaffTab.profile;
+  int _pendingSyncCount = 0;
 
   @override
   void initState() {
@@ -49,6 +59,74 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
+    _refreshPendingCount();
+  }
+
+  @override
+  void onSynced() => _refreshPendingCount();
+
+  void _refreshPendingCount() {
+    final count = widget.localDatabase.pendingCount(tenantId: widget.membership.schoolId);
+    if (mounted) setState(() => _pendingSyncCount = count);
+  }
+
+  Future<void> _openSyncCenter() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SyncCenterPage(localDatabase: widget.localDatabase, membership: widget.membership),
+      ),
+    );
+    _refreshPendingCount();
+  }
+
+  /// A Staff login can hold extra roles the owner has appointed them to (see
+  /// ExtraRolesSection) - for example a "director" appointment with the full
+  /// Administrator or Principal workspace, not a cut-down copy of it. Those
+  /// appear as ordinary additional memberships in the same session, switched
+  /// to exactly the way every other role already switches between schools.
+  Future<void> _switchSchool(SchoolMembership membership) async {
+    if (membership.id == widget.membership.id) return;
+    await widget.schoolSession.selectSchool(membership);
+    if (!mounted) return;
+    final Widget page = switch (membership.role) {
+      SchoolRole.proprietor => ProprietorWorkspacePage(
+          membership: membership,
+          localDatabase: widget.localDatabase,
+          schoolSession: widget.schoolSession,
+          schoolAppearance: widget.schoolAppearance,
+        ),
+      SchoolRole.administrator => AdministratorWorkspacePage(
+          membership: membership,
+          localDatabase: widget.localDatabase,
+          schoolSession: widget.schoolSession,
+          schoolAppearance: widget.schoolAppearance,
+        ),
+      SchoolRole.principal => PrincipalWorkspacePage(
+          membership: membership,
+          localDatabase: widget.localDatabase,
+          schoolSession: widget.schoolSession,
+          schoolAppearance: widget.schoolAppearance,
+        ),
+      SchoolRole.accountant => FinanceOfficeWorkspacePage(
+          membership: membership,
+          localDatabase: widget.localDatabase,
+          schoolSession: widget.schoolSession,
+          schoolAppearance: widget.schoolAppearance,
+        ),
+      SchoolRole.teacher => TeacherWorkspacePage(
+          membership: membership,
+          localDatabase: widget.localDatabase,
+          schoolSession: widget.schoolSession,
+          schoolAppearance: widget.schoolAppearance,
+        ),
+      _ => DashboardPage(
+          membership: membership,
+          localDatabase: widget.localDatabase,
+          schoolSession: widget.schoolSession,
+          schoolAppearance: widget.schoolAppearance,
+        ),
+    };
+    Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   @override
@@ -60,6 +138,21 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
         ),
         child: _shell(),
       );
+
+  List<Widget> _topActions() => [
+        if (widget.schoolSession.canSwitchSchool)
+          _SchoolSwitcherButton(memberships: widget.schoolSession.memberships, onSelected: _switchSchool),
+        NotificationsBell(membership: widget.membership),
+        IconButton(
+          tooltip: _pendingSyncCount == 0 ? 'Sync Center' : 'Sync Center · $_pendingSyncCount pending',
+          onPressed: _openSyncCenter,
+          icon: Badge(
+            isLabelVisible: _pendingSyncCount > 0,
+            label: Text('$_pendingSyncCount'),
+            child: const Icon(Icons.cloud_sync_outlined),
+          ),
+        ),
+      ];
 
   Widget _shell() {
     final destinations = const [
@@ -76,13 +169,21 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
         final body = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-              child: Text(
-                widget.membership.schoolName,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+            if (wide)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.membership.schoolName,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    ..._topActions(),
+                  ],
+                ),
               ),
-            ),
             const SizedBox(height: 4),
             Expanded(child: content),
           ],
@@ -113,7 +214,10 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
           );
         }
         return Scaffold(
-          appBar: AppBar(title: Text('${widget.membership.schoolName} · Staff')),
+          appBar: AppBar(
+            title: Text('${widget.membership.schoolName} · Staff'),
+            actions: _topActions(),
+          ),
           body: body,
           bottomNavigationBar: NavigationBar(
             selectedIndex: _tab.index,
@@ -560,4 +664,25 @@ class _StudentsTabState extends State<_StudentsTab> {
       },
     );
   }
+}
+
+class _SchoolSwitcherButton extends StatelessWidget {
+  const _SchoolSwitcherButton({required this.memberships, required this.onSelected});
+
+  final List<SchoolMembership> memberships;
+  final ValueChanged<SchoolMembership> onSelected;
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<SchoolMembership>(
+        tooltip: 'Switch school or role',
+        onSelected: onSelected,
+        icon: const Icon(Icons.swap_horiz_rounded),
+        itemBuilder: (_) => [
+          for (final membership in memberships)
+            PopupMenuItem(
+              value: membership,
+              child: Text('${membership.schoolName} · ${membership.roleLabel}'),
+            ),
+        ],
+      );
 }
