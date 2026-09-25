@@ -11,7 +11,11 @@ import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../excursions/data/excursion_repository.dart';
+import '../../excursions/presentation/excursions_page.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
+import '../../gallery/data/gallery_repository.dart';
+import '../../gallery/presentation/gallery_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
@@ -210,6 +214,17 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         'cbt' => TeacherCbtPage(repository: _cbt, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'learning-progress' => TeacherLearningProgressPage(repository: _learningProgress, onNavigate: _select),
         'students' => TeacherStudentsPage(repository: _students, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'excursions' => ExcursionsPage(
+            schoolName: widget.membership.schoolName,
+            repository: ExcursionRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+            onBack: () => _select('dashboard'),
+            onExcursionsChanged: _refreshPendingCount,
+          ),
+        'gallery' => GalleryPage(
+            schoolName: widget.membership.schoolName,
+            repository: GalleryRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+            onBack: () => _select('dashboard'),
+          ),
         'messages' => TeacherMessagesPage(repository: _messages, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'ai' => TeacherAiPage(repository: _teacherAi, onNavigate: _select),
         'performance' => TeacherPerformancePage(repository: _performance, onNavigate: _select),
@@ -434,6 +449,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         'cbt' => Icons.computer_rounded,
         'learning-progress' => Icons.trending_up_rounded,
         'students' => Icons.groups_rounded,
+        'excursions' => Icons.directions_bus_filled_outlined,
+        'gallery' => Icons.photo_library_outlined,
         'messages' => Icons.forum_outlined,
         'ai' => Icons.auto_awesome_rounded,
         'performance' => Icons.insights_rounded,

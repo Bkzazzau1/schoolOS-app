@@ -91,6 +91,8 @@ const accessCatalogEntries = <CatalogEntry>[
   CatalogEntry('teacher.cbt', 'CBT Practice', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.learning-progress', 'Learning Progress', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.students', 'Students', 'Teacher', {'teacher'}),
+  CatalogEntry('teacher.excursions', 'Excursions', 'Teacher', {'teacher'}),
+  CatalogEntry('teacher.gallery', 'Media Gallery', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.messages', 'Messages', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.ai', 'Teacher AI', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.performance', 'My Performance', 'Teacher', {'teacher'}),
