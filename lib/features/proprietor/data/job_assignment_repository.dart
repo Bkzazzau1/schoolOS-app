@@ -52,6 +52,7 @@ const assignableDuties = <String, String>{
   'finance.payroll': 'Payroll',
   'finance.store': 'School store',
   'finance.reports': 'Finance reports',
+  'finance.bad_debt_classification': 'Bad debt classification',
   'administration.admissions': 'Admissions and enrollment',
   'administration.students': 'Student records',
   'administration.staff': 'Staff administration',
