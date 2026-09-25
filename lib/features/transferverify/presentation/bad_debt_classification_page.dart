@@ -10,6 +10,7 @@ import '../domain/bad_debt_classification_models.dart';
 import 'bad_debt_money.dart';
 import 'publish_transfer_verify_dialog.dart';
 import 'transfer_verify_associations_page.dart';
+import 'transfer_verify_disputes_page.dart';
 import 'transfer_verify_requests_page.dart';
 
 /// A school's own Bad Debt Classification workspace - classify, edit while
@@ -129,11 +130,40 @@ class _BadDebtClassificationPageState extends State<BadDebtClassificationPage> w
     );
   }
 
+  void _openDisputes() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Disputes & Clearance')),
+          body: TransferVerifyDisputesPage(
+            api: TransferVerifyNetworkScope.maybeOf(context),
+            membership: widget.membership,
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _withdraw(BadDebtClassification item) async {
     final result = await widget.repository.withdrawPublication(item);
     if (!mounted) return;
     setState(() => _notice = result.message);
     if (result.success) _reload();
+  }
+
+  Future<void> _issueClearance(BadDebtClassification item) async {
+    final api = TransferVerifyNetworkScope.maybeOf(context);
+    if (api == null) {
+      setState(() => _notice = 'Issuing a clearance requires a connected school server.');
+      return;
+    }
+    try {
+      final clearance = await api.issueClearance(widget.membership, externalId: item.id);
+      if (!mounted) return;
+      setState(() => _notice = 'Clearance issued. Token: ${clearance.verificationToken}');
+    } catch (error) {
+      if (mounted) setState(() => _notice = '$error');
+    }
   }
 
   @override
@@ -215,6 +245,11 @@ class _BadDebtClassificationPageState extends State<BadDebtClassificationPage> w
                       icon: const Icon(Icons.fact_check_outlined, size: 18),
                       label: const Text('Requests'),
                     ),
+                    OutlinedButton.icon(
+                      onPressed: _openDisputes,
+                      icon: const Icon(Icons.gavel_outlined, size: 18),
+                      label: const Text('Disputes'),
+                    ),
                     FilledButton.icon(
                       onPressed: data.permissions.canClassify ? () => _openClassifyDialog(data) : null,
                       icon: const Icon(Icons.add_rounded),
@@ -243,6 +278,7 @@ class _BadDebtClassificationPageState extends State<BadDebtClassificationPage> w
                   onResolve: () => _resolve(item),
                   onPublish: () => _publish(item),
                   onWithdraw: () => _withdraw(item),
+                  onIssueClearance: () => _issueClearance(item),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -273,6 +309,7 @@ class _ClassificationCard extends StatelessWidget {
     required this.onResolve,
     required this.onPublish,
     required this.onWithdraw,
+    required this.onIssueClearance,
   });
 
   final BadDebtClassification item;
@@ -281,6 +318,7 @@ class _ClassificationCard extends StatelessWidget {
   final VoidCallback onResolve;
   final VoidCallback onPublish;
   final VoidCallback onWithdraw;
+  final VoidCallback onIssueClearance;
 
   @override
   Widget build(BuildContext context) {
@@ -351,6 +389,8 @@ class _ClassificationCard extends StatelessWidget {
                   FilledButton.icon(onPressed: onPublish, icon: const Icon(Icons.public, size: 18), label: const Text('Publish to TransferVerify')),
                 if (permissions.canPublish && item.publishedToTransferVerify)
                   OutlinedButton.icon(onPressed: onWithdraw, icon: const Icon(Icons.public_off, size: 18), label: const Text('Withdraw publication')),
+                if (permissions.canPublish && item.publishedToTransferVerify && item.status == BadDebtStatus.resolved)
+                  OutlinedButton.icon(onPressed: onIssueClearance, icon: const Icon(Icons.verified_outlined, size: 18), label: const Text('Issue clearance')),
               ],
             ),
           ],

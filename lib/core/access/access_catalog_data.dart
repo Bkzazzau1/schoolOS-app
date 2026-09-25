@@ -113,6 +113,7 @@ const accessCatalogEntries = <CatalogEntry>[
   CatalogEntry('parent.school-life', 'School Life', 'Parent', {'parent'}),
   CatalogEntry('parent.documents', 'Documents & Consent', 'Parent', {'parent'}, sensitive: true),
   CatalogEntry('parent.ai', 'Parent AI', 'Parent', {'parent'}),
+  CatalogEntry('parent.transferverify', 'TransferVerify Case', 'Parent', {'parent'}, sensitive: true),
   CatalogEntry('schoollife.community', 'Community', 'School life', {'accountant', 'administrator', 'driver', 'parent', 'principal', 'proprietor', 'staff', 'student', 'teacher'}),
   CatalogEntry('schoollife.noticeboard', 'Noticeboard', 'School life', {'accountant', 'administrator', 'driver', 'parent', 'principal', 'proprietor', 'staff', 'student', 'teacher'}),
   CatalogEntry('schoollife.activities', 'Activities & Clubs', 'School life', {'accountant', 'administrator', 'driver', 'parent', 'principal', 'proprietor', 'staff', 'student', 'teacher'}),

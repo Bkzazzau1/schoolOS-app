@@ -188,6 +188,7 @@ class ParentChildrenRepository {
       children.add(
         ParentLinkedChild(
           id: id,
+          canonicalStudentId: canonical != null ? (canonical['canonicalStudentId'] as String? ?? '') : '',
           name: name,
           initials: _initialsOf(name),
           className: className.isEmpty ? _notRecorded : className,

@@ -13,6 +13,7 @@ const parentNavigation = <ParentNavItem>[
   ParentNavItem(key: 'school-life', label: 'School Life'),
   ParentNavItem(key: 'documents', label: 'Documents & Consent'),
   ParentNavItem(key: 'ai', label: 'Parent AI'),
+  ParentNavItem(key: 'transferverify', label: 'TransferVerify Case'),
 ];
 
 const parentPrivacyBoundary =

@@ -43,6 +43,7 @@ class ParentChildTimelineEvent {
 class ParentLinkedChild {
   const ParentLinkedChild({
     required this.id,
+    this.canonicalStudentId = '',
     required this.name,
     required this.initials,
     required this.className,
@@ -64,6 +65,13 @@ class ParentLinkedChild {
   });
 
   final String id;
+
+  /// The real, canonical Student.id the backend keys everything on - set
+  /// only in canonical (server-connected) mode where the server actually
+  /// sends it; empty in demo mode, honestly, since no such identity exists
+  /// there. Cross-tenant features (like TransferVerify) must use this, never
+  /// [id], which is a per-school student code, not a stable cross-school key.
+  final String canonicalStudentId;
   final String name;
   final String initials;
   final String className;
@@ -94,6 +102,7 @@ class ParentLinkedChild {
 
   Map<String, Object?> toJson() => {
         'id': id,
+        'canonicalStudentId': canonicalStudentId,
         'name': name,
         'initials': initials,
         'className': className,
@@ -116,6 +125,7 @@ class ParentLinkedChild {
 
   factory ParentLinkedChild.fromJson(Map<String, dynamic> json) => ParentLinkedChild(
         id: json['id'] as String,
+        canonicalStudentId: json['canonicalStudentId'] as String? ?? '',
         name: json['name'] as String,
         initials: json['initials'] as String,
         className: json['className'] as String,

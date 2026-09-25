@@ -21,6 +21,8 @@ import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../../teacher/presentation/teacher_workspace_page.dart';
+import '../../transferverify/data/transfer_verify_network_api.dart';
+import '../../transferverify/presentation/transfer_verify_my_case_page.dart';
 import '../../transport/data/transport_rider_assignment_repository.dart';
 import '../data/parent_ai_repository.dart';
 import '../data/parent_assignments_repository.dart';
@@ -333,6 +335,10 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
             repository: _aiRepository,
             onNavigate: _select,
           ),
+        'transferverify' => TransferVerifyMyCasePage(
+            api: TransferVerifyNetworkScope.maybeOf(context),
+            membership: widget.membership,
+          ),
         _ => _UpcomingParentFeature(
             item: _activeItem,
             onDashboard: () => _select('dashboard'),
@@ -535,6 +541,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
         'school-life' => Icons.celebration_outlined,
         'documents' => Icons.description_outlined,
         'ai' => Icons.auto_awesome_rounded,
+        'transferverify' => Icons.shield_outlined,
         _ => Icons.circle_outlined,
       };
 }
