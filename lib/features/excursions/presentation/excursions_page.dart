@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../administrator/domain/administrator_academics_models.dart';
 import '../data/excursion_demo_data.dart';
 import '../data/excursion_repository.dart';
 import '../domain/excursion_models.dart';
@@ -69,6 +70,34 @@ class _ExcursionsPageState extends State<ExcursionsPage> {
       SnackBar(content: Text(result.message)),
     );
     if (result.success) {
+      widget.onExcursionsChanged?.call();
+      await _load();
+    }
+  }
+
+  Future<void> _openNewTrip() async {
+    final snapshot = _snapshot;
+    if (snapshot == null) return;
+    if (snapshot.availableTerms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No academic term is set up yet. Ask an Administrator to set up Academic Structure first.',
+          ),
+        ),
+      );
+      return;
+    }
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => _NewTripDialog(
+        repository: widget.repository,
+        sessions: snapshot.availableSessions,
+        terms: snapshot.availableTerms,
+        classes: snapshot.availableClasses,
+      ),
+    );
+    if (created == true) {
       widget.onExcursionsChanged?.call();
       await _load();
     }
@@ -148,6 +177,12 @@ class _ExcursionsPageState extends State<ExcursionsPage> {
                     ],
                   ),
                 ),
+                if (snapshot.permissions.canCreateTrip)
+                  FilledButton.icon(
+                    onPressed: _openNewTrip,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('New trip'),
+                  ),
               ],
             ),
             const SizedBox(height: 14),
@@ -387,6 +422,11 @@ class _TripCard extends StatelessWidget {
               _Pill(trip.audience),
               _Pill('${trip.consentPercent}% consent'),
               if (trip.readinessReviewed) const _Pill('Reviewed'),
+              if (trip.hasCanonicalTerm)
+                _Pill('${trip.termName} · ${trip.sessionName}')
+              else
+                const _Pill('No academic term linked (legacy)'),
+              if (trip.className.isNotEmpty) _Pill(trip.className),
             ],
           ),
           const SizedBox(height: 9),
@@ -510,6 +550,215 @@ class _DepartureSidebar extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NewTripDialog extends StatefulWidget {
+  const _NewTripDialog({
+    required this.repository,
+    required this.sessions,
+    required this.terms,
+    required this.classes,
+  });
+
+  final ExcursionRepository repository;
+  final List<AdministratorAcademicSession> sessions;
+  final List<AdministratorAcademicTerm> terms;
+  final List<AdministratorAcademicClass> classes;
+
+  @override
+  State<_NewTripDialog> createState() => _NewTripDialogState();
+}
+
+class _NewTripDialogState extends State<_NewTripDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _dateController = TextEditingController();
+  final _destinationController = TextEditingController();
+  final _coordinatorController = TextEditingController();
+  final _studentsController = TextEditingController(text: '0');
+  final _transportController = TextEditingController();
+  final _emergencyController = TextEditingController();
+  final _noteController = TextEditingController();
+  late AdministratorAcademicTerm _term;
+  AdministratorAcademicClass? _academicClass;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _term = widget.terms.firstWhere(
+      (term) => term.status == 'active',
+      orElse: () => widget.terms.first,
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _dateController.dispose();
+    _destinationController.dispose();
+    _coordinatorController.dispose();
+    _studentsController.dispose();
+    _transportController.dispose();
+    _emergencyController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final result = await widget.repository.createTrip(
+      title: _titleController.text,
+      date: _dateController.text,
+      destination: _destinationController.text,
+      coordinator: _coordinatorController.text,
+      students: int.tryParse(_studentsController.text) ?? 0,
+      transport: _transportController.text,
+      emergency: _emergencyController.text,
+      note: _noteController.text,
+      term: _term,
+      session: widget.sessions.firstWhere(
+        (session) => session.id == _term.sessionId,
+        orElse: () => AdministratorAcademicSession(
+          id: _term.sessionId,
+          code: '',
+          name: '',
+          startsOn: '',
+          endsOn: '',
+          status: '',
+        ),
+      ),
+      academicClass: _academicClass,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (!result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message)),
+      );
+      return;
+    }
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New trip'),
+      content: SizedBox(
+        width: 480,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                  validator: (value) =>
+                      (value == null || value.trim().isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _dateController,
+                  decoration: const InputDecoration(
+                    labelText: 'Date',
+                    hintText: 'e.g. 12 Nov 2026',
+                  ),
+                  validator: (value) =>
+                      (value == null || value.trim().isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<AdministratorAcademicTerm>(
+                  initialValue: _term,
+                  decoration: const InputDecoration(labelText: 'Academic term'),
+                  items: [
+                    for (final term in widget.terms)
+                      DropdownMenuItem(value: term, child: Text(term.name)),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _term = value);
+                  },
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<AdministratorAcademicClass?>(
+                  initialValue: _academicClass,
+                  decoration: const InputDecoration(
+                    labelText: 'Class (optional)',
+                  ),
+                  items: [
+                    const DropdownMenuItem<AdministratorAcademicClass?>(
+                      value: null,
+                      child: Text('Not a single class (e.g. a club)'),
+                    ),
+                    for (final academicClass in widget.classes)
+                      DropdownMenuItem(
+                        value: academicClass,
+                        child: Text(academicClass.name),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _academicClass = value),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _destinationController,
+                  decoration: const InputDecoration(labelText: 'Destination'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _coordinatorController,
+                  decoration: const InputDecoration(labelText: 'Coordinator'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _studentsController,
+                  decoration: const InputDecoration(
+                    labelText: 'Students expected',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _transportController,
+                  decoration: const InputDecoration(labelText: 'Transport'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _emergencyController,
+                  decoration: const InputDecoration(labelText: 'Emergency contacts'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _noteController,
+                  decoration: const InputDecoration(labelText: 'Note'),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Add trip'),
         ),
       ],
     );
