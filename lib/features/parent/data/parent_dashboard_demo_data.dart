@@ -9,7 +9,6 @@ const parentNavigation = <ParentNavItem>[
   ParentNavItem(key: 'attendance', label: 'Attendance'),
   ParentNavItem(key: 'finance', label: 'Finance & Payments'),
   ParentNavItem(key: 'messages', label: 'Messages'),
-  ParentNavItem(key: 'discussions', label: 'School Discussions'),
   ParentNavItem(key: 'community', label: 'Community'),
   ParentNavItem(key: 'school-life', label: 'School Life'),
   ParentNavItem(key: 'documents', label: 'Documents & Consent'),

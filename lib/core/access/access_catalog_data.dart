@@ -119,7 +119,6 @@ const accessCatalogEntries = <CatalogEntry>[
   CatalogEntry('parent.attendance', 'Attendance', 'Parent', {'parent'}),
   CatalogEntry('parent.finance', 'Finance & Payments', 'Parent', {'parent'}, sensitive: true),
   CatalogEntry('parent.messages', 'Messages', 'Parent', {'parent'}),
-  CatalogEntry('parent.discussions', 'School Discussions', 'Parent', {'parent'}),
   CatalogEntry('parent.community', 'Community', 'Parent', {'parent'}),
   CatalogEntry('parent.school-life', 'School Life', 'Parent', {'parent'}),
   CatalogEntry('parent.documents', 'Documents & Consent', 'Parent', {'parent'}, sensitive: true),

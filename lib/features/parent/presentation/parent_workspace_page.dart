@@ -34,7 +34,6 @@ import '../data/parent_attendance_repository.dart';
 import '../data/parent_children_repository.dart';
 import '../data/parent_dashboard_demo_data.dart';
 import '../data/parent_dashboard_repository.dart';
-import '../data/parent_discussions_repository.dart';
 import '../data/parent_documents_repository.dart';
 import '../data/parent_finance_repository.dart';
 import '../data/parent_learning_progress_repository.dart';
@@ -47,7 +46,6 @@ import 'parent_assignments_page.dart';
 import 'parent_attendance_page.dart';
 import 'parent_children_page.dart';
 import 'parent_dashboard_page.dart';
-import 'parent_discussions_page.dart';
 import 'parent_documents_page.dart';
 import 'parent_finance_page.dart';
 import 'parent_learning_progress_page.dart';
@@ -90,7 +88,6 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
   late final ParentAttendanceRepository _attendanceRepository;
   late final ParentFinanceRepository _financeRepository;
   late final ParentMessagesRepository _messagesRepository;
-  late final ParentDiscussionsRepository _discussionsRepository;
   late final ParentSchoolLifeRepository _schoolLifeRepository;
   late final ParentDocumentsRepository _documentsRepository;
   late final ParentAIRepository _aiRepository;
@@ -151,10 +148,6 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
       children: _childrenRepository,
-    );
-    _discussionsRepository = ParentDiscussionsRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
     );
     _schoolLifeRepository = ParentSchoolLifeRepository(
       localDatabase: widget.localDatabase,
@@ -323,10 +316,6 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
             repository: _messagesRepository,
             onQueueChanged: _refreshPendingCount,
             onNavigate: _select,
-          ),
-        'discussions' => ParentDiscussionsPage(
-            repository: _discussionsRepository,
-            onQueueChanged: _refreshPendingCount,
           ),
         'community' => CommunityPage(
             schoolName: widget.membership.schoolName,
@@ -549,7 +538,6 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
         'attendance' => Icons.fact_check_outlined,
         'finance' => Icons.account_balance_wallet_outlined,
         'messages' => Icons.mail_outline_rounded,
-        'discussions' => Icons.forum_outlined,
         'school-life' => Icons.celebration_outlined,
         'documents' => Icons.description_outlined,
         'ai' => Icons.auto_awesome_rounded,

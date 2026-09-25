@@ -1556,6 +1556,14 @@ reload, is credited to "You", and drives the KPI counts honestly; reacting, comm
 feed the comment-count KPI; reporting is idempotent; acting on an unknown post is rejected; and the permission
 check behaves correctly. Full suite: 1127 passing, same 8 pre-existing unrelated failures, zero regressions.
 
+**Retired.** This screen was later removed. It was the only version of a school discussion that did not sync:
+its five entity types (`parent_discussion_post`, `_reaction`, `_comment_action`, `_follow`, `_report`) never had
+a backend, so what a family posted stayed on their phone. Community now covers the same ground for every role,
+Parent included, on a real backend (`community_post`, `community_comment`, `community_reaction`,
+`community_report`). "School Discussions" is gone from the Parent navigation and from the access catalog
+(`parent.discussions`); `ParentDiscussionsRepository`, its page, models and test were deleted. Community has no
+"follow a post" action, which was the one thing the old screen had that it does not.
+
 ## Parent: School Life now reads five different real modules instead of one fabricated snapshot
 
 `ParentSchoolLifeRepository` fabricated activity enrollments, a school events calendar, transport service codes,

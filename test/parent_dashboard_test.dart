@@ -32,8 +32,8 @@ const _sampleSnapshot = ParentDashboardSnapshot(
 );
 
 void main() {
-  test('parent workspace preserves exact fourteen website destinations', () {
-    expect(parentNavigation.length, 14);
+  test('parent workspace preserves exact thirteen website destinations', () {
+    expect(parentNavigation.length, 13);
     expect(parentNavigation.map((item) => item.label).toList(), [
       'Home',
       'My Children',
@@ -43,7 +43,6 @@ void main() {
       'Attendance',
       'Finance & Payments',
       'Messages',
-      'School Discussions',
       'Community',
       'School Life',
       'Documents & Consent',
