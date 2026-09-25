@@ -60,6 +60,7 @@ import 'proprietor_overview_page.dart';
 import 'proprietor_reports_page.dart';
 import 'proprietor_school_life_page.dart';
 import 'proprietor_staff_page.dart';
+import 'proprietor_staffing_page.dart';
 import 'owner_jobs_page.dart';
 import 'owner_payroll_page.dart';
 import 'owner_staff_profiles_page.dart';
@@ -78,6 +79,7 @@ import '../data/owner_payroll_repository.dart';
 import '../../administrator/presentation/administrator_staff_page.dart';
 import '../../administrator/data/administrator_staff_repository.dart';
 import '../data/job_assignment_repository.dart';
+import '../data/proprietor_staffing_repository.dart';
 import 'proprietor_structure_page.dart';
 
 class ProprietorWorkspacePage extends StatefulWidget {
@@ -111,6 +113,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded),
     _OwnerNavItem('jobs', 'Jobs & Delegation', Icons.assignment_ind_outlined),
     _OwnerNavItem('staff-profiles', 'Staff Profiles', Icons.badge_outlined),
+    _OwnerNavItem('staffing', 'Staffing', Icons.school_outlined),
     _OwnerNavItem('payroll', 'Payroll & Salaries', Icons.payments_outlined),
     _OwnerNavItem('reports', 'Executive Reports', Icons.analytics_rounded),
     _OwnerNavItem('campuses', 'Campus Comparison', Icons.apartment_rounded),
@@ -664,6 +667,14 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           repository: OwnerPayrollRepository(
             database: widget.localDatabase, session: widget.schoolSession),
           onChanged: _refreshPendingCount,
+        ),
+      'staffing' => ProprietorStaffingPage(
+          repository: ProprietorStaffingRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+            staff: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession),
+          ),
+          onMutationQueued: _refreshPendingCount,
         ),
       'jobs' => OwnerJobsPage(
           repository: JobAssignmentRepository(
