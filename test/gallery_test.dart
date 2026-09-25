@@ -48,7 +48,27 @@ void main() {
     expect(gallerySafetyRules['Audience first'], contains('distinct'));
     expect(gallerySafetyRules['Consent-aware'], contains('guardian/media permissions'));
     expect(gallerySafetyRules['No automatic public posting'], contains('explicit approval'));
-    expect(galleryProductionBoundary, contains('signed URLs'));
-    expect(galleryProductionBoundary, contains('consent enforcement'));
+    // The album record itself is honestly real, only the file storage isn't.
+    expect(galleryProductionBoundary, contains('Album records'));
+    expect(galleryProductionBoundary, contains('real and sync'));
+    expect(galleryProductionBoundary, contains('signed URL'));
+  });
+
+  test('every seeded album is tied to a real academic term, not free text', () {
+    expect(galleryWebsiteSeed.every((item) => item.hasCanonicalTerm), isTrue);
+  });
+
+  test('stats are computed live from the albums, not a stale hardcoded count', () {
+    final stats = galleryStats(galleryWebsiteSeed);
+    expect(stats.first.value, '4');
+    expect(stats[1].value, '107');
+    expect(stats[2].value, '74');
+    expect(stats[3].value, '19');
+
+    final withOneMore = [
+      ...galleryWebsiteSeed,
+      galleryWebsiteSeed.first,
+    ];
+    expect(galleryStats(withOneMore).first.value, '5');
   });
 }
