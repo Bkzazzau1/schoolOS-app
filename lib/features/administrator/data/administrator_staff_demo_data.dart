@@ -29,6 +29,15 @@ const administratorStaffWebsiteSeed = <AdministratorStaffRecord>[
     section: 'Primary',
     fileStatus: AdministratorStaffFileStatus.complete,
   ),
+  // Also the Gold House coordinator (see house_demo_data.dart) and the
+  // Staff role's own demo login - see StaffSelfServiceRepository.
+  AdministratorStaffRecord(
+    id: 'STAFF-030',
+    name: 'Mr. Peter James',
+    role: 'House coordinator',
+    section: 'Whole school',
+    fileStatus: AdministratorStaffFileStatus.missingDocument,
+  ),
 ];
 
 const administratorStaffOnboardingChecklist = <AdministratorStaffChecklistItem>[

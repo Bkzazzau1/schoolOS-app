@@ -24,6 +24,7 @@ import '../../lesson_plans/data/lesson_plan_repository.dart';
 import '../../lesson_plans/presentation/lesson_plan_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
+import '../../staff/presentation/staff_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -143,6 +144,13 @@ class _DashboardPageState extends State<DashboardPage> with SyncRefresh<Dashboar
         schoolSession: widget.schoolSession,
         schoolAppearance: appearance,
       );
+    } else if (membership.role == SchoolRole.staff && appearance != null) {
+      page = StaffWorkspacePage(
+        membership: membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
     } else {
       page = DashboardPage(
         membership: membership,
@@ -243,6 +251,14 @@ class _DashboardPageState extends State<DashboardPage> with SyncRefresh<Dashboar
     }
     if (widget.membership.role == SchoolRole.driver && appearance != null) {
       return DriverWorkspacePage(
+        membership: widget.membership,
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+        schoolAppearance: appearance,
+      );
+    }
+    if (widget.membership.role == SchoolRole.staff && appearance != null) {
+      return StaffWorkspacePage(
         membership: widget.membership,
         localDatabase: widget.localDatabase,
         schoolSession: widget.schoolSession,

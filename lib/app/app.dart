@@ -14,6 +14,7 @@ import '../features/finance_office/presentation/finance_office_workspace_page.da
 import '../features/parent/presentation/parent_workspace_page.dart';
 import '../features/principal/presentation/principal_workspace_page.dart';
 import '../features/proprietor/presentation/proprietor_workspace_page.dart';
+import '../features/staff/presentation/staff_workspace_page.dart';
 import '../features/teacher/presentation/teacher_workspace_page.dart';
 import '../shared/models/school_membership.dart';
 import '../core/sync/sync_scope.dart';
@@ -202,6 +203,13 @@ class SchoolOsApp extends StatelessWidget {
           );
         } else if (restoredMembership.role == SchoolRole.alumni) {
           home = AlumniWorkspacePage(
+            membership: restoredMembership,
+            localDatabase: services.localDatabase,
+            schoolSession: services.schoolSession,
+            schoolAppearance: services.schoolAppearance,
+          );
+        } else if (restoredMembership.role == SchoolRole.staff) {
+          home = StaffWorkspacePage(
             membership: restoredMembership,
             localDatabase: services.localDatabase,
             schoolSession: services.schoolSession,
