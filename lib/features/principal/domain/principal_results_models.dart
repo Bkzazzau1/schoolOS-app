@@ -1,3 +1,5 @@
+import '../../administrator/domain/report_card_models.dart' show ReportCardEvent;
+
 enum PrincipalResultReleaseState { draft, awaitingApproval, approved, released }
 
 enum PrincipalReportReviewAction { approve, returnWithComment }
@@ -92,6 +94,7 @@ class PrincipalStudentResult {
     this.principalApproved = false,
     this.lastReviewedByMembershipId,
     this.lastReviewedAt,
+    this.events = const [],
   });
 
   final String id;
@@ -106,6 +109,9 @@ class PrincipalStudentResult {
   final bool principalApproved;
   final String? lastReviewedByMembershipId;
   final String? lastReviewedAt;
+
+  /// The underlying report card's own review history, most recent first.
+  final List<ReportCardEvent> events;
 
   PrincipalResultReleaseState get displayStatus {
     if (reportStatus == PrincipalResultReleaseState.released) return reportStatus;

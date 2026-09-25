@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../administrator/domain/report_card_models.dart' show reportCardEventLabel;
 import '../data/principal_results_repository.dart';
 import '../domain/principal_results_models.dart';
 
@@ -76,6 +77,41 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
     }
   }
 
+  void _showHistory(PrincipalStudentResult student) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${student.name} · history'),
+        content: SizedBox(
+          width: 420,
+          child: student.events.isEmpty
+              ? const Text('No history recorded yet.')
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final event in student.events)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(reportCardEventLabel(event.action), style: const TextStyle(fontWeight: FontWeight.w800)),
+                              Text('${event.actor} · ${event.occurredAt}', style: Theme.of(context).textTheme.bodySmall),
+                              if (event.comment.isNotEmpty) Text(event.comment),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
@@ -122,7 +158,7 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
           child: Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              'Report cards are compiled by the Administrator from released assessment evidence and submitted attendance registers. Approving here is a review decision, not publication - release to families remains a separate Administrator/Proprietor action. There is no class-teacher comment yet - only your own.',
+              'Report cards are compiled by the Administrator from released assessment evidence and submitted attendance registers. Approving here is a review decision, not publication - release to families remains a separate Administrator/Proprietor action.',
             ),
           ),
         ),
@@ -143,7 +179,9 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
                 ),
                 trailing: Wrap(
                   spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
+                    IconButton(tooltip: 'History', icon: const Icon(Icons.history_rounded, size: 20), onPressed: () => _showHistory(student)),
                     TextButton(onPressed: () => _returnWithComment(student), child: const Text('Return')),
                     FilledButton(onPressed: () => _approve(student), child: const Text('Approve')),
                   ],
@@ -161,7 +199,14 @@ class _PrincipalResultsPageState extends State<PrincipalResultsPage> {
                 subtitle: Text(
                   'Average ${student.average}%${student.position.isEmpty ? '' : ' · Position ${student.position}'}',
                 ),
-                trailing: Chip(label: Text(student.reportStatus.label)),
+                trailing: Wrap(
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    IconButton(tooltip: 'History', icon: const Icon(Icons.history_rounded, size: 20), onPressed: () => _showHistory(student)),
+                    Chip(label: Text(student.reportStatus.label)),
+                  ],
+                ),
               ),
             ),
           const SizedBox(height: 16),

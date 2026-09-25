@@ -36,6 +36,47 @@ class ReportCardSubjectLine {
       );
 }
 
+/// One append-only entry from the report card's own review history
+/// (generated/submitted/reviewed/returned/released/class-teacher comment),
+/// most recent first. Never editable from the client - this is a read-only
+/// audit trail the server maintains.
+class ReportCardEvent {
+  const ReportCardEvent({
+    required this.revision,
+    required this.action,
+    required this.actorMembershipId,
+    required this.actor,
+    required this.comment,
+    required this.occurredAt,
+  });
+
+  final int revision;
+  final String action;
+  final String actorMembershipId;
+  final String actor;
+  final String comment;
+  final String occurredAt;
+
+  factory ReportCardEvent.fromJson(Map<String, dynamic> json) => ReportCardEvent(
+        revision: (json['revision'] as num?)?.toInt() ?? 0,
+        action: json['action'] as String? ?? '',
+        actorMembershipId: json['actorMembershipId'] as String? ?? '',
+        actor: json['actor'] as String? ?? '',
+        comment: json['comment'] as String? ?? '',
+        occurredAt: json['occurredAt'] as String? ?? '',
+      );
+}
+
+String reportCardEventLabel(String action) => switch (action) {
+      'generated' => 'Compiled',
+      'submitted' => 'Submitted for review',
+      'reviewed' => 'Reviewed by Principal',
+      'returned' => 'Returned by Principal',
+      'released' => 'Released',
+      'class_teacher_commented' => 'Class-teacher comment added',
+      _ => action,
+    };
+
 class ReportCard {
   const ReportCard({
     required this.id,
@@ -55,6 +96,7 @@ class ReportCard {
     this.attendancePercent,
     this.principalComment = '',
     this.classTeacherComment = '',
+    this.events = const [],
     this.generatedAt,
     this.submittedAt,
     this.reviewedAt,
@@ -85,6 +127,10 @@ class ReportCard {
   /// PrincipalClassTeachersRepository) for this class and session. Empty
   /// when no class teacher has commented yet - never fabricated.
   final String classTeacherComment;
+
+  /// Most recent first. Empty until the first sync pull after a lifecycle
+  /// action - never fabricated when nothing has happened yet.
+  final List<ReportCardEvent> events;
   final String? generatedAt;
   final String? submittedAt;
   final String? reviewedAt;
@@ -127,6 +173,7 @@ class ReportCard {
         attendancePercent: attendancePercent,
         principalComment: principalComment,
         classTeacherComment: classTeacherComment,
+        events: events,
         generatedAt: generatedAt,
         submittedAt: submittedAt,
         reviewedAt: reviewedAt,
@@ -161,6 +208,9 @@ class ReportCard {
       attendancePercent: (json['attendancePercent'] as num?)?.toInt(),
       principalComment: json['principalComment'] as String? ?? '',
       classTeacherComment: json['classTeacherComment'] as String? ?? '',
+      events: (json['events'] as List<dynamic>? ?? const [])
+          .map((item) => ReportCardEvent.fromJson(Map<String, dynamic>.from(item as Map)))
+          .toList(growable: false),
       generatedAt: json['generatedAt'] as String?,
       submittedAt: json['submittedAt'] as String?,
       reviewedAt: json['reviewedAt'] as String?,

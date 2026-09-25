@@ -72,6 +72,41 @@ class _AdministratorReportCardsPageState extends State<AdministratorReportCardsP
     }
   }
 
+  void _showHistory(ReportCard card) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${card.studentName} · history'),
+        content: SizedBox(
+          width: 420,
+          child: card.events.isEmpty
+              ? const Text('No history recorded yet.')
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final event in card.events)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(reportCardEventLabel(event.action), style: const TextStyle(fontWeight: FontWeight.w800)),
+                              Text('${event.actor} · ${event.occurredAt}', style: Theme.of(context).textTheme.bodySmall),
+                              if (event.comment.isNotEmpty) Text(event.comment),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<(AdministratorReportCardSnapshot, AdministratorAcademicsSnapshot)>(
@@ -243,9 +278,21 @@ class _AdministratorReportCardsPageState extends State<AdministratorReportCardsP
                             '${item.classPosition == null ? '' : ' · Position ${item.classPosition}/${item.classSize}'}'
                         : 'No released assessment evidence yet',
                   ),
-                  trailing: actionLabel == null
-                      ? Chip(label: Text(reportCardStateLabel(item.state)))
-                      : FilledButton(onPressed: () => onAction?.call(item), child: Text(actionLabel)),
+                  trailing: Wrap(
+                    spacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      IconButton(
+                        tooltip: 'History',
+                        icon: const Icon(Icons.history_rounded, size: 20),
+                        onPressed: () => _showHistory(item),
+                      ),
+                      if (actionLabel == null)
+                        Chip(label: Text(reportCardStateLabel(item.state)))
+                      else
+                        FilledButton(onPressed: () => onAction?.call(item), child: Text(actionLabel)),
+                    ],
+                  ),
                 ),
           ],
         ),

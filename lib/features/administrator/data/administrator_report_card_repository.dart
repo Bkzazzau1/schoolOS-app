@@ -216,6 +216,17 @@ class AdministratorReportCardRepository {
         'attendancePercent': card.attendancePercent,
         'principalComment': card.principalComment,
         'classTeacherComment': card.classTeacherComment,
+        'events': [
+          for (final event in card.events)
+            {
+              'revision': event.revision,
+              'action': event.action,
+              'actorMembershipId': event.actorMembershipId,
+              'actor': event.actor,
+              'comment': event.comment,
+              'occurredAt': event.occurredAt,
+            },
+        ],
         'generatedAt': card.generatedAt,
         'submittedAt': card.submittedAt,
         'reviewedAt': card.reviewedAt,

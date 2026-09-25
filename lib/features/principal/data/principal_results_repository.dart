@@ -154,12 +154,10 @@ class PrincipalResultsRepository {
           ReportCardState.reviewed => PrincipalResultReleaseState.approved,
           ReportCardState.released => PrincipalResultReleaseState.released,
         },
-        // No class-teacher/form-teacher role exists yet to author this (see
-        // apps.report_cards' own documented gap); left honestly empty rather
-        // than fabricated.
-        teacherComment: '',
+        teacherComment: card.classTeacherComment,
         principalComment: card.principalComment.isEmpty ? null : card.principalComment,
         principalApproved: card.state == ReportCardState.reviewed || card.state == ReportCardState.released,
+        events: card.events,
       );
 
   PrincipalClassResult _classResult(String className, int students, List<TeacherAssessment> released) {
@@ -294,6 +292,17 @@ class PrincipalResultsRepository {
         'attendancePercent': card.attendancePercent,
         'principalComment': card.principalComment,
         'classTeacherComment': card.classTeacherComment,
+        'events': [
+          for (final event in card.events)
+            {
+              'revision': event.revision,
+              'action': event.action,
+              'actorMembershipId': event.actorMembershipId,
+              'actor': event.actor,
+              'comment': event.comment,
+              'occurredAt': event.occurredAt,
+            },
+        ],
         'generatedAt': card.generatedAt,
         'submittedAt': card.submittedAt,
         'reviewedAt': card.reviewedAt,
