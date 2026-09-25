@@ -23,8 +23,10 @@ class CommunityPage extends StatefulWidget {
 }
 
 class _CommunityPageState extends State<CommunityPage> {
+  final _authorController = TextEditingController();
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
+  final _mediaController = TextEditingController();
   final _searchController = TextEditingController();
 
   CommunitySnapshot? _snapshot;
@@ -43,8 +45,10 @@ class _CommunityPageState extends State<CommunityPage> {
 
   @override
   void dispose() {
+    _authorController.dispose();
     _titleController.dispose();
     _bodyController.dispose();
+    _mediaController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -71,15 +75,18 @@ class _CommunityPageState extends State<CommunityPage> {
     if (_saving) return;
     setState(() => _saving = true);
     final result = await widget.repository.publish(
+      authorName: _authorController.text,
       title: _titleController.text,
       body: _bodyController.text,
       audience: _draftAudience,
       visibility: _draftVisibility,
+      mediaLabel: _mediaController.text,
     );
     if (!mounted) return;
     if (result.success) {
       _titleController.clear();
       _bodyController.clear();
+      _mediaController.clear();
       widget.onCommunityChanged();
       await _load();
     }
@@ -231,8 +238,10 @@ class _CommunityPageState extends State<CommunityPage> {
             const SizedBox(height: 18),
             _Composer(
               permissions: snapshot.permissions,
+              authorController: _authorController,
               titleController: _titleController,
               bodyController: _bodyController,
+              mediaController: _mediaController,
               audience: _draftAudience,
               visibility: _draftVisibility,
               saving: _saving,
@@ -446,8 +455,10 @@ class _StatCard extends StatelessWidget {
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.permissions,
+    required this.authorController,
     required this.titleController,
     required this.bodyController,
+    required this.mediaController,
     required this.audience,
     required this.visibility,
     required this.saving,
@@ -458,8 +469,10 @@ class _Composer extends StatelessWidget {
   });
 
   final CommunityPermissions permissions;
+  final TextEditingController authorController;
   final TextEditingController titleController;
   final TextEditingController bodyController;
+  final TextEditingController mediaController;
   final CommunityAudience audience;
   final CommunityVisibility visibility;
   final bool saving;
@@ -492,6 +505,11 @@ class _Composer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextField(
+            controller: authorController,
+            decoration: const InputDecoration(labelText: 'Your name'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
             controller: titleController,
             decoration: const InputDecoration(hintText: 'Post title...'),
           ),
@@ -502,6 +520,14 @@ class _Composer extends StatelessWidget {
             maxLines: 7,
             decoration: const InputDecoration(
               hintText: 'Share an update, activity, question or school moment...',
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: mediaController,
+            decoration: const InputDecoration(
+              labelText: 'Photos (optional)',
+              hintText: 'e.g. Sports Day photos, 12 items - a caption only, no file upload yet',
             ),
           ),
           const SizedBox(height: 10),

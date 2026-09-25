@@ -69,29 +69,53 @@ class CommunityRepository {
     );
   }
 
+  /// Mirrors apps.schoollife.community.common/framework exactly:
+  /// WRITERS = everyone except students, MODERATORS = the owner, principal
+  /// and administrator, and only the owner or principal may put a post on
+  /// the public showcase. Staff-only posting is further limited to the
+  /// staff side (never driver or parent) in [_allowedAudiences], the same
+  /// restriction apps.schoollife.community.posts.PostHandler enforces.
+  static const _staffSide = {
+    SchoolRole.proprietor,
+    SchoolRole.principal,
+    SchoolRole.administrator,
+    SchoolRole.accountant,
+    SchoolRole.teacher,
+    SchoolRole.staff,
+  };
+  static const _managers = {SchoolRole.proprietor, SchoolRole.principal, SchoolRole.administrator};
+  static const _leaders = {SchoolRole.proprietor, SchoolRole.principal};
+  static const _writers = {..._staffSide, SchoolRole.driver, SchoolRole.parent};
+
   CommunityPermissions permissionsFor(SchoolMembership membership) {
-    if (membership.role == SchoolRole.proprietor) {
+    if (!_writers.contains(membership.role)) {
       return const CommunityPermissions(
-        canPost: true,
-        canPublishPublicShowcase: true,
-        canModerate: true,
-        allowedAudiences: CommunityAudience.values,
+        canPost: false,
+        canPublishPublicShowcase: false,
+        canModerate: false,
+        allowedAudiences: [],
       );
     }
-
-    return const CommunityPermissions(
-      canPost: false,
-      canPublishPublicShowcase: false,
-      canModerate: false,
-      allowedAudiences: [],
+    return CommunityPermissions(
+      canPost: true,
+      canPublishPublicShowcase: _leaders.contains(membership.role),
+      canModerate: _managers.contains(membership.role),
+      allowedAudiences: _allowedAudiences(membership),
     );
   }
 
+  List<CommunityAudience> _allowedAudiences(SchoolMembership membership) {
+    if (_staffSide.contains(membership.role)) return CommunityAudience.values;
+    return [for (final audience in CommunityAudience.values) if (audience != CommunityAudience.staffOnly) audience];
+  }
+
   Future<CommunityActionResult> publish({
+    required String authorName,
     required String title,
     required String body,
     required CommunityAudience audience,
     required CommunityVisibility visibility,
+    String? mediaLabel,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
     final permissions = permissionsFor(membership);
@@ -115,8 +139,12 @@ class CommunityRepository {
       );
     }
 
+    final cleanAuthor = authorName.trim();
     final cleanTitle = title.trim();
     final cleanBody = body.trim();
+    if (cleanAuthor.isEmpty) {
+      return const CommunityActionResult(success: false, message: 'Enter your name.');
+    }
     if (cleanTitle.isEmpty || cleanBody.isEmpty) {
       return const CommunityActionResult(
         success: false,
@@ -126,9 +154,14 @@ class CommunityRepository {
 
     final now = DateTime.now().toUtc();
     final id = 'POST-${now.microsecondsSinceEpoch}';
+    // The server sets the real author/role from the membership once this
+    // syncs (see apps.schoollife.community.posts.PostHandler) - this is
+    // only what shows before that happens, and the only value demo mode
+    // (no server) ever has, so it must be the person's own real name, never
+    // a fixed placeholder.
     final post = CommunityPost(
       id: id,
-      author: 'Ibrahim Bashir Yahaya',
+      author: cleanAuthor,
       role: '${membership.roleLabel} workspace',
       audience: audience,
       visibility: visibility,
@@ -138,6 +171,7 @@ class CommunityRepository {
       timeLabel: 'Just now · offline',
       reactions: 0,
       comments: const [],
+      mediaLabel: mediaLabel?.trim().isEmpty ?? true ? null : mediaLabel!.trim(),
     );
 
     await _savePost(post, SyncOperation.create);
