@@ -131,7 +131,7 @@ class _OrganizationSubscriptionCardState
                   ),
                 ] else if (summary != null) ...[
                   const SizedBox(height: 14),
-                  _SubscriptionDetails(summary: summary),
+                  SubscriptionDetailsView(summary: summary),
                 ],
               ],
             ),
@@ -150,8 +150,10 @@ class _OrganizationSubscriptionCardState
   }
 }
 
-class _SubscriptionDetails extends StatelessWidget {
-  const _SubscriptionDetails({required this.summary});
+/// The subscription's details, reusable wherever a plan needs to be shown -
+/// the account-level card here, and the owner's in-school Subscriptions page.
+class SubscriptionDetailsView extends StatelessWidget {
+  const SubscriptionDetailsView({super.key, required this.summary});
 
   final OrganizationSubscriptionSummary summary;
 

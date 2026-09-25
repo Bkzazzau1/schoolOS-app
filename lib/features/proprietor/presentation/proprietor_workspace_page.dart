@@ -3,7 +3,9 @@ import '../data/staff_server_api.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../data/owner_access_controller.dart';
 import '../data/owner_access_scope.dart';
+import '../../billing/presentation/billing_scope.dart';
 import 'owner_access_page.dart';
+import 'proprietor_subscription_page.dart';
 import '../../../core/sync/sync_scope.dart';
 import 'package:flutter/material.dart';
 
@@ -122,14 +124,20 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _OwnerNavItem('appearance', 'School Appearance', Icons.palette_outlined),
     _OwnerNavItem('school-life', 'School Life', Icons.celebration_outlined),
     _OwnerNavItem('access', 'Access & Activities', Icons.admin_panel_settings_outlined),
+    _OwnerNavItem('subscriptions', 'Subscriptions', Icons.workspace_premium_outlined),
   ];
 
   /// The screens the owner allows this person (all of them until their access is known).
   List<_OwnerNavItem> get _navigation {
     final items = visibleScreens('owner', _allNavigation, (item) => item.key);
-    // Deciding access needs the server, so the screen exists only when there is one.
-    if (OwnerAccessScope.maybeOf(context) != null) return items;
-    return [for (final item in items) if (item.key != 'access') item];
+    // Deciding access, and billing, both need the server, so those screens
+    // exist only when there is one - the same way Access & Activities does.
+    final hasAccess = OwnerAccessScope.maybeOf(context) != null;
+    final hasBilling = BillingScope.maybeOf(context) != null;
+    return [
+      for (final item in items)
+        if ((item.key != 'access' || hasAccess) && (item.key != 'subscriptions' || hasBilling)) item,
+    ];
   }
 
   OwnerAccessController? _accessController;
@@ -737,6 +745,13 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
       'access' => _ownerAccess() == null
           ? const SizedBox.shrink()
           : OwnerAccessPage(controller: _ownerAccess()!),
+      'subscriptions' => BillingScope.maybeOf(context) == null
+          ? const SizedBox.shrink()
+          : ProprietorSubscriptionPage(
+              organizationId: widget.membership.organizationId ?? '',
+              schoolName: widget.membership.schoolName,
+              repository: BillingScope.maybeOf(context)!,
+            ),
       'school-life' => ProprietorSchoolLifePage(
           schoolName: widget.membership.schoolName,
           onDashboard: () => setState(() => _activeModule = 'overview'),

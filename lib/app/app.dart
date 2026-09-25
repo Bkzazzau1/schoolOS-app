@@ -18,6 +18,7 @@ import '../features/staff/presentation/staff_workspace_page.dart';
 import '../features/teacher/presentation/teacher_workspace_page.dart';
 import '../shared/models/school_membership.dart';
 import '../core/sync/sync_scope.dart';
+import '../features/billing/presentation/billing_scope.dart';
 import '../features/proprietor/data/owner_access_scope.dart';
 import '../features/proprietor/data/staff_server_api.dart';
 import '../features/invitations/presentation/invitation_accept_page.dart';
@@ -264,6 +265,10 @@ class SchoolOsApp extends StatelessWidget {
             final ownerAccess = services.ownerAccess;
             if (ownerAccess != null) {
               tree = OwnerAccessScope(repository: ownerAccess, child: tree);
+            }
+            final billing = services.billing;
+            if (billing != null) {
+              tree = BillingScope(repository: billing, child: tree);
             }
             if (notifications != null) {
               tree = NotificationsScope(notifications: notifications, child: tree);
