@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/sync/sync_scope.dart';
 
 import '../../finance_office/domain/finance_payroll_models.dart';
+import '../data/owner_staff_profile_repository.dart' show DuplicateIdentityError;
+import '../data/staff_identity.dart' show StaffIdentityMatch;
 import '../data/staff_proposal_repository.dart';
 import '../domain/owner_staff_profile_models.dart';
 import 'owner_dialogs.dart';
@@ -46,6 +48,10 @@ class _StaffProposalDialogState extends State<_StaffProposalDialog> {
   bool _saving = false;
   String? _error;
 
+  /// Set once the owner has explicitly confirmed a match is the same real
+  /// person, appointed to a new role - see _confirmSecondAppointment.
+  String _appointmentOfStaffId = '';
+
   @override
   void dispose() {
     for (final c in [_name, _role, _area, _email, _phone, _nin, _gross, _deductions]) {
@@ -56,6 +62,10 @@ class _StaffProposalDialogState extends State<_StaffProposalDialog> {
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    await _attemptSave();
+  }
+
+  Future<void> _attemptSave() async {
     setState(() {
       _saving = true;
       _error = null;
@@ -71,8 +81,26 @@ class _StaffProposalDialogState extends State<_StaffProposalDialog> {
         nin: _nin.text,
         gross: int.parse(_gross.text.trim()),
         deductions: int.parse(_deductions.text.trim()),
+        appointmentOfStaffId: _appointmentOfStaffId,
       );
       if (mounted) Navigator.of(context).pop(true);
+    } on DuplicateIdentityError catch (error) {
+      final confirmable = _confirmableMatch(error.matches);
+      if (confirmable != null) {
+        setState(() => _saving = false);
+        final confirmed = mounted ? await _confirmSecondAppointment(confirmable) : false;
+        if (confirmed == true) {
+          _appointmentOfStaffId = confirmable.staffId;
+          await _attemptSave();
+          return;
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = error.message;
+        });
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -82,6 +110,30 @@ class _StaffProposalDialogState extends State<_StaffProposalDialog> {
       }
     }
   }
+
+  /// A single match, every clash pointing to the same real, active staff
+  /// member - only then can the owner sensibly be offered "appoint them to a
+  /// new role" instead of just an error.
+  StaffIdentityMatch? _confirmableMatch(List<StaffIdentityMatch> matches) {
+    if (matches.isEmpty || !matches.every((m) => m.isApprovedStaffMember)) return null;
+    final ids = matches.map((m) => m.staffId).toSet();
+    return ids.length == 1 ? matches.first : null;
+  }
+
+  Future<bool?> _confirmSecondAppointment(StaffIdentityMatch match) => showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Appoint an existing staff member?'),
+      content: Text(
+        'This phone number and NIN already belong to ${match.name}, who is already a staff member. '
+        'Do you want to appoint them to this new role as well, instead of proposing a new person?',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Appoint to new role')),
+      ],
+    ),
+  );
 
   String? _required(String? v, String message) =>
       v == null || v.trim().isEmpty ? message : null;

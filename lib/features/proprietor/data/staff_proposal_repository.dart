@@ -36,6 +36,7 @@ class StaffProposal {
     required this.status,
     this.decisionNote = '',
     this.createdStaffId = '',
+    this.appointmentOfStaffId = '',
   });
 
   final String id;
@@ -57,6 +58,11 @@ class StaffProposal {
 
   /// Set only once the owner has approved and the person is on the staff list.
   final String createdStaffId;
+
+  /// Set only when this is a confirmed second appointment of an existing
+  /// staff member (a "director" role on top of their employment record) - the
+  /// id of that original staff record.
+  final String appointmentOfStaffId;
 
   int get net => gross - deductions;
 
@@ -80,6 +86,7 @@ class StaffProposal {
         ),
         decisionNote: json['decisionNote'] as String? ?? '',
         createdStaffId: json['createdStaffId'] as String? ?? '',
+        appointmentOfStaffId: json['appointmentOfStaffId'] as String? ?? '',
       );
 }
 
@@ -176,6 +183,11 @@ class StaffProposalRepository {
     required int gross,
     required int deductions,
     required String email,
+
+    /// Set only after the owner has explicitly confirmed, from a shown match,
+    /// that this proposal is a second appointment of that exact existing
+    /// staff member - never accepted on trust alone, verified again below.
+    String appointmentOfStaffId = '',
   }) async {
     final member = _member;
     if (!await canPropose()) {
@@ -196,7 +208,9 @@ class StaffProposalRepository {
       );
     }
     // Phone and NIN identify the person, so both are required and must not
-    // already belong to another staff member or pending proposal.
+    // already belong to another staff member or pending proposal - unless
+    // this is a confirmed second appointment of the exact person who already
+    // holds them (see StaffIdentityMatch.isApprovedStaffMember).
     final cleanPhone = normalizeNigerianPhone(phone);
     if (cleanPhone == null) {
       throw ArgumentError('Enter a valid Nigerian phone number, for example 0803 123 4567.');
@@ -210,7 +224,22 @@ class StaffProposalRepository {
       nin: cleanNin,
     );
     if (matches.isNotEmpty) {
-      throw DuplicateIdentityError(matches.map((m) => m.message).toSet().join(' '));
+      final confirmed = appointmentOfStaffId.isNotEmpty &&
+          matches.every((m) => m.isApprovedStaffMember && m.staffId == appointmentOfStaffId);
+      if (!confirmed) {
+        throw DuplicateIdentityError(matches.map((m) => m.message).toSet().join(' '), matches: matches);
+      }
+      final directory = await AdministratorStaffRepository(localDatabase: database, schoolSession: session).load();
+      AdministratorStaffRecord? existing;
+      for (final person in directory.staff) {
+        if (person.id == appointmentOfStaffId) {
+          existing = person;
+          break;
+        }
+      }
+      if (existing == null || normalizeName(existing.name) != normalizeName(name)) {
+        throw ArgumentError('The name does not match the existing staff record for this phone number and NIN.');
+      }
     }
     // The registration invitation is emailed here once the owner approves.
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(contact)) {
@@ -228,6 +257,7 @@ class StaffProposalRepository {
       'nin': cleanNin,
       'gross': gross,
       'deductions': deductions,
+      'appointmentOfStaffId': appointmentOfStaffId,
       'status': StaffProposalStatus.pending.name,
       'proposedByMembershipId': member.id,
       'proposedByRole': member.role.name,
@@ -373,18 +403,22 @@ class StaffProposalRepository {
     final staffId =
         'STAFF-${sha256.convert(utf8.encode(id)).toString().substring(0, 16)}';
     // Re-check before creating anything: someone else may have taken this
-    // phone or NIN since it was proposed.
-    final clashes = await findStaffIdentityMatches(
+    // phone or NIN since it was proposed. A confirmed second appointment's
+    // own match against the person it appoints is expected, not a clash.
+    final clashes = (await findStaffIdentityMatches(
       database,
       approver.schoolId,
       phone: proposal.phone.isEmpty ? null : proposal.phone,
       nin: proposal.nin.isEmpty ? null : proposal.nin,
       excludeStaffId: staffId,
       excludeProposalId: id,
-    );
+    ))
+        .where((m) => m.staffId != proposal.appointmentOfStaffId)
+        .toList(growable: false);
     if (clashes.isNotEmpty) {
       throw DuplicateIdentityError(
         '${clashes.map((m) => m.message).toSet().join(' ')} Reject this proposal or correct the details.',
+        matches: clashes,
       );
     }
 
@@ -401,6 +435,7 @@ class StaffProposalRepository {
       'staffCategory': 'approved',
       'systemRole': role,
       'approvedFromProposal': id,
+      'appointmentOfStaffId': proposal.appointmentOfStaffId,
       'createdByMembershipId': approver.id,
       'createdAt': now,
     });
@@ -452,6 +487,7 @@ class StaffProposalRepository {
         onboardingStatus: StaffOnboardingStatus.invitePending,
         onboardingEmail: proposal.email,
         systemRole: role,
+        appointmentOfStaffId: proposal.appointmentOfStaffId,
       ).toJson(),
       'updatedAt': now,
       'updatedByMembershipId': approver.id,

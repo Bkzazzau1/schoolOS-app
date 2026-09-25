@@ -454,6 +454,75 @@ void main() {
     await again(); // unique numbers are fine
   });
 
+  test('the owner can appoint an already-approved staff member to a second role by confirming the match', () async {
+    final db = _Database();
+    final owner = await _repo(db, _owner, sessions);
+    await propose(owner); // Musa Ibrahim, phone 0803 123 4567, NIN 12345678901
+    final firstId = (await owner.load()).single.id;
+    await owner.approve(firstId);
+    final originalStaffId = (await owner.load()).single.createdStaffId;
+
+    // Without confirming, the exact same numbers are still refused, same as ever.
+    Future<void> secondAppointment({String appointmentOfStaffId = ''}) => owner.propose(
+      name: 'Musa Ibrahim', roleTitle: 'Head of Operations', systemRole: 'administrator',
+      workArea: 'Whole school', phone: '0803 123 4567', nin: '12345678901',
+      email: 'musa@school.ng', gross: 300000, deductions: 30000,
+      appointmentOfStaffId: appointmentOfStaffId,
+    );
+    expect(secondAppointment(), throwsA(isA<DuplicateIdentityError>()));
+
+    // A mismatched id, or a name that does not match the existing record, is refused too.
+    expect(secondAppointment(appointmentOfStaffId: 'STAFF-not-real'), throwsA(isA<DuplicateIdentityError>()));
+
+    // Confirming the exact match succeeds.
+    await secondAppointment(appointmentOfStaffId: originalStaffId);
+    final proposals = await owner.load();
+    final directorProposal = proposals.firstWhere((p) => p.roleTitle == 'Head of Operations');
+    await owner.approve(directorProposal.id);
+    final directorStaffId =
+        (await owner.load()).firstWhere((p) => p.id == directorProposal.id).createdStaffId;
+    expect(directorStaffId, isNot(originalStaffId));
+
+    // The original record's numbers were never moved or duplicated.
+    final session = await _session(_owner);
+    sessions.add(session);
+    final profileRepo = OwnerStaffProfileRepository(database: db, session: session);
+    final staff = (await AdministratorStaffRepository(localDatabase: db, schoolSession: session).load()).staff;
+    final original = staff.firstWhere((s) => s.id == originalStaffId);
+    final director = staff.firstWhere((s) => s.id == directorStaffId);
+    expect((await profileRepo.view(original)).profile.personal.phone, '08031234567');
+    expect((await profileRepo.view(director)).profile.personal.phone, '08031234567');
+
+    // And a genuinely different third person still cannot reuse those numbers.
+    final principal = await _repo(db, _principal, sessions);
+    expect(
+      principal.propose(
+        name: 'A Stranger', roleTitle: 'Teacher', systemRole: 'teacher', workArea: 'Primary',
+        phone: '0803 123 4567', nin: '12345678901', email: 'stranger@school.ng',
+        gross: 100000, deductions: 0,
+      ),
+      throwsA(isA<DuplicateIdentityError>()),
+    );
+  });
+
+  test('a second-appointment name that does not match the existing record is refused', () async {
+    final db = _Database();
+    final owner = await _repo(db, _owner, sessions);
+    await propose(owner);
+    await owner.approve((await owner.load()).single.id);
+    final originalStaffId = (await owner.load()).single.createdStaffId;
+
+    expect(
+      owner.propose(
+        name: 'Someone Else', roleTitle: 'Head of Operations', systemRole: 'administrator',
+        workArea: 'Whole school', phone: '0803 123 4567', nin: '12345678901',
+        email: 'musa@school.ng', gross: 300000, deductions: 0,
+        appointmentOfStaffId: originalStaffId,
+      ),
+      throwsArgumentError,
+    );
+  });
+
   test('a pending proposal reserves its phone and NIN, and a rejected one releases them', () async {
     final db = _Database();
     final principal = await _repo(db, _principal, sessions);

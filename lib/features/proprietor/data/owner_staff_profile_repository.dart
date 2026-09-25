@@ -67,8 +67,14 @@ StaffProfileAccess staffProfileAccessFor(SchoolRole role) => switch (role) {
 
 /// A phone number or NIN that already belongs to someone else.
 class DuplicateIdentityError implements Exception {
-  DuplicateIdentityError(this.message);
+  DuplicateIdentityError(this.message, {this.matches = const []});
   final String message;
+
+  /// The specific matches this came from, so a caller can offer "appoint
+  /// this same person to a new role" when every match is a confirmable one
+  /// (see StaffIdentityMatch.isApprovedStaffMember) rather than only showing an
+  /// error. Empty wherever that offer would never make sense.
+  final List<StaffIdentityMatch> matches;
 
   @override
   String toString() => message;
@@ -220,7 +226,7 @@ class OwnerStaffProfileRepository {
       excludeProposalId: excludeProposalId,
     );
     if (matches.isNotEmpty) {
-      throw DuplicateIdentityError(matches.map((m) => m.message).toSet().join(' '));
+      throw DuplicateIdentityError(matches.map((m) => m.message).toSet().join(' '), matches: matches);
     }
     final clean = info.copyWith(phone: phone ?? '', nin: nin ?? '');
     await _update(staffId, (p) => p.copyWith(personal: clean));

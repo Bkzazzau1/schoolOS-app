@@ -336,6 +336,7 @@ class StaffProfile {
     this.onboardingEmail = '',
     this.linkedMembershipId = '',
     this.systemRole = '',
+    this.appointmentOfStaffId = '',
   });
 
   /// The role the person was appointed to (a key of [staffSystemRoles]).
@@ -345,6 +346,13 @@ class StaffProfile {
   /// their account is activated and is the only login allowed to change their
   /// bank details.
   final String linkedMembershipId;
+
+  /// Set only when this record is a confirmed second appointment of an
+  /// existing staff member (a "director" role on top of their employment
+  /// record) - the id of that original staff record. Their phone and NIN stay
+  /// claimed there, never independently by this one; see
+  /// StaffProposalRepository.propose and findStaffIdentityMatches.
+  final String appointmentOfStaffId;
 
   final StaffPaymentDetails payment;
   final List<StaffRequiredDocument> documents;
@@ -378,6 +386,7 @@ class StaffProfile {
     onboardingEmail: onboardingEmail ?? this.onboardingEmail,
     linkedMembershipId: linkedMembershipId,
     systemRole: systemRole,
+    appointmentOfStaffId: appointmentOfStaffId,
   );
 
   String? get highestLevel {
@@ -409,6 +418,7 @@ class StaffProfile {
     'onboardingEmail': onboardingEmail,
     'linkedMembershipId': linkedMembershipId,
     'systemRole': systemRole,
+    'appointmentOfStaffId': appointmentOfStaffId,
   };
 
   static List<T> _list<T>(
@@ -438,5 +448,6 @@ class StaffProfile {
     onboardingEmail: json['onboardingEmail'] as String? ?? '',
     linkedMembershipId: json['linkedMembershipId'] as String? ?? '',
     systemRole: json['systemRole'] as String? ?? '',
+    appointmentOfStaffId: json['appointmentOfStaffId'] as String? ?? '',
   );
 }

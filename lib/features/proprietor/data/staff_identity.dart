@@ -9,6 +9,7 @@ class StaffIdentityMatch {
     required this.staffId,
     required this.name,
     required this.field,
+    this.isApprovedStaffMember = false,
   });
 
   final String staffId;
@@ -17,7 +18,18 @@ class StaffIdentityMatch {
   /// 'phone' or 'NIN'.
   final String field;
 
-  String get message => 'This $field is already used by $name ($staffId).';
+  /// True when this match is an already-approved staff member (a real
+  /// directory record the owner already vetted once) rather than someone
+  /// still pending or unregistered - whether or not they have signed in yet.
+  /// Only a match like this can be a genuine second appointment - see
+  /// StaffProposalRepository.propose, which mirrors the same rule the server
+  /// enforces (IdentityClaim.Holder.STAFF, claimed at approval).
+  final bool isApprovedStaffMember;
+
+  String get message => isApprovedStaffMember
+      ? 'This $field already belongs to $name ($staffId), who is already a staff member. '
+          'If you mean to appoint them to a new role, confirm that below.'
+      : 'This $field is already used by $name ($staffId).';
 }
 
 class _Identity {
@@ -45,14 +57,19 @@ Future<List<_Identity>> _identities(
   };
   return [
     for (final r in profiles)
-      _Identity(
-        r.entityId,
-        names[r.entityId] ?? r.entityId,
-        normalizeNigerianPhone(
-          (r.payload['personal'] as Map?)?['phone'] as String? ?? '',
+      // A confirmed second appointment (r.payload['appointmentOfStaffId'] set)
+      // carries the same phone and NIN for display, but its identity belongs
+      // to the original record - it is never itself a clash source, the same
+      // way the server's IdentityClaim is never duplicated onto it.
+      if ((r.payload['appointmentOfStaffId'] as String? ?? '').isEmpty)
+        _Identity(
+          r.entityId,
+          names[r.entityId] ?? r.entityId,
+          normalizeNigerianPhone(
+            (r.payload['personal'] as Map?)?['phone'] as String? ?? '',
+          ),
+          normalizeNin((r.payload['personal'] as Map?)?['nin'] as String? ?? ''),
         ),
-        normalizeNin((r.payload['personal'] as Map?)?['nin'] as String? ?? ''),
-      ),
   ];
 }
 
@@ -73,10 +90,10 @@ Future<List<StaffIdentityMatch>> findStaffIdentityMatches(
   for (final i in await _identities(database, tenantId)) {
     if (i.owner == excludeStaffId) continue;
     if (phone != null && i.phone == phone) {
-      matches.add(StaffIdentityMatch(staffId: i.owner, name: i.name, field: 'phone'));
+      matches.add(StaffIdentityMatch(staffId: i.owner, name: i.name, field: 'phone', isApprovedStaffMember: true));
     }
     if (nin != null && i.nin == nin) {
-      matches.add(StaffIdentityMatch(staffId: i.owner, name: i.name, field: 'NIN'));
+      matches.add(StaffIdentityMatch(staffId: i.owner, name: i.name, field: 'NIN', isApprovedStaffMember: true));
     }
   }
   final proposals = await database.getLocalRecords(
