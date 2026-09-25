@@ -6,6 +6,8 @@ import 'package:schoolos_app/core/sync/sync_mutation.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/billing/data/billing_repository.dart';
 import 'package:schoolos_app/features/billing/presentation/billing_scope.dart';
+import 'package:schoolos_app/features/proprietor/data/owner_access_scope.dart';
+import 'package:schoolos_app/features/proprietor/data/owner_access_source.dart';
 import 'package:schoolos_app/features/proprietor/presentation/proprietor_workspace_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
@@ -59,6 +61,10 @@ void main() {
         return jsonResponse({}, 404);
       });
       home = BillingScope(repository: BillingRepository(api: apiFor(server)), child: home);
+      // A real connected school always has an OwnerAccessSource too (see
+      // AppServices.bootstrap) - Access & Activities is never actually absent
+      // the way this ordering test needs to place Subscriptions below it.
+      home = OwnerAccessScope(repository: _NoopOwnerAccess(), child: home);
     }
     await tester.pumpWidget(MaterialApp(home: home));
     await tester.pump();
@@ -66,15 +72,22 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('offers Subscriptions when there is a server', (tester) async {
+  testWidgets('offers Subscriptions when there is a server, directly below Access & Activities', (tester) async {
     await openMenu(tester, backend: true);
     expect(find.text('Subscriptions'), findsWidgets);
+    final accessY = tester.getTopLeft(find.text('Access & Activities').first).dy;
+    final subscriptionsY = tester.getTopLeft(find.text('Subscriptions').first).dy;
+    expect(subscriptionsY, greaterThan(accessY));
   });
 
-  testWidgets('does not offer it on demo data, where there is no account to bill', (tester) async {
+  testWidgets('stays in the nav on demo data, but says plainly there is no account to bill', (tester) async {
     await openMenu(tester, backend: false);
     expect(find.text('School Life'), findsWidgets);
-    expect(find.text('Subscriptions'), findsNothing);
+    expect(find.text('Subscriptions'), findsWidgets);
+
+    await tester.tap(find.text('Subscriptions').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('no connected SchoolOS server'), findsOneWidget);
   });
 
   testWidgets('opening it shows the real plan and status from the server', (tester) async {
@@ -86,6 +99,13 @@ void main() {
     expect(find.text('Active'), findsOneWidget);
     expect(find.textContaining('648'), findsWidgets);
   });
+}
+
+/// Present only so OwnerAccessScope.maybeOf finds something - none of its
+/// methods are ever called by the ordering test that uses this.
+class _NoopOwnerAccess implements OwnerAccessSource {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _Database implements LocalDatabase {

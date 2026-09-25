@@ -130,13 +130,16 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
   /// The screens the owner allows this person (all of them until their access is known).
   List<_OwnerNavItem> get _navigation {
     final items = visibleScreens('owner', _allNavigation, (item) => item.key);
-    // Deciding access, and billing, both need the server, so those screens
-    // exist only when there is one - the same way Access & Activities does.
+    // Deciding access needs the server, so that screen exists only when
+    // there is one. Subscriptions always stays in the nav, directly below
+    // Access & Activities - a school with no server connection still needs
+    // somewhere to be told plainly that it is not billed here in demo mode
+    // (see _buildContent), the same way other server-only screens explain
+    // themselves rather than vanish without a trace.
     final hasAccess = OwnerAccessScope.maybeOf(context) != null;
-    final hasBilling = BillingScope.maybeOf(context) != null;
     return [
       for (final item in items)
-        if ((item.key != 'access' || hasAccess) && (item.key != 'subscriptions' || hasBilling)) item,
+        if (item.key != 'access' || hasAccess) item,
     ];
   }
 
@@ -746,7 +749,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           ? const SizedBox.shrink()
           : OwnerAccessPage(controller: _ownerAccess()!),
       'subscriptions' => BillingScope.maybeOf(context) == null
-          ? const SizedBox.shrink()
+          ? const _SubscriptionsUnavailable()
           : ProprietorSubscriptionPage(
               organizationId: widget.membership.organizationId ?? '',
               schoolName: widget.membership.schoolName,
@@ -1133,4 +1136,44 @@ class _OwnerNavItem {
   final String key;
   final String label;
   final IconData icon;
+}
+
+/// Honest placeholder for standalone demo mode, where there is no server and
+/// so no real account to be billed - shown instead of a fake plan, and
+/// instead of silently hiding the destination the way an unattached screen
+/// would.
+class _SubscriptionsUnavailable extends StatelessWidget {
+  const _SubscriptionsUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        padding: EdgeInsets.all(constraints.maxWidth < 700 ? 16 : 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'PROPRIETOR · SUBSCRIPTION',
+              style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: 1.1),
+            ),
+            const SizedBox(height: 5),
+            Text('Subscription', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 18),
+            const Card(
+              elevation: 0,
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'This is a standalone demo school with no connected SchoolOS server, so there is no account subscription to show here. '
+                  'Subscription, plan and invoice details become available once this school is connected to a real server.',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
