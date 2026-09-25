@@ -379,10 +379,17 @@ class _ScoreEntryCardState extends State<_ScoreEntryCard> {
                     width: 220,
                     child: DropdownButtonFormField<TeacherAssessmentType>(
                       initialValue: a.type,
+                      isExpanded: true,
                       decoration: const InputDecoration(labelText: 'Type'),
                       items: [
                         for (final t in TeacherAssessmentType.values)
-                          DropdownMenuItem(value: t, child: Text(teacherAssessmentTypeLabel(t))),
+                          DropdownMenuItem(
+                            value: t,
+                            child: Text(
+                              teacherAssessmentTypeLabel(t),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                       ],
                       onChanged: (v) {
                         if (v != null) setState(() => _working = _working.copyWith(type: v));
