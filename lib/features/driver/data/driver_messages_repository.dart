@@ -41,11 +41,14 @@ class DriverMessagesRepository {
       return snapshot;
     }
 
+    // The sample conversations and alerts are demo furniture. On a school with a server they were
+    // never sent to this Driver, and they would be shown (and replied to) as if they had, so the
+    // honest state there is none yet - the empty cards below the screen already say so.
     final seed = DriverMessagesSnapshot(
       routeId: dashboard.assignment.routeId,
       vehicle: dashboard.route.vehicle,
-      threads: driverMessagesWebsiteSeed.threads,
-      alerts: driverMessagesWebsiteSeed.alerts,
+      threads: LocalDatabase.blockDemoSeeds ? const [] : driverMessagesWebsiteSeed.threads,
+      alerts: LocalDatabase.blockDemoSeeds ? const [] : driverMessagesWebsiteSeed.alerts,
     );
     _validateSnapshot(seed, dashboard.assignment.routeId, dashboard.route.vehicle);
     await _localDatabase.upsertLocalRecord(
