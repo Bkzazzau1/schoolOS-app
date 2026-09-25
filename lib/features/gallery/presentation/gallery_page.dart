@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../administrator/domain/administrator_academics_models.dart';
 import '../data/gallery_demo_data.dart';
 import '../data/gallery_repository.dart';
 import '../domain/gallery_models.dart';
@@ -61,22 +62,18 @@ class _GalleryPageState extends State<GalleryPage> {
         .toList(growable: false);
   }
 
-  Future<void> _showUploadBoundary() async {
+  Future<void> _showMediaFilesInfo() async {
     if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Upload media'),
+        title: const Text('About photo and video files'),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'The website prototype does not store media files yet, and the native app keeps the same safety boundary.',
-              ),
-              const SizedBox(height: 12),
               Text(
                 galleryProductionBoundary,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.5),
@@ -90,7 +87,7 @@ class _GalleryPageState extends State<GalleryPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'Before production upload is enabled, SchoolOS must connect secure object storage, signed URLs, audience authorization, moderation and guardian/media-consent enforcement.',
+                  'Before real photo/video upload is enabled, SchoolOS must connect secure object storage, signed URLs, audience authorization and a moderation pipeline.',
                 ),
               ),
             ],
@@ -104,6 +101,34 @@ class _GalleryPageState extends State<GalleryPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _openNewAlbum() async {
+    final snapshot = _snapshot;
+    if (snapshot == null) return;
+    if (snapshot.availableTerms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No academic term is set up yet. Ask an Administrator to set up Academic Structure first.',
+          ),
+        ),
+      );
+      return;
+    }
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) => _NewAlbumDialog(
+        repository: widget.repository,
+        sessions: snapshot.availableSessions,
+        terms: snapshot.availableTerms,
+        classes: snapshot.availableClasses,
+        canApproveVisibility: snapshot.permissions.canApproveVisibility,
+      ),
+    );
+    if (created == true) {
+      await _load();
+    }
   }
 
   @override
@@ -129,6 +154,7 @@ class _GalleryPageState extends State<GalleryPage> {
       );
     }
 
+    final snapshot = _snapshot!;
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 980;
@@ -138,12 +164,12 @@ class _GalleryPageState extends State<GalleryPage> {
             _Header(
               schoolName: widget.schoolName,
               onBack: widget.onBack,
-              onUpload: _showUploadBoundary,
+              onAddAlbum: snapshot.permissions.canCreateAlbum ? _openNewAlbum : null,
             ),
             const SizedBox(height: 18),
             const _ScopeCard(),
             const SizedBox(height: 16),
-            _StatsGrid(wide: wide),
+            _StatsGrid(wide: wide, items: snapshot.items),
             const SizedBox(height: 18),
             if (wide)
               Row(
@@ -189,10 +215,10 @@ class _GalleryPageState extends State<GalleryPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                FilledButton.icon(
-                  onPressed: _showUploadBoundary,
-                  icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
-                  label: const Text('Upload media'),
+                TextButton.icon(
+                  onPressed: _showMediaFilesInfo,
+                  icon: const Icon(Icons.info_outline_rounded, size: 18),
+                  label: const Text('About photo files'),
                 ),
               ],
             ),
@@ -263,12 +289,12 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.schoolName,
     required this.onBack,
-    required this.onUpload,
+    required this.onAddAlbum,
   });
 
   final String schoolName;
   final VoidCallback onBack;
-  final VoidCallback onUpload;
+  final VoidCallback? onAddAlbum;
 
   @override
   Widget build(BuildContext context) {
@@ -301,11 +327,12 @@ class _Header extends StatelessWidget {
               icon: const Icon(Icons.arrow_back_rounded, size: 18),
               label: const Text('School Life'),
             ),
-            FilledButton.icon(
-              onPressed: onUpload,
-              icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
-              label: const Text('Upload media'),
-            ),
+            if (onAddAlbum != null)
+              FilledButton.icon(
+                onPressed: onAddAlbum,
+                icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+                label: const Text('Add album'),
+              ),
           ],
         ),
       ],
@@ -348,9 +375,10 @@ class _ScopeCard extends StatelessWidget {
 }
 
 class _StatsGrid extends StatelessWidget {
-  const _StatsGrid({required this.wide});
+  const _StatsGrid({required this.wide, required this.items});
 
   final bool wide;
+  final List<GalleryMediaItem> items;
 
   @override
   Widget build(BuildContext context) {
@@ -358,7 +386,7 @@ class _StatsGrid extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: [
-        for (final stat in galleryStats)
+        for (final stat in galleryStats(items))
           SizedBox(
             width: wide ? 190 : 165,
             child: Card(
@@ -417,12 +445,18 @@ class _MediaRow extends StatelessWidget {
                     _Chip(item.album),
                     _Chip(item.visibility.label),
                     _Chip(item.audience),
+                    if (item.hasCanonicalTerm)
+                      _Chip('${item.termName} · ${item.sessionName}')
+                    else
+                      const _Chip('No academic term linked (legacy)'),
+                    if (item.excursionTitle.isNotEmpty)
+                      _Chip('Trip: ${item.excursionTitle}'),
                   ],
                 ),
                 const SizedBox(height: 7),
                 Text(item.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                 const SizedBox(height: 3),
-                Text('${item.date} · ${item.count} media items · ${item.owner}'),
+                Text('${item.date} · ${item.count} media items (manual count) · ${item.owner}'),
                 const SizedBox(height: 4),
                 Text(item.note, style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
                 const SizedBox(height: 5),
@@ -508,6 +542,234 @@ class _GallerySidebar extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NewAlbumDialog extends StatefulWidget {
+  const _NewAlbumDialog({
+    required this.repository,
+    required this.sessions,
+    required this.terms,
+    required this.classes,
+    required this.canApproveVisibility,
+  });
+
+  final GalleryRepository repository;
+  final List<AdministratorAcademicSession> sessions;
+  final List<AdministratorAcademicTerm> terms;
+  final List<AdministratorAcademicClass> classes;
+  final bool canApproveVisibility;
+
+  @override
+  State<_NewAlbumDialog> createState() => _NewAlbumDialogState();
+}
+
+class _NewAlbumDialogState extends State<_NewAlbumDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _albumController = TextEditingController();
+  final _ownerController = TextEditingController();
+  final _dateController = TextEditingController();
+  final _countController = TextEditingController(text: '0');
+  final _consentController = TextEditingController();
+  final _noteController = TextEditingController();
+  late AdministratorAcademicTerm _term;
+  AdministratorAcademicClass? _academicClass;
+  GalleryVisibility _visibility = GalleryVisibility.internal;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _term = widget.terms.firstWhere(
+      (term) => term.status == 'active',
+      orElse: () => widget.terms.first,
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _albumController.dispose();
+    _ownerController.dispose();
+    _dateController.dispose();
+    _countController.dispose();
+    _consentController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final result = await widget.repository.createAlbum(
+      title: _titleController.text,
+      album: _albumController.text,
+      owner: _ownerController.text,
+      date: _dateController.text,
+      count: int.tryParse(_countController.text) ?? 0,
+      visibility: _visibility,
+      consent: _consentController.text,
+      note: _noteController.text,
+      term: _term,
+      session: widget.sessions.firstWhere(
+        (session) => session.id == _term.sessionId,
+        orElse: () => AdministratorAcademicSession(
+          id: _term.sessionId,
+          code: '',
+          name: '',
+          startsOn: '',
+          endsOn: '',
+          status: '',
+        ),
+      ),
+      academicClass: _academicClass,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (!result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message)),
+      );
+      return;
+    }
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add album'),
+      content: SizedBox(
+        width: 480,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                  validator: (value) =>
+                      (value == null || value.trim().isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _albumController,
+                  decoration: const InputDecoration(
+                    labelText: 'Album (optional)',
+                    hintText: 'e.g. Sports Day',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<AdministratorAcademicTerm>(
+                  initialValue: _term,
+                  decoration: const InputDecoration(labelText: 'Academic term'),
+                  items: [
+                    for (final term in widget.terms)
+                      DropdownMenuItem(value: term, child: Text(term.name)),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _term = value);
+                  },
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<AdministratorAcademicClass?>(
+                  initialValue: _academicClass,
+                  decoration: const InputDecoration(
+                    labelText: 'Class (optional)',
+                  ),
+                  items: [
+                    const DropdownMenuItem<AdministratorAcademicClass?>(
+                      value: null,
+                      child: Text('Not a single class (whole school/club)'),
+                    ),
+                    for (final academicClass in widget.classes)
+                      DropdownMenuItem(
+                        value: academicClass,
+                        child: Text(academicClass.name),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _academicClass = value),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<GalleryVisibility>(
+                  initialValue: _visibility,
+                  decoration: const InputDecoration(labelText: 'Visibility'),
+                  items: [
+                    for (final visibility in GalleryVisibility.values)
+                      DropdownMenuItem(
+                        value: visibility,
+                        enabled: visibility != GalleryVisibility.publicShowcase ||
+                            widget.canApproveVisibility,
+                        child: Text(
+                          visibility == GalleryVisibility.publicShowcase &&
+                                  !widget.canApproveVisibility
+                              ? '${visibility.label} (Proprietor/Principal only)'
+                              : visibility.label,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _visibility = value);
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _ownerController,
+                  decoration: const InputDecoration(labelText: 'Owner'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _dateController,
+                  decoration: const InputDecoration(
+                    labelText: 'Date',
+                    hintText: 'e.g. 12 Nov 2026',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _countController,
+                  decoration: const InputDecoration(
+                    labelText: 'Media items (a manual count, not a real upload)',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _consentController,
+                  decoration: const InputDecoration(labelText: 'Consent status'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _noteController,
+                  decoration: const InputDecoration(labelText: 'Note'),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Add album'),
         ),
       ],
     );
