@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/sync/sync_scope.dart';
+import '../../../shared/models/school_membership.dart';
 import '../../administrator/domain/administrator_students_models.dart';
 import '../data/bad_debt_classification_repository.dart';
+import '../data/transfer_verify_associations_api.dart';
 import '../domain/bad_debt_classification_models.dart';
 import 'bad_debt_money.dart';
 import 'publish_transfer_verify_dialog.dart';
+import 'transfer_verify_associations_page.dart';
 
 /// A school's own Bad Debt Classification workspace - classify, edit while
 /// unpublished, resolve, and (owner only) publish to TransferVerify. Nothing
 /// here is visible to any other school; see PublishTransferVerifyDialog for
 /// the one explicit boundary-crossing action.
 class BadDebtClassificationPage extends StatefulWidget {
-  const BadDebtClassificationPage({super.key, required this.repository});
+  const BadDebtClassificationPage({super.key, required this.repository, required this.membership});
 
   final BadDebtClassificationRepository repository;
+  final SchoolMembership membership;
 
   @override
   State<BadDebtClassificationPage> createState() => _BadDebtClassificationPageState();
@@ -82,12 +86,31 @@ class _BadDebtClassificationPageState extends State<BadDebtClassificationPage> w
   Future<void> _publish(BadDebtClassification item) async {
     final result = await showDialog<BadDebtClassificationActionResult>(
       context: context,
-      builder: (_) => PublishTransferVerifyDialog(repository: widget.repository, item: item),
+      builder: (_) => PublishTransferVerifyDialog(
+        repository: widget.repository,
+        item: item,
+        membership: widget.membership,
+        associationsApi: TransferVerifyAssociationsScope.maybeOf(context),
+      ),
     );
     if (result != null) {
       setState(() => _notice = result.message);
       if (result.success) _reload();
     }
+  }
+
+  void _openAssociations() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Proprietor Associations')),
+          body: TransferVerifyAssociationsPage(
+            api: TransferVerifyAssociationsScope.maybeOf(context),
+            membership: widget.membership,
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _withdraw(BadDebtClassification item) async {
@@ -165,6 +188,11 @@ class _BadDebtClassificationPageState extends State<BadDebtClassificationPage> w
                         items: [for (final f in _filters) DropdownMenuItem(value: f, child: Text(f))],
                         onChanged: (value) { if (value != null) setState(() => _filter = value); },
                       ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _openAssociations,
+                      icon: const Icon(Icons.groups_outlined, size: 18),
+                      label: const Text('Associations'),
                     ),
                     FilledButton.icon(
                       onPressed: data.permissions.canClassify ? () => _openClassifyDialog(data) : null,

@@ -761,6 +761,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
       'transferverify' => BadDebtClassificationPage(
           repository: BadDebtClassificationRepository(
             localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+          membership: widget.membership,
         ),
       'subscriptions' => BillingScope.maybeOf(context) == null
           ? const _SubscriptionsUnavailable()

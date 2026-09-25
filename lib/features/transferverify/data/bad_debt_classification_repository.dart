@@ -208,6 +208,7 @@ class BadDebtClassificationRepository {
     BadDebtClassification item, {
     required TransferVerifyPublicationReason reason,
     String note = '',
+    List<String> associationIds = const [],
   }) async {
     final membership = _schoolSession.requireActiveMembership();
     final permissions = await _permissionsFor(membership);
@@ -229,16 +230,20 @@ class BadDebtClassificationRepository {
       publishedAt: DateTime.now().toUtc(),
       publicationReason: reason,
       publicationNote: note.trim(),
+      associationScope: associationIds,
     );
     await _persist(membership, updated, SyncOperation.update, {
       'id': updated.id,
       'action': 'publish',
       'reason': reason.toJson(),
       'note': note.trim(),
+      'associationIds': associationIds,
     });
     return BadDebtClassificationActionResult(
       success: true,
-      message: 'Publication to TransferVerify queued. It becomes discoverable only once an association scope exists to choose from.',
+      message: associationIds.isEmpty
+          ? 'Publication to TransferVerify queued. It becomes discoverable only once you choose an association to publish it to.'
+          : 'Publication to TransferVerify queued for ${associationIds.length} association${associationIds.length == 1 ? '' : 's'}.',
       item: updated,
     );
   }

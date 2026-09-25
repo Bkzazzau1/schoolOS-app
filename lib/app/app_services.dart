@@ -20,6 +20,7 @@ import '../features/proprietor/data/local_owner_access.dart';
 import '../features/proprietor/data/owner_access_repository.dart';
 import '../features/proprietor/data/owner_access_source.dart';
 import '../features/proprietor/data/staff_server_api.dart';
+import '../features/transferverify/data/transfer_verify_associations_api.dart';
 import '../core/sync/sync_puller.dart';
 import '../core/tenancy/school_session_controller.dart';
 import '../shared/models/school_membership.dart';
@@ -42,6 +43,7 @@ class AppServices {
     this.localAccess,
     this.staffServer,
     this.alumniServer,
+    this.transferVerifyAssociations,
     this.serverConfirm,
   });
 
@@ -74,6 +76,7 @@ class AppServices {
   AccessView? get accessView => access ?? localAccess;
   final StaffServerApi? staffServer;
   final AlumniServerApi? alumniServer;
+  final TransferVerifyAssociationsApi? transferVerifyAssociations;
   final ServerConfirm? serverConfirm;
 
   bool get usesBackend => auth != null;
@@ -124,6 +127,7 @@ class AppServices {
     OwnerAccessSource? ownerAccess;
     StaffServerApi? staffServer;
     AlumniServerApi? alumniServer;
+    TransferVerifyAssociationsApi? transferVerifyAssociations;
     ServerConfirm? serverConfirm;
     LocalOwnerAccess? localAccess;
     LocalDatabase.blockDemoSeeds = apiConfig.enabled;
@@ -161,6 +165,7 @@ class AppServices {
         api: api,
         schoolSession: schoolSession,
       );
+      transferVerifyAssociations = TransferVerifyAssociationsApi(api: api);
       access = AccessController(api: api, store: localDatabase);
       notifications = NotificationsController(api: api, store: localDatabase);
       final followUp = RoundFollowUp(
@@ -201,6 +206,7 @@ class AppServices {
       localAccess: localAccess,
       staffServer: staffServer,
       alumniServer: alumniServer,
+      transferVerifyAssociations: transferVerifyAssociations,
       serverConfirm: serverConfirm,
     );
     final active = schoolSession.activeMembership;

@@ -57,7 +57,7 @@ void main() {
     await session.selectSchool(owner);
     addTearDown(session.dispose);
     final repository = BadDebtClassificationRepository(localDatabase: database, schoolSession: session);
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: BadDebtClassificationPage(repository: repository))));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: BadDebtClassificationPage(repository: repository, membership: owner))));
     await tester.pumpAndSettle();
     return repository;
   }

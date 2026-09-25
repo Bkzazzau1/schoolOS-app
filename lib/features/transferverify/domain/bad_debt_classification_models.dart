@@ -156,6 +156,7 @@ class BadDebtClassification {
     DateTime? publishedAt,
     TransferVerifyPublicationReason? publicationReason,
     String? publicationNote,
+    List<String>? associationScope,
     bool clearPublication = false,
     bool? pendingSync,
   }) {
@@ -181,7 +182,7 @@ class BadDebtClassification {
       publishedAt: clearPublication ? null : (publishedAt ?? this.publishedAt),
       publicationReason: clearPublication ? null : (publicationReason ?? this.publicationReason),
       publicationNote: clearPublication ? '' : (publicationNote ?? this.publicationNote),
-      associationScope: associationScope,
+      associationScope: associationScope ?? this.associationScope,
       pendingSync: pendingSync ?? this.pendingSync,
     );
   }
