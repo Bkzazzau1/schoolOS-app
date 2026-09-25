@@ -64,7 +64,7 @@ void main() {
   tearDown(() => db?.close());
 
   test('principal workspace preserves every real website destination', () {
-    expect(principalNavigation.length, 17);
+    expect(principalNavigation.length, 20);
     expect(principalNavigation.map((item) => item.label).toList(), [
       'Dashboard',
       'Teachers',
@@ -77,6 +77,9 @@ void main() {
       'Approvals',
       'Results & Reports',
       'Timetable',
+      'Excursions',
+      'Media Gallery',
+      'Alumni Management',
       'Communication',
       'Incidents',
       'Principal AI',

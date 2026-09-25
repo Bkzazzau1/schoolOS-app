@@ -11,9 +11,15 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_attendance_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
+import '../../alumni/data/alumni_server_api.dart';
+import '../../alumni/presentation/alumni_management_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../excursions/data/excursion_repository.dart';
+import '../../excursions/presentation/excursions_page.dart';
+import '../../gallery/data/gallery_repository.dart';
+import '../../gallery/presentation/gallery_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/principal_academics_repository.dart';
@@ -220,6 +226,21 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
         'approvals' => PrincipalApprovalsPage(repository: _approvals, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'results' => PrincipalResultsPage(repository: _results, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'timetable' => PrincipalTimetablePage(repository: _timetable, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'excursions' => ExcursionsPage(
+            schoolName: widget.membership.schoolName,
+            repository: ExcursionRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+            onBack: () => _select('dashboard'),
+            onExcursionsChanged: _refreshPendingCount,
+          ),
+        'gallery' => GalleryPage(
+            schoolName: widget.membership.schoolName,
+            repository: GalleryRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+            onBack: () => _select('dashboard'),
+          ),
+        'alumni' => AlumniManagementPage(
+            manager: widget.membership,
+            api: AlumniServerScope.maybeOf(context),
+          ),
         'communication' => PrincipalCommunicationPage(repository: _communication, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'incidents' => PrincipalIncidentsPage(repository: _incidents, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'ai' => PrincipalAIPage(membership: widget.membership, onNavigate: _select),
@@ -288,6 +309,9 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
         'approvals' => Icons.approval_outlined,
         'results' => Icons.assessment_outlined,
         'timetable' => Icons.calendar_month_outlined,
+        'excursions' => Icons.directions_bus_filled_outlined,
+        'gallery' => Icons.photo_library_outlined,
+        'alumni' => Icons.diversity_3_outlined,
         'communication' => Icons.forum_outlined,
         'incidents' => Icons.report_problem_outlined,
         'ai' => Icons.auto_awesome_rounded,
