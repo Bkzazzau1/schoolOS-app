@@ -93,6 +93,11 @@ class _TransferVerifyIdentityCheckCardState extends State<TransferVerifyIdentity
               'Optional. Checks whether a school in your association network has an unresolved case against this '
               'guardian phone. Phone alone is only ever a candidate signal, never confirmation on its own.',
             ),
+            const SizedBox(height: 6),
+            Text(
+              'Fingerprint matching is not yet available - it needs a hardware sensor SDK this device does not have.',
+              style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic, color: theme.colorScheme.onSurfaceVariant),
+            ),
             const SizedBox(height: 14),
             if (widget.api == null)
               Container(
