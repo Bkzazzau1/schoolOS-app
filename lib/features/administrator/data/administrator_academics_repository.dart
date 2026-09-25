@@ -32,8 +32,12 @@ class AdministratorAcademicsRepository {
     return membership;
   }
 
+  /// Reading the academic structure is safe for any role: it is the same
+  /// shared session/term/class data other workspaces (Teacher, Excursions,
+  /// Gallery, ...) already read directly. Only changing it stays
+  /// Administrator-only, via [_requireAdministrator] in [_save].
   Future<AdministratorAcademicsSnapshot> load() async {
-    final membership = _requireAdministrator();
+    final membership = _schoolSession.requireActiveMembership();
     if (!LocalDatabase.blockDemoSeeds) {
       await _ensureDemoSeed(membership);
     }
