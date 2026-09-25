@@ -64,7 +64,19 @@ class AdministratorAttendanceEvent {
   /// The record's storage key, kept when the event is changed so the same record is updated.
   final String entityKey;
 
-  String get entityId => entityKey.isEmpty ? '$time-$student' : entityKey;
+  /// A fresh event has no [entityKey] yet, so this derives one from time and
+  /// student. It must stay a safe sync id (letters, digits, `. _ : -` only,
+  /// matching the server's entityId pattern), so spaces and punctuation in a
+  /// student's name are never carried through as-is.
+  String get entityId => entityKey.isEmpty ? _slug('$time-$student') : entityKey;
+
+  static String _slug(String value) {
+    final cleaned = value
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '-')
+        .replaceAll(RegExp(r'[^A-Za-z0-9._:\-]'), '');
+    return cleaned.isEmpty ? 'event' : cleaned;
+  }
 
   bool get isUnknown => status == AdministratorAttendanceEventStatus.unknownScan;
 

@@ -26,6 +26,22 @@ void main() {
     expect(administratorAttendanceWebsiteDevices.last.status, AdministratorAttendanceDeviceStatus.offline);
   });
 
+  test('an event entityId is always a safe sync id, even with a space in the student name', () {
+    // The sync push endpoint only accepts entityId matching ^[A-Za-z0-9._:\-]{1,128}$ - a
+    // raw "$time-$student" would be rejected the moment this reached a real backend.
+    const event = AdministratorAttendanceEvent(
+      time: '07:45',
+      student: 'Maryam Abdullahi',
+      className: 'JSS 2A',
+      device: 'Front desk',
+      method: 'Manual',
+      status: AdministratorAttendanceEventStatus.checkedIn,
+      parentState: 'Queued',
+    );
+    expect(event.entityId, isNot(contains(' ')));
+    expect(RegExp(r'^[A-Za-z0-9._:-]{1,128}$').hasMatch(event.entityId), isTrue);
+  });
+
   test('device serialization preserves operational fields', () {
     final device = AdministratorAttendanceDevice.fromJson(
       administratorAttendanceWebsiteDevices[3].toJson(),
