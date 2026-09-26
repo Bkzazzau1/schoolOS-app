@@ -171,7 +171,7 @@ class _FinanceOfficeDashboardPageState extends State<FinanceOfficeDashboardPage>
         ),
         const SizedBox(height: 14),
         Text(
-          'Other finance screens (collections, store, mandates, reconciliation, expenses, reports) are still being connected and show sample figures.',
+          'Other finance screens (store, mandates, reconciliation, expenses, reports) are still being connected and show sample figures. Smart Money Collection is real: it shows only what the connected bank accounts have received.',
           style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],

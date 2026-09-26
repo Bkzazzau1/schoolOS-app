@@ -9,7 +9,7 @@ void main() {
       'Dashboard',
       'Fee Structure',
       'Scholarships & Discounts',
-      'Smart Collections',
+      'Smart Money Collection',
       'Fee Reminders',
       'School Store',
       'Payment Mandates',

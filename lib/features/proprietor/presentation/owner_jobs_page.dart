@@ -365,11 +365,7 @@ class _OwnerJobsPageState extends State<OwnerJobsPage> with SyncRefresh<OwnerJob
                     onPressed: _busy
                         ? null
                         : () => setState(() {
-                            _duties.addAll(
-                              assignableDuties.keys.where(
-                                (key) => key.startsWith(group.key),
-                              ),
-                            );
+                            _duties.addAll(dutiesInGroup(group.key));
                           }),
                     child: Text(group.value),
                   ),

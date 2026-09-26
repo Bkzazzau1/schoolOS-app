@@ -11,6 +11,7 @@ import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
+import '../../bankconnect/presentation/collections_hub_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
@@ -22,7 +23,6 @@ import '../data/finance_office_dashboard_demo_data.dart';
 import '../domain/finance_office_dashboard_models.dart';
 import 'finance_ai_page.dart';
 import 'finance_cashflow_page.dart';
-import 'finance_collections_page.dart';
 import 'finance_concessions_page.dart';
 import 'finance_debt_aging_page.dart';
 import 'finance_family_accounts_page.dart';
@@ -176,7 +176,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
             repository: _concessions,
             onMutationQueued: _refreshPendingCount,
           ),
-        'collections' => const FinanceCollectionsPage(),
+        'collections' => CollectionsHubPage(membership: widget.membership),
         'reminders' => FinanceRemindersPage(ledger: _ledger, schoolName: widget.membership.schoolName, onChanged: _refreshPendingCount),
         'store' => const FinanceStorePage(),
         'mandates' => const FinanceMandatesPage(),

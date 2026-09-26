@@ -14,6 +14,7 @@ import '../core/sync/sync_coordinator.dart';
 import '../core/sync/sync_engine.dart';
 import '../features/account/data/organization_repository.dart';
 import '../features/alumni/data/alumni_server_api.dart';
+import '../features/bankconnect/data/bank_connect_api.dart';
 import '../features/billing/data/billing_repository.dart';
 import '../core/access/access_view.dart';
 import '../features/proprietor/data/local_owner_access.dart';
@@ -44,6 +45,7 @@ class AppServices {
     this.localAccess,
     this.staffServer,
     this.alumniServer,
+    this.bankConnect,
     this.transferVerifyAssociations,
     this.transferVerifyNetwork,
     this.serverConfirm,
@@ -78,6 +80,9 @@ class AppServices {
   AccessView? get accessView => access ?? localAccess;
   final StaffServerApi? staffServer;
   final AlumniServerApi? alumniServer;
+
+  /// The school's own bank accounts and the payments they receive. Online only: absent without a server.
+  final BankConnectApi? bankConnect;
   final TransferVerifyAssociationsApi? transferVerifyAssociations;
   final TransferVerifyNetworkApi? transferVerifyNetwork;
   final ServerConfirm? serverConfirm;
@@ -130,6 +135,7 @@ class AppServices {
     OwnerAccessSource? ownerAccess;
     StaffServerApi? staffServer;
     AlumniServerApi? alumniServer;
+    BankConnectApi? bankConnect;
     TransferVerifyAssociationsApi? transferVerifyAssociations;
     TransferVerifyNetworkApi? transferVerifyNetwork;
     ServerConfirm? serverConfirm;
@@ -169,6 +175,7 @@ class AppServices {
         api: api,
         schoolSession: schoolSession,
       );
+      bankConnect = BankConnectApi(api: api);
       transferVerifyAssociations = TransferVerifyAssociationsApi(api: api);
       transferVerifyNetwork = TransferVerifyNetworkApi(api: api);
       access = AccessController(api: api, store: localDatabase);
@@ -211,6 +218,7 @@ class AppServices {
       localAccess: localAccess,
       staffServer: staffServer,
       alumniServer: alumniServer,
+      bankConnect: bankConnect,
       transferVerifyAssociations: transferVerifyAssociations,
       transferVerifyNetwork: transferVerifyNetwork,
       serverConfirm: serverConfirm,

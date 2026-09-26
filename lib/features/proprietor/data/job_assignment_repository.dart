@@ -21,13 +21,18 @@ const jobRolePresets = <String, String>{
   ...supportStaffRoles,
 };
 
+/// Duties that only the owner's own, deliberate choice can give: a role preset or an "all duties" shortcut
+/// never includes them. Connecting or disconnecting the school's bank accounts is one - being in the Finance
+/// Office is not enough on its own.
+const explicitOnlyDuties = <String>{'finance.bank_connections'};
+
+Set<String> dutiesInGroup(String prefix) => assignableDuties.keys
+    .where((key) => key.startsWith(prefix) && !explicitOnlyDuties.contains(key))
+    .toSet();
+
 Set<String> dutiesForJobRole(String role) => switch (role) {
-  'finance' =>
-    assignableDuties.keys.where((key) => key.startsWith('finance.')).toSet(),
-  'administrator' =>
-    assignableDuties.keys
-        .where((key) => key.startsWith('administration.'))
-        .toSet(),
+  'finance' => dutiesInGroup('finance.'),
+  'administrator' => dutiesInGroup('administration.'),
   'sectionHead' => {
     'administration.students',
     'administration.attendance',
@@ -53,6 +58,7 @@ const assignableDuties = <String, String>{
   'finance.store': 'School store',
   'finance.reports': 'Finance reports',
   'finance.bad_debt_classification': 'Bad debt classification',
+  'finance.bank_connections': 'Connect and manage the school bank accounts',
   'administration.admissions': 'Admissions and enrollment',
   'administration.students': 'Student records',
   'administration.staff': 'Staff administration',
