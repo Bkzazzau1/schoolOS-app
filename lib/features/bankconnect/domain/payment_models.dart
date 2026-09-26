@@ -108,13 +108,13 @@ class PaymentDecision {
   final String toStatus;
 }
 
-/// A movement on a connected account, in SchoolOS's own shape whichever bank it came from.
+/// A payment into a family's collection account, in SchoolOS's own shape whichever provider reported it.
 class BankPayment {
   const BankPayment({
     required this.id,
     required this.connectionId,
-    required this.bankName,
-    required this.maskedAccountNumber,
+    required this.provider,
+    required this.receivingAccountRef,
     required this.transactionReference,
     required this.direction,
     required this.amountMinor,
@@ -139,8 +139,8 @@ class BankPayment {
     return BankPayment(
       id: json['id'] as String,
       connectionId: json['connectionId'] as String? ?? '',
-      bankName: json['bankName'] as String? ?? '',
-      maskedAccountNumber: json['maskedAccountNumber'] as String? ?? '',
+      provider: json['provider'] as String? ?? '',
+      receivingAccountRef: json['receivingAccountRef'] as String? ?? '',
       transactionReference: json['transactionReference'] as String? ?? '',
       direction: json['direction'] as String? ?? 'credit',
       amountMinor: json['amountMinor'] as int? ?? 0,
@@ -163,8 +163,10 @@ class BankPayment {
 
   final String id;
   final String connectionId;
-  final String bankName;
-  final String maskedAccountNumber;
+  final String provider;
+
+  /// The family's collection account the money was paid into, as the provider reported it.
+  final String receivingAccountRef;
   final String transactionReference;
   final String direction;
   final int amountMinor;

@@ -10,45 +10,37 @@ class AmountTotal {
   final int count;
 }
 
-class PurposeTotal {
-  const PurposeTotal({required this.purpose, required this.amountMinor, required this.count});
-
-  factory PurposeTotal.fromJson(Map<String, dynamic> json) => PurposeTotal(
-        purpose: json['purpose'] as String? ?? '',
-        amountMinor: json['amountMinor'] as int? ?? 0,
-        count: json['count'] as int? ?? 0,
-      );
-
-  final String purpose;
-  final int amountMinor;
-  final int count;
-}
-
-class BankTotal {
-  const BankTotal({
+/// What one provider connection collected in the chosen period.
+class ProviderTotal {
+  const ProviderTotal({
     required this.connectionId,
-    required this.bankName,
-    required this.accountMask,
+    required this.provider,
+    required this.merchantName,
     required this.label,
+    required this.environment,
     required this.amountMinor,
     required this.count,
   });
 
-  factory BankTotal.fromJson(Map<String, dynamic> json) => BankTotal(
+  factory ProviderTotal.fromJson(Map<String, dynamic> json) => ProviderTotal(
         connectionId: json['connectionId'] as String? ?? '',
-        bankName: json['bankName'] as String? ?? '',
-        accountMask: json['accountMask'] as String? ?? '',
+        provider: json['provider'] as String? ?? '',
+        merchantName: json['merchantName'] as String? ?? '',
         label: json['label'] as String? ?? '',
+        environment: json['environment'] as String? ?? '',
         amountMinor: json['amountMinor'] as int? ?? 0,
         count: json['count'] as int? ?? 0,
       );
 
   final String connectionId;
-  final String bankName;
-  final String accountMask;
+  final String provider;
+  final String merchantName;
   final String label;
+  final String environment;
   final int amountMinor;
   final int count;
+
+  String get title => label.isNotEmpty ? label : (merchantName.isNotEmpty ? merchantName : provider);
 }
 
 class ReconciliationTotals {
@@ -67,18 +59,26 @@ class ReconciliationTotals {
   int get totalMinor => reconciledMinor + unreconciledMinor;
 }
 
-class AccountsInfo {
-  const AccountsInfo({required this.connected, required this.needAttention, required this.lastSyncedAt});
+/// How many provider connections work, and which one is the school's active collection provider.
+class ProvidersBrief {
+  const ProvidersBrief({required this.connected, required this.needAttention, required this.activeProvider, required this.activeMerchant});
 
-  factory AccountsInfo.fromJson(Map<String, dynamic> json) => AccountsInfo(
-        connected: json['connected'] as int? ?? 0,
-        needAttention: json['needAttention'] as int? ?? 0,
-        lastSyncedAt: readTime(json['lastSyncedAt']),
-      );
+  factory ProvidersBrief.fromJson(Map<String, dynamic> json) {
+    final active = readMap(json['active']);
+    return ProvidersBrief(
+      connected: json['connected'] as int? ?? 0,
+      needAttention: json['needAttention'] as int? ?? 0,
+      activeProvider: active['provider'] as String? ?? '',
+      activeMerchant: active['merchantName'] as String? ?? '',
+    );
+  }
 
   final int connected;
   final int needAttention;
-  final DateTime? lastSyncedAt;
+
+  /// The active provider's code ("paystack", ...), or empty when none has been chosen.
+  final String activeProvider;
+  final String activeMerchant;
 }
 
 class RecentPayment {
@@ -88,7 +88,7 @@ class RecentPayment {
     required this.amountMinor,
     required this.currency,
     required this.transactionDate,
-    required this.bankName,
+    required this.provider,
     required this.status,
     required this.isSandbox,
   });
@@ -99,7 +99,7 @@ class RecentPayment {
         amountMinor: json['amountMinor'] as int? ?? 0,
         currency: json['currency'] as String? ?? 'NGN',
         transactionDate: readTime(json['transactionDate']),
-        bankName: json['bankName'] as String? ?? '',
+        provider: json['provider'] as String? ?? '',
         status: json['reconciliationStatus'] as String? ?? '',
         isSandbox: json['isSandbox'] == true,
       );
@@ -109,7 +109,7 @@ class RecentPayment {
   final int amountMinor;
   final String currency;
   final DateTime? transactionDate;
-  final String bankName;
+  final String provider;
   final String status;
   final bool isSandbox;
 }
@@ -224,13 +224,12 @@ class CollectionsSummary {
     required this.periodKey,
     required this.periodLabel,
     required this.available,
-    required this.accounts,
+    required this.providers,
     required this.today,
     required this.thisWeek,
     required this.thisTerm,
     required this.selected,
-    required this.byPurpose,
-    required this.byBank,
+    required this.byProvider,
     required this.reconciliation,
     required this.recent,
     required this.sandboxIncluded,
@@ -246,13 +245,12 @@ class CollectionsSummary {
       periodKey: period['key'] as String? ?? 'all',
       periodLabel: period['label'] as String? ?? '',
       available: json['available'] == true,
-      accounts: AccountsInfo.fromJson(readMap(json['accounts'])),
+      providers: ProvidersBrief.fromJson(readMap(json['providers'])),
       today: AmountTotal.fromJson(readMap(json['today'])),
       thisWeek: AmountTotal.fromJson(readMap(json['thisWeek'])),
       thisTerm: json['thisTerm'] is Map ? AmountTotal.fromJson(readMap(json['thisTerm'])) : null,
       selected: AmountTotal.fromJson(readMap(json['selected'])),
-      byPurpose: [for (final p in readMaps(json['byPurpose'])) PurposeTotal.fromJson(p)],
-      byBank: [for (final b in readMaps(json['byBank'])) BankTotal.fromJson(b)],
+      byProvider: [for (final b in readMaps(json['byProvider'])) ProviderTotal.fromJson(b)],
       reconciliation: ReconciliationTotals.fromJson(readMap(json['reconciliation'])),
       recent: [for (final r in readMaps(json['recent'])) RecentPayment.fromJson(r)],
       sandboxIncluded: json['sandboxIncluded'] == true,
@@ -266,17 +264,16 @@ class CollectionsSummary {
   final String periodKey;
   final String periodLabel;
 
-  /// False until a real bank account is connected: the screen shows an honest empty state, not zeros.
+  /// False until a real collection provider is connected: the screen shows an honest empty state, not zeros.
   final bool available;
-  final AccountsInfo accounts;
+  final ProvidersBrief providers;
   final AmountTotal today;
   final AmountTotal thisWeek;
 
   /// Null when no academic term is open.
   final AmountTotal? thisTerm;
   final AmountTotal selected;
-  final List<PurposeTotal> byPurpose;
-  final List<BankTotal> byBank;
+  final List<ProviderTotal> byProvider;
   final ReconciliationTotals reconciliation;
   final List<RecentPayment> recent;
   final bool sandboxIncluded;

@@ -41,7 +41,7 @@ class PaymentTile extends StatelessWidget {
               spacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text('${whenLabel(p.transactionDate)} · ${p.bankName} ${p.maskedAccountNumber}', style: const TextStyle(color: Color(0xFF5F6B7A), fontSize: 12)),
+                Text('${whenLabel(p.transactionDate)} · ${providerDisplayName(p.provider)}${p.receivingAccountRef.isEmpty ? '' : ' · ${p.receivingAccountRef}'}', style: const TextStyle(color: Color(0xFF5F6B7A), fontSize: 12)),
                 if (p.isSandbox) const SandboxTag(),
               ],
             ),

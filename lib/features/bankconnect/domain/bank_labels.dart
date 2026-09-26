@@ -1,4 +1,4 @@
-// Words and formats the bank-connection screens share. The keys mirror the server's own lists.
+// Words and formats the collection screens share. The keys mirror the server's own lists.
 
 /// What an account collects money for.
 const bankPurposes = <String, String>{
@@ -17,12 +17,33 @@ const connectionStatusLabels = <String, String>{
   'pending': 'Waiting for confirmation',
   'connected': 'Connected',
   'disabled': 'Disabled',
-  'needs_reauth': 'Needs reconnecting',
+  'needs_reauth': 'Needs new credentials',
   'error': 'Problem',
   'revoked': 'Disconnected',
 };
 
 String connectionStatusLabel(String status) => connectionStatusLabels[status] ?? status;
+
+const webhookStatusLabels = <String, String>{
+  'not_configured': 'Webhook not set up',
+  'awaiting_event': 'Webhook waiting for its first event',
+  'active': 'Webhook active',
+};
+
+String webhookStatusLabel(String status) => webhookStatusLabels[status] ?? status;
+
+/// Paystack, Monnify or Remita as a school says them ("paystack" -> "Paystack").
+String providerDisplayName(String code) => switch (code) {
+      'paystack' => 'Paystack',
+      'monnify' => 'Monnify',
+      'remita' => 'Remita',
+      'sandbox' => 'Test provider',
+      '' => 'Provider',
+      _ => code[0].toUpperCase() + code.substring(1),
+    };
+
+/// "live" / "test" in the words a bursar uses.
+String environmentLabel(String environment) => environment == 'live' ? 'Live' : 'Test';
 
 const paymentStatusLabels = <String, String>{
   'matched': 'Matched',
@@ -53,13 +74,16 @@ const paymentsNeedingAPerson = <String>{
 /// What the server's short failure codes mean, in words a bursar can act on.
 String bankErrorLabel(String code) => switch (code) {
       '' => '',
-      'bad_credentials' => 'The bank no longer accepts the saved credentials. Reconnect the account.',
-      'account_changed' => 'The bank now reports a different account from the one that was connected.',
-      'vault_error' => 'The saved credentials could not be opened. Reconnect the account.',
-      'provider_unavailable' => 'This provider is not available on the server.',
+      'bad_credentials' => 'The provider no longer accepts the saved credentials. Replace them.',
+      'vault_error' => 'The saved credentials could not be opened. Replace them.',
+      'provider_unavailable' => 'The provider did not answer. Try again in a moment.',
       'not_supported' => 'This provider does not support that.',
-      'invalid_signature' => 'The bank\'s message could not be verified.',
-      _ => 'The last check with the bank failed ($code).',
+      'invalid_signature' => 'A message from the provider could not be verified.',
+      'environment_mismatch' => 'These credentials belong to the other mode (test or live).',
+      'live_not_configured' => 'A live connection to this provider is not set up on the school\'s server yet.',
+      'customer_details_missing' => 'The provider needs more details about the family\'s payer.',
+      'customer_kyc_required' => 'The provider needs the payer\'s BVN or NIN.',
+      _ => 'The last check with the provider failed ($code).',
     };
 
 /// Kobo as naira: `5000000` -> `₦50,000`, `150050` -> `₦1,500.50`.
@@ -103,23 +127,23 @@ String whenLabel(DateTime? value, {DateTime? now}) {
   return '${local.day} ${months[local.month - 1]}${local.year == current.year ? '' : ' ${local.year}'}';
 }
 
-/// What each entry in an account's activity trail means.
+/// What each entry in a provider's activity trail means.
 String auditKindLabel(String kind) => switch (kind) {
-      'connection_created' => 'Account checked with the bank',
-      'connected' => 'Confirmed and connected',
+      'provider_connected' => 'Connected and checked with the provider',
       'connect_failed' => 'A connection attempt failed',
-      'test_passed' => 'Connection tested: working',
-      'test_failed' => 'Connection tested: not working',
-      'renamed' => 'Renamed or purpose changed',
-      'disabled' => 'Disabled',
-      'enabled' => 'Enabled',
-      'credentials_rotated' => 'Credentials changed',
-      'reconnected' => 'Reconnected',
-      'disconnected' => 'Disconnected',
-      'webhook_token_issued' => 'New callback address issued',
+      'provider_test_passed' => 'Connection tested: working',
+      'provider_test_failed' => 'Connection tested: not working',
+      'provider_renamed' => 'Renamed',
+      'provider_disabled' => 'Disabled',
+      'provider_enabled' => 'Enabled',
+      'credentials_replaced' => 'Credentials replaced',
+      'credentials_replace_failed' => 'Replacing the credentials failed',
+      'provider_disconnected' => 'Disconnected',
+      'webhook_address_renewed' => 'New webhook address issued',
+      'webhook_confirmed' => 'Webhook confirmed by a verified event',
       'webhook_rejected' => 'A callback was refused (bad signature)',
-      'synced' => 'Payments fetched',
-      'sync_failed' => 'Fetching payments failed',
+      'active_provider_set' => 'Made the active collection provider',
+      'provider_switched' => 'Became the active collection provider (switch applied)',
       _ => kind,
     };
 

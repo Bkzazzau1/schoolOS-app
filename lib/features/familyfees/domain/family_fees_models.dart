@@ -46,7 +46,7 @@ class FamilyPayAccount {
       note: json['note'] as String? ?? '',
       status: status,
       // A parent's view says so; a staff view has no such field, and an account they can read is theirs to manage.
-      canPay: json['canPay'] is bool ? json['canPay'] as bool : status == 'active' || status == 'dormant',
+      canPay: json['canPay'] is bool ? json['canPay'] as bool : const {'active', 'dormant', 'settled', 'grace'}.contains(status),
       isTest: json['isTest'] == true,
       connectionId: json['connectionId'] as String?,
     );
@@ -67,14 +67,15 @@ class FamilyPayAccount {
 
   bool get isSettingUp => status == 'provisioning';
   bool get isPaused => status == 'suspended';
-  bool get isResting => status == 'dormant';
+  bool get isResting => status == 'dormant' || status == 'settled' || status == 'grace';
 
   /// Words for a payer, never a raw status code.
   String get statusLabel => switch (status) {
         'active' => 'Ready for payments',
-        'dormant' => 'Nothing due right now',
+        'dormant' || 'settled' || 'grace' => 'Nothing due right now',
         'provisioning' => 'Being set up by the school',
         'suspended' => 'Paused by the school',
+        'closing' => 'Being closed by the school',
         'closed' => 'Closed',
         _ => status,
       };
@@ -166,69 +167,6 @@ class FamilyPage {
 
   /// Whether this person may decide what families owe - the authority merging two families needs.
   final bool canDecideBilling;
-}
-
-/// How one bank's account looks: what it calls the number, an example, extra facts it asks payers to quote.
-class AccountShape {
-  const AccountShape({required this.numberLabel, required this.numberExample, required this.detailLabels, required this.payerNote});
-
-  factory AccountShape.fromJson(Map<String, dynamic> json) => AccountShape(
-        numberLabel: (json['numberLabel'] as String?)?.trim().isNotEmpty == true ? json['numberLabel'] as String : 'Account number',
-        numberExample: json['numberExample'] as String? ?? '',
-        detailLabels: [for (final l in (json['detailLabels'] as List? ?? const [])) '$l'],
-        payerNote: json['payerNote'] as String? ?? '',
-      );
-
-  static const generic = AccountShape(numberLabel: 'Account number', numberExample: '', detailLabels: [], payerNote: '');
-
-  final String numberLabel;
-  final String numberExample;
-  final List<String> detailLabels;
-  final String payerNote;
-}
-
-/// A bank or provider a family's account can come from, and whether SchoolOS can ask it to issue one.
-class AccountProvider {
-  const AccountProvider({required this.code, required this.displayName, required this.canIssue, required this.issuerStatus, required this.shape});
-
-  factory AccountProvider.fromJson(Map<String, dynamic> json) => AccountProvider(
-        code: json['code'] as String? ?? '',
-        displayName: json['displayName'] as String? ?? '',
-        canIssue: json['canIssue'] == true,
-        issuerStatus: json['issuerStatus'] as String? ?? '',
-        shape: AccountShape.fromJson(readMap(json['shape'])),
-      );
-
-  final String code;
-  final String displayName;
-
-  /// Whether SchoolOS can ask this provider to issue the account. Where it cannot yet, the school records the
-  /// account the bank gave the family by hand.
-  final bool canIssue;
-  final String issuerStatus;
-  final AccountShape shape;
-}
-
-class IssueFailure {
-  const IssueFailure({required this.familyName, required this.message});
-
-  factory IssueFailure.fromJson(Map<String, dynamic> json) =>
-      IssueFailure(familyName: json['familyName'] as String? ?? '', message: json['message'] as String? ?? '');
-
-  final String familyName;
-  final String message;
-}
-
-class IssueReport {
-  const IssueReport({required this.issued, required this.failed});
-
-  factory IssueReport.fromJson(Map<String, dynamic> json) => IssueReport(
-        issued: json['issued'] as int? ?? 0,
-        failed: [for (final f in readMaps(json['failed'])) IssueFailure.fromJson(f)],
-      );
-
-  final int issued;
-  final List<IssueFailure> failed;
 }
 
 class MergeProblem {

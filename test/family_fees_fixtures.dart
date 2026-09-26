@@ -81,41 +81,6 @@ Map<String, Object?> familyPageJson(List<Map<String, Object?>> families, {bool h
       'permissions': {'canDecideBilling': canDecideBilling},
     };
 
-Map<String, Object?> shapeJson({
-  String label = 'Account number',
-  String example = '',
-  List<String> detailLabels = const [],
-  String note = '',
-}) =>
-    {'numberLabel': label, 'numberExample': example, 'detailLabels': detailLabels, 'payerNote': note};
-
-Map<String, Object?> accountProviderJson({
-  String code = 'gtbank',
-  String name = 'GTBank',
-  bool canIssue = false,
-  String status = 'pending_verified_documentation',
-  Map<String, Object?>? shape,
-}) =>
-    {'code': code, 'displayName': name, 'canIssue': canIssue, 'issuerStatus': status, 'shape': shape ?? shapeJson()};
-
-Map<String, Object?> accountProvidersJson() => {
-      'providers': [
-        accountProviderJson(),
-        accountProviderJson(
-          code: 'moniepoint',
-          name: 'Moniepoint Business',
-          shape: shapeJson(label: 'Payment code', example: 'MP-4471-2209', detailLabels: ['Payment reference'], note: 'Pay from any bank app.'),
-        ),
-        accountProviderJson(
-          code: 'sandbox',
-          name: 'Sandbox (test data)',
-          canIssue: true,
-          status: 'sandbox',
-          shape: shapeJson(label: 'Test account number', example: '9123456789', note: 'This is a test account.'),
-        ),
-      ],
-    };
-
 Map<String, Object?> mergePreviewJson({List<Map<String, String>> problems = const []}) => {
       'preview': {
         'problems': problems,

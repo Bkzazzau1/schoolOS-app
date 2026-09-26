@@ -93,12 +93,12 @@ class NoServerNotice extends StatelessWidget {
             children: [
               Icon(Icons.cloud_off_outlined, size: 40, color: Color(0xFF5F6B7A)),
               SizedBox(height: 12),
-              Text('Bank accounts need your school\'s server', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              Text('Smart Money Collection needs your school\'s server', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               SizedBox(height: 8),
               Text(
-                'Connecting a bank account, and reading the payments it receives, happens on the SchoolOS server so that '
-                'no bank credential is ever kept on a phone. This app is running without a school server, so there are no '
-                'accounts and no payments to show.',
+                'Connecting the school\'s collection provider, making family accounts and reading the payments they receive all happen on the '
+                'SchoolOS server, so that no provider credential is ever kept on a phone. This app is running without a school server, '
+                'so there are no providers, accounts or payments to show.',
                 textAlign: TextAlign.center,
               ),
             ],

@@ -6,16 +6,34 @@ import 'package:schoolos_app/features/proprietor/data/job_assignment_repository.
 void main() {
   CatalogEntry entry(String key) => accessCatalogEntries.firstWhere((e) => e.key == key);
 
-  test('connecting the school\'s bank accounts is a duty the owner can give, never one that comes with a role', () {
-    expect(assignableDuties, contains('finance.bank_connections'));
-    expect(assignableDuties['finance.bank_connections'], contains('bank accounts'));
-    // Being a Finance Officer is not enough: no preset and no "all finance duties" shortcut includes it.
-    expect(explicitOnlyDuties, contains('finance.bank_connections'));
-    expect(dutiesInGroup('finance.'), isNot(contains('finance.bank_connections')));
-    expect(dutiesInGroup('finance.'), contains('finance.reports')); // the rest of Finance is still one tap
-    for (final role in ['finance', 'teacher', 'administrator', 'sectionHead', 'driver', 'custom']) {
-      expect(dutiesForJobRole(role), isNot(contains('finance.bank_connections')), reason: role);
+  const collectionDuties = {
+    'finance.collection_provider_manage': 'collection providers',
+    'finance.collection_policy_manage': 'policy',
+    'finance.collection_prepare': 'Prepare',
+    'finance.collection_approve': 'Approve',
+  };
+
+  test('each Smart Money Collection duty is one the owner can give, never one that comes with a role', () {
+    for (final e in collectionDuties.entries) {
+      expect(assignableDuties, contains(e.key));
+      expect(assignableDuties[e.key], contains(e.value), reason: e.key);
+      // Being a Finance Officer is not enough: no preset and no "all finance duties" shortcut includes it.
+      expect(explicitOnlyDuties, contains(e.key));
+      expect(dutiesInGroup('finance.'), isNot(contains(e.key)), reason: e.key);
+      for (final role in ['finance', 'teacher', 'administrator', 'sectionHead', 'driver', 'custom']) {
+        expect(dutiesForJobRole(role), isNot(contains(e.key)), reason: '$role ${e.key}');
+      }
     }
+    expect(dutiesInGroup('finance.'), contains('finance.reports')); // the rest of Finance is still one tap
+  });
+
+  test('preparing a batch and approving it are different duties, so one person can be given only one', () {
+    expect(collectionDuties.keys.toSet().length, 4);
+    expect('finance.collection_prepare', isNot('finance.collection_approve'));
+  });
+
+  test('the earlier bank-connections duty is gone from what an owner can give', () {
+    expect(assignableDuties, isNot(contains('finance.bank_connections')));
   });
 
   test('deciding what families owe is a duty only the owner can give, and no preset or shortcut includes it', () {

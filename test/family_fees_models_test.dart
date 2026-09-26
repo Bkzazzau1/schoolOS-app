@@ -46,6 +46,16 @@ void main() {
       expect(label('dormant'), 'Nothing due right now');
       expect(label('provisioning'), 'Being set up by the school');
       expect(label('suspended'), 'Paused by the school');
+      expect(label('settled'), 'Nothing due right now');
+      expect(label('grace'), 'Nothing due right now');
+      expect(label('closing'), 'Being closed by the school');
+    });
+
+    test('a settled account is still one a family may pay, and one being closed is not offered', () {
+      expect(FamilyPayAccount.fromJson(payAccountJson(status: 'settled', staff: true)).canPay, isTrue);
+      expect(FamilyPayAccount.fromJson(payAccountJson(status: 'grace', staff: true)).canPay, isTrue);
+      expect(FamilyPayAccount.fromJson(payAccountJson(status: 'closing', staff: true)).canPay, isFalse);
+      expect(FamilyPayAccount.fromJson(payAccountJson(status: 'settled', staff: true)).isResting, isTrue);
     });
 
     test('a test account is marked', () {
@@ -84,23 +94,6 @@ void main() {
     });
   });
 
-  group('providers and shapes', () {
-    test('each bank says what it calls its number and what else a payer must quote', () {
-      final providers = [for (final p in (accountProvidersJson()['providers'] as List)) AccountProvider.fromJson(p as Map<String, dynamic>)];
-      final moniepoint = providers.singleWhere((p) => p.code == 'moniepoint');
-      expect((moniepoint.shape.numberLabel, moniepoint.shape.numberExample), ('Payment code', 'MP-4471-2209'));
-      expect(moniepoint.shape.detailLabels, ['Payment reference']);
-      expect(providers.singleWhere((p) => p.code == 'gtbank').canIssue, isFalse);
-      expect(providers.singleWhere((p) => p.code == 'sandbox').canIssue, isTrue);
-    });
-
-    test('a provider with no shape gets the generic one', () {
-      final p = AccountProvider.fromJson({'code': 'x', 'displayName': 'X'});
-      expect((p.shape.numberLabel, p.canIssue), ('Account number', false));
-      expect(p.shape.detailLabels, isEmpty);
-    });
-  });
-
   group('merging', () {
     test('a preview lists what moves, which banks\' accounts move and which stay', () {
       final p = MergePreview.fromJson(mergePreviewJson()['preview'] as Map<String, dynamic>);
@@ -119,15 +112,5 @@ void main() {
       ])['preview'] as Map<String, dynamic>);
       expect((p.canMerge, p.problems.single.code), (false, 'same_family'));
     });
-  });
-
-  test('the issue report counts what was made and names who could not be', () {
-    final r = IssueReport.fromJson({
-      'issued': 2,
-      'failed': [
-        {'familyName': 'Eze family', 'message': 'Nope'},
-      ],
-    });
-    expect((r.issued, r.failed.single.familyName), (2, 'Eze family'));
   });
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/school_membership.dart';
+import '../../smartcollect/data/smart_collect_api.dart';
+import '../../smartcollect/presentation/smart_dashboard_section.dart';
 import '../data/bank_connect_api.dart';
 import '../domain/bank_labels.dart';
 import '../domain/collections_summary.dart';
@@ -17,13 +19,27 @@ class CollectionsOverviewTab extends StatefulWidget {
     required this.onReview,
     required this.onConnect,
     this.onChanged,
+    this.smartApi,
+    this.onOpenBatches,
+    this.onOpenPolicy,
+    this.onOpenAccounts,
+    this.onOpenBatch,
   });
 
   final BankConnectApi api;
   final SchoolMembership membership;
   final VoidCallback onReview;
+
+  /// Go to the Providers tab.
   final VoidCallback onConnect;
   final VoidCallback? onChanged;
+
+  /// Where Smart Money Collection's own overview goes when a person taps through. Without the API the section is not shown.
+  final SmartCollectApi? smartApi;
+  final VoidCallback? onOpenBatches;
+  final VoidCallback? onOpenPolicy;
+  final VoidCallback? onOpenAccounts;
+  final void Function(String batchId)? onOpenBatch;
 
   @override
   State<CollectionsOverviewTab> createState() => _CollectionsOverviewTabState();
@@ -71,6 +87,16 @@ class _CollectionsOverviewTabState extends State<CollectionsOverviewTab> {
         padding: const EdgeInsets.all(16),
         children: [
           if (_loading) const Padding(padding: EdgeInsets.only(bottom: 8), child: LinearProgressIndicator()),
+          if (widget.smartApi != null)
+            SmartDashboardSection(
+              api: widget.smartApi!,
+              membership: widget.membership,
+              onOpenProviders: widget.onConnect,
+              onOpenBatches: widget.onOpenBatches ?? () {},
+              onOpenPolicy: widget.onOpenPolicy ?? () {},
+              onOpenAccounts: widget.onOpenAccounts ?? () {},
+              onOpenBatch: widget.onOpenBatch ?? (_) {},
+            ),
           if (!s.available) _noAccount(s) else ..._figures(s),
           if (s.owed.available) _owed(s.owed),
           if (s.sandboxHidden > 0 || s.sandboxIncluded)
@@ -95,17 +121,17 @@ class _CollectionsOverviewTabState extends State<CollectionsOverviewTab> {
   }
 
   Widget _noAccount(CollectionsSummary s) => BankSection(
-        title: 'No bank account is connected yet',
+        title: 'No collection provider is connected yet',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Once the school\'s own account is connected, the payments it receives appear here and are matched to students. '
-              'Until then there are no figures to show, and none are invented.',
+              'Once the school\'s own Paystack, Monnify or Remita account is connected and families have collection accounts, the payments they '
+              'receive appear here and are matched to families. Until then there are no figures to show, and none are invented.',
             ),
-            if (s.accounts.needAttention > 0) Padding(padding: const EdgeInsets.only(top: 8), child: Text('${s.accounts.needAttention} account(s) need attention.')),
+            if (s.providers.needAttention > 0) Padding(padding: const EdgeInsets.only(top: 8), child: Text('${s.providers.needAttention} provider(s) need attention.')),
             const SizedBox(height: 12),
-            FilledButton(onPressed: widget.onConnect, child: const Text('Go to bank accounts')),
+            FilledButton(onPressed: widget.onConnect, child: const Text('Go to providers')),
           ],
         ),
       );
@@ -152,12 +178,9 @@ class _CollectionsOverviewTabState extends State<CollectionsOverviewTab> {
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 12),
-              const Text('By what the account collects for', style: TextStyle(color: Color(0xFF5F6B7A))),
-              if (s.byPurpose.isEmpty) const Text('Nothing in this period.'),
-              for (final p in s.byPurpose) _line(purposeLabel(p.purpose), p.amountMinor, p.count),
-              const SizedBox(height: 12),
-              const Text('By bank account', style: TextStyle(color: Color(0xFF5F6B7A))),
-              for (final b in s.byBank) _line('${b.label.isNotEmpty ? b.label : b.bankName} ${b.accountMask}', b.amountMinor, b.count),
+              const Text('By provider', style: TextStyle(color: Color(0xFF5F6B7A))),
+              if (s.byProvider.isEmpty) const Text('Nothing in this period.'),
+              for (final b in s.byProvider) _line('${b.title} (${environmentLabel(b.environment)})', b.amountMinor, b.count),
             ],
           ),
         ),
@@ -171,7 +194,7 @@ class _CollectionsOverviewTabState extends State<CollectionsOverviewTab> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     title: Text('${formatMoneyMinor(r.amountMinor, currency: r.currency)} · ${r.senderName.isEmpty ? 'Unnamed sender' : r.senderName}'),
-                    subtitle: Text('${whenLabel(r.transactionDate)} · ${r.bankName}'),
+                    subtitle: Text('${whenLabel(r.transactionDate)} · ${providerDisplayName(r.provider)}'),
                     trailing: PaymentStatusChip(r.status),
                     onTap: () async {
                       final changed = await showPaymentDetail(context, api: widget.api, membership: widget.membership, paymentId: r.id);
@@ -298,11 +321,11 @@ class _CollectionsOverviewTabState extends State<CollectionsOverviewTab> {
                 style: const TextStyle(color: Color(0xFF5F6B7A)),
               ),
             ),
-          if (s.accounts.needAttention > 0)
+          if (s.providers.needAttention > 0)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                '${s.accounts.needAttention} account(s) need attention, so these figures may be behind.',
+                '${s.providers.needAttention} provider(s) need attention, so these figures may be behind.',
                 style: const TextStyle(color: Color(0xFFB3261E)),
               ),
             ),

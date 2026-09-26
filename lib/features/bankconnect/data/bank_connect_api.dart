@@ -7,11 +7,11 @@ import '../domain/collections_summary.dart';
 import '../domain/json_read.dart';
 import '../domain/payment_models.dart';
 
-/// Talks to the school's server about its own bank accounts and the payments they receive.
+/// Talks to the school's server about its own collection providers (Paystack, Monnify, Remita) and the payments they report.
 ///
-/// This is online-only on purpose. Nothing here is written to the phone: no credential, no account
-/// number, no payment. A bank credential passes through [connect], [rotate] and [reconnect] to the
-/// server over HTTPS and is not kept, logged or returned - the server never sends one back.
+/// This is online-only on purpose. Nothing here is written to the phone: no credential, no payment. A provider credential
+/// passes through [connect] and [replaceCredentials] to the server over HTTPS and is not kept, logged or returned - the server
+/// never sends one back.
 class BankConnectApi {
   BankConnectApi({required ApiClient api}) : _api = api;
 
@@ -26,31 +26,15 @@ class BankConnectApi {
   Future<ConnectionsInfo> connections(SchoolMembership m) async =>
       ConnectionsInfo.fromJson(readMap(await _api.get('${_base(m)}connections/', query: _who(m))));
 
-  /// Where to send the person to approve access on the bank's own page. No password is ever asked for.
-  Future<AuthorizationStart> beginAuthorization(
+  /// Connect the school's own account at a provider with the credentials that provider issued to the school. The server checks them
+  /// with the provider. The connection is not yet the active provider.
+  Future<ProviderConnection> connect(
     SchoolMembership m, {
     required String provider,
-    required String redirectUri,
-  }) async =>
-      AuthorizationStart.fromJson(
-        readMap(
-          await _api.post(
-            '${_base(m)}connections/authorize/',
-            query: _who(m),
-            body: {'provider': provider, 'redirectUri': redirectUri},
-          ),
-        ),
-      );
-
-  /// Ask the provider to verify the account. It stays "waiting for confirmation" until [confirm].
-  Future<BankConnection> connect(
-    SchoolMembership m, {
-    required String provider,
-    required String purpose,
+    required String environment,
     String label = '',
-    Map<String, String>? credentials,
-    String? authorizationCode,
-    String? state,
+    required Map<String, String> credentials,
+    Map<String, String> settings = const {},
   }) async {
     final data = readMap(
       await _api.post(
@@ -58,15 +42,14 @@ class BankConnectApi {
         query: _who(m),
         body: {
           'provider': provider,
-          'purpose': purpose,
+          'environment': environment,
           'label': label.trim(),
-          if (credentials != null) 'credentials': credentials,
-          if (authorizationCode != null) 'authorizationCode': authorizationCode.trim(),
-          if (state != null) 'state': state,
+          'credentials': credentials,
+          if (settings.isNotEmpty) 'settings': settings,
         },
       ),
     );
-    return BankConnection.fromJson(readMap(data['connection']));
+    return ProviderConnection.fromJson(readMap(data['connection']));
   }
 
   Future<ConnectionActionResult> _act(SchoolMembership m, String id, String action, [Map<String, Object?>? body]) async =>
@@ -74,45 +57,31 @@ class BankConnectApi {
         readMap(await _api.post('${_base(m)}connections/$id/$action/', query: _who(m), body: body ?? const {})),
       );
 
-  /// The person has seen the bank's own name for the account and says it is theirs.
-  Future<ConnectionActionResult> confirm(SchoolMembership m, String id) => _act(m, id, 'confirm');
   Future<ConnectionActionResult> test(SchoolMembership m, String id) => _act(m, id, 'test');
-  Future<ConnectionActionResult> sync(SchoolMembership m, String id) => _act(m, id, 'sync');
   Future<ConnectionActionResult> disable(SchoolMembership m, String id) => _act(m, id, 'disable');
   Future<ConnectionActionResult> enable(SchoolMembership m, String id) => _act(m, id, 'enable');
   Future<ConnectionActionResult> disconnect(SchoolMembership m, String id) => _act(m, id, 'disconnect');
 
-  /// A new address for the provider to call. The old one stops working; the new one is shown once.
-  Future<ConnectionActionResult> newWebhookAddress(SchoolMembership m, String id) => _act(m, id, 'webhook-token');
+  /// Choose the school's FIRST active collection provider. Once one is active, a change is a provider switch.
+  Future<ConnectionActionResult> activate(SchoolMembership m, String id) => _act(m, id, 'activate');
 
-  Future<ConnectionActionResult> rename(SchoolMembership m, String id, {String? purpose, String? label}) =>
-      _act(m, id, 'rename', {if (purpose != null) 'purpose': purpose, if (label != null) 'label': label});
+  Future<ConnectionActionResult> rename(SchoolMembership m, String id, {required String label}) => _act(m, id, 'rename', {'label': label});
 
-  /// A new credential for the same account. A credential for a different account is refused.
-  Future<ConnectionActionResult> rotate(
+  /// New credentials for the same provider connection. Credentials for a different merchant account are refused.
+  Future<ConnectionActionResult> replaceCredentials(
     SchoolMembership m,
     String id, {
-    Map<String, String>? credentials,
-    String? authorizationCode,
-    String? state,
+    required Map<String, String> credentials,
+    Map<String, String>? settings,
   }) =>
-      _act(m, id, 'rotate', _renewal(credentials, authorizationCode, state));
+      _act(m, id, 'replace-credentials', {'credentials': credentials, if (settings != null) 'settings': settings});
 
-  /// Restore an account that stopped working, with a fresh credential for the same account.
-  Future<ConnectionActionResult> reconnect(
-    SchoolMembership m,
-    String id, {
-    Map<String, String>? credentials,
-    String? authorizationCode,
-    String? state,
-  }) =>
-      _act(m, id, 'reconnect', _renewal(credentials, authorizationCode, state));
+  /// Where to give the provider SchoolOS's address for payment notifications, and whether it is known to work.
+  Future<WebhookSetup> webhookSetup(SchoolMembership m, String id) async =>
+      WebhookSetup.fromJson(readMap(readMap(await _api.get('${_base(m)}connections/$id/webhook/', query: _who(m)))['webhook']));
 
-  Map<String, Object?> _renewal(Map<String, String>? credentials, String? code, String? state) => {
-        if (credentials != null) 'credentials': credentials,
-        if (code != null) 'authorizationCode': code.trim(),
-        if (state != null) 'state': state,
-      };
+  /// A new address for the provider to call. The old one stops working and the webhook waits for its first event again.
+  Future<WebhookSetup?> newWebhookAddress(SchoolMembership m, String id) async => (await _act(m, id, 'webhook-token')).webhook;
 
   Future<List<ConnectionAuditEvent>> audit(SchoolMembership m, String id) async {
     final data = readMap(await _api.get('${_base(m)}connections/$id/audit/', query: _who(m)));

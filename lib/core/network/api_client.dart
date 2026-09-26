@@ -44,6 +44,17 @@ class ApiClient {
   Future<Object?> put(String path, {Object? body, Map<String, String>? query}) =>
       _send('PUT', path, query: query, body: body);
 
+  Future<Object?> patch(String path, {Object? body, Map<String, String>? query}) =>
+      _send('PATCH', path, query: query, body: body);
+
+  /// A file (a PDF, a spreadsheet) rather than JSON. Signed in and refused exactly like every other call.
+  Future<List<int>> getBytes(String path, {Map<String, String>? query}) async {
+    final response = await _exchange('GET', path, query: query, accept: '*/*');
+    if (response.statusCode >= 200 && response.statusCode < 300) return response.bodyBytes;
+    _decode(response); // throws the server's own words
+    throw const ApiOfflineException('The file could not be downloaded.');
+  }
+
   Future<Object?> delete(String path, {Map<String, String>? query}) =>
       _send('DELETE', path, query: query);
 
@@ -53,18 +64,27 @@ class ApiClient {
     Map<String, String>? query,
     Object? body,
     bool authenticated = true,
+  }) async => _decode(await _exchange(method, path, query: query, body: body, authenticated: authenticated));
+
+  Future<http.Response> _exchange(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Object? body,
+    bool authenticated = true,
+    String accept = 'application/json',
   }) async {
-    var response = await _request(method, path, query, body, authenticated);
+    var response = await _request(method, path, query, body, authenticated, accept);
     if (response.statusCode == 401 && authenticated) {
       if (await _refreshOnce()) {
-        response = await _request(method, path, query, body, authenticated);
+        response = await _request(method, path, query, body, authenticated, accept);
       }
       if (response.statusCode == 401) {
         await _tokens.clear();
         throw const SessionExpiredException();
       }
     }
-    return _decode(response);
+    return response;
   }
 
   Future<http.Response> _request(
@@ -72,10 +92,11 @@ class ApiClient {
     String path,
     Map<String, String>? query,
     Object? body,
-    bool authenticated,
-  ) async {
+    bool authenticated, [
+    String accept = 'application/json',
+  ]) async {
     final headers = <String, String>{
-      'Accept': 'application/json',
+      'Accept': accept,
       if (body != null) 'Content-Type': 'application/json',
     };
     if (authenticated) {
@@ -90,6 +111,7 @@ class ApiClient {
         'GET' => _http.get(uri, headers: headers),
         'DELETE' => _http.delete(uri, headers: headers),
         'PUT' => _http.put(uri, headers: headers, body: encoded),
+        'PATCH' => _http.patch(uri, headers: headers, body: encoded),
         _ => _http.post(uri, headers: headers, body: encoded),
       };
       return await future.timeout(timeout);

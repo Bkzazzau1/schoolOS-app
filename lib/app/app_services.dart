@@ -16,6 +16,7 @@ import '../features/account/data/organization_repository.dart';
 import '../features/alumni/data/alumni_server_api.dart';
 import '../features/bankconnect/data/bank_connect_api.dart';
 import '../features/familyfees/data/family_fees_api.dart';
+import '../features/smartcollect/data/smart_collect_api.dart';
 import '../features/billing/data/billing_repository.dart';
 import '../core/access/access_view.dart';
 import '../features/proprietor/data/local_owner_access.dart';
@@ -47,6 +48,7 @@ class AppServices {
     this.staffServer,
     this.alumniServer,
     this.bankConnect,
+    this.smartCollect,
     this.familyFees,
     this.transferVerifyAssociations,
     this.transferVerifyNetwork,
@@ -83,8 +85,11 @@ class AppServices {
   final StaffServerApi? staffServer;
   final AlumniServerApi? alumniServer;
 
-  /// The school's own bank accounts and the payments they receive. Online only: absent without a server.
+  /// The school's own collection providers (Paystack, Monnify, Remita) and the payments they report. Online only: absent without a server.
   final BankConnectApi? bankConnect;
+
+  /// Smart Money Collection: the collection policy, batches with maker-checker approval, and provider switches. Online only.
+  final SmartCollectApi? smartCollect;
 
   /// Families and the accounts each one pays into (the school's own accounts, never SchoolOS's). Online only.
   final FamilyFeesApi? familyFees;
@@ -141,6 +146,7 @@ class AppServices {
     StaffServerApi? staffServer;
     AlumniServerApi? alumniServer;
     BankConnectApi? bankConnect;
+    SmartCollectApi? smartCollect;
     FamilyFeesApi? familyFees;
     TransferVerifyAssociationsApi? transferVerifyAssociations;
     TransferVerifyNetworkApi? transferVerifyNetwork;
@@ -182,6 +188,7 @@ class AppServices {
         schoolSession: schoolSession,
       );
       bankConnect = BankConnectApi(api: api);
+      smartCollect = SmartCollectApi(api: api);
       familyFees = FamilyFeesApi(api: api);
       transferVerifyAssociations = TransferVerifyAssociationsApi(api: api);
       transferVerifyNetwork = TransferVerifyNetworkApi(api: api);
@@ -226,6 +233,7 @@ class AppServices {
       staffServer: staffServer,
       alumniServer: alumniServer,
       bankConnect: bankConnect,
+      smartCollect: smartCollect,
       familyFees: familyFees,
       transferVerifyAssociations: transferVerifyAssociations,
       transferVerifyNetwork: transferVerifyNetwork,

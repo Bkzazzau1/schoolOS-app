@@ -8,8 +8,9 @@ import '../domain/family_fees_models.dart';
 /// Talks to the school's server about families and where each one pays.
 ///
 /// Online-only on purpose: an account number is the school's own record, so nothing here is kept on the phone or made
-/// up when there is no server. School fees are the school's money - they go straight to the school's own bank account,
-/// and SchoolOS neither receives nor holds them.
+/// up when there is no server. School fees are the school's money - they go straight to the school through its own
+/// collection provider, and SchoolOS neither receives nor holds them. (A family's account is made by a collection batch:
+/// see the Smart Money Collection API.)
 class FamilyFeesApi {
   FamilyFeesApi({required ApiClient api}) : _api = api;
 
@@ -49,54 +50,6 @@ class FamilyFeesApi {
             },
           ),
         ),
-      );
-
-  /// Every bank or provider an account can come from, with what its account looks like.
-  Future<List<AccountProvider>> providers(SchoolMembership m) async {
-    final data = readMap(await _api.get('${_base(m)}collection-accounts/providers/', query: _who(m)));
-    return [for (final p in readMaps(data['providers'])) AccountProvider.fromJson(p)];
-  }
-
-  /// Record the account a bank gave a family. Any bank, any format: the number is checked only against what that
-  /// provider is known to use, and [details] carries whatever else the payer must be told.
-  Future<FamilyPayAccount> recordAccount(
-    SchoolMembership m,
-    String familyId, {
-    required String provider,
-    String bankName = '',
-    String accountName = '',
-    required String accountNumber,
-    List<PayDetail> details = const [],
-    String? connectionId,
-  }) async {
-    final data = readMap(
-      await _api.post(
-        '${_base(m)}families/$familyId/collection-accounts/',
-        query: _who(m),
-        body: {
-          'provider': provider,
-          'bankName': bankName.trim(),
-          'accountName': accountName.trim(),
-          'accountNumber': accountNumber.trim(),
-          if (details.isNotEmpty) 'details': [for (final d in details) {'label': d.label, 'value': d.value}],
-          if (connectionId != null) 'connectionId': connectionId,
-        },
-      ),
-    );
-    return FamilyPayAccount.fromJson(readMap(data['account']));
-  }
-
-  /// Ask the school's provider to issue this family its account, under one of the school's connections.
-  Future<FamilyPayAccount> issueAccount(SchoolMembership m, String familyId, String connectionId) async {
-    final data = readMap(
-      await _api.post('${_base(m)}families/$familyId/collection-accounts/issue/', query: _who(m), body: {'connectionId': connectionId}),
-    );
-    return FamilyPayAccount.fromJson(readMap(data['account']));
-  }
-
-  /// Give every active family without one an account under a connection.
-  Future<IssueReport> issueMissing(SchoolMembership m, String connectionId) async => IssueReport.fromJson(
-        readMap(await _api.post('${_base(m)}collection-accounts/issue-missing/', query: _who(m), body: {'connectionId': connectionId})),
       );
 
   /// suspend and close need a [reason]; reinstate does not.

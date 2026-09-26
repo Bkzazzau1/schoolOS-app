@@ -22,9 +22,17 @@ const jobRolePresets = <String, String>{
 };
 
 /// Duties that only the owner's own, deliberate choice can give: a role preset or an "all duties" shortcut
-/// never includes them. Connecting the school's bank accounts, and deciding what families owe (fees, discounts,
-/// scholarships), are two: being in the Finance Office is not enough on its own.
-const explicitOnlyDuties = <String>{'finance.bank_connections', 'finance.billing_authority'};
+/// never includes them. The four Smart Money Collection duties (connecting the school's own collection providers, setting the collection
+/// policy, preparing a collection batch, approving one) and deciding what families owe (fees, discounts, scholarships) are these:
+/// being in the Finance Office is not enough on its own. Deciding what families owe never opens a provider's credentials, and
+/// preparing a batch is a different duty from approving it, so one person can never do both for the same batch.
+const explicitOnlyDuties = <String>{
+  'finance.collection_provider_manage',
+  'finance.collection_policy_manage',
+  'finance.collection_prepare',
+  'finance.collection_approve',
+  'finance.billing_authority',
+};
 
 Set<String> dutiesInGroup(String prefix) => assignableDuties.keys
     .where((key) => key.startsWith(prefix) && !explicitOnlyDuties.contains(key))
@@ -58,7 +66,10 @@ const assignableDuties = <String, String>{
   'finance.store': 'School store',
   'finance.reports': 'Finance reports',
   'finance.bad_debt_classification': 'Bad debt classification',
-  'finance.bank_connections': 'Connect and manage the school bank accounts',
+  'finance.collection_provider_manage': 'Connect and manage the school\'s collection providers',
+  'finance.collection_policy_manage': 'Set the collection policy',
+  'finance.collection_prepare': 'Prepare collection batches',
+  'finance.collection_approve': 'Approve collection batches',
   'finance.billing_authority': 'Decide what families owe (fees, discounts, scholarships)',
   'administration.admissions': 'Admissions and enrollment',
   'administration.students': 'Student records',

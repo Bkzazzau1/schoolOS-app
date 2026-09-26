@@ -143,7 +143,7 @@ class _PaymentDetailState extends State<_PaymentDetail> {
         const SizedBox(height: 8),
         _fact('From', p.senderTitle),
         if (p.senderAccountMask.isNotEmpty || p.senderBank.isNotEmpty) _fact('Sender account', '${p.senderBank} ${p.senderAccountMask}'.trim()),
-        _fact('Into', '${p.bankName} ${p.maskedAccountNumber}'.trim()),
+        _fact('Paid into', '${providerDisplayName(p.provider)} ${p.receivingAccountRef}'.trim()),
         _fact('Date', whenLabel(p.transactionDate)),
         if (p.transactionReference.isNotEmpty) _fact('Reference', p.transactionReference),
         if (p.narration.isNotEmpty) _fact('Narration', p.narration),

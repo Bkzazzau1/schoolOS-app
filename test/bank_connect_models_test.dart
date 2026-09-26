@@ -42,20 +42,35 @@ void main() {
   });
 
   group('providers', () {
-    test('a bank SchoolOS has no documentation for is listed but cannot be used', () {
+    test('the three providers are listed with what each asks for and what each can really do', () {
       final info = ProvidersInfo.fromJson(providersJson());
-      final gtbank = info.providers.firstWhere((p) => p.code == 'gtbank');
-      final sandbox = info.providers.firstWhere((p) => p.code == 'sandbox');
-      expect(gtbank.available, isFalse);
-      expect(gtbank.capabilities.supportsTransactionSync, isFalse);
-      expect(gtbank.capabilities.supportsWebhooks, isFalse);
-      expect(sandbox.available, isTrue);
-      expect(sandbox.isSandbox, isTrue);
-      expect(sandbox.usesCredentials && sandbox.usesAuthorization, isTrue);
-      expect(sandbox.credentialFields.map((f) => f.name), ['sandbox_key', 'account_number']);
-      expect(sandbox.credentialFields.first.secret, isTrue);
-      expect(sandbox.credentialFields.last.secret, isFalse);
+      expect(info.providers.map((p) => p.code), ['paystack', 'monnify', 'remita']);
+      final paystack = info.provider('paystack')!;
+      final monnify = info.provider('monnify')!;
+      final remita = info.provider('remita')!;
+      expect(paystack.credentialFields.map((f) => f.name), ['secret_key']);
+      expect(paystack.credentialFields.single.secret, isTrue);
+      expect(paystack.settingFields.single.name, 'preferred_bank');
+      expect(monnify.credentialFields.map((f) => f.name), ['api_key', 'secret_key', 'contract_code']);
+      expect(monnify.credentialFields.last.secret, isFalse);
+      expect(remita.credentialFields.map((f) => f.name), ['merchant_id', 'api_key', 'service_type_id']);
+      expect(monnify.capabilities.requiresCustomerKyc, isTrue);
+      expect(monnify.customerRequirements, ['email', 'identity']);
+      expect((remita.capabilities.supportsStaticAccounts, remita.capabilities.supportsDynamicAccounts, remita.requiresAmount), (false, true, true));
+      expect(remita.accountLabel, 'Remita Retrieval Reference (RRR)');
+      expect(paystack.webhook.mode, 'dashboard');
+      expect(remita.webhook.verification, 'requery');
+      expect(paystack.onboarding, contains('your school\'s own Paystack'));
       expect(info.canManage && info.secureStorageReady, isTrue);
+      expect(info.provider('gtbank'), isNull);
+    });
+
+    test('there is nothing to say about a settlement account: none is asked for', () {
+      for (final p in ProvidersInfo.fromJson(providersJson()).providers) {
+        for (final f in p.credentialFields) {
+          expect(f.name, isNot(contains('account_number')));
+        }
+      }
     });
 
     test('a missing or odd field never crashes the screen', () {
@@ -65,50 +80,76 @@ void main() {
       expect(info.canManage, isFalse);
       expect(ProvidersInfo.fromJson({}).providers, isEmpty);
     });
+
+    test('provider codes are said as a school says them', () {
+      expect(providerDisplayName('paystack'), 'Paystack');
+      expect(providerDisplayName('monnify'), 'Monnify');
+      expect(providerDisplayName('remita'), 'Remita');
+      expect(providerDisplayName(''), 'Provider');
+    });
   });
 
   group('connections', () {
     test('a connection carries only what is safe to show', () {
-      final c = BankConnection.fromJson(connectionJson());
-      expect((c.bankTitle, c.accountMask, c.title, c.status), ('Sandbox Bank', '****6789', 'Tuition Collection', 'connected'));
-      expect((c.isConnected, c.isPending, c.needsAttention, c.isClosed), (true, false, false, false));
-      expect(c.isSandbox, isTrue);
-      expect(c.capabilities.supportsTransactionSync, isTrue);
+      final c = ProviderConnection.fromJson(connectionJson(label: 'Main collections'));
+      expect((c.providerName, c.merchantName, c.merchantReference, c.title, c.status), ('Paystack', 'BrightGate Academy', '****7855', 'Main collections', 'connected'));
+      expect((c.isConnected, c.isActiveProvider, c.isLive, c.webhookActive), (true, true, true, true));
+      expect(c.capabilities.supportsWebhooks, isTrue);
     });
 
-    test('an unnamed account is called after what it collects', () {
-      expect(BankConnection.fromJson(connectionJson(label: '', purpose: 'transport')).title, 'Transport account');
+    test('an unnamed connection is called after its provider', () {
+      expect(ProviderConnection.fromJson(connectionJson(label: '')).title, 'Paystack');
+    });
+
+    test('the webhook is not active until a verified event has arrived', () {
+      final waiting = ProviderConnection.fromJson(connectionJson(webhook: 'awaiting_event'));
+      expect(waiting.webhookActive, isFalse);
+      expect(waiting.webhookConfirmedAt, isNull);
+      expect(webhookStatusLabel('awaiting_event'), 'Webhook waiting for its first event');
+      expect(webhookStatusLabel('active'), 'Webhook active');
     });
 
     test('states', () {
-      expect(BankConnection.fromJson(connectionJson(status: 'needs_reauth')).needsAttention, isTrue);
-      expect(BankConnection.fromJson(connectionJson(status: 'error')).needsAttention, isTrue);
-      expect(BankConnection.fromJson(connectionJson(status: 'pending')).isPending, isTrue);
-      expect(BankConnection.fromJson(connectionJson(status: 'revoked')).isClosed, isTrue);
-      expect(BankConnection.fromJson(connectionJson(status: 'disabled')).isDisabled, isTrue);
+      expect(ProviderConnection.fromJson(connectionJson(status: 'needs_reauth')).needsAttention, isTrue);
+      expect(ProviderConnection.fromJson(connectionJson(status: 'error')).needsAttention, isTrue);
+      expect(ProviderConnection.fromJson(connectionJson(status: 'revoked')).isClosed, isTrue);
+      expect(ProviderConnection.fromJson(connectionJson(status: 'disabled')).isDisabled, isTrue);
+      expect(ProviderConnection.fromJson(connectionJson(environment: 'test')).isLive, isFalse);
+      expect(environmentLabel('live'), 'Live');
+      expect(environmentLabel('test'), 'Test');
     });
 
-    test('an action result carries the check, the sync and the callback address shown once', () {
+    test('an action result carries the check and the webhook setup', () {
       final result = ConnectionActionResult.fromJson({
         'connection': connectionJson(),
         'test': {'ok': false, 'code': 'bad_credentials', 'message': 'The provider did not accept these credentials.'},
-        'sync': {'ok': true, 'fetched': 3, 'created': 2, 'duplicates': 1, 'invalid': 0, 'more': false, 'code': '', 'message': ''},
-        'webhook': {'path': 'bank-webhooks/sandbox/abc/'},
-        'providerRevoked': true,
+        'webhook': webhookJson(),
       });
       expect(result.check!.ok, isFalse);
       expect(result.check!.code, 'bad_credentials');
-      expect((result.sync!.created, result.sync!.duplicates), (2, 1));
-      expect(result.webhookPath, 'bank-webhooks/sandbox/abc/');
-      expect(result.providerRevoked, isTrue);
-      expect(ConnectionActionResult.fromJson({'connection': connectionJson()}).webhookPath, isNull);
+      expect(result.webhook!.address, 'https://school.example/api/v1/bank-webhooks/paystack/TOKEN123/');
+      expect(result.webhook!.isActive, isFalse);
+      expect(result.webhook!.where, contains('Paystack dashboard'));
+      expect(ConnectionActionResult.fromJson({'connection': connectionJson()}).webhook, isNull);
+    });
+
+    test('a webhook address falls back to its path when the server does not know its own public address', () {
+      final setup = WebhookSetup.fromJson({...webhookJson(), 'url': ''});
+      expect(setup.address, 'bank-webhooks/paystack/TOKEN123/');
     });
 
     test('failure codes are turned into words a bursar can act on', () {
-      expect(bankErrorLabel('bad_credentials'), contains('Reconnect'));
-      expect(bankErrorLabel('account_changed'), contains('different account'));
+      expect(bankErrorLabel('bad_credentials'), contains('Replace them'));
+      expect(bankErrorLabel('environment_mismatch'), contains('other mode'));
+      expect(bankErrorLabel('live_not_configured'), contains('not set up'));
       expect(bankErrorLabel(''), '');
       expect(bankErrorLabel('weird'), contains('weird'));
+    });
+
+    test('the activity trail names what happened', () {
+      expect(auditKindLabel('provider_connected'), contains('Connected'));
+      expect(auditKindLabel('provider_switched'), contains('active collection provider'));
+      expect(auditKindLabel('unknown_kind'), 'unknown_kind');
     });
   });
 
@@ -120,6 +161,11 @@ void main() {
       expect(p.notes.single, contains('2 students fit about equally well'));
       expect((p.status, p.confidence, p.amountMinor, p.isCredit), ('requires_review', 65, 5000000, true));
       expect(p.senderAccountMask, '****9012');
+    });
+
+    test('a payment says which provider reported it and which family account it was paid into', () {
+      final p = BankPayment.fromJson(paymentJson());
+      expect((p.provider, p.receivingAccountRef), ('paystack', '9930000902'));
     });
 
     test('only current allocations count, and what is unallocated can be worked out', () {
@@ -161,12 +207,13 @@ void main() {
     test('it reads what the server worked out and adds nothing', () {
       final s = CollectionsSummary.fromJson((summaryJson(sandboxHidden: 3)['summary']) as Map<String, dynamic>);
       expect((s.available, s.today.amountMinor, s.thisWeek.count, s.thisTerm!.amountMinor), (true, 5000000, 3, 45000000));
-      expect(s.byPurpose.first.purpose, 'tuition');
-      expect(s.byBank.single.accountMask, '****1111');
+      expect(s.byProvider.single.title, 'Main collections');
+      expect((s.byProvider.single.provider, s.byProvider.single.environment), ('paystack', 'live'));
+      expect((s.providers.connected, s.providers.activeProvider, s.providers.activeMerchant), (1, 'paystack', 'BrightGate Academy'));
       expect((s.reconciliation.reconciledMinor, s.reconciliation.unreconciledMinor, s.reconciliation.totalMinor), (30000000, 15000000, 45000000));
       expect(s.reconciliation.pendingReviewCount, 2);
       expect(s.sandboxHidden, 3);
-      expect(s.recent.single.senderName, 'Musa Bello');
+      expect((s.recent.single.senderName, s.recent.single.provider), ('Musa Bello', 'paystack'));
     });
 
     test('what is still owed is never claimed to be known', () {
@@ -196,8 +243,9 @@ void main() {
       expect(CollectionsSummary.fromJson(json).thisTerm, isNull);
     });
 
-    test('with no account connected the summary says so', () {
-      expect(CollectionsSummary.fromJson((summaryJson(available: false)['summary']) as Map<String, dynamic>).available, isFalse);
+    test('with no provider connected the summary says so', () {
+      final s = CollectionsSummary.fromJson((summaryJson(available: false)['summary']) as Map<String, dynamic>);
+      expect((s.available, s.providers.activeProvider), (false, ''));
     });
   });
 }
