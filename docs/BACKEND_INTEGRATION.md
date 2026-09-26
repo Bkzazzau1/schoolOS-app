@@ -1856,3 +1856,118 @@ Tests: `test/parent_finance_feature_test.dart` gained a widget test that renders
 family with no mandate configured and asserts it does not throw — the first widget-level (rather than repository
 -level) coverage this page has had, and exactly the kind of test that would have caught this regression before it
 shipped. Full suite: 1165 passing, same 8 pre-existing unrelated failures, zero regressions.
+
+## Smart Money Collection: the school's own bank accounts (real backend and app; no real bank connected yet)
+
+**What it is.** A school's owner (or someone the owner has explicitly authorised) connects the school's *own* bank or
+collection-provider accounts to SchoolOS. SchoolOS then reads the credits those accounts receive, turns every
+provider's data into one canonical payment, matches each payment to a student where the evidence is clear, and
+puts everything else in front of a person. Parents keep paying the school's accounts exactly as they do now; nothing
+here touches a parent's own bank. It replaces the static "Smart Collections" prototype in Finance, which drew
+per-student virtual accounts with no provider behind them (its page, demo data, models and test were deleted).
+
+**Where it lives.** Backend `apps/bankconnect` (its own migrations, admin, management commands, 237 tests); app
+`lib/features/bankconnect` (online only, 70 tests). The catalog entry is "Smart Money Collection" for the owner
+(`owner.collections`) and the Finance Office (`finance.collections`), both marked sensitive on both sides.
+
+### What is real today, and what is not
+
+| | State |
+|---|---|
+| Encrypted credential storage (`FernetVault`), tenant-bound, key rotation | **Real** |
+| Connect / confirm / test / rename / disable / enable / rotate / reconnect / disconnect, all audited | **Real** |
+| Idempotent ingestion; cursor sync; signed, replay-safe webhook endpoint; `sync_bank_connections` for cron | **Real** |
+| Reconciliation engine, review queue, all manual decisions, notifications | **Real** |
+| Collections summary, and the same block on the owner and Finance dashboards | **Real** |
+| Bank Accounts / Connect / Payments / Review / Overview screens | **Real** (need a school server) |
+| The **sandbox** connector (synthetic bank) | Real, and the *only* connector that works |
+| GTBank, UBA, Zenith, Access, FirstBank, Moniepoint, OPay, open banking, Monnify, Paystack | **Listed, not connectable.** Each is `pending_verified_documentation` with every capability off. No endpoint, credential format or webhook format was invented for any of them |
+| What a family still owes; matching a payment to an invoice or fee item | **Not possible yet.** There is no server-side fee ledger, so `outstandingFeesAvailable` is `false` and the screens say so. A payment is matched to a student and to a purpose (the account's category) only |
+| Deep-link return from a bank's approval page | Not built: the person pastes the approval code |
+| Push notifications | Not built: the existing notification system is the in-app inbox, and that is what is used |
+
+In the demo (no school server) the screen says a server is needed and shows no accounts or payments. Nothing is
+faked and nothing is stored on the phone.
+
+### Security controls
+
+- **Credentials.** Sealed with `cryptography` (Fernet / `MultiFernet`) before they reach the database. The sealed blob
+  carries `{school, connection}` and is checked on open, so a blob copied onto another school's row will not open.
+  With no key configured nothing can be stored (503), and the app is told (`secureStorageReady: false`) so it can say
+  why. Keys rotate by putting the new key first in `BANKCONNECT_SECRET_KEYS`, running
+  `manage.py reseal_bank_credentials` (add `--dry-run` first), and only then removing the old key; the command fails,
+  naming only the connection, if anything cannot be opened.
+- **Never returned.** No endpoint can return a credential; every serializer lists its fields by name. Only the last four
+  digits of an account are ever sent, and the number itself is never stored (a keyed, per-school one-way fingerprint
+  stops the same account being connected twice). A sender's full account number is masked before it is stored.
+- **Never leaked.** Provider error text is replaced by short SchoolOS-written codes; audit records drop any key that
+  looks like a secret; request bodies that can carry a credential are kept out of Django error reports; tests check
+  that the key, the full account number and the webhook secret appear in no response, audit row, stored column or log.
+- **On the phone.** Credentials exist only in the dialog's text boxes (masked, no suggestions), go once in a POST body,
+  and the boxes are cleared the moment the request ends, success or not. Nothing is written to SQLite or preferences.
+- **Who.** Managing accounts (connect, rotate, disconnect, ...) is the owner or someone given the duty
+  `finance.bank_connections`. That duty is in `explicitOnlyDuties`: no role preset and no "all finance duties" button
+  includes it, so being a Finance Officer is not enough. Looking, syncing and reviewing payments is the owner, the
+  Finance Office and duty holders. Everyone else is refused, and another school's connection answers 404.
+  A duty holder who is neither the owner nor in Finance has the power on the server but no menu entry in the app yet.
+- **Webhooks.** `POST /api/v1/bank-webhooks/<provider>/<token>/` is public, so it defends itself: a per-connection
+  token (only its hash is stored, shown once), a `404` for unknown tokens, the provider's signature verified before
+  anything is stored, a 64 KB cap, a throttle, and the delivery recorded in the same database transaction as the
+  payments it carried, so a half-processed delivery is retried rather than remembered as done.
+- **Sandbox.** Off unless `BANKCONNECT_ENABLE_SANDBOX` (default: `DEBUG`). Its payments are labelled "Test data" and
+  are left out of every total unless asked for, with the number left out stated.
+
+### How a payment is matched
+
+Each clue that fits adds points and is recorded in words (visible to the reviewer): the student code (90) or admission
+number (80) in the narration as whole tokens however it was punctuated (`BG 0042`, `bg/0042`; `BG-00421` does not
+match), a guardian's name (35) or phone (30), the student's name (30), a wallet account ending like a guardian's
+phone (10). At 90 or more **and** clearly ahead of every other student, and the student is active, the payment is
+`matched` and allocated automatically; 60-89 is `possible_match`; two students within 15 points (siblings share a
+guardian, so a guardian clue alone can never pick a child) is `requires_review`; below 60 nothing is suggested. The same
+sender, amount and narration within 24 hours of an earlier payment is held as `duplicate` and never allocated twice.
+Debits are stored as `not_applicable`. `ingest` only stores; `reconcile_pending` evaluates whatever the engine has not
+seen, so a crash between the two strands nothing, and a failing engine never fails a sync or a webhook. A person can
+assign, split, mark not-fees, mark duplicate, set aside, mark reversed or refunded, or reopen; each appends a decision
+(who, why, before, after), supersedes rather than deletes allocations, needs a note where the meaning of the money
+changes, and is refused if made on a stale screen (`expectedStatus`).
+
+### Running it
+
+- **Settings.** `BANKCONNECT_SECRET_KEYS` (comma separated, newest first; make one with
+  `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) and
+  `BANKCONNECT_ENABLE_SANDBOX`. New dependency: `cryptography`.
+- **Cron.** `manage.py sync_bank_connections` (every few minutes; `--school`, `--connection`, `--max-pages`). One broken
+  account never stops the others, and it exits non-zero if any failed.
+- **Trying it without a bank.** Turn the sandbox on, connect "Sandbox (test data)" (any key starting `sandbox-` and a
+  10-digit number), confirm it, then `manage.py bankconnect_sandbox_post <connection id> --naira 50000 --sender "Musa Bello"
+  --narration "BG-0042 tuition"` puts a credit on it and syncs; it appears, matched, in Payments.
+- **API.** Under `/api/v1/schools/<school>/collections/`: `providers/`, `connections/` (GET, POST),
+  `connections/authorize/`, `connections/<id>/{confirm,test,sync,rename,disable,enable,rotate,reconnect,disconnect,
+  webhook-token,audit}/`, `transactions/`, `transactions/<id>/` and `.../decide/`, `review/`, `students/`, `summary/`.
+- **Dashboards.** `GET dashboards/schools/<school>/owner/` and `.../finance/` carry a `collections` block identical to
+  `summary/`. "fee collection" leaves `notAvailableYet` only once a real (non-sandbox) account is connected;
+  "outstanding balances" stays.
+
+### Before a real school can use it
+
+1. The documentation and credentials for at least one real provider, and a connector written against them (the
+   interface is `providers/base.py`; a provider is one class and one registry entry). Recommended first: **Paystack**,
+   because SchoolOS already verifies its signatures for SaaS billing; it needs a decision on how a school's own Paystack
+   key is held.
+2. Production `BANKCONNECT_SECRET_KEYS`, and a cron entry for `sync_bank_connections`.
+3. Redirect registration and deep-link handling for any authorisation-style provider.
+4. A legal and compliance review of holding bank access credentials.
+5. The server fee ledger, which is what turns "matched to a student" into "matched to this invoice" and makes what is
+   owed knowable. The earlier open question about voiding receipts belongs to that piece of work.
+
+### Verification
+
+Backend: `manage.py test apps.bankconnect` (237 tests: vault round-trip, tamper and cross-school refusal, key rotation;
+role matrix; every endpoint against a second school; secrets absent from responses, audit rows, columns and logs;
+ingestion idempotency; webhook signatures and replays; matching cases including siblings and near-miss codes; every
+review decision; summary totals with sandbox excluded). The full backend suite still shows exactly the same 38 failing
+tests it did before this work (compared by name against a clean checkout): none added, none fixed. App: `flutter analyze` is clean; the new tests cover the
+models, the API's requests and error handling, the screens (including masked and cleared credential boxes, the
+no-server state, and the stale-decision refusal), and the duty and catalog wiring. The full Flutter suite still shows
+exactly the same 83 failing tests it did before (compared by name against a clean checkout): none added, none fixed.
