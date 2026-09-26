@@ -82,7 +82,7 @@ class BatchItemTile extends StatelessWidget {
                     children: [
                       _figure('Previous balance', i.previousArrearsMinor),
                       _figure('Due this period', i.currentDueMinor),
-                      _figure('To collect', i.proposedCollectionMinor, bold: true),
+                      _figure('Collection target', i.proposedCollectionMinor, bold: true),
                     ],
                   ),
                   if (i.eligibilityNote.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(i.eligibilityNote, style: const TextStyle(color: Color(0xFF5F6B7A)))),

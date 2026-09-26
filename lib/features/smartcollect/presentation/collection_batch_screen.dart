@@ -460,7 +460,7 @@ class _CollectionBatchScreenState extends State<CollectionBatchScreen> {
             _tile('Selected', '${b.totals.selected}', key: 'total-selected'),
             _tile('Previous balances', formatMoneyMinor(b.totals.previousArrearsMinor)),
             _tile('Due this period', formatMoneyMinor(b.totals.currentDueMinor)),
-            _tile('To be collected', formatMoneyMinor(b.totals.collectionMinor), bold: true, key: 'total-collection'),
+            _tile('Collection target', formatMoneyMinor(b.totals.collectionMinor), bold: true, key: 'total-collection'),
           ],
         ),
       );
