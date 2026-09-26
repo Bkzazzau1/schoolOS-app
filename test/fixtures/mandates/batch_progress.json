@@ -1,0 +1,57 @@
+{
+ "progress": {
+  "status": "completed",
+  "total": 2,
+  "byStatus": {
+   "success": 2
+  },
+  "success": 2,
+  "failed": 0,
+  "unknown": 0,
+  "queued": 0,
+  "done": true
+ },
+ "batch": {
+  "id": "0dd14b73-fd1b-4fff-ad3b-3e6a4c259a49",
+  "title": "Term one fees",
+  "status": "completed",
+  "version": 2,
+  "snapshotHash": "dd0f3e4252d149b7ff1f647c8910f04d27399028021b605419d4a21d3582fb08",
+  "approvedSnapshotHash": "dd0f3e4252d149b7ff1f647c8910f04d27399028021b605419d4a21d3582fb08",
+  "session": {
+   "id": "f772d108-0054-4c33-a392-0fcac9db6c03",
+   "name": "2026/2027"
+  },
+  "term": {
+   "id": "da4a9e4f-5c39-4cb1-a0a9-d332710f41fd",
+   "name": "First Term"
+  },
+  "familyCount": 2,
+  "totalItems": 2,
+  "totalOutstandingMinor": 38000000,
+  "totalAmountMinor": 38000000,
+  "successCount": 2,
+  "failedCount": 0,
+  "preparedBy": {
+   "id": "0ec5dc93-d9ae-4ed3-ba3a-3e5e9d28a0e8",
+   "name": "administrator@school.ng"
+  },
+  "preparedAt": "2026-09-26T21:09:24.050356+00:00",
+  "submittedBy": {
+   "id": "0ec5dc93-d9ae-4ed3-ba3a-3e5e9d28a0e8",
+   "name": "administrator@school.ng"
+  },
+  "submittedAt": "2026-09-26T21:09:24.266406+00:00",
+  "approvedBy": {
+   "id": "5f122576-c365-44a3-9489-be7bd1bd83c7",
+   "name": "principal@school.ng"
+  },
+  "approvedAt": "2026-09-26T21:09:24.380900+00:00",
+  "rejectedBy": null,
+  "rejectedAt": null,
+  "rejectionReason": "",
+  "startedAt": "2026-09-26T21:09:24.436805+00:00",
+  "completedAt": "2026-09-26T21:09:24.617709+00:00",
+  "previewBuiltAt": "2026-09-26T21:09:24.089252+00:00"
+ }
+}

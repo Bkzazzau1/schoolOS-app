@@ -1,0 +1,4 @@
+{
+ "code": "no_webhooks",
+ "message": "Test mandate provider does not send callbacks. SchoolOS asks it instead."
+}

@@ -1,0 +1,74 @@
+{
+ "items": [
+  {
+   "id": "097c7c5a-544a-4f1e-9208-846edcd35c01",
+   "familyId": "2553f0b0-2a47-4237-b9a4-ffbf1d370418",
+   "familyName": "Bello family",
+   "familyCode": "FAM-JZ7BV8NA",
+   "payer": "Bello Parent",
+   "provider": "sandbox",
+   "mandateId": "5f31b001-ac52-407a-af1f-d0e8254b8395",
+   "bankName": "Test Bank",
+   "accountMask": "****6789",
+   "mandateStatus": "active",
+   "selected": true,
+   "outstandingMinor": 28000000,
+   "eligibleMinor": 28000000,
+   "maximumMinor": 50000000,
+   "proposedDebitMinor": 28000000,
+   "amountAdjusted": false,
+   "allocation": [
+    {
+     "receivableId": "ca4c9f60-c022-4bab-bcc4-94c4ea3670b9",
+     "amountMinor": 28000000
+    }
+   ],
+   "eligibilityStatus": "eligible",
+   "eligibilityNote": "",
+   "status": "success",
+   "attemptCount": 1,
+   "providerStatus": "sandbox:success",
+   "errorCode": "",
+   "errorMessage": "",
+   "lastAttemptAt": "2026-09-26T21:09:24.502218+00:00",
+   "completedAt": "2026-09-26T21:09:24.515999+00:00",
+   "canSelect": true
+  },
+  {
+   "id": "e042b0a7-64f6-4dfa-9cd4-f51bd67a2bed",
+   "familyId": "074937d4-bb9e-40f8-9629-6a8b33144907",
+   "familyName": "Sani family",
+   "familyCode": "FAM-JQECNPA8",
+   "payer": "Sani Parent",
+   "provider": "sandbox",
+   "mandateId": "ad47a645-7cce-466f-bbb3-aaf15043e347",
+   "bankName": "Test Bank",
+   "accountMask": "****4321",
+   "mandateStatus": "active",
+   "selected": true,
+   "outstandingMinor": 10000000,
+   "eligibleMinor": 10000000,
+   "maximumMinor": 50000000,
+   "proposedDebitMinor": 10000000,
+   "amountAdjusted": false,
+   "allocation": [
+    {
+     "receivableId": "622e66f5-8c23-4e75-9681-e3e2e3ee1129",
+     "amountMinor": 10000000
+    }
+   ],
+   "eligibilityStatus": "eligible",
+   "eligibilityNote": "",
+   "status": "success",
+   "attemptCount": 1,
+   "providerStatus": "sandbox:success",
+   "errorCode": "",
+   "errorMessage": "",
+   "lastAttemptAt": "2026-09-26T21:09:24.598995+00:00",
+   "completedAt": "2026-09-26T21:09:24.609529+00:00",
+   "canSelect": true
+  }
+ ],
+ "version": 2,
+ "snapshotHash": "dd0f3e4252d149b7ff1f647c8910f04d27399028021b605419d4a21d3582fb08"
+}

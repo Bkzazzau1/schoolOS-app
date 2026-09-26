@@ -1,0 +1,16 @@
+{
+ "webhook": {
+  "path": "mandate-webhooks/remita/hz-lmhuA0Mk2jtSjtDxD0DEMgSgIY4wNO553vjjx_0I/",
+  "url": "",
+  "status": "awaiting_event",
+  "confirmedAt": null,
+  "mode": "dashboard",
+  "where": "Give Remita the address below as the listening URL for your Direct Debit notifications",
+  "verification": "requery",
+  "events": [
+   "ACTIVATION",
+   "DEBIT"
+  ],
+  "note": "Remita does not sign its notifications, so SchoolOS confirms every one with Remita before it counts."
+ }
+}

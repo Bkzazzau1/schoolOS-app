@@ -1,0 +1,16 @@
+{
+ "banks": [
+  {
+   "code": "058",
+   "name": "Test Bank",
+   "selfActivation": true,
+   "activationAmountMinor": null
+  },
+  {
+   "code": "044",
+   "name": "Test Bank Two",
+   "selfActivation": false,
+   "activationAmountMinor": null
+  }
+ ]
+}

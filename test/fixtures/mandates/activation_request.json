@@ -1,0 +1,9 @@
+{
+ "fields": [
+  {
+   "name": "OTP",
+   "label": "One Time Password",
+   "description": "Enter the one-time password the bank sent you."
+  }
+ ]
+}

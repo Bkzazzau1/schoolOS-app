@@ -1,0 +1,216 @@
+{
+ "providers": [
+  {
+   "code": "remita",
+   "displayName": "Remita",
+   "icon": "payments",
+   "environments": [
+    "test",
+    "live"
+   ],
+   "credentialFields": [
+    {
+     "name": "merchant_id",
+     "label": "Merchant ID",
+     "secret": false,
+     "required": true,
+     "help": "Your school's own Remita merchant id."
+    },
+    {
+     "name": "service_type_id",
+     "label": "Service type ID",
+     "secret": false,
+     "required": true,
+     "help": "The service type your school created on Remita for school fees."
+    },
+    {
+     "name": "api_key",
+     "label": "API key",
+     "secret": true,
+     "required": true,
+     "help": "The API key Remita issued to your school for Direct Debit."
+    },
+    {
+     "name": "api_token",
+     "label": "API token",
+     "secret": true,
+     "required": true,
+     "help": "The API token Remita issued to your school (used when a payer activates with a bank one-time password)."
+    }
+   ],
+   "capabilities": {
+    "supportsBankVerification": false,
+    "supportsProviderHostedConsent": true,
+    "supportsRemoteCancellation": true,
+    "supportsSuspension": false,
+    "supportsReactivation": false,
+    "supportsFixedAmountMandate": false,
+    "supportsVariableAmountMandate": true,
+    "supportsManualDebit": true,
+    "supportsScheduledDebit": false,
+    "supportsWebhooks": true,
+    "supportsStatusRequery": true,
+    "supportsDebitStatus": true,
+    "supportsBalanceLookup": false,
+    "supportsOtpActivation": true,
+    "supportsFormActivation": true,
+    "supportsTransferActivation": false,
+    "requiresAccountNumberForDebit": true,
+    "requiresProviderCustomer": false
+   },
+   "onboarding": "Register your school's own Remita account and complete its KYC, then enter the merchant id, service type id, API key and API token Remita issued to your school for Direct Debit. Remita requires a UAT with it before you go live.",
+   "description": "Direct debit mandates on the payer's bank account, activated with a bank one-time password or a signed form.",
+   "webhook": {
+    "mode": "dashboard",
+    "where": "Give Remita the address below as the listening URL for your Direct Debit notifications",
+    "verification": "requery",
+    "events": [
+     "ACTIVATION",
+     "DEBIT"
+    ],
+    "note": "Remita does not sign its notifications, so SchoolOS confirms every one with Remita before it counts."
+   },
+   "productionStatus": "implemented",
+   "available": true,
+   "isSandbox": false,
+   "liveNote": "Live use needs Remita's live address (set by whoever runs this server) and a UAT with Remita.",
+   "liveAvailability": {
+    "live": false,
+    "why": "Remita's live address has not been configured on this server yet, and Remita requires a UAT before go-live."
+   },
+   "activationNote": "The payer activates the mandate with a one-time password from their bank (for the banks Remita lists) or by signing the mandate form and taking it to their bank.",
+   "payerRequirements": [
+    "name",
+    "email",
+    "phone"
+   ],
+   "maximumNote": "The most that can be debited in a calendar month.",
+   "maximumScope": "calendar_month"
+  },
+  {
+   "code": "lendsqr",
+   "displayName": "Lendsqr",
+   "icon": "account_balance",
+   "environments": [
+    "test",
+    "live"
+   ],
+   "credentialFields": [
+    {
+     "name": "api_key",
+     "label": "API key",
+     "secret": true,
+     "required": true,
+     "help": "The API key of the app you created under Developer > Apps in your Lendsqr admin console."
+    }
+   ],
+   "capabilities": {
+    "supportsBankVerification": false,
+    "supportsProviderHostedConsent": true,
+    "supportsRemoteCancellation": true,
+    "supportsSuspension": true,
+    "supportsReactivation": true,
+    "supportsFixedAmountMandate": false,
+    "supportsVariableAmountMandate": true,
+    "supportsManualDebit": false,
+    "supportsScheduledDebit": false,
+    "supportsWebhooks": false,
+    "supportsStatusRequery": true,
+    "supportsDebitStatus": false,
+    "supportsBalanceLookup": false,
+    "supportsOtpActivation": false,
+    "supportsFormActivation": false,
+    "supportsTransferActivation": true,
+    "requiresAccountNumberForDebit": false,
+    "requiresProviderCustomer": true
+   },
+   "onboarding": "Create an app under Developer > Apps in your school's own Lendsqr admin console, choose the direct debit scope, and enter its API key. Each payer must already be a customer in your Lendsqr organisation: enter their Lendsqr customer id when you start their mandate.",
+   "description": "Direct debit mandates activated by the payer's transfer to a NIBSS account. SchoolOS can make, activate and watch them.",
+   "webhook": {
+    "mode": "dashboard",
+    "where": "",
+    "verification": "hmac_sha512",
+    "events": [],
+    "note": ""
+   },
+   "productionStatus": "implemented",
+   "available": true,
+   "isSandbox": false,
+   "liveNote": "Lendsqr requires the organisation to be licensed as a lender (or otherwise legally entitled) and to have passed its KYC before live use. Live is switched on by whoever runs this server, after that is confirmed. Test mode is always available.",
+   "liveAvailability": {
+    "live": false,
+    "why": "Live Lendsqr mandates are not switched on for this server. Lendsqr needs to confirm that your organisation is licensed as a lender or otherwise entitled to use it."
+   },
+   "activationNote": "The payer activates the mandate by transferring a small amount (usually N50) from the account to a NIBSS account, within Lendsqr's activation window. Debits only become possible after the bank has finished setting it up.",
+   "payerRequirements": [],
+   "maximumNote": "The most that can be debited at one time.",
+   "maximumScope": "single_debit"
+  },
+  {
+   "code": "sandbox",
+   "displayName": "Test mandate provider",
+   "icon": "science",
+   "environments": [
+    "test"
+   ],
+   "credentialFields": [
+    {
+     "name": "sandbox_key",
+     "label": "Sandbox key",
+     "secret": true,
+     "required": true,
+     "help": "Any key that starts with sandbox-"
+    }
+   ],
+   "capabilities": {
+    "supportsBankVerification": false,
+    "supportsProviderHostedConsent": true,
+    "supportsRemoteCancellation": true,
+    "supportsSuspension": true,
+    "supportsReactivation": true,
+    "supportsFixedAmountMandate": true,
+    "supportsVariableAmountMandate": true,
+    "supportsManualDebit": true,
+    "supportsScheduledDebit": false,
+    "supportsWebhooks": false,
+    "supportsStatusRequery": true,
+    "supportsDebitStatus": true,
+    "supportsBalanceLookup": false,
+    "supportsOtpActivation": true,
+    "supportsFormActivation": true,
+    "supportsTransferActivation": false,
+    "requiresAccountNumberForDebit": false,
+    "requiresProviderCustomer": false
+   },
+   "onboarding": "Development and tests only.",
+   "description": "A test provider. No real bank, no real money.",
+   "webhook": {
+    "mode": "dashboard",
+    "where": "Not needed.",
+    "verification": "requery",
+    "events": [],
+    "note": ""
+   },
+   "productionStatus": "sandbox",
+   "available": true,
+   "isSandbox": true,
+   "liveNote": "",
+   "liveAvailability": {
+    "live": false,
+    "why": "Test only."
+   },
+   "activationNote": "Use the sandbox one-time password.",
+   "payerRequirements": [],
+   "maximumNote": "The most that can be debited at one time.",
+   "maximumScope": "single_debit"
+  }
+ ],
+ "permissions": {
+  "canView": true,
+  "canManageProviders": true,
+  "canManage": true,
+  "canPrepare": true,
+  "canApprove": true
+ },
+ "secureStorageReady": true
+}

@@ -1,0 +1,27 @@
+{
+ "sessions": [
+  {
+   "id": "f772d108-0054-4c33-a392-0fcac9db6c03",
+   "name": "2026/2027",
+   "status": "active",
+   "terms": [
+    {
+     "id": "da4a9e4f-5c39-4cb1-a0a9-d332710f41fd",
+     "name": "First Term",
+     "sequence": 1,
+     "status": "active"
+    },
+    {
+     "id": "2c7f57d2-0a83-4563-ac77-c57a32e96e53",
+     "name": "Second Term",
+     "sequence": 2,
+     "status": "planned"
+    }
+   ]
+  }
+ ],
+ "current": {
+  "sessionId": "f772d108-0054-4c33-a392-0fcac9db6c03",
+  "termId": "da4a9e4f-5c39-4cb1-a0a9-d332710f41fd"
+ }
+}

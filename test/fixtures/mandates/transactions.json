@@ -1,0 +1,44 @@
+{
+ "transactions": [
+  {
+   "id": "3417c405-cc8b-4ab3-aae2-64b0f63bc49c",
+   "familyId": "074937d4-bb9e-40f8-9629-6a8b33144907",
+   "familyName": "Sani family",
+   "mandateId": "ad47a645-7cce-466f-bbb3-aaf15043e347",
+   "provider": "sandbox",
+   "amountMinor": 10000000,
+   "currency": "NGN",
+   "status": "success",
+   "providerStatus": "sandbox:success",
+   "failureCode": "",
+   "confirmedAt": "2026-09-26T21:09:24.609529+00:00",
+   "reversedAt": null,
+   "refundedAt": null,
+   "settled": true,
+   "createdAt": "2026-09-26T21:09:24.602476+00:00",
+   "isSandbox": true,
+   "accountMask": "****4321",
+   "bankName": "Test Bank"
+  },
+  {
+   "id": "6f2ac682-160e-4232-8fd1-2d27e1a83ee4",
+   "familyId": "2553f0b0-2a47-4237-b9a4-ffbf1d370418",
+   "familyName": "Bello family",
+   "mandateId": "5f31b001-ac52-407a-af1f-d0e8254b8395",
+   "provider": "sandbox",
+   "amountMinor": 28000000,
+   "currency": "NGN",
+   "status": "success",
+   "providerStatus": "sandbox:success",
+   "failureCode": "",
+   "confirmedAt": "2026-09-26T21:09:24.515999+00:00",
+   "reversedAt": null,
+   "refundedAt": null,
+   "settled": true,
+   "createdAt": "2026-09-26T21:09:24.502807+00:00",
+   "isSandbox": true,
+   "accountMask": "****6789",
+   "bankName": "Test Bank"
+  }
+ ]
+}

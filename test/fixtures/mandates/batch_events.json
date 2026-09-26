@@ -1,0 +1,76 @@
+{
+ "events": [
+  {
+   "id": 1,
+   "kind": "created",
+   "version": 1,
+   "detail": {
+    "session": "f772d108-0054-4c33-a392-0fcac9db6c03",
+    "term": "da4a9e4f-5c39-4cb1-a0a9-d332710f41fd"
+   },
+   "at": "2026-09-26T21:09:24.050356+00:00",
+   "actor": ""
+  },
+  {
+   "id": 2,
+   "kind": "preview_refreshed",
+   "version": 1,
+   "detail": {
+    "changed": true,
+    "selected": 0
+   },
+   "at": "2026-09-26T21:09:24.089252+00:00",
+   "actor": ""
+  },
+  {
+   "id": 3,
+   "kind": "selection_changed",
+   "version": 2,
+   "detail": {
+    "changed": true,
+    "selected": 2,
+    "select": 0,
+    "deselect": 0,
+    "all_eligible": true,
+    "none": false
+   },
+   "at": "2026-09-26T21:09:24.206787+00:00",
+   "actor": ""
+  },
+  {
+   "id": 4,
+   "kind": "submitted",
+   "version": 2,
+   "detail": {
+    "hash": "dd0f3e4252d149b7ff1f647c8910f04d27399028021b605419d4a21d3582fb08",
+    "selected": 2,
+    "total": 38000000
+   },
+   "at": "2026-09-26T21:09:24.266406+00:00",
+   "actor": ""
+  },
+  {
+   "id": 5,
+   "kind": "approved",
+   "version": 2,
+   "detail": {
+    "hash": "dd0f3e4252d149b7ff1f647c8910f04d27399028021b605419d4a21d3582fb08",
+    "selected": 2,
+    "total": 38000000
+   },
+   "at": "2026-09-26T21:09:24.381339+00:00",
+   "actor": ""
+  },
+  {
+   "id": 6,
+   "kind": "started",
+   "version": 2,
+   "detail": {
+    "debits": 2,
+    "total": 38000000
+   },
+   "at": "2026-09-26T21:09:24.455020+00:00",
+   "actor": ""
+  }
+ ]
+}

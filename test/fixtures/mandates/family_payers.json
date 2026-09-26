@@ -1,0 +1,13 @@
+{
+ "payers": [
+  {
+   "id": "2e84d7e6-2030-48e7-be13-60fedc9a26b0",
+   "name": "Bello Parent",
+   "relationship": "",
+   "isPrimaryPayer": true,
+   "hasAppAccount": true,
+   "hasEmail": true,
+   "hasPhone": true
+  }
+ ]
+}
