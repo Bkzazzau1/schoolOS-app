@@ -71,7 +71,7 @@ FinanceStoreTotals financeStoreTotals(List<FinanceStoreOrder> orders) =>
 
 const financeStoreFeeRailTitle = 'School Fees';
 const financeStoreFeeRailRule =
-    'Static student term account · tuition and approved compulsory term charges only.';
+    'The family’s own payment account · tuition and approved compulsory term charges only.';
 const financeStoreSundryRailTitle = 'Store / Sundry';
 const financeStoreSundryRailRule =
     'Dynamic account created for one order · exact expected amount · linked directly to goods/services.';

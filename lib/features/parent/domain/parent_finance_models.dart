@@ -3,8 +3,6 @@ class ParentFinanceChildAccount {
     required this.id,
     required this.name,
     required this.className,
-    required this.accountNumber,
-    required this.bank,
     required this.grossFees,
     required this.discountAmount,
     required this.discountLabel,
@@ -15,8 +13,6 @@ class ParentFinanceChildAccount {
   final String id;
   final String name;
   final String className;
-  final String accountNumber;
-  final String bank;
   final int grossFees;
   final int discountAmount;
   final String discountLabel;
@@ -29,8 +25,6 @@ class ParentFinanceChildAccount {
         'id': id,
         'name': name,
         'className': className,
-        'accountNumber': accountNumber,
-        'bank': bank,
         'grossFees': grossFees,
         'discountAmount': discountAmount,
         'discountLabel': discountLabel,
@@ -43,8 +37,6 @@ class ParentFinanceChildAccount {
         id: json['id'] as String,
         name: json['name'] as String,
         className: json['className'] as String,
-        accountNumber: json['accountNumber'] as String,
-        bank: json['bank'] as String,
         grossFees: (json['grossFees'] as num).toInt(),
         discountAmount: (json['discountAmount'] as num).toInt(),
         discountLabel: json['discountLabel'] as String,
@@ -323,80 +315,6 @@ class ParentStoreOrder {
       );
 }
 
-class ParentCombinedPaymentAllocation {
-  const ParentCombinedPaymentAllocation({
-    required this.childId,
-    required this.childName,
-    required this.accountNumber,
-    required this.amount,
-  });
-
-  final String childId;
-  final String childName;
-  final String accountNumber;
-  final int amount;
-
-  Map<String, Object?> toJson() => {
-        'childId': childId,
-        'childName': childName,
-        'accountNumber': accountNumber,
-        'amount': amount,
-      };
-
-  factory ParentCombinedPaymentAllocation.fromJson(Map<String, dynamic> json) =>
-      ParentCombinedPaymentAllocation(
-        childId: json['childId'] as String,
-        childName: json['childName'] as String,
-        accountNumber: json['accountNumber'] as String,
-        amount: (json['amount'] as num).toInt(),
-      );
-}
-
-class ParentCombinedPaymentRequest {
-  const ParentCombinedPaymentRequest({
-    required this.id,
-    required this.membershipId,
-    required this.familyAccountId,
-    required this.allocations,
-    required this.queuedAt,
-    this.status = 'Queued',
-  });
-
-  final String id;
-  final String membershipId;
-  final String familyAccountId;
-  final List<ParentCombinedPaymentAllocation> allocations;
-  final DateTime queuedAt;
-  final String status;
-
-  int get total => allocations.fold(0, (sum, item) => sum + item.amount);
-
-  Map<String, Object?> toJson() => {
-        'id': id,
-        'membershipId': membershipId,
-        'familyAccountId': familyAccountId,
-        'allocations': allocations.map((item) => item.toJson()).toList(),
-        'queuedAt': queuedAt.toUtc().toIso8601String(),
-        'status': status,
-      };
-
-  factory ParentCombinedPaymentRequest.fromJson(Map<String, dynamic> json) =>
-      ParentCombinedPaymentRequest(
-        id: json['id'] as String,
-        membershipId: json['membershipId'] as String,
-        familyAccountId: json['familyAccountId'] as String,
-        allocations: (json['allocations'] as List<dynamic>)
-            .map(
-              (item) => ParentCombinedPaymentAllocation.fromJson(
-                Map<String, dynamic>.from(item as Map),
-              ),
-            )
-            .toList(growable: false),
-        queuedAt: DateTime.parse(json['queuedAt'] as String),
-        status: json['status'] as String? ?? 'Queued',
-      );
-}
-
 class ParentFinanceSnapshot {
   const ParentFinanceSnapshot({
     required this.familyAccountId,
@@ -475,12 +393,10 @@ class ParentFinanceSnapshot {
 class ParentFinanceViewData {
   const ParentFinanceViewData({
     required this.snapshot,
-    required this.pendingCombinedRequests,
     required this.mandateQueued,
   });
 
   final ParentFinanceSnapshot snapshot;
-  final List<ParentCombinedPaymentRequest> pendingCombinedRequests;
   final bool mandateQueued;
 }
 

@@ -113,10 +113,11 @@ void main() {
     expect(snapshot.finance.totalBilled, realFinance.children.fold<int>(0, (sum, a) => sum + a.grossFees));
     expect(snapshot.finance.totalPaid, realFinance.children.fold<int>(0, (sum, a) => sum + a.paidAmount));
     expect(snapshot.totalCurrentBalance, realFinance.children.fold<int>(0, (sum, a) => sum + a.balance));
-    for (final account in snapshot.finance.accounts) {
-      final real = realFinance.children.firstWhere((a) => a.name == account.childName);
-      expect(account.accountNumber, real.id);
-      expect(account.balance, real.balance);
+    // What each child owes; where the family pays is one account for the whole family, never one per child.
+    for (final owed in snapshot.finance.balances) {
+      final real = realFinance.children.firstWhere((a) => a.name == owed.childName);
+      expect(owed.className, real.className);
+      expect(owed.balance, real.balance);
     }
     // A fresh family has no mandate configured, so honestly no scheduled debit.
     expect(snapshot.finance.nextScheduledDebit, 0);

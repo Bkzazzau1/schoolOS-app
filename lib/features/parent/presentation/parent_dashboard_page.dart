@@ -129,7 +129,7 @@ class _DashboardBody extends StatelessWidget {
               _ResponsivePair(
                 left: _SectionCard(
                   title: 'Family finance snapshot',
-                  subtitle: 'Current-term accounts for your linked children.',
+                  subtitle: 'What each of your linked children owes this term.',
                   trailing: TextButton(
                     onPressed: () => onNavigate('finance'),
                     child: const Text('Open finance →'),
@@ -739,18 +739,18 @@ class _FinanceSnapshot extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        for (var i = 0; i < finance.accounts.length; i++) ...[
-          _AccountRow(account: finance.accounts[i]),
-          if (i != finance.accounts.length - 1) const Divider(height: 20),
+        for (var i = 0; i < finance.balances.length; i++) ...[
+          _BalanceRow(balance: finance.balances[i]),
+          if (i != finance.balances.length - 1) const Divider(height: 20),
         ],
       ],
     );
   }
 }
 
-class _AccountRow extends StatelessWidget {
-  const _AccountRow({required this.account});
-  final ParentPaymentAccount account;
+class _BalanceRow extends StatelessWidget {
+  const _BalanceRow({required this.balance});
+  final ParentChildBalance balance;
 
   @override
   Widget build(BuildContext context) {
@@ -763,9 +763,9 @@ class _AccountRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${account.childName} · ${account.accountNumber}', style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text(balance.childName, style: const TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 2),
-              Text('${account.description} · Balance ${_naira(account.balance)}', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              Text('${balance.className} · Balance ${_naira(balance.balance)}', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ),
         ),

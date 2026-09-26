@@ -23,7 +23,6 @@ class ParentFinanceRepository {
         _ledger = ledger;
 
   static const _mandateEntityType = 'parent_finance_mandate_preference';
-  static const _paymentRequestEntityType = 'parent_finance_combined_payment_request';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -59,10 +58,6 @@ class ParentFinanceRepository {
         id: child.id,
         name: child.name,
         className: child.className,
-        // The real ledger has no separate per-child bank account number; the real, already
-        // unique system id stands in for it rather than inventing a bank account number.
-        accountNumber: child.id,
-        bank: _notRecorded,
         grossFees: account?.gross ?? 0,
         discountAmount: discount,
         discountLabel: discount == 0 ? '₦0' : formatNaira(discount),
@@ -139,19 +134,6 @@ class ParentFinanceRepository {
             Map<String, dynamic>.from(mandateRecord.payload['preference'] as Map? ?? const <String, dynamic>{}),
           );
 
-    final requestRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _paymentRequestEntityType,
-    );
-    final requests = <ParentCombinedPaymentRequest>[];
-    for (final record in requestRecords) {
-      final request = ParentCombinedPaymentRequest.fromJson(record.payload);
-      if (request.membershipId == membership.id) {
-        requests.add(request);
-      }
-    }
-    requests.sort((a, b) => b.queuedAt.compareTo(a.queuedAt));
-
     final snapshot = ParentFinanceSnapshot(
       familyAccountId: membership.id,
       academicPeriod: _notRecorded,
@@ -169,7 +151,6 @@ class ParentFinanceRepository {
 
     return ParentFinanceViewData(
       snapshot: snapshot,
-      pendingCombinedRequests: requests,
       mandateQueued: mandateRecord?.isDirty ?? false,
     );
   }
@@ -213,43 +194,6 @@ class ParentFinanceRepository {
     );
   }
 
-  Future<ParentCombinedPaymentRequest> queueCombinedPayment({
-    required List<ParentCombinedPaymentAllocation> allocations,
-  }) async {
-    final membership = _requireParentMembership();
-    final view = await load();
-    _validateCombinedPayment(view.snapshot, allocations);
-
-    final now = DateTime.now().toUtc();
-    final requestId = _newFamilyPaymentReference(now);
-    final request = ParentCombinedPaymentRequest(
-      id: requestId,
-      membershipId: membership.id,
-      familyAccountId: view.snapshot.familyAccountId,
-      allocations: List.unmodifiable(allocations),
-      queuedAt: now,
-    );
-    final entityId = '${membership.id}:$requestId';
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _paymentRequestEntityType,
-      entityId: entityId,
-      payload: request.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _paymentRequestEntityType,
-      entityId: entityId,
-      operation: SyncOperation.create,
-      payload: request.toJson(),
-    );
-
-    return request;
-  }
-
   void _validateMandate(ParentPaymentMandatePreference preference) {
     const allowedDays = {'5th', '10th', '15th', '20th', '25th', '28th'};
     if (preference.monthlyAmount < 0) {
@@ -275,33 +219,8 @@ class ParentFinanceRepository {
     }
   }
 
-  void _validateCombinedPayment(
-    ParentFinanceSnapshot snapshot,
-    List<ParentCombinedPaymentAllocation> allocations,
-  ) {
-    if (allocations.length < 2) {
-      throw StateError('Select at least two children for a combined payment.');
-    }
-
-    final children = {for (final child in snapshot.children) child.id: child};
-    final selectedIds = <String>{};
-    for (final allocation in allocations) {
-      final child = children[allocation.childId];
-      if (child == null || !selectedIds.add(allocation.childId)) {
-        throw StateError(
-          'Combined payment contains a child that is not uniquely linked to this guardian.',
-        );
-      }
-      if (allocation.accountNumber != child.accountNumber) {
-        throw StateError('Combined payment account does not match the linked child.');
-      }
-      if (allocation.amount <= 0 || allocation.amount > child.balance) {
-        throw StateError(
-          'Combined payment amount must be positive and cannot exceed the confirmed outstanding balance.',
-        );
-      }
-    }
-  }
+  /// The signed-in parent's membership, for the screens that ask the school's server about their family.
+  SchoolMembership get activeMembership => _requireParentMembership();
 
   SchoolMembership _requireParentMembership() {
     final membership = _schoolSession.requireActiveMembership();
@@ -310,11 +229,4 @@ class ParentFinanceRepository {
     }
     return membership;
   }
-}
-
-String _newFamilyPaymentReference(DateTime now) {
-  String two(int value) => value.toString().padLeft(2, '0');
-  final date = '${now.year.toString().substring(2)}${two(now.month)}${two(now.day)}';
-  final suffix = (now.microsecondsSinceEpoch % 1000000).toString().padLeft(6, '0');
-  return 'FAM-$date-$suffix';
 }

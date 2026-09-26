@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../data/parent_finance_demo_data.dart';
 import '../data/parent_finance_repository.dart';
 import '../domain/parent_finance_models.dart';
+import 'family_payment_accounts_card.dart';
 
 // The real choices a guardian can actually pick for a payment mandate. A fresh family's real mandate
 // preference honestly reads "Not recorded yet" for collectionMethod (no real one has ever been
@@ -31,7 +32,6 @@ class ParentFinancePage extends StatefulWidget {
 
 class _ParentFinancePageState extends State<ParentFinancePage> {
   late Future<ParentFinanceViewData> _future;
-  ParentFinanceViewData? _current;
   bool _controlsInitialized = false;
   bool _autoPay = true;
   String _debitDay = '25th';
@@ -40,7 +40,6 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
   final Map<String, bool> _selectedAccounts = <String, bool>{};
   final Map<String, String> _payAmounts = <String, String>{};
   bool _savingMandate = false;
-  bool _queueingPayment = false;
   String? _notice;
 
   @override
@@ -51,7 +50,6 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
 
   Future<ParentFinanceViewData> _load() async {
     final data = await widget.repository.load();
-    _current = data;
     if (!_controlsInitialized) {
       _autoPay = data.snapshot.mandate.enabled;
       _debitDay = _mandateDebitDays.contains(data.snapshot.mandate.debitDay)
@@ -62,8 +60,8 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
           ? data.snapshot.mandate.collectionMethod
           : _mandateCollectionMethods.first;
       for (final child in data.snapshot.children) {
-        _selectedAccounts[child.accountNumber] = true;
-        _payAmounts[child.accountNumber] = child.balance.toString();
+        _selectedAccounts[child.id] = true;
+        _payAmounts[child.id] = child.balance.toString();
       }
       _controlsInitialized = true;
     }
@@ -82,47 +80,6 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$label copied')),
     );
-  }
-
-  Future<void> _queueCombinedPayment() async {
-    final data = _current;
-    if (data == null || _queueingPayment) return;
-
-    final allocations = <ParentCombinedPaymentAllocation>[];
-    for (final child in data.snapshot.children) {
-      if (_selectedAccounts[child.accountNumber] != true) continue;
-      final amount = int.tryParse(_payAmounts[child.accountNumber] ?? '') ?? 0;
-      allocations.add(
-        ParentCombinedPaymentAllocation(
-          childId: child.id,
-          childName: child.name,
-          accountNumber: child.accountNumber,
-          amount: amount,
-        ),
-      );
-    }
-
-    setState(() {
-      _queueingPayment = true;
-      _notice = null;
-    });
-    try {
-      final request = await widget.repository.queueCombinedPayment(
-        allocations: allocations,
-      );
-      widget.onQueueChanged();
-      if (!mounted) return;
-      setState(() {
-        _notice =
-            '${request.id} queued for ${_money(request.total)}. Balances and receipts remain unchanged until server and payment-provider confirmation.';
-      });
-      await _refresh();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _notice = error.toString().replaceFirst('Bad state: ', ''));
-    } finally {
-      if (mounted) setState(() => _queueingPayment = false);
-    }
   }
 
   Future<void> _saveMandate() async {
@@ -200,12 +157,12 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
         final data = state.data!;
         final snapshot = data.snapshot;
         final selectedChildren = snapshot.children
-            .where((child) => _selectedAccounts[child.accountNumber] == true)
+            .where((child) => _selectedAccounts[child.id] == true)
             .toList(growable: false);
         final combinedTotal = selectedChildren.fold<int>(
           0,
           (sum, child) =>
-              sum + (int.tryParse(_payAmounts[child.accountNumber] ?? '') ?? 0),
+              sum + (int.tryParse(_payAmounts[child.id] ?? '') ?? 0),
         );
 
         return RefreshIndicator(
@@ -228,33 +185,28 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
                     const SizedBox(height: 14),
                     _Callout(text: _notice!),
                   ],
-                  if (data.pendingCombinedRequests.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _QueuedPaymentsCard(requests: data.pendingCombinedRequests),
-                  ],
                   const SizedBox(height: 14),
-                  _CombinedPaymentCard(
+                  FamilyPaymentAccountsCard(
+                    membership: widget.repository.activeMembership,
+                    onCopy: _copy,
+                  ),
+                  const SizedBox(height: 14),
+                  _TransferCard(
                     children: snapshot.children,
-                    selectedAccounts: _selectedAccounts,
+                    selected: _selectedAccounts,
                     payAmounts: _payAmounts,
-                    combinedTotal: combinedTotal,
-                    queueing: _queueingPayment,
-                    onSelectionChanged: (account, selected) {
-                      setState(() => _selectedAccounts[account] = selected);
+                    total: combinedTotal,
+                    onSelectionChanged: (id, selected) {
+                      setState(() => _selectedAccounts[id] = selected);
                     },
-                    onAmountChanged: (account, amount) {
-                      setState(() => _payAmounts[account] = amount);
+                    onAmountChanged: (id, amount) {
+                      setState(() => _payAmounts[id] = amount);
                     },
-                    onQueue: selectedChildren.length >= 2 && combinedTotal > 0
-                        ? _queueCombinedPayment
-                        : null,
+                    onCopyTotal: combinedTotal > 0 ? () => _copy(combinedTotal.toString(), 'Total') : null,
                   ),
                   const SizedBox(height: 14),
                   _ResponsivePair(
-                    left: _TermAccountsCard(
-                      snapshot: snapshot,
-                      onCopy: _copy,
-                    ),
+                    left: _ChildBalancesCard(snapshot: snapshot),
                     right: _MandateCard(
                       autoPay: _autoPay,
                       debitDay: _debitDay,
@@ -319,7 +271,7 @@ class _FinanceHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'FAMILY ACCOUNT · SMART COLLECTIONS',
+              'FAMILY ACCOUNT',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.w900,
@@ -335,7 +287,7 @@ class _FinanceHeader extends StatelessWidget {
             ),
             const SizedBox(height: 5),
             Text(
-              'Pay each child through a unique term account, make small deposits anytime, view balances and confirmed receipts.',
+              'Pay once, into your family\'s account, for all your children. See what each child owes and the receipts the school has confirmed.',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -400,7 +352,7 @@ class _FinanceKpis extends StatelessWidget {
         final items = <(String, String, String)>[
           ('Gross term fees', _money(snapshot.grossTotal), '${snapshot.children.length} linked children'),
           ('Discounts', _money(snapshot.discountTotal), 'Sibling discount'),
-          ('Paid', _money(snapshot.paidTotal), 'Across all term accounts'),
+          ('Paid', _money(snapshot.paidTotal), 'Across all your children'),
           ('Outstanding', _money(snapshot.outstandingTotal), 'Net family obligation'),
         ];
         return Wrap(
@@ -456,42 +408,39 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _CombinedPaymentCard extends StatelessWidget {
-  const _CombinedPaymentCard({
+class _TransferCard extends StatelessWidget {
+  const _TransferCard({
     required this.children,
-    required this.selectedAccounts,
+    required this.selected,
     required this.payAmounts,
-    required this.combinedTotal,
-    required this.queueing,
+    required this.total,
     required this.onSelectionChanged,
     required this.onAmountChanged,
-    required this.onQueue,
+    required this.onCopyTotal,
   });
 
   final List<ParentFinanceChildAccount> children;
-  final Map<String, bool> selectedAccounts;
+  final Map<String, bool> selected;
   final Map<String, String> payAmounts;
-  final int combinedTotal;
-  final bool queueing;
-  final void Function(String account, bool selected) onSelectionChanged;
-  final void Function(String account, String amount) onAmountChanged;
-  final VoidCallback? onQueue;
+  final int total;
+  final void Function(String childId, bool selected) onSelectionChanged;
+  final void Function(String childId, String amount) onAmountChanged;
+  final VoidCallback? onCopyTotal;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Pay for multiple children at once',
-      subtitle:
-          'Select two or more children and prepare one family payment request. Each child keeps a separate term-account allocation.',
+      title: 'Pay for several children at once',
+      subtitle: 'You pay once, into your family\'s account above. Choose what you plan to pay for each child to see the total to transfer.',
       child: Column(
         children: [
           for (final child in children) ...[
             _CombinedPaymentRow(
               child: child,
-              selected: selectedAccounts[child.accountNumber] == true,
-              amount: payAmounts[child.accountNumber] ?? '',
-              onSelected: (value) => onSelectionChanged(child.accountNumber, value),
-              onAmountChanged: (value) => onAmountChanged(child.accountNumber, value),
+              selected: selected[child.id] == true,
+              amount: payAmounts[child.id] ?? '',
+              onSelected: (value) => onSelectionChanged(child.id, value),
+              onAmountChanged: (value) => onAmountChanged(child.id, value),
             ),
             if (child != children.last) const Divider(height: 20),
           ],
@@ -505,9 +454,9 @@ class _CombinedPaymentCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Expanded(child: Text('Total for this combined payment')),
+                const Expanded(child: Text('Total to transfer')),
                 Text(
-                  _money(combinedTotal),
+                  _money(total),
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
               ],
@@ -516,15 +465,10 @@ class _CombinedPaymentCard extends StatelessWidget {
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: queueing ? null : onQueue,
-              icon: queueing
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.payments_outlined),
-              label: Text(queueing ? 'Queuing…' : 'Prepare combined payment'),
+            child: OutlinedButton.icon(
+              onPressed: onCopyTotal,
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text('Copy total'),
             ),
           ),
           const SizedBox(height: 10),
@@ -588,50 +532,15 @@ class _CombinedPaymentRow extends StatelessWidget {
   }
 }
 
-class _QueuedPaymentsCard extends StatelessWidget {
-  const _QueuedPaymentsCard({required this.requests});
-  final List<ParentCombinedPaymentRequest> requests;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'Queued family payment requests',
-      subtitle: 'Durable offline requests waiting for server/payment-provider processing.',
-      child: Column(
-        children: [
-          for (final request in requests.take(4))
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.cloud_upload_outlined),
-              title: Text(request.id, style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text(
-                '${request.allocations.map((item) => item.childName).join(' · ')}\n${_queuedTime(request.queuedAt)}',
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(_money(request.total), style: const TextStyle(fontWeight: FontWeight.w900)),
-                  Text(request.status, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary)),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TermAccountsCard extends StatelessWidget {
-  const _TermAccountsCard({required this.snapshot, required this.onCopy});
+class _ChildBalancesCard extends StatelessWidget {
+  const _ChildBalancesCard({required this.snapshot});
   final ParentFinanceSnapshot snapshot;
-  final Future<void> Function(String value, String label) onCopy;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'Student term accounts',
-      subtitle: 'Each account is unique to the child and remains fixed for the active term.',
+      title: 'Your children',
+      subtitle: 'What each child owes. All of it is paid through the one family account above.',
       child: Column(
         children: [
           for (final child in snapshot.children) ...[
@@ -647,24 +556,7 @@ class _TermAccountsCard extends StatelessWidget {
                 children: [
                   Text(child.name, style: const TextStyle(fontWeight: FontWeight.w900)),
                   Text('${child.className} · ${snapshot.academicPeriod}'),
-                  const SizedBox(height: 10),
-                  Text(child.bank, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SelectableText(
-                          child.accountNumber,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Copy account',
-                        onPressed: () => onCopy(child.accountNumber, 'Account number'),
-                        icon: const Icon(Icons.copy_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(child: Text('Outstanding · ${_money(child.balance)}')),
@@ -679,7 +571,8 @@ class _TermAccountsCard extends StatelessWidget {
           const SizedBox(height: 10),
           const _Callout(
             text:
-                'You can deposit smaller amounts at any time. Large payments above the authorized collection limit require a special arrangement with the school Finance Office.',
+                'You can pay smaller amounts at any time. If a payment is more than you owe, the extra is kept as credit for your family. '
+                'For a very large payment, arrange it with the school\'s Finance Office first.',
           ),
         ],
       ),
@@ -833,7 +726,7 @@ class _PaymentHistoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Payment history',
-      subtitle: 'Only provider/server-confirmed credits appear here and create receipts.',
+      subtitle: 'Only payments the school has confirmed appear here and create receipts.',
       trailing: TextButton(onPressed: onReceipts, child: const Text('Open receipt center')),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -878,7 +771,7 @@ class _PaymentRailsCard extends StatelessWidget {
         children: [
           const _ListFact(
             title: 'School fees',
-            detail: 'Use the child’s static term account or a combined family payment request. These payments reduce term obligations only after confirmation.',
+            detail: 'Pay into your family\'s account: one account for all your children. A payment reduces what you owe only after the school\'s bank receives it and the school confirms it.',
           ),
           const _ListFact(
             title: 'Books & uniforms',
@@ -1253,10 +1146,10 @@ class _ParentPurchasesPageState extends State<ParentPurchasesPage> {
           const SizedBox(height: 14),
           const _SectionCard(
             title: 'Why this payment is separate',
-            subtitle: 'The school-fee term account is never used for store purchases.',
+            subtitle: 'Your family’s school-fee account is never used for store purchases.',
             child: Column(
               children: [
-                _ListFact(title: 'School fees', detail: 'Use the child’s static term account. Confirmed payments reduce tuition/term obligations only.'),
+                _ListFact(title: 'School fees', detail: 'Use your family’s payment account. Confirmed payments reduce tuition/term obligations only.'),
                 _ListFact(title: 'Books & uniforms', detail: 'Each order receives a separate temporary account for the exact invoice amount.'),
                 _ListFact(title: 'After payment', detail: 'The store order changes to paid only after confirmation; a store receipt becomes available and issue/collection status is tracked until completion.'),
               ],
@@ -1563,10 +1456,4 @@ String _money(int amount) {
     if (remaining > 1 && remaining % 3 == 1) out.write(',');
   }
   return '${negative ? '-' : ''}₦$out';
-}
-
-String _queuedTime(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year} ${two(local.hour)}:${two(local.minute)}';
 }

@@ -23,7 +23,7 @@ const _sampleSnapshot = ParentDashboardSnapshot(
   finance: ParentFinanceSnapshot(
     totalBilled: 0,
     totalPaid: 0,
-    accounts: [],
+    balances: [],
     nextScheduledDebit: 0,
     nextScheduledDebitLabel: 'Not recorded yet',
   ),

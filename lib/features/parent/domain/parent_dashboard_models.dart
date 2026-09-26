@@ -83,30 +83,28 @@ class ParentAttentionItem {
       );
 }
 
-class ParentPaymentAccount {
-  const ParentPaymentAccount({
+/// What one child owes. Where the family pays is a single account for the whole family (see Parent Finance), never a
+/// number per child.
+class ParentChildBalance {
+  const ParentChildBalance({
     required this.childName,
-    required this.accountNumber,
-    required this.description,
+    required this.className,
     required this.balance,
   });
 
   final String childName;
-  final String accountNumber;
-  final String description;
+  final String className;
   final int balance;
 
   Map<String, Object?> toJson() => {
         'childName': childName,
-        'accountNumber': accountNumber,
-        'description': description,
+        'className': className,
         'balance': balance,
       };
 
-  factory ParentPaymentAccount.fromJson(Map<String, dynamic> json) => ParentPaymentAccount(
+  factory ParentChildBalance.fromJson(Map<String, dynamic> json) => ParentChildBalance(
         childName: json['childName'] as String,
-        accountNumber: json['accountNumber'] as String,
-        description: json['description'] as String,
+        className: json['className'] as String? ?? '',
         balance: json['balance'] as int,
       );
 }
@@ -115,23 +113,23 @@ class ParentFinanceSnapshot {
   const ParentFinanceSnapshot({
     required this.totalBilled,
     required this.totalPaid,
-    required this.accounts,
+    required this.balances,
     required this.nextScheduledDebit,
     required this.nextScheduledDebitLabel,
   });
 
   final int totalBilled;
   final int totalPaid;
-  final List<ParentPaymentAccount> accounts;
+  final List<ParentChildBalance> balances;
   final int nextScheduledDebit;
   final String nextScheduledDebitLabel;
 
-  int get balance => accounts.fold(0, (sum, account) => sum + account.balance);
+  int get balance => balances.fold(0, (sum, item) => sum + item.balance);
 
   Map<String, Object?> toJson() => {
         'totalBilled': totalBilled,
         'totalPaid': totalPaid,
-        'accounts': accounts.map((account) => account.toJson()).toList(),
+        'balances': balances.map((item) => item.toJson()).toList(),
         'nextScheduledDebit': nextScheduledDebit,
         'nextScheduledDebitLabel': nextScheduledDebitLabel,
       };
@@ -139,8 +137,8 @@ class ParentFinanceSnapshot {
   factory ParentFinanceSnapshot.fromJson(Map<String, dynamic> json) => ParentFinanceSnapshot(
         totalBilled: json['totalBilled'] as int,
         totalPaid: json['totalPaid'] as int,
-        accounts: (json['accounts'] as List<dynamic>)
-            .map((item) => ParentPaymentAccount.fromJson(Map<String, dynamic>.from(item as Map)))
+        balances: (json['balances'] as List<dynamic>? ?? const <dynamic>[])
+            .map((item) => ParentChildBalance.fromJson(Map<String, dynamic>.from(item as Map)))
             .toList(growable: false),
         nextScheduledDebit: json['nextScheduledDebit'] as int,
         nextScheduledDebitLabel: json['nextScheduledDebitLabel'] as String,

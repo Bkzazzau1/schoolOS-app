@@ -93,14 +93,11 @@ class ParentDashboardRepository {
     final finance = ParentFinanceSnapshot(
       totalBilled: financeSnapshot.children.fold<int>(0, (sum, account) => sum + account.grossFees),
       totalPaid: financeSnapshot.children.fold<int>(0, (sum, account) => sum + account.paidAmount),
-      accounts: [
+      balances: [
         for (final account in financeSnapshot.children)
-          ParentPaymentAccount(
+          ParentChildBalance(
             childName: account.name,
-            // The real ledger has no separate bank account number; the real, already unique
-            // system id stands in for it, the same as Parent Finance's own account view.
-            accountNumber: account.id,
-            description: _notRecorded,
+            className: account.className,
             balance: account.balance,
           ),
       ],

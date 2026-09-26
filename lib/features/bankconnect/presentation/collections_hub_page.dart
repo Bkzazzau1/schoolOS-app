@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/school_membership.dart';
+import '../../familyfees/data/family_fees_api.dart';
 import '../data/bank_connect_api.dart';
 import 'bank_accounts_tab.dart';
 import 'bank_widgets.dart';
 import 'collections_overview_tab.dart';
+import 'family_accounts_tab.dart';
 import 'payments_tab.dart';
 import 'review_tab.dart';
 
@@ -26,7 +28,7 @@ class CollectionsHubPage extends StatefulWidget {
 }
 
 class _CollectionsHubPageState extends State<CollectionsHubPage> with SingleTickerProviderStateMixin {
-  static const _tabs = ['Overview', 'Bank accounts', 'Payments', 'Review'];
+  static const _tabs = ['Overview', 'Bank accounts', 'Family accounts', 'Payments', 'Review'];
 
   late final TabController _controller = TabController(length: _tabs.length, vsync: this);
   String? _paymentsConnection;
@@ -39,13 +41,14 @@ class _CollectionsHubPageState extends State<CollectionsHubPage> with SingleTick
 
   void _viewPayments(String connectionId) {
     setState(() => _paymentsConnection = connectionId);
-    _controller.animateTo(2);
+    _controller.animateTo(3);
   }
 
   @override
   Widget build(BuildContext context) {
     final api = BankConnectScope.maybeOf(context);
     if (api == null) return const NoServerNotice();
+    final familyApi = FamilyFeesScope.maybeOf(context);
     final m = widget.membership;
     return Column(
       children: [
@@ -75,11 +78,15 @@ class _CollectionsHubPageState extends State<CollectionsHubPage> with SingleTick
               CollectionsOverviewTab(
                 api: api,
                 membership: m,
-                onReview: () => _controller.animateTo(3),
+                onReview: () => _controller.animateTo(4),
                 onConnect: () => _controller.animateTo(1),
                 onChanged: widget.onChanged,
               ),
               BankAccountsTab(api: api, membership: m, onViewPayments: _viewPayments, onChanged: widget.onChanged),
+              if (familyApi == null)
+                const _FamilyAccountsNeedServer()
+              else
+                FamilyAccountsTab(familyApi: familyApi, bankApi: api, membership: m, onChanged: widget.onChanged),
               PaymentsTab(
                 key: ValueKey(_paymentsConnection),
                 api: api,
@@ -96,4 +103,20 @@ class _CollectionsHubPageState extends State<CollectionsHubPage> with SingleTick
       ],
     );
   }
+}
+
+/// Where there is no school server the families' accounts cannot exist, so none are shown or made up.
+class _FamilyAccountsNeedServer extends StatelessWidget {
+  const _FamilyAccountsNeedServer();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'The payment accounts families pay into come from your school’s server, which this app is not connected to.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
 }

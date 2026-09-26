@@ -1416,6 +1416,8 @@ scoped to the linked children and using the same `reminderLevelNames` labels Fin
 The real ledger has no separate per-child bank account number (`StudentAccount` never had one), so
 `accountNumber` — which `queueCombinedPayment`'s own validation needs as a real, unique per-child key — now uses
 the child's real system id instead of inventing a bank account number, documented in a code comment.
+*(Superseded: see "Family payment accounts" at the end of this document. A child has no account number; where a family
+pays belongs to the family, and the queued combined payment request described here was removed.)*
 
 **No real source — left honest:** admission number, bank name, reminder delivery method, multi-channel reminder
 history and store orders all have no real source and now read `'Not recorded yet'`/stay empty. A fresh family
@@ -1952,9 +1954,10 @@ changes, and is refused if made on a stale screen (`expectedStatus`).
 ### Before a real school can use it
 
 1. The documentation and credentials for at least one real provider, and a connector written against them (the
-   interface is `providers/base.py`; a provider is one class and one registry entry). Recommended first: **Paystack**,
-   because SchoolOS already verifies its signatures for SaaS billing; it needs a decision on how a school's own Paystack
-   key is held.
+   interface is `providers/base.py`; a provider is one class and one registry entry). Which one comes first is the owner's
+   call and should be the school's own bank or collection provider. **Paystack is not the recommendation:** SchoolOS's own
+   Paystack is reserved for what schools pay SchoolOS (the SaaS subscription) and is not part of the school-fee path;
+   the `paystack` entry here means a school's *own* Paystack account, only if a school uses one.
 2. Production `BANKCONNECT_SECRET_KEYS`, and a cron entry for `sync_bank_connections`.
 3. Redirect registration and deep-link handling for any authorisation-style provider.
 4. A legal and compliance review of holding bank access credentials.
@@ -1971,3 +1974,56 @@ tests it did before this work (compared by name against a clean checkout): none 
 models, the API's requests and error handling, the screens (including masked and cleared credential boxes, the
 no-server state, and the stale-decision refusal), and the duty and catalog wiring. The full Flutter suite still shows
 exactly the same 83 failing tests it did before (compared by name against a clean checkout): none added, none fixed.
+
+## Family payment accounts: one account per family, shaped by the bank (Parent Finance fixed)
+
+**What was wrong.** Parent Finance showed a child's internal id as an "account number" and built its "pay for several children"
+card around one account per child. A family has several children, so where it pays belongs to the **family**, and what an
+account looks like depends on the **bank** that issued it. (The earlier "Parent: Finance reads the same real ledger" section
+above explains why the id stood in; that stand-in is gone.)
+
+**The money flow this is built on.** School fees are the **school's** money: families pay into the school's own bank account and
+SchoolOS neither receives nor holds it. What schools pay **SchoolOS** (the SaaS subscription, `apps/billing`) is a separate
+matter, and Paystack will be connected for that alone. Nothing in the fee path uses a SchoolOS payment provider, and the
+parent-facing text says the payment goes straight to the school.
+
+**Backend** (`schoolOS_backend`, `docs/SCHOOL_FEE_RECEIVABLES.md`, "Collection accounts" and "Merging two families"):
+- An account belongs to a family, never a child; a family may hold one per bank, each with its own shape (what the bank calls the
+  number, an example, extra facts to quote such as a payment reference, a one-line note). Nothing assumes ten digits.
+- `issuers.py`: provider adapters that issue an account for a family. **No real bank adapter exists** (each is written only against
+  the bank's published documentation), so listed banks say so and the finance side records the account by hand; a sandbox issuer
+  makes labelled test accounts so issue -> show the parent -> receive a payment -> settle the family works end to end.
+- A parent's `me/families/` lists each family's accounts once, with `numberLabel`, `details`, `note`, `canPay`, `isTest`. An account
+  being set up or paused is listed but its number is withheld.
+- Two families can be merged (billing authority, a reason, not reversible; old numbers keep crediting the merged family), and a
+  statement issued in error can be voided (with a reason, never deleted).
+
+**App.**
+- **Parent Finance** (`family_payment_accounts_card.dart`): "Your family's payment account" shows the family's account once, under
+  the bank's own word for the number, with any extra facts to quote, copy buttons and a test-account badge; several banks are
+  shown side by side. It states plainly when there is no account yet, when one is being set up or paused (no number shown), when
+  the server cannot be reached (with retry), and when the app has **no school server** (no account is shown or made up).
+  The children are listed with what each owes and no account number. "Pay for several children at once" became a **transfer
+  calculator** (choose amounts, see one total, copy it): the old queued "payment request" was a local record waiting for "server and
+  payment-provider confirmation" that never existed, which also contradicted the money flow above, so it was removed.
+- **Parent dashboard** shows each child's balance and class instead of a per-child "account". Copy elsewhere that promised a
+  per-child term account (fee reminders, the Finance store rail note, the purchases page) now says the family's payment account.
+- **Collections hub -> Family accounts** (owner and Finance Office): every family with its children and accounts; search and
+  "no account yet" filters with paging; **Set up** either asks the school's connected bank to issue the account (only offered
+  where the bank can) or **records what the bank gave** with a form that adapts to the bank (its word for the number, its example,
+  the extra facts it asks payers to quote); issue for every family without one; pause, reinstate, close (reason required);
+  **merge** into another family (choose, read the server's preview of what moves and which accounts stay, give a reason,
+  confirm) - offered only to someone who may decide billing.
+
+**What is real and what is not.** Real: everything above against a school server, and the sandbox path end to end. Not yet:
+a real bank issuing accounts (needs that bank's documentation), a screen for voiding statements (the API exists), and the
+parent's **balances**, which still come from the device's own finance ledger until fee schedules can be published from the app
+(the server receivables ledger is the source of truth once they can). Without a school server the app runs in demo mode as
+before, and the family account shows that it needs the server.
+
+**Verification.** Backend `apps.receivables`: see `docs/SCHOOL_FEE_RECEIVABLES.md`. App: `flutter analyze` clean;
+`test/parent_finance_feature_test.dart` (no account number on a child; the family account with no server, with several banks,
+with a bank whose account is not a plain number, being set up or paused, none yet, an unreachable server and retry, and the
+transfer calculator with no queued request), `test/family_fees_models_test.dart`, `test/family_accounts_screens_test.dart`
+(the list, recording an account for a bank with its own shape, issuing, issuing for everyone, managing an account, and merging
+including a refusal), and the updated Parent dashboard tests.

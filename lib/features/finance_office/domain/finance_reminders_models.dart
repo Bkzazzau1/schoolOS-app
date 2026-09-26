@@ -132,7 +132,7 @@ String financeReminderPreview(FinanceReminderRow row) {
     return 'A payment of ${financeReminderMoney(row.nextAmount)} for ${row.student} is scheduled for ${row.nextDate}. Current school-fee balance is ${financeReminderMoney(row.balance)}. No action is needed if your authorized deduction proceeds successfully.';
   }
   if (row.arrangement == 'No arrangement') {
-    return '${row.student} has an outstanding school-fee balance of ${financeReminderMoney(row.balance)}. Please use the student term account or contact the Finance Office to arrange a payment plan.';
+    return '${row.student} has an outstanding school-fee balance of ${financeReminderMoney(row.balance)}. Please pay into your family’s payment account, or contact the Finance Office to arrange a payment plan.';
   }
   final amount = row.nextAmount > 0 ? financeReminderMoney(row.nextAmount) : 'your agreed amount';
   return 'A school-fee payment of $amount for ${row.student} is expected on ${row.nextDate}. Current outstanding balance is ${financeReminderMoney(row.balance)}.';

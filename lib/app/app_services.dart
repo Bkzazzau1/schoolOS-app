@@ -15,6 +15,7 @@ import '../core/sync/sync_engine.dart';
 import '../features/account/data/organization_repository.dart';
 import '../features/alumni/data/alumni_server_api.dart';
 import '../features/bankconnect/data/bank_connect_api.dart';
+import '../features/familyfees/data/family_fees_api.dart';
 import '../features/billing/data/billing_repository.dart';
 import '../core/access/access_view.dart';
 import '../features/proprietor/data/local_owner_access.dart';
@@ -46,6 +47,7 @@ class AppServices {
     this.staffServer,
     this.alumniServer,
     this.bankConnect,
+    this.familyFees,
     this.transferVerifyAssociations,
     this.transferVerifyNetwork,
     this.serverConfirm,
@@ -83,6 +85,9 @@ class AppServices {
 
   /// The school's own bank accounts and the payments they receive. Online only: absent without a server.
   final BankConnectApi? bankConnect;
+
+  /// Families and the accounts each one pays into (the school's own accounts, never SchoolOS's). Online only.
+  final FamilyFeesApi? familyFees;
   final TransferVerifyAssociationsApi? transferVerifyAssociations;
   final TransferVerifyNetworkApi? transferVerifyNetwork;
   final ServerConfirm? serverConfirm;
@@ -136,6 +141,7 @@ class AppServices {
     StaffServerApi? staffServer;
     AlumniServerApi? alumniServer;
     BankConnectApi? bankConnect;
+    FamilyFeesApi? familyFees;
     TransferVerifyAssociationsApi? transferVerifyAssociations;
     TransferVerifyNetworkApi? transferVerifyNetwork;
     ServerConfirm? serverConfirm;
@@ -176,6 +182,7 @@ class AppServices {
         schoolSession: schoolSession,
       );
       bankConnect = BankConnectApi(api: api);
+      familyFees = FamilyFeesApi(api: api);
       transferVerifyAssociations = TransferVerifyAssociationsApi(api: api);
       transferVerifyNetwork = TransferVerifyNetworkApi(api: api);
       access = AccessController(api: api, store: localDatabase);
@@ -219,6 +226,7 @@ class AppServices {
       staffServer: staffServer,
       alumniServer: alumniServer,
       bankConnect: bankConnect,
+      familyFees: familyFees,
       transferVerifyAssociations: transferVerifyAssociations,
       transferVerifyNetwork: transferVerifyNetwork,
       serverConfirm: serverConfirm,

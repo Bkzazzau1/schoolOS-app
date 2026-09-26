@@ -7,6 +7,7 @@ import '../features/account/presentation/proprietor_account_shell.dart';
 import '../features/administrator/presentation/administrator_workspace_page.dart';
 import '../features/alumni/data/alumni_server_api.dart';
 import '../features/bankconnect/data/bank_connect_api.dart';
+import '../features/familyfees/data/family_fees_api.dart';
 import '../features/transferverify/data/transfer_verify_associations_api.dart';
 import '../features/transferverify/data/transfer_verify_network_api.dart';
 import '../features/alumni/presentation/alumni_workspace_page.dart';
@@ -267,6 +268,8 @@ class SchoolOsApp extends StatelessWidget {
             if (alumniServer != null) tree = AlumniServerScope(api: alumniServer, child: tree);
             final bankConnect = services.bankConnect;
             if (bankConnect != null) tree = BankConnectScope(api: bankConnect, child: tree);
+            final familyFees = services.familyFees;
+            if (familyFees != null) tree = FamilyFeesScope(api: familyFees, child: tree);
             final transferVerifyAssociations = services.transferVerifyAssociations;
             if (transferVerifyAssociations != null) {
               tree = TransferVerifyAssociationsScope(api: transferVerifyAssociations, child: tree);

@@ -30,7 +30,7 @@ void main() {
   });
 
   test('store and tuition use separate collection rails', () {
-    expect(financeStoreFeeRailRule, contains('Static student term account'));
+    expect(financeStoreFeeRailRule, contains('own payment account'));
     expect(financeStoreFeeRailRule, contains('tuition'));
     expect(financeStoreSundryRailRule, contains('Dynamic account created for one order'));
     expect(financeStoreSundryRailRule, contains('exact expected amount'));
