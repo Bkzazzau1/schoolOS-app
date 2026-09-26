@@ -82,17 +82,18 @@ void main() {
         ..families = [
           familyRowJson(accounts: [
             payAccountJson(
-              provider: 'remita', bankName: 'Remita', accountNumber: '280007512345', numberLabel: 'Remita Retrieval Reference (RRR)',
+              provider: 'monnify', bankName: 'Moniepoint', accountNumber: '6000000001', numberLabel: 'Account number',
               details: [
-                {'label': 'Amount to pay', 'value': 'NGN 150,000.00'},
+                {'label': 'Collection target', 'value': 'NGN 150,000.00'},
               ],
               staff: true,
             ),
           ]),
         ];
       await pumpFamilies(tester, server: server);
-      expect(find.text('Remita Retrieval Reference (RRR): 280007512345'), findsOneWidget);
-      expect(find.text('Amount to pay: NGN 150,000.00'), findsOneWidget);
+      expect(find.text('Account number: 6000000001'), findsOneWidget);
+      expect(find.text('Collection target: NGN 150,000.00'), findsOneWidget);
+      expect(find.textContaining('Remita'), findsNothing);
     });
 
     testWidgets('the filters and the search ask the server, and paging asks for the next page', (tester) async {

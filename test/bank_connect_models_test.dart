@@ -42,24 +42,23 @@ void main() {
   });
 
   group('providers', () {
-    test('the three providers are listed with what each asks for and what each can really do', () {
+    test('the two providers are listed with what each asks for and what each can really do', () {
       final info = ProvidersInfo.fromJson(providersJson());
-      expect(info.providers.map((p) => p.code), ['paystack', 'monnify', 'remita']);
+      expect(info.providers.map((p) => p.code), ['paystack', 'monnify']);
       final paystack = info.provider('paystack')!;
       final monnify = info.provider('monnify')!;
-      final remita = info.provider('remita')!;
       expect(paystack.credentialFields.map((f) => f.name), ['secret_key']);
       expect(paystack.credentialFields.single.secret, isTrue);
       expect(paystack.settingFields.single.name, 'preferred_bank');
       expect(monnify.credentialFields.map((f) => f.name), ['api_key', 'secret_key', 'contract_code']);
       expect(monnify.credentialFields.last.secret, isFalse);
-      expect(remita.credentialFields.map((f) => f.name), ['merchant_id', 'api_key', 'service_type_id']);
       expect(monnify.capabilities.requiresCustomerKyc, isTrue);
       expect(monnify.customerRequirements, ['email', 'identity']);
-      expect((remita.capabilities.supportsStaticAccounts, remita.capabilities.supportsDynamicAccounts, remita.requiresAmount), (false, true, true));
-      expect(remita.accountLabel, 'Remita Retrieval Reference (RRR)');
+      expect((monnify.capabilities.supportsStaticAccounts, monnify.capabilities.supportsDynamicAccounts), (true, true));
+      expect((paystack.accountLabel, monnify.accountLabel), ('Account number', 'Account number'));
       expect(paystack.webhook.mode, 'dashboard');
-      expect(remita.webhook.verification, 'requery');
+      expect(monnify.webhook.verification, 'hmac_sha512');
+      expect(info.provider('remita'), isNull);  // Remita is for Mandates, not Smart Money Collection
       expect(paystack.onboarding, contains('your school\'s own Paystack'));
       expect(info.canManage && info.secureStorageReady, isTrue);
       expect(info.provider('gtbank'), isNull);
@@ -84,7 +83,6 @@ void main() {
     test('provider codes are said as a school says them', () {
       expect(providerDisplayName('paystack'), 'Paystack');
       expect(providerDisplayName('monnify'), 'Monnify');
-      expect(providerDisplayName('remita'), 'Remita');
       expect(providerDisplayName(''), 'Provider');
     });
   });

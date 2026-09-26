@@ -7,7 +7,7 @@ import '../domain/bank_models.dart';
 import 'bank_widgets.dart';
 import 'webhook_setup_dialog.dart';
 
-/// Connect Collection Provider: the school connects its OWN Paystack, Monnify or Remita account with the credentials that
+/// Connect Collection Provider: the school connects its OWN Paystack or Monnify account with the credentials that
 /// provider issued to it. There is no bank account to enter and nothing to confirm: SchoolOS never receives or holds fee money.
 ///
 /// What the school is asked for depends on the provider (the fields come from the server), and a secret is masked while typed,
@@ -146,7 +146,7 @@ class _ConnectProviderPageState extends State<ConnectProviderPage> {
               ? const _Notice(
                   icon: Icons.check_circle_outline,
                   title: 'Every provider is connected',
-                  message: 'Paystack, Monnify and Remita are all connected. To use new credentials for one of them, replace its credentials from its card.',
+                  message: 'Paystack and Monnify are both connected. To use new credentials for one of them, replace its credentials from its card.',
                 )
               : ListView(
                   padding: const EdgeInsets.all(16),
@@ -197,7 +197,6 @@ class _ConnectProviderPageState extends State<ConnectProviderPage> {
                   if (provider.capabilities.supportsStaticAccounts) const StatusChip(label: 'Static accounts', color: Color(0xFF3B5BA5)),
                   if (provider.capabilities.supportsDynamicAccounts) const StatusChip(label: 'Dynamic accounts', color: Color(0xFF3B5BA5)),
                   if (provider.capabilities.requiresCustomerKyc) const StatusChip(label: 'Needs the payer\'s BVN or NIN', color: Color(0xFF8A6D00)),
-                  if (provider.requiresAmount) const StatusChip(label: 'Made for an amount', color: Color(0xFF8A6D00)),
                 ],
               ),
             ],

@@ -241,7 +241,7 @@ class _ProvidersTabState extends State<ProvidersTab> {
             children: [
               const Expanded(
                 child: Text(
-                  'The school connects its own Paystack, Monnify or Remita account. One provider is active at a time and makes the families\' '
+                  'The school connects its own Paystack or Monnify account. One provider is active at a time and makes the families\' '
                   'accounts. Credentials are kept encrypted on the server and can never be read back.',
                 ),
               ),
@@ -260,7 +260,7 @@ class _ProvidersTabState extends State<ProvidersTab> {
             const BankSection(
               title: 'No collection provider connected yet',
               child: Text(
-                'Connect the school\'s own account at Paystack, Monnify or Remita. SchoolOS then makes each family a collection account there, '
+                'Connect the school\'s own account at Paystack or Monnify. SchoolOS then makes each family a collection account there, '
                 'and reads the provider\'s signed notifications to see what was paid. The money goes to the school through the provider.',
               ),
             ),

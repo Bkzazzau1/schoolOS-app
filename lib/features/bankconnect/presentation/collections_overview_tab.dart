@@ -126,7 +126,7 @@ class _CollectionsOverviewTabState extends State<CollectionsOverviewTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Once the school\'s own Paystack, Monnify or Remita account is connected and families have collection accounts, the payments they '
+              'Once the school\'s own Paystack or Monnify account is connected and families have collection accounts, the payments they '
               'receive appear here and are matched to families. Until then there are no figures to show, and none are invented.',
             ),
             if (s.providers.needAttention > 0) Padding(padding: const EdgeInsets.only(top: 8), child: Text('${s.providers.needAttention} provider(s) need attention.')),

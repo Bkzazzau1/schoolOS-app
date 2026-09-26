@@ -76,7 +76,7 @@ class _SmartDashboardSectionState extends State<SmartDashboardSection> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (active == null)
-                const Text('No active collection provider. Connect the school\'s Paystack, Monnify or Remita account and make it active to start making family accounts.', style: TextStyle(color: Color(0xFFB3261E)))
+                const Text('No active collection provider. Connect the school\'s Paystack or Monnify account and make it active to start making family accounts.', style: TextStyle(color: Color(0xFFB3261E)))
               else ...[
                 Wrap(
                   spacing: 8,

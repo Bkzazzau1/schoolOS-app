@@ -14,7 +14,7 @@ import 'payments_tab.dart';
 import 'providers_tab.dart';
 import 'review_tab.dart';
 
-/// Smart Money Collection: the school's own collection provider (Paystack, Monnify or Remita), the collection accounts families pay
+/// Smart Money Collection: the school's own collection provider (Paystack or Monnify), the collection accounts families pay
 /// into, the policy for them, the batches that make them (prepared by one person and approved by another), and the payments that
 /// arrive and are matched to families. For the owner and the Finance Office.
 ///

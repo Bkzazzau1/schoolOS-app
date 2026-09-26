@@ -85,7 +85,7 @@ class AppServices {
   final StaffServerApi? staffServer;
   final AlumniServerApi? alumniServer;
 
-  /// The school's own collection providers (Paystack, Monnify, Remita) and the payments they report. Online only: absent without a server.
+  /// The school's own collection providers (Paystack, Monnify) and the payments they report. Online only: absent without a server.
   final BankConnectApi? bankConnect;
 
   /// Smart Money Collection: the collection policy, batches with maker-checker approval, and provider switches. Online only.

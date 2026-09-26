@@ -11,7 +11,6 @@ class CollectionCapabilities {
     this.supportsAccountClosure = false,
     this.supportsWebhooks = false,
     this.supportsTransactionRequery = false,
-    this.supportsDirectDebitMandates = false,
     this.requiresCustomerKyc = false,
   });
 
@@ -24,7 +23,6 @@ class CollectionCapabilities {
         supportsAccountClosure: json['supportsAccountClosure'] == true,
         supportsWebhooks: json['supportsWebhooks'] == true,
         supportsTransactionRequery: json['supportsTransactionRequery'] == true,
-        supportsDirectDebitMandates: json['supportsDirectDebitMandates'] == true,
         requiresCustomerKyc: json['requiresCustomerKyc'] == true,
       );
 
@@ -36,7 +34,6 @@ class CollectionCapabilities {
   final bool supportsAccountClosure;
   final bool supportsWebhooks;
   final bool supportsTransactionRequery;
-  final bool supportsDirectDebitMandates;
 
   /// The provider needs the payer's BVN or NIN before it will make a family's account.
   final bool requiresCustomerKyc;
@@ -104,7 +101,7 @@ class WebhookGuide {
   final String note;
 }
 
-/// A collection provider SchoolOS supports: Paystack, Monnify or Remita. The school connects its OWN account at one of them.
+/// A collection provider SchoolOS supports: Paystack or Monnify. The school connects its OWN account at one of them.
 class CollectionProvider {
   const CollectionProvider({
     required this.code,
@@ -121,7 +118,6 @@ class CollectionProvider {
     required this.accountLabel,
     required this.payerNote,
     required this.customerRequirements,
-    required this.requiresAmount,
   });
 
   factory CollectionProvider.fromJson(Map<String, dynamic> json) => CollectionProvider(
@@ -139,7 +135,6 @@ class CollectionProvider {
         accountLabel: json['accountLabel'] as String? ?? 'Account number',
         payerNote: json['payerNote'] as String? ?? '',
         customerRequirements: [for (final r in (json['customerRequirements'] as List? ?? const [])) r as String],
-        requiresAmount: json['requiresAmount'] == true,
       );
 
   final String code;
@@ -158,15 +153,12 @@ class CollectionProvider {
   final bool isSandbox;
   final String description;
 
-  /// What this provider calls the number a payer uses ("Account number", "Remita Retrieval Reference (RRR)").
+  /// What this provider calls the number a payer uses ("Account number").
   final String accountLabel;
   final String payerNote;
 
   /// What it needs to know about a family's payer: "name", "email", "phone", "identity" (a BVN or NIN).
   final List<String> customerRequirements;
-
-  /// It makes an account for an amount (Remita), so a family with nothing to collect has nothing to generate.
-  final bool requiresAmount;
 }
 
 /// What the signed-in person may do in Smart Money Collection. The server checks every change again.

@@ -44,7 +44,6 @@ Map<String, Object?> capabilitiesJson({
       'supportsAccountClosure': family,
       'supportsWebhooks': webhooks,
       'supportsTransactionRequery': true,
-      'supportsDirectDebitMandates': false,
       'requiresCustomerKyc': kyc,
     };
 
@@ -69,7 +68,6 @@ Map<String, Object?> paystackProviderJson() => {
       'accountLabel': 'Account number',
       'payerNote': 'Pay by bank transfer to this account number.',
       'customerRequirements': ['email'],
-      'requiresAmount': false,
     };
 
 Map<String, Object?> monnifyProviderJson() => {
@@ -93,35 +91,10 @@ Map<String, Object?> monnifyProviderJson() => {
       'accountLabel': 'Account number',
       'payerNote': '',
       'customerRequirements': ['email', 'identity'],
-      'requiresAmount': false,
-    };
-
-Map<String, Object?> remitaProviderJson() => {
-      'code': 'remita',
-      'displayName': 'Remita',
-      'icon': 'payments',
-      'environments': ['live', 'test'],
-      'credentialFields': [
-        {'name': 'merchant_id', 'label': 'Merchant ID', 'secret': false, 'required': true, 'help': ''},
-        {'name': 'api_key', 'label': 'API key', 'secret': true, 'required': true, 'help': ''},
-        {'name': 'service_type_id', 'label': 'Service type ID', 'secret': false, 'required': true, 'help': ''},
-      ],
-      'settingFields': <Object?>[],
-      'capabilities': capabilitiesJson(static: false),
-      'onboarding': 'Register your school\'s own Remita account first.',
-      'webhook': {'mode': 'dashboard', 'where': 'The API Keys and Webhooks page of your Remita account', 'verification': 'requery', 'events': <Object?>[], 'note': 'Remita does not sign its notifications.'},
-      'productionStatus': 'implemented',
-      'available': true,
-      'isSandbox': false,
-      'description': 'Family payment references made as Remita invoices.',
-      'accountLabel': 'Remita Retrieval Reference (RRR)',
-      'payerNote': '',
-      'customerRequirements': ['name', 'email', 'phone'],
-      'requiresAmount': true,
     };
 
 Map<String, Object?> providersJson({bool canManage = true, bool storage = true, String? activeId, List<Map<String, Object?>>? providers}) => {
-      'providers': providers ?? [paystackProviderJson(), monnifyProviderJson(), remitaProviderJson()],
+      'providers': providers ?? [paystackProviderJson(), monnifyProviderJson()],
       'permissions': permissionsJson(providers: canManage),
       'canManage': canManage,
       'secureStorageReady': storage,
@@ -142,7 +115,7 @@ Map<String, Object?> connectionJson({
     {
       'id': id,
       'provider': provider,
-      'providerName': provider == 'paystack' ? 'Paystack' : (provider == 'monnify' ? 'Monnify' : 'Remita'),
+      'providerName': provider == 'paystack' ? 'Paystack' : 'Monnify',
       'environment': environment,
       'isSandbox': sandbox,
       'merchantName': 'BrightGate Academy',

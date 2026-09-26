@@ -7,7 +7,7 @@ import '../domain/collections_summary.dart';
 import '../domain/json_read.dart';
 import '../domain/payment_models.dart';
 
-/// Talks to the school's server about its own collection providers (Paystack, Monnify, Remita) and the payments they report.
+/// Talks to the school's server about its own collection providers (Paystack, Monnify) and the payments they report.
 ///
 /// This is online-only on purpose. Nothing here is written to the phone: no credential, no payment. A provider credential
 /// passes through [connect] and [replaceCredentials] to the server over HTTPS and is not kept, logged or returned - the server

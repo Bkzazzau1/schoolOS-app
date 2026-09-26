@@ -327,6 +327,17 @@ void main() {
       expect(server.calls, isNot(contains('POST connections/conn-2/disconnect/')));
     });
 
+    testWidgets('both providers can be connected and one is active, and Remita appears nowhere on the Providers tab', (tester) async {
+      final server = CollectionsServer()..connections = [connectionJson(provider: 'monnify'), connectionJson(id: 'conn-2', provider: 'paystack', active: false)];
+      await pumpHub(tester, server: server);
+      await openTab(tester, 'Providers');
+      expect(find.text('Monnify'), findsWidgets);
+      expect(find.text('Paystack'), findsWidgets);
+      expect(find.text('Active provider'), findsOneWidget);
+      expect(find.textContaining('Remita'), findsNothing);
+      expect(find.textContaining('RRR'), findsNothing);
+    });
+
     testWidgets('an empty school is invited to connect its first provider', (tester) async {
       final server = CollectionsServer()..connections = [];
       await pumpHub(tester, server: server);
@@ -354,13 +365,15 @@ void main() {
       return server;
     }
 
-    testWidgets('only Paystack, Monnify and Remita are offered, and no bank account is asked for', (tester) async {
+    testWidgets('only Paystack and Monnify are offered, and no bank account is asked for', (tester) async {
       final server = CollectionsServer()..connections = [];
       await openConnect(tester, server);
       expect(find.text('Connect Collection Provider'), findsOneWidget);
-      for (final name in ['Paystack', 'Monnify', 'Remita']) {
+      for (final name in ['Paystack', 'Monnify']) {
         expect(find.byKey(ValueKey('provider-${name.toLowerCase()}')), findsOneWidget, reason: name);
       }
+      expect(find.byKey(const ValueKey('provider-remita')), findsNothing);
+      expect(find.textContaining('Remita'), findsNothing);
       expect(find.textContaining('GTBank'), findsNothing);
       expect(find.textContaining('Account number'), findsNothing);
       expect(find.textContaining('Is this your school\'s account?'), findsNothing);
@@ -380,10 +393,8 @@ void main() {
         expect(find.byKey(ValueKey('credential-$f')), findsOneWidget, reason: f);
       }
       expect(find.text('Needs the payer\'s BVN or NIN'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('provider-remita')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('credential-merchant_id')), findsOneWidget);
-      expect(find.text('Made for an amount'), findsOneWidget);
+      expect(find.byKey(const ValueKey('credential-merchant_id')), findsNothing);
+      expect(find.text('Made for an amount'), findsNothing);
     });
 
     testWidgets('secrets are masked, ids are not, and the mode can be chosen', (tester) async {

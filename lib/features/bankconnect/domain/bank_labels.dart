@@ -32,11 +32,10 @@ const webhookStatusLabels = <String, String>{
 
 String webhookStatusLabel(String status) => webhookStatusLabels[status] ?? status;
 
-/// Paystack, Monnify or Remita as a school says them ("paystack" -> "Paystack").
+/// Paystack or Monnify as a school says them ("paystack" -> "Paystack").
 String providerDisplayName(String code) => switch (code) {
       'paystack' => 'Paystack',
       'monnify' => 'Monnify',
-      'remita' => 'Remita',
       'sandbox' => 'Test provider',
       '' => 'Provider',
       _ => code[0].toUpperCase() + code.substring(1),
