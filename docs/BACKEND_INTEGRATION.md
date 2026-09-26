@@ -2081,3 +2081,80 @@ invented): Monnify's contract code is only proven when the first account is made
 `smart_collect_api_test`, `smart_collect_screens_test` (policy, batches, the maker's review, the checker's decision, generation and
 retry, accounts), `family_accounts_screens_test` (accounts, pausing, retiring, merging), `family_fees_models_test`,
 `bank_connect_access_test` (the four duties). Full suite: 1387 passing; the 83 failures are the same 83 as before this work.
+
+## Mandates & Direct Debit (Remita, Lendsqr): a payment path of its own (real backend and app)
+
+This is **not** Smart Money Collection. Smart Money Collection (Paystack, Monnify) gives each family an account to pay into and reads what
+arrived. Mandates & Direct Debit is the other way round: a payer authorises the school to collect approved school fees from their own bank
+account, and a provider (**Remita** or **Lendsqr**) executes each debit. The two share nothing but the fee ledger: they have their own
+provider connections, their own four duties, their own screens, and the server refuses to mix them (a debit is never counted as a collection
+payment, and Remita is never offered as a collection provider). The full design and the provider facts are in the backend repository's
+`docs/MANDATES_DIRECT_DEBIT.md`.
+
+**The rule the whole thing follows.** A mandate gives SchoolOS an authorised payment rail. **The fee ledger decides what is owed**, and no
+debit happens without valid consent, a debit-ready mandate, current debt and a different person's approval.
+
+**Where it is.**
+
+- Owner and Finance Office: the **"Mandates & Direct Debit"** hub (`lib/features/mandates/presentation/mandates_hub_page.dart`), five tabs:
+
+| Tab | What it does |
+|---|---|
+| Overview | Mandates by state, batches waiting for approval or debiting, confirmed and unknown and failed debits, and each connected provider with how many mandates are active on it |
+| Providers | **Connect a provider** (Remita and/or Lendsqr; the credential fields come from the server per provider; secrets are masked and cleared; test or live, and live says why it is not on if the server has not switched it on); per connection: test, replace credentials, callback setup, disable and enable, disconnect. **There is no "Active Provider":** a school can connect both, and each mandate stays with the provider it was made under |
+| Mandates | Every mandate with its family, payer, provider, bank and **masked** account, its status and whether it is debit ready; filters; **Start a mandate** (family, payer, provider, bank, account, limit; there is no "the payer agreed" box); a detail page saying why a mandate is not yet debit ready and how the payer activates it |
+| Debit Batches | A maker prepares a batch for a session and term, reviews every family (what the ledger says is owed, what would be debited, why anyone is not ready), selects, lowers an amount (never raises it) and submits. A **different** checker sees exactly what would be debited and approves or rejects it with a reason. Only an approved batch can be started. A partial failure keeps the successes and offers to retry the failures; a debit whose outcome is not known is asked about, never sent again |
+| Transactions | The debits the providers reported and whether each was put towards the family's fees; **Ask the provider** for one that is pending or not known |
+
+- Parent: a **"Direct Debit"** card on Parent Finance, only where a school server exists and a mandate has been set up for that payer. It opens
+  the payer's own page: the school, the bank, the masked account and the exact words being agreed to, **Review and Authorise**, then the bank's
+  one-time password or the activation instructions, and **Cancel** at any time.
+
+**Online only.** A credential, a bank account number, a payer's consent and a debit only exist on the server, so nothing about them is
+stored on the phone. Without a school server the hub says so and shows no provider, mandate or debit; nothing is queued as though it had
+happened. (In demo mode the Finance Office menu still opens the older offline "Payment Mandates" prototype, which is labelled as a prototype and
+is not connected to any of this.)
+
+**Duties (owner-only unless given).** `finance.mandate_provider_manage`, `finance.mandate_manage`, `finance.mandate_prepare` (the maker),
+`finance.mandate_approve` (the checker). All four are in `explicitOnlyDuties`, so no role preset or "all finance duties" shortcut includes them;
+being a Finance Officer is not enough, and billing authority is a separate duty again. Preparing and approving are different duties, and the
+server refuses anyone who prepared, changed or submitted a batch approving it. The app only offers what the server says the person may do, and
+the server checks again.
+
+**Consent is the payer's.** Nobody at the school can authorise a mandate for a payer, and the app has no such control. A payer with an account in
+the app authorises it there (the server records the hash of the exact words they were shown, and refuses if the words changed since); a payer
+without one authorises with the provider (a bank one-time password, a signed form, or an activation transfer).
+
+**What the app never holds.** A provider credential and an account number go to the server once, over HTTPS, and are cleared from the screen
+whatever the answer; the server never sends either back (only a masked account and a merchant reference ending in four characters). A one-time
+password is typed hidden, sent once and shown nowhere. The dialogs that ask for them own their text fields and clear them when they leave the
+screen.
+
+**Files.** `lib/features/mandates`: `domain/mandate_models.dart` and `mandate_labels.dart`, `data/mandates_api.dart` (including `MandatesScope`,
+which the app puts above its navigator only when a school server exists), and `presentation/` for the hub, its five tabs, the connect and start
+pages, the mandate detail, the batch screen, the payer's page and the Parent card. Also changed: the Finance and Owner menus and access catalog
+(one name, "Mandates & Direct Debit", on both sides), and the four duties in `job_assignment_repository.dart`.
+
+**What is real and what is pending (nothing invented).**
+
+- Real, against a school server, end to end through the test provider on the server: connecting, starting a mandate, the payer's consent and
+  activation, preparing, approving and starting a batch, the provider's answer, and the confirmed debit being put towards the family's fees.
+- **Remita** is written against Remita's published Direct Debit documentation. Its live address is set by whoever runs the server and Remita
+  requires a UAT with it before go-live, so nothing has been run against real money.
+- **Lendsqr** can make, activate (by a transfer to a NIBSS account) and watch mandates. Lendsqr's published documentation has no debit
+  instruction or notification call, so through Lendsqr SchoolOS does **not** send debits: it says so on the provider's card and on the batch,
+  never guesses, and the debit stays "pending documentation". Live use is switched off until the server enables it, and it needs the
+  organisation to be licensed by Lendsqr's rules; the app never says a school is eligible.
+- Every provider figure and time is the provider's; SchoolOS assumes no notice period and no fixed activation wait.
+
+**Found and fixed while testing.** The dialogs for replacing credentials, typing a one-time password, lowering an amount and giving a reason
+disposed their text fields the moment they were closed, while the closing animation was still drawing them ("used after being disposed"); they
+now own their fields. The provider dropdown on the start-a-mandate page overflowed a phone's width when a provider's name was long.
+
+**Verification.** `dart analyze` clean. New tests, 129: `mandates_models_test` (parses responses **recorded from the server's own API tests**,
+kept under `test/fixtures/mandates`, so the app and the server cannot silently disagree; and checks none carries a full account number or a
+credential), `mandates_api_test` (what leaves the phone: no consent from staff, approval names the snapshot and carries no amounts, credentials
+sent once), `mandates_screens_test` (providers and connecting, mandates and starting one, the payer's authorisation and one-time password, the
+maker, the checker, stale and refused batches, partial failure and retry, unknown outcomes, and phone-width layouts), `mandates_access_test` (the
+four duties, the menus, and the owner's workspace with and without a server). Full suite: 1517 passing; the 83 failures are the same 83 as before
+this work, by name.
