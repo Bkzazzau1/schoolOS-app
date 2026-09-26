@@ -18,6 +18,16 @@ void main() {
     }
   });
 
+  test('deciding what families owe is a duty only the owner can give, and no preset or shortcut includes it', () {
+    expect(assignableDuties, contains('finance.billing_authority'));
+    expect(assignableDuties['finance.billing_authority'], contains('owe'));
+    expect(explicitOnlyDuties, contains('finance.billing_authority'));
+    expect(dutiesInGroup('finance.'), isNot(contains('finance.billing_authority')));
+    for (final role in ['finance', 'administrator', 'sectionHead', 'teacher', 'custom']) {
+      expect(dutiesForJobRole(role), isNot(contains('finance.billing_authority')), reason: role);
+    }
+  });
+
   test('Smart Money Collection is a sensitive activity for the owner and the finance office only', () {
     for (final key in ['owner.collections', 'finance.collections']) {
       final e = entry(key);
