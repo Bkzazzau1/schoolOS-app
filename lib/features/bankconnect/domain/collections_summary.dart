@@ -114,6 +114,109 @@ class RecentPayment {
   final bool isSandbox;
 }
 
+/// What is still owed for one session or term, as the school's fee ledger worked it out.
+class OwedPeriod {
+  const OwedPeriod({
+    required this.label,
+    required this.isPast,
+    required this.isCurrent,
+    required this.isClosed,
+    required this.charges,
+    required this.netMinor,
+    required this.paidMinor,
+    required this.outstandingMinor,
+    required this.overdueMinor,
+    required this.familiesOwing,
+    required this.collectionRateBp,
+  });
+
+  factory OwedPeriod.fromJson(Map<String, dynamic> json) => OwedPeriod(
+        label: json['label'] as String? ?? '',
+        isPast: json['isPast'] == true,
+        isCurrent: json['isCurrent'] == true,
+        isClosed: json['isClosed'] == true,
+        charges: json['charges'] as int? ?? 0,
+        netMinor: json['netMinor'] as int? ?? 0,
+        paidMinor: json['paidMinor'] as int? ?? 0,
+        outstandingMinor: json['outstandingMinor'] as int? ?? 0,
+        overdueMinor: json['overdueMinor'] as int? ?? 0,
+        familiesOwing: json['familiesOwing'] as int? ?? 0,
+        collectionRateBp: json['collectionRateBp'] as int?,
+      );
+
+  /// "2026/2027 · First Term" (or just the session, for a fee that covers all of it).
+  final String label;
+
+  /// The period has ended (or the school closed it), so what is left of it is arrears.
+  final bool isPast;
+  final bool isCurrent;
+  final bool isClosed;
+  final int charges;
+  final int netMinor;
+  final int paidMinor;
+  final int outstandingMinor;
+  final int overdueMinor;
+  final int familiesOwing;
+
+  /// Basis points of what was payable that has been paid (10000 = all of it); null when nothing was payable.
+  final int? collectionRateBp;
+
+  /// Whole percent collected, or null when nothing was payable.
+  int? get collectedPercent => collectionRateBp == null ? null : (collectionRateBp! / 100).round();
+}
+
+/// What the school is owed, by session and term. Only real once the school has raised fees for its families:
+/// until then [available] is false and there are no figures, not zeros.
+class Owed {
+  const Owed({
+    required this.available,
+    required this.outstandingMinor,
+    required this.overdueMinor,
+    required this.arrearsMinor,
+    required this.currentMinor,
+    required this.creditMinor,
+    required this.familiesOwing,
+    required this.periods,
+  });
+
+  factory Owed.fromJson(Map<String, dynamic> json) => Owed(
+        available: json['available'] == true,
+        outstandingMinor: json['outstandingMinor'] as int? ?? 0,
+        overdueMinor: json['overdueMinor'] as int? ?? 0,
+        arrearsMinor: json['arrearsMinor'] as int? ?? 0,
+        currentMinor: json['currentMinor'] as int? ?? 0,
+        creditMinor: json['creditMinor'] as int? ?? 0,
+        familiesOwing: json['familiesOwing'] as int? ?? 0,
+        periods: [for (final p in readMaps(json['periods'])) OwedPeriod.fromJson(p)],
+      );
+
+  static const none = Owed(
+    available: false,
+    outstandingMinor: 0,
+    overdueMinor: 0,
+    arrearsMinor: 0,
+    currentMinor: 0,
+    creditMinor: 0,
+    familiesOwing: 0,
+    periods: [],
+  );
+
+  final bool available;
+  final int outstandingMinor;
+  final int overdueMinor;
+
+  /// Still owed for periods that have ended.
+  final int arrearsMinor;
+
+  /// Owed for the period that is running (or has not begun).
+  final int currentMinor;
+
+  /// Credit families hold, kept apart: it is not netted off what is owed.
+  final int creditMinor;
+  final int familiesOwing;
+  final List<OwedPeriod> periods;
+}
+
 /// What the school has really collected, as the server worked it out. The app adds nothing to it:
 /// where the server cannot know a number (what is still owed) it says so, and so does the screen.
 class CollectionsSummary {
@@ -134,6 +237,7 @@ class CollectionsSummary {
     required this.sandboxHidden,
     required this.otherCurrencyTransactions,
     required this.outstandingFeesAvailable,
+    this.owed = Owed.none,
   });
 
   factory CollectionsSummary.fromJson(Map<String, dynamic> json) {
@@ -155,6 +259,7 @@ class CollectionsSummary {
       sandboxHidden: json['sandboxHidden'] as int? ?? 0,
       otherCurrencyTransactions: json['otherCurrencyTransactions'] as int? ?? 0,
       outstandingFeesAvailable: json['outstandingFeesAvailable'] == true,
+      owed: json['receivables'] is Map ? Owed.fromJson(readMap(json['receivables'])) : Owed.none,
     );
   }
 
@@ -180,6 +285,9 @@ class CollectionsSummary {
   final int sandboxHidden;
   final int otherCurrencyTransactions;
 
-  /// Always false until the server has a fee ledger: what is still owed cannot be worked out.
+  /// False until the school has raised fees for its families: what is still owed cannot be worked out before that.
   final bool outstandingFeesAvailable;
+
+  /// What the school is owed, by session and term (see [Owed.available]).
+  final Owed owed;
 }

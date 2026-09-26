@@ -72,6 +72,7 @@ class _CollectionsOverviewTabState extends State<CollectionsOverviewTab> {
         children: [
           if (_loading) const Padding(padding: EdgeInsets.only(bottom: 8), child: LinearProgressIndicator()),
           if (!s.available) _noAccount(s) else ..._figures(s),
+          if (s.owed.available) _owed(s.owed),
           if (s.sandboxHidden > 0 || s.sandboxIncluded)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -213,6 +214,57 @@ class _CollectionsOverviewTabState extends State<CollectionsOverviewTab> {
         ),
       );
 
+  Widget _owed(Owed owed) => BankSection(
+        title: 'Still owed',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${formatMoneyMinor(owed.outstandingMinor)} from ${owed.familiesOwing} famil${owed.familiesOwing == 1 ? 'y' : 'ies'}',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            if (owed.arrearsMinor > 0)
+              Text('${formatMoneyMinor(owed.arrearsMinor)} is arrears from terms that have ended', style: const TextStyle(color: Color(0xFFB3261E))),
+            if (owed.overdueMinor > 0) Text('${formatMoneyMinor(owed.overdueMinor)} is past its due date'),
+            if (owed.creditMinor > 0)
+              Text('Families also hold ${formatMoneyMinor(owed.creditMinor)} in credit, which is not taken off these figures.'),
+            const SizedBox(height: 12),
+            const Text('By session and term', style: TextStyle(color: Color(0xFF5F6B7A))),
+            for (final p in owed.periods) _owedPeriod(p),
+          ],
+        ),
+      );
+
+  Widget _owedPeriod(OwedPeriod p) {
+    final percent = p.collectedPercent;
+    final status = p.isClosed
+        ? 'Closed'
+        : p.isPast
+            ? 'Ended'
+            : p.isCurrent
+                ? 'Current'
+                : 'Coming up';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('${p.label} · $status', style: const TextStyle(fontWeight: FontWeight.w600))),
+              Text(formatMoneyMinor(p.outstandingMinor)),
+            ],
+          ),
+          Text(
+            '${formatMoneyMinor(p.paidMinor)} paid of ${formatMoneyMinor(p.netMinor)}'
+            '${percent == null ? '' : ' ($percent%)'} · ${p.familiesOwing} famil${p.familiesOwing == 1 ? 'y' : 'ies'} still owing',
+            style: const TextStyle(color: Color(0xFF5F6B7A)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _reconciliation(ReconciliationTotals r) {
     final share = r.totalMinor == 0 ? 0.0 : r.reconciledMinor / r.totalMinor;
     return Column(
@@ -233,8 +285,8 @@ class _CollectionsOverviewTabState extends State<CollectionsOverviewTab> {
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                'What is still owed is not shown yet. SchoolOS does not hold the school\'s fee records on the server, so it can '
-                'say what has come in but not what is outstanding.',
+                'What is still owed is not shown yet. It appears here, by session and term, once fees have been raised for the '
+                'school\'s families on the school server.',
                 style: TextStyle(color: Color(0xFF5F6B7A)),
               ),
             ),

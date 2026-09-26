@@ -170,6 +170,7 @@ Map<String, Object?> summaryJson({
   bool sandboxIncluded = false,
   int pending = 2,
   int otherCurrency = 0,
+  bool owed = false,
 }) =>
     {
       'summary': {
@@ -203,6 +204,23 @@ Map<String, Object?> summaryJson({
         'sandboxIncluded': sandboxIncluded,
         'sandboxHidden': sandboxHidden,
         'otherCurrencyTransactions': otherCurrency,
-        'outstandingFeesAvailable': false,
+        'outstandingFeesAvailable': owed,
+        if (owed)
+          'receivables': {
+            'available': true, 'currency': 'NGN', 'outstandingMinor': 29000000, 'overdueMinor': 13000000, 'arrearsMinor': 13000000,
+            'currentMinor': 16000000, 'creditMinor': 500000, 'familiesOwing': 2,
+            'periods': [
+              {
+                'label': '2026/2027 · First Term', 'isPast': true, 'isCurrent': false, 'isClosed': false, 'charges': 2,
+                'netMinor': 19000000, 'paidMinor': 6000000, 'outstandingMinor': 13000000, 'overdueMinor': 13000000, 'familiesOwing': 2,
+                'collectionRateBp': 3158,
+              },
+              {
+                'label': '2026/2027 · Second Term', 'isPast': false, 'isCurrent': true, 'isClosed': false, 'charges': 2,
+                'netMinor': 16000000, 'paidMinor': 0, 'outstandingMinor': 16000000, 'overdueMinor': 0, 'familiesOwing': 2,
+                'collectionRateBp': 0,
+              },
+            ],
+          },
       },
     };

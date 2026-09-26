@@ -174,6 +174,23 @@ void main() {
       expect(CollectionsSummary.fromJson(<String, dynamic>{}).outstandingFeesAvailable, isFalse);
     });
 
+    test('what the school is owed is read by session and term, and only when the server says it is available', () {
+      final s = CollectionsSummary.fromJson((summaryJson(owed: true)['summary']) as Map<String, dynamic>);
+      expect(s.outstandingFeesAvailable, isTrue);
+      expect((s.owed.available, s.owed.outstandingMinor, s.owed.arrearsMinor, s.owed.currentMinor, s.owed.familiesOwing), (true, 29000000, 13000000, 16000000, 2));
+      expect(s.owed.creditMinor, 500000);
+      expect(s.owed.periods.map((p) => p.label), ['2026/2027 · First Term', '2026/2027 · Second Term']);
+      expect((s.owed.periods.first.isPast, s.owed.periods.first.collectedPercent), (true, 32));
+      expect((s.owed.periods.last.isCurrent, s.owed.periods.last.collectedPercent), (true, 0));
+      final none = CollectionsSummary.fromJson((summaryJson()['summary']) as Map<String, dynamic>);
+      expect(none.owed.available, isFalse);
+      expect(none.owed.periods, isEmpty);
+    });
+
+    test('a period with nothing payable has no percentage', () {
+      expect(OwedPeriod.fromJson(<String, dynamic>{'label': 'X'}).collectedPercent, isNull);
+    });
+
     test('with no open term there is no term total', () {
       final json = Map<String, dynamic>.from(summaryJson()['summary'] as Map)..['thisTerm'] = null;
       expect(CollectionsSummary.fromJson(json).thisTerm, isNull);

@@ -131,6 +131,26 @@ void main() {
       expect(find.textContaining('What is still owed is not shown yet'), findsOneWidget);
     });
 
+    testWidgets('once fees have been raised it shows what is owed, by term, with arrears called what they are', (tester) async {
+      final bank = Bank()..summary = summaryJson(owed: true);
+      await pumpHub(tester, bank: bank);
+      expect(find.text('Still owed'), findsOneWidget);
+      expect(find.textContaining('₦290,000 from 2 families'), findsOneWidget);
+      expect(find.textContaining('₦130,000 is arrears from terms that have ended'), findsOneWidget);
+      expect(find.textContaining('Families also hold ₦5,000 in credit'), findsOneWidget);
+      expect(find.text('2026/2027 · First Term · Ended'), findsOneWidget);
+      expect(find.text('2026/2027 · Second Term · Current'), findsOneWidget);
+      expect(find.textContaining('₦60,000 paid of ₦190,000 (32%)'), findsOneWidget);
+      expect(find.textContaining('What is still owed is not shown yet'), findsNothing);
+    });
+
+    testWidgets('a school with fees but no bank account yet still sees what it is owed', (tester) async {
+      final bank = Bank()..summary = summaryJson(available: false, today: 0, owed: true);
+      await pumpHub(tester, bank: bank);
+      expect(find.text('No bank account is connected yet'), findsOneWidget);
+      expect(find.text('Still owed'), findsOneWidget);
+    });
+
     testWidgets('test payments are left out and the screen says how many', (tester) async {
       final bank = Bank()..summary = summaryJson(sandboxHidden: 3);
       await pumpHub(tester, bank: bank);

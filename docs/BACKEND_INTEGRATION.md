@@ -1882,7 +1882,7 @@ per-student virtual accounts with no provider behind them (its page, demo data, 
 | Bank Accounts / Connect / Payments / Review / Overview screens | **Real** (need a school server) |
 | The **sandbox** connector (synthetic bank) | Real, and the *only* connector that works |
 | GTBank, UBA, Zenith, Access, FirstBank, Moniepoint, OPay, open banking, Monnify, Paystack | **Listed, not connectable.** Each is `pending_verified_documentation` with every capability off. No endpoint, credential format or webhook format was invented for any of them |
-| What a family still owes; matching a payment to an invoice or fee item | **Not possible yet.** There is no server-side fee ledger, so `outstandingFeesAvailable` is `false` and the screens say so. A payment is matched to a student and to a purpose (the account's category) only |
+| What a family still owes; matching a payment to an invoice or fee item | **Real once the school has raised fees** (the receivables ledger, by session and term - see the backend's SCHOOL_FEE_RECEIVABLES). Until then `outstandingFeesAvailable` is `false` and the screens say so. A payment into a family's own account settles that family; any other is matched to a student and a purpose (the account's category) |
 | Deep-link return from a bank's approval page | Not built: the person pastes the approval code |
 | Push notifications | Not built: the existing notification system is the in-app inbox, and that is what is used |
 
@@ -1947,7 +1947,7 @@ changes, and is refused if made on a stale screen (`expectedStatus`).
   webhook-token,audit}/`, `transactions/`, `transactions/<id>/` and `.../decide/`, `review/`, `students/`, `summary/`.
 - **Dashboards.** `GET dashboards/schools/<school>/owner/` and `.../finance/` carry a `collections` block identical to
   `summary/`. "fee collection" leaves `notAvailableYet` only once a real (non-sandbox) account is connected;
-  "outstanding balances" stays.
+  "outstanding balances" leaves the finance list once the school has raised fees (the `receivables` block of the summary).
 
 ### Before a real school can use it
 
