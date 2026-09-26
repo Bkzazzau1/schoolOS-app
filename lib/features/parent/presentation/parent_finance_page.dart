@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../mandates/presentation/direct_debit_card.dart';
 import '../data/parent_finance_demo_data.dart';
 import '../data/parent_finance_repository.dart';
 import '../domain/parent_finance_models.dart';
@@ -190,6 +191,8 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
                     membership: widget.repository.activeMembership,
                     onCopy: _copy,
                   ),
+                  const SizedBox(height: 14),
+                  DirectDebitCard(membership: widget.repository.activeMembership),
                   const SizedBox(height: 14),
                   _TransferCard(
                     children: snapshot.children,

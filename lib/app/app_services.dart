@@ -16,6 +16,7 @@ import '../features/account/data/organization_repository.dart';
 import '../features/alumni/data/alumni_server_api.dart';
 import '../features/bankconnect/data/bank_connect_api.dart';
 import '../features/familyfees/data/family_fees_api.dart';
+import '../features/mandates/data/mandates_api.dart';
 import '../features/smartcollect/data/smart_collect_api.dart';
 import '../features/billing/data/billing_repository.dart';
 import '../core/access/access_view.dart';
@@ -49,6 +50,7 @@ class AppServices {
     this.alumniServer,
     this.bankConnect,
     this.smartCollect,
+    this.mandates,
     this.familyFees,
     this.transferVerifyAssociations,
     this.transferVerifyNetwork,
@@ -90,6 +92,9 @@ class AppServices {
 
   /// Smart Money Collection: the collection policy, batches with maker-checker approval, and provider switches. Online only.
   final SmartCollectApi? smartCollect;
+
+  /// Mandates & Direct Debit (Remita, Lendsqr). Online only: absent without a server. Separate from Smart Money Collection.
+  final MandatesApi? mandates;
 
   /// Families and the accounts each one pays into (the school's own accounts, never SchoolOS's). Online only.
   final FamilyFeesApi? familyFees;
@@ -147,6 +152,7 @@ class AppServices {
     AlumniServerApi? alumniServer;
     BankConnectApi? bankConnect;
     SmartCollectApi? smartCollect;
+    MandatesApi? mandates;
     FamilyFeesApi? familyFees;
     TransferVerifyAssociationsApi? transferVerifyAssociations;
     TransferVerifyNetworkApi? transferVerifyNetwork;
@@ -189,6 +195,7 @@ class AppServices {
       );
       bankConnect = BankConnectApi(api: api);
       smartCollect = SmartCollectApi(api: api);
+      mandates = MandatesApi(api: api);
       familyFees = FamilyFeesApi(api: api);
       transferVerifyAssociations = TransferVerifyAssociationsApi(api: api);
       transferVerifyNetwork = TransferVerifyNetworkApi(api: api);
@@ -234,6 +241,7 @@ class AppServices {
       alumniServer: alumniServer,
       bankConnect: bankConnect,
       smartCollect: smartCollect,
+      mandates: mandates,
       familyFees: familyFees,
       transferVerifyAssociations: transferVerifyAssociations,
       transferVerifyNetwork: transferVerifyNetwork,

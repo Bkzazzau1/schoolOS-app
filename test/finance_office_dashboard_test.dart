@@ -12,7 +12,7 @@ void main() {
       'Smart Money Collection',
       'Fee Reminders',
       'School Store',
-      'Payment Mandates',
+      'Mandates & Direct Debit',
       'Outstanding & Aging',
       'Receipts',
       'Student Accounts',

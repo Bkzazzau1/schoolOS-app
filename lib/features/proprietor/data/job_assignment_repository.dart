@@ -31,6 +31,11 @@ const explicitOnlyDuties = <String>{
   'finance.collection_policy_manage',
   'finance.collection_prepare',
   'finance.collection_approve',
+  // Mandates & Direct Debit is a payment path of its own with its own four duties, never implied by a collection duty.
+  'finance.mandate_provider_manage',
+  'finance.mandate_manage',
+  'finance.mandate_prepare',
+  'finance.mandate_approve',
   'finance.billing_authority',
 };
 
@@ -70,6 +75,10 @@ const assignableDuties = <String, String>{
   'finance.collection_policy_manage': 'Set the collection policy',
   'finance.collection_prepare': 'Prepare collection batches',
   'finance.collection_approve': 'Approve collection batches',
+  'finance.mandate_provider_manage': 'Connect and manage the school\'s Remita and Lendsqr accounts',
+  'finance.mandate_manage': 'Start and manage payers\' direct-debit mandates',
+  'finance.mandate_prepare': 'Prepare direct-debit batches',
+  'finance.mandate_approve': 'Approve direct-debit batches',
   'finance.billing_authority': 'Decide what families owe (fees, discounts, scholarships)',
   'administration.admissions': 'Admissions and enrollment',
   'administration.students': 'Student records',

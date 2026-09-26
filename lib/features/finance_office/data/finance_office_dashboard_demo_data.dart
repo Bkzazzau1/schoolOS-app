@@ -9,7 +9,7 @@ const financeOfficeNavigation = <FinanceOfficeNavItem>[
   FinanceOfficeNavItem(key: 'collections', label: 'Smart Money Collection'),
   FinanceOfficeNavItem(key: 'reminders', label: 'Fee Reminders'),
   FinanceOfficeNavItem(key: 'store', label: 'School Store'),
-  FinanceOfficeNavItem(key: 'mandates', label: 'Payment Mandates'),
+  FinanceOfficeNavItem(key: 'mandates', label: 'Mandates & Direct Debit'),
   FinanceOfficeNavItem(key: 'debt-aging', label: 'Outstanding & Aging'),
   FinanceOfficeNavItem(key: 'receipts', label: 'Receipts'),
   FinanceOfficeNavItem(key: 'accounts', label: 'Student Accounts'),

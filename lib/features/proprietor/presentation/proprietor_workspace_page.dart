@@ -6,6 +6,7 @@ import '../data/owner_access_scope.dart';
 import '../../alumni/data/alumni_server_api.dart';
 import '../../alumni/presentation/alumni_management_page.dart';
 import '../../bankconnect/presentation/collections_hub_page.dart';
+import '../../mandates/presentation/mandates_hub_page.dart';
 import '../../billing/presentation/billing_scope.dart';
 import '../../transferverify/data/bad_debt_classification_repository.dart';
 import '../../transferverify/presentation/bad_debt_classification_page.dart';
@@ -117,6 +118,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _OwnerNavItem('overview', 'Executive Overview', Icons.dashboard_rounded),
     _OwnerNavItem('finance', 'Owner Finance', Icons.account_balance_wallet_rounded),
     _OwnerNavItem('collections', 'Smart Money Collection', Icons.account_balance_outlined),
+    _OwnerNavItem('mandates', 'Mandates & Direct Debit', Icons.autorenew_rounded),
     _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded),
     _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded),
     _OwnerNavItem('jobs', 'Jobs & Delegation', Icons.assignment_ind_outlined),
@@ -635,6 +637,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
 
     final label = switch (key) {
       'collections' => 'Smart Collections',
+      'mandates' => 'Mandates & Direct Debit',
       'finance-office' => 'Finance Office',
       'fee-structure' => 'Fee Structure',
       'store' => 'School Store',
@@ -757,6 +760,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           ? const SizedBox.shrink()
           : OwnerAccessPage(controller: _ownerAccess()!),
       'collections' => CollectionsHubPage(membership: widget.membership),
+      'mandates' => MandatesHubPage(membership: widget.membership),
       'alumni' => AlumniManagementPage(
           manager: widget.membership,
           api: AlumniServerScope.maybeOf(context),
