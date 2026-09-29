@@ -2216,15 +2216,29 @@ bytes, its checksum and whether it has been checked only ever exist on the serve
   the owner's staff-profile detail page): a real file can now be attached alongside the existing
   requested/received/verified tracker. Attaching a file never changes a document's own status by itself - a
   person still marks it received or verified, exactly as before.
+- **Administrator Records/Documents** (`lib/features/administrator/presentation/administrator_records_page.dart`):
+  the records office's own review dialog for a tracked document (a birth certificate, a guardian ID, a staff
+  qualification, ...) can now hold a real attached file, reusing the existing `administrator_document_record`
+  owner kind (`apps/media/bridges/schoollife.py`) end to end - no new upload path. A record's `kind` (Student,
+  Family, Staff) picks the matching existing category (`student_document`, `admission_document`,
+  `staff_document`), so a Staff-kind Administrator record and Staff's own onboarding documents share one
+  category. Attaching a file never moves the document's own missing/received/verified status - that stays
+  entirely a human decision, exactly as Gallery and staff documents already established. Gated by the same
+  `canReviewRestrictedMetadata` permission (administrator role only) the rest of that screen already uses; a
+  teacher can still see the register but every "Review" control, including this one, stays disabled for them.
+  The backend's `document` media type previously only accepted PDF/DOC/DOCX/TXT; it now also accepts JPEG and
+  PNG, since a school "document" is very often a phone photo or scan of a paper original (`apps/staff/constants.py:
+  DEFAULT_DOCUMENTS` already asks for a "Passport photograph") - `validation.check_signature` still sniffs the
+  real bytes regardless of what the phone declared.
 
-**Not yet wired to a screen (backend ready).** Administrator's generic document records and Community's post
-attachments both have their owner kind registered on the server (`apps/media/bridges/schoollife.py`), so either
-could use `MediaAttachmentsPanel` the same way Gallery and staff documents do; no screen calls it for either yet.
-Video is uploaded, stored and downloadable, but has no thumbnail yet (the server does not build one - see
-`docs/MEDIA.md`), so a video tile shows a plain icon rather than a preview frame. Camera capture (as opposed to
-picking an existing file) was not added this pass - `file_picker` (already a dependency) is what both platforms
-use; adding `image_picker` for a live camera capture was deliberately left out, since this checkout has no
-`android/` platform folder to verify a new plugin's Android wiring against.
+**Not yet wired to a screen (backend ready).** Community's post attachments have their owner kind registered on
+the server (`apps/media/bridges/schoollife.py`) but no screen calls `MediaAttachmentsPanel` for them yet.
+Excursion evidence, incident evidence, video transcoding and antivirus/malware scanning are likewise out of scope
+for this pass. Video is uploaded, stored and downloadable, but has no thumbnail yet (the server does not build
+one - see `docs/MEDIA.md`), so a video tile shows a plain icon rather than a preview frame. Camera capture (as
+opposed to picking an existing file) was not added this pass - `file_picker` (already a dependency) is what both
+platforms use; adding `image_picker` for a live camera capture was deliberately left out, since this checkout has
+no `android/` platform folder to verify a new plugin's Android wiring against.
 
 **Found and fixed while testing.** Real `dart:io` file writes (`MediaLocalFiles`) inside a `testWidgets` test
 never completed on their own - `flutter_test`'s widget-test clock does not drive the real event loop for
@@ -2236,9 +2250,32 @@ animation was still drawing it" bug the Mandates dialogs had; it now owns its ow
 Gallery's visibility filter dropdown overflowed at ordinary widths (nothing had ever rendered that screen in a
 test before); `isExpanded: true` fixed it.
 
-**Verification.** `dart analyze` clean. New tests: `media_queue_test` (the `LocalDatabase` table itself),
+Administrator Records' own test pass (`test/administrator_records_media_test.dart`) turned up the same
+real-I/O trap from a new angle: the default `MediaLocalFiles()` resolves its storage directory through
+`path_provider`, which has no handler in a widget test and hangs indefinitely rather than throwing - two tests
+that called `MediaUploadQueue.enqueue()` directly hit `flutter_test`'s hard 10-minute test timeout before this
+was diagnosed. Every queue built directly in a test (not through a screen's own real app wiring) now passes
+`files: MediaLocalFiles(rootDirectory: () async => tempRoot)` against a real `Directory.systemTemp` temp
+directory, the same fix `media_attachments_panel_test.dart` and `media_upload_queue_test.dart` already used. A
+test that never pumps a widget (queue-only behaviour: offline retry scheduling, per-school queue isolation) is a
+plain `test()`, not `testWidgets()` - `testWidgets`'s FakeAsync zone fakes `Timer` creation, which silently
+starves a queue's own real backoff timer of the real time it needs; a plain `test()` has no such zone. Handing a
+fake server real JSON instead of real image bytes for a thumbnail's download/raw endpoints throws deep inside
+Flutter's image codec (`Invalid image data`) on whichever later `pumpAndSettle()` happens to be running when
+that rejected Future surfaces - every `FakeServer` an asset-bearing test uses now serves a real tiny PNG for
+those two endpoints, matching `media_attachments_panel_test.dart`'s own `mediaServer()`/`tinyPng()` helpers.
+
+**Verification.** `dart analyze` clean, backend and app. Backend: `apps.media`'s own suite (84/84, the one new
+test added this pass), full backend suite unchanged (the same pre-existing failures, by name). App: new
+`test/administrator_records_media_test.dart` (11/11: no attachment with and without a server, each of the five
+supported types, a rejected type never reaching the queue, an offline queued file staying honestly local, retry
+after failure, an existing server file, removing one with a reason, status untouched by any of this, a teacher
+unable to reach the control, per-school queue isolation, the staff-kind category match) plus the pre-existing
+`administrator_records_actions_test.dart` and `administrator_records_feature_test.dart` (both unaffected). Full
+app suite: the same 83 failures as before this work, by name.
+
+Older media tests, unchanged by this pass: `media_queue_test` (the `LocalDatabase` table itself),
 `media_local_files_test`, `media_api_test`, `api_client_test`'s new `putBytes` group, `media_upload_queue_test`
 (sending against local storage and a fake object store, offline retry with backoff, a server refusal, cancelling,
 retrying by hand), `media_attachments_panel_test` (empty state, listing, picking, a rejected file type, a failed
-upload's retry, who may remove a file), `gallery_media_integration_test`, `owner_staff_profile_media_test`. Full
-suite: the same 83 failures as before this work, by name.
+upload's retry, who may remove a file), `gallery_media_integration_test`, `owner_staff_profile_media_test`.
