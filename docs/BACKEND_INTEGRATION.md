@@ -2230,11 +2230,32 @@ bytes, its checksum and whether it has been checked only ever exist on the serve
   PNG, since a school "document" is very often a phone photo or scan of a paper original (`apps/staff/constants.py:
   DEFAULT_DOCUMENTS` already asks for a "Passport photograph") - `validation.check_signature` still sniffs the
   real bytes regardless of what the phone declared.
+- **Community** (`lib/features/community/presentation/community_page.dart`): every post card can now hold real
+  attached photos, reusing the existing `community_post` owner kind end to end. Real photos render inline next
+  to (never replacing) the existing `mediaLabel` caption field, which stays exactly as it was. Contribute follows
+  the same WRITERS role set posting/commenting already use; manage follows the moderator role set - the panel's
+  own "or whoever uploaded that one file" fallback covers a non-moderator removing their own upload.
+- **Excursion evidence** (`lib/features/excursions/presentation/excursions_page.dart`): each trip card can now
+  hold real evidence photos, right after the consent/transport/emergency line. Its backend owner kind was
+  registered ready but never actually wired into `apps/schoollife/apps.py`'s registration loop (the docs said
+  "trivial to add"; it was actually just missing) - now fixed, reusing the existing `school_excursion` Spec and
+  `excursion_evidence` category (image only). Attaching, failing or retrying a photo never touches a trip's own
+  status or its separate readiness-review sign-off.
+- **Incident evidence** (`lib/features/principal/presentation/principal_incidents_page.dart`): a Principal's
+  incident case can now hold real evidence photos in its detail panel. Unlike excursions, this had **no backend
+  sync entity at all** - the Flutter repository's own note/status mutations were being silently rejected by any
+  non-DEBUG backend (`SYNC_ALLOW_UNLISTED_ENTITY_TYPES` defaults to `False` outside `DEBUG`), independent of file
+  attachments. Backend now registers real `INCIDENT_CASE`/`INCIDENT_AUDIT` specs in `apps/administration/specs.py`
+  (not `apps/schoollife/specs`, whose generic cross-school test assumes every module's manager includes the
+  school owner - a principal-only module breaks that assumption, the same reason `PRINCIPAL_TEACHER_NOTES`
+  already lives in `apps/administration` rather than `apps/schoollife`), giving the case the exact "not even the
+  owner reads this" shape that existing spec already established. Evidence attaches to the case only, never to
+  its own append-only audit trail; a case is never created through the app today, only noted and status-changed,
+  matching the one flow that already existed. Both contribute and manage follow the single principal-only gate
+  every other action on this screen already uses - no other role has any access to a case at all.
 
-**Not yet wired to a screen (backend ready).** Community's post attachments have their owner kind registered on
-the server (`apps/media/bridges/schoollife.py`) but no screen calls `MediaAttachmentsPanel` for them yet.
-Excursion evidence, incident evidence, video transcoding and antivirus/malware scanning are likewise out of scope
-for this pass. Video is uploaded, stored and downloadable, but has no thumbnail yet (the server does not build
+**Not yet wired to a screen.** Video transcoding, antivirus/malware scanning and school logo migration remain out
+of scope. Video is uploaded, stored and downloadable, but has no thumbnail yet (the server does not build
 one - see `docs/MEDIA.md`), so a video tile shows a plain icon rather than a preview frame. Camera capture (as
 opposed to picking an existing file) was not added this pass - `file_picker` (already a dependency) is what both
 platforms use; adding `image_picker` for a live camera capture was deliberately left out, since this checkout has
@@ -2265,14 +2286,36 @@ Flutter's image codec (`Invalid image data`) on whichever later `pumpAndSettle()
 that rejected Future surfaces - every `FakeServer` an asset-bearing test uses now serves a real tiny PNG for
 those two endpoints, matching `media_attachments_panel_test.dart`'s own `mediaServer()`/`tinyPng()` helpers.
 
+Wiring Community, excursion evidence and incident evidence turned up three more things, one per module. A
+Community post's own attachments panel is keyed by category, not by post id, and every visible post renders its
+own panel on the same scrolling feed at once - `find.byKey('add-community_attachment')` is ambiguous with more
+than one post on screen, so `_CommunityPostCard`'s own `Container` (and `_TripCard`'s, for the same reason) now
+carries a `ValueKey('post-<id>')`/`ValueKey('trip-<id>')` a test can scope a finder to. Principal Incidents'
+category/status/severity filters had the exact same missing-`isExpanded: true` `DropdownButtonFormField` overflow
+Gallery's filter once had - nothing had ever rendered that screen at an ordinary test width before. And
+`apps.schoollife.tests.test_modules.EveryModuleTests` (the generic cross-school-isolation test every
+`apps.schoollife` Spec is run through) hardcodes the school owner as "the manager for every module" - a
+principal-only Spec like incidents' fails it not because anything is wrong, but because the assumption doesn't
+hold; `apps.administration`'s own equivalent generic tests pick a manager from each spec's own `manage` set
+instead, which is why `PRINCIPAL_TEACHER_NOTES` (and now the incident specs) live there rather than in
+`apps.schoollife.specs`.
+
 **Verification.** `dart analyze` clean, backend and app. Backend: `apps.media`'s own suite (84/84, the one new
-test added this pass), full backend suite unchanged (the same pre-existing failures, by name). App: new
+test added this pass), `apps.administration`/`apps.schoollife`/`apps.media`/`apps.sync` together (196/196, minus
+the same pre-existing `apps.sync` failures), full backend suite (2076 tests: the two new `apps.administration`
+incident tests, plus the same 39 pre-existing failures as before this work, by name). App: new
 `test/administrator_records_media_test.dart` (11/11: no attachment with and without a server, each of the five
 supported types, a rejected type never reaching the queue, an offline queued file staying honestly local, retry
 after failure, an existing server file, removing one with a reason, status untouched by any of this, a teacher
-unable to reach the control, per-school queue isolation, the staff-kind category match) plus the pre-existing
-`administrator_records_actions_test.dart` and `administrator_records_feature_test.dart` (both unaffected). Full
-app suite: the same 83 failures as before this work, by name.
+unable to reach the control, per-school queue isolation, the staff-kind category match), `test/community_media_test.dart`
+(12/12), `test/excursion_media_test.dart` (12/12) and `test/principal_incidents_media_test.dart` (10/10) - each
+following the same shape: no attachment with/without a server, an existing server file, a rejected type, every
+supported type, an offline queued file staying honestly local, retry after failure with the record's own
+status/workflow untouched, removing a file with a reason, a role with no access seeing no control at all, and
+per-school queue isolation - plus the pre-existing `administrator_records_actions_test.dart`,
+`administrator_records_feature_test.dart`, `community_test.dart`, `community_repository_test.dart`,
+`excursions_test.dart`, `excursion_repository_test.dart` and `principal_incidents_feature_test.dart` (all
+unaffected). Full app suite: the same 83 failures as before this work, by name.
 
 Older media tests, unchanged by this pass: `media_queue_test` (the `LocalDatabase` table itself),
 `media_local_files_test`, `media_api_test`, `api_client_test`'s new `putBytes` group, `media_upload_queue_test`
