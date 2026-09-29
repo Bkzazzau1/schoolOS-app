@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/media/media_api.dart';
+import '../../../core/media/presentation/media_attachments_panel.dart';
+import '../../../shared/models/school_membership.dart';
 import '../data/principal_incidents_demo_data.dart';
 import '../data/principal_incidents_repository.dart';
 import '../domain/principal_incidents_models.dart';
@@ -201,6 +204,7 @@ class _PrincipalIncidentsPageState extends State<PrincipalIncidentsPage> {
             final detail = _Detail(
               item: selected,
               permissions: s.permissions,
+              membership: widget.repository.activeMembership,
               note: _note,
               saving: _saving,
               onSaveNote: _saveNote,
@@ -444,6 +448,7 @@ class _Drop extends StatelessWidget {
     width: 180,
     child: DropdownButtonFormField<String>(
       initialValue: value,
+      isExpanded: true,
       decoration: const InputDecoration(border: OutlineInputBorder()),
       items: [
         for (final v in values) DropdownMenuItem(value: v, child: Text(v)),
@@ -459,6 +464,7 @@ class _Detail extends StatelessWidget {
   const _Detail({
     required this.item,
     required this.permissions,
+    required this.membership,
     required this.note,
     required this.saving,
     required this.onSaveNote,
@@ -469,6 +475,7 @@ class _Detail extends StatelessWidget {
   });
   final PrincipalIncident item;
   final PrincipalIncidentPermissions permissions;
+  final SchoolMembership membership;
   final TextEditingController note;
   final bool saving;
   final VoidCallback onSaveNote, onInvestigating, onMonitoring, onResolve;
@@ -563,6 +570,13 @@ class _Detail extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          const Text(
+            'Evidence',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          _attachments(context),
+          const SizedBox(height: 12),
           TextField(
             controller: note,
             minLines: 3,
@@ -620,6 +634,30 @@ class _Detail extends StatelessWidget {
       ),
     ),
   );
+
+  /// The real evidence photos for this case - the same shared media service (docs/BACKEND_INTEGRATION.md)
+  /// Gallery, staff onboarding documents, Administrator Records, Community and excursion evidence already use.
+  /// Online only: without a school server there is nowhere a real file could live, so nothing is offered here,
+  /// and neither the case's own status nor its audit trail is touched by any of this.
+  Widget _attachments(BuildContext context) {
+    final api = MediaScope.maybeOf(context);
+    final queue = MediaScope.queueOf(context);
+    if (api == null || queue == null) return const SizedBox.shrink();
+    return MediaAttachmentsPanel(
+      api: api,
+      queue: queue,
+      membership: membership,
+      ownerType: 'principal_recorded_incident_case',
+      ownerId: item.id,
+      canContribute: permissions.canAddInternalNote,
+      canManage: permissions.canChangeCaseStatus,
+      emptyLabel: 'No evidence photos yet.',
+      tileSize: 84,
+      options: const [
+        MediaAttachmentOption(label: 'Attach evidence', category: 'incident_evidence', mediaType: 'image', icon: Icons.add_photo_alternate_outlined),
+      ],
+    );
+  }
 }
 
 class _Meta extends StatelessWidget {

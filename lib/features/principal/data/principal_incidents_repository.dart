@@ -58,6 +58,10 @@ class PrincipalIncidentsRepository {
   final LocalDatabase _db;
   final SchoolSessionController _session;
 
+  /// The membership acting right now - what the screen needs to reach the shared media service for a case's
+  /// real evidence photos, without this repository having to know anything about media itself.
+  SchoolMembership get activeMembership => _session.requireActiveMembership();
+
   PrincipalIncidentPermissions permissionsFor(SchoolMembership membership) =>
       PrincipalIncidentPermissions(
         canViewSecondaryIncidents: membership.role == SchoolRole.principal,
