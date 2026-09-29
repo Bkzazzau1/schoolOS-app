@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/media/media_api.dart';
+import '../../../core/media/presentation/media_attachments_panel.dart';
 import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/presentation/owner_dialogs.dart';
 import '../data/administrator_records_repository.dart';
 import '../domain/administrator_records_models.dart';
 import 'administrator_records_dialogs.dart';
+
+/// Which of the shared media service's document categories a record uses - the records office tracks the same
+/// document record whichever it belongs to, but the school's own Staff onboarding documents already use
+/// "staff_document" (owner_staff_profiles_page.dart), so a staff record here uses that same category rather
+/// than a second one meaning the same thing.
+String _categoryFor(AdministratorDocumentRecord record) => switch (record.kind) {
+      'Staff' => 'staff_document',
+      'Family' => 'admission_document',
+      _ => 'student_document',
+    };
 
 class AdministratorRecordsPage extends StatefulWidget {
   const AdministratorRecordsPage({
@@ -102,6 +114,15 @@ class _AdministratorRecordsPageState extends State<AdministratorRecordsPage> wit
                     ),
                 ],
                 const SizedBox(height: 12),
+                const Text('Attached files', style: TextStyle(fontWeight: FontWeight.w900)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Attaching a file here never moves this document to received or verified by itself - the office still does that step.',
+                  style: TextStyle(color: Color(0xFF5F6B7A)),
+                ),
+                const SizedBox(height: 8),
+                _attachments(record),
+                const SizedBox(height: 12),
                 const _BoundaryBox(text: administratorRecordsVisibilityBoundary),
                 const SizedBox(height: 8),
                 const _BoundaryBox(text: administratorRecordsReviewBoundary),
@@ -133,6 +154,38 @@ class _AdministratorRecordsPageState extends State<AdministratorRecordsPage> wit
       note = reason;
     }
     await _finish(await widget.repository.act(record, action, note: note));
+  }
+
+  /// The real files attached to this document record - SchoolOS's shared media service (docs/MEDIA.md), the
+  /// same one Gallery and staff onboarding documents already use. Online only: without a school server there is
+  /// nowhere a real file could live, so nothing is offered here.
+  Widget _attachments(AdministratorDocumentRecord record) {
+    final api = MediaScope.maybeOf(context);
+    final queue = MediaScope.queueOf(context);
+    if (api == null || queue == null) {
+      return const Text('Attaching a real file needs your school\'s server.', style: TextStyle(color: Color(0xFF5F6B7A)));
+    }
+    final canReview = _permissions?.canReviewRestrictedMetadata ?? false;
+    return MediaAttachmentsPanel(
+      api: api,
+      queue: queue,
+      membership: widget.repository.activeMembership,
+      ownerType: 'administrator_document_record',
+      ownerId: record.id,
+      canContribute: canReview,
+      canManage: canReview,
+      emptyLabel: 'No files attached yet.',
+      tileSize: 84,
+      options: [
+        MediaAttachmentOption(
+          label: 'Attach a file',
+          category: _categoryFor(record),
+          mediaType: 'document',
+          icon: Icons.upload_file_outlined,
+          allowedExtensions: const ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+        ),
+      ],
+    );
   }
 
   @override
@@ -333,6 +386,7 @@ class _DocumentRow extends StatelessWidget {
           SizedBox(
             width: 88,
             child: TextButton(
+              key: ValueKey('review-${record.id}'),
               onPressed: canReview ? onReview : null,
               child: const Text('Review'),
             ),
@@ -392,6 +446,7 @@ class _CompactRegister extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
+                      key: ValueKey('review-${record.id}'),
                       onPressed: canReview ? () => onReview(record) : null,
                       child: const Text('Review'),
                     ),

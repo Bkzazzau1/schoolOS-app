@@ -107,4 +107,4 @@ const administratorRecordsVisibilityBoundary =
     'Documents use minimum-necessary visibility. Administration storing a document does not make it visible to every teacher, parent or leader.';
 
 const administratorRecordsReviewBoundary =
-    'The records office tracks where each document stands: missing, received, verified. Every step is kept in the document\'s history and nothing is deleted. Files are not stored here yet, and a document is not shared more widely than its visibility allows.';
+    'The records office tracks where each document stands: missing, received, verified. Every step is kept in the document\'s history and nothing is deleted. A real file can be attached once a school server exists, but attaching one never moves the status by itself - the office still decides received and verified, and a document is not shared more widely than its visibility allows.';

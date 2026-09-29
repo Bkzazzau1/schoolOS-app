@@ -28,6 +28,10 @@ class AdministratorRecordsRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
+  /// The membership acting right now - what a screen needs to reach the shared media service for a document
+  /// record's real attached files, without this repository having to know anything about media itself.
+  SchoolMembership get activeMembership => _schoolSession.requireActiveMembership();
+
   AdministratorRecordsPermissions permissionsFor(SchoolMembership membership) {
     final allowed = membership.role == SchoolRole.administrator;
     return AdministratorRecordsPermissions(

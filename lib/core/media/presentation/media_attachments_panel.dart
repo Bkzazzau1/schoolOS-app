@@ -144,7 +144,7 @@ class _MediaAttachmentsPanelState extends State<MediaAttachmentsPanel> {
     try {
       final file = await widget.pickFile(option);
       if (file == null) return;
-      final mimeType = mimeTypeForExtension(file.extension, mediaType: option.mediaType);
+      final mimeType = mimeTypeForExtension(file.extension);
       if (mimeType == null) {
         _message('SchoolOS does not accept a ${file.extension ?? "that kind of"} file here.');
         return;
