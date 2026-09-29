@@ -2,6 +2,8 @@ import '../data/staff_server_api.dart';
 import 'invitation_status_card.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/media/media_api.dart';
+import '../../../core/media/presentation/media_attachments_panel.dart';
 import '../../../core/sync/sync_scope.dart';
 
 import 'owner_dialogs.dart';
@@ -483,9 +485,7 @@ class _OwnerStaffProfileDetailPageState
   Widget _documents(StaffProfile p) => _section(
     'Required documents',
     [
-      const Text(
-        'Tracks what has been received and where each original is kept. Files are not stored in the app yet.',
-      ),
+      const Text('Tracks what has been received and where each original is kept.'),
       if (p.documents.isEmpty) const Text('No documents requested yet.'),
       for (var i = 0; i < p.documents.length; i++)
         ListTile(
@@ -504,6 +504,13 @@ class _OwnerStaffProfileDetailPageState
                 )
               : null,
         ),
+      const Divider(height: 24),
+      Text(
+        p.documents.isEmpty ? 'Real files:' : 'Real files, shared across the documents above (not yet matched to one each):',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      const SizedBox(height: 8),
+      _staffFiles(),
     ],
     action: TextButton.icon(
       onPressed: _busy ? null : _addDocument,
@@ -511,6 +518,33 @@ class _OwnerStaffProfileDetailPageState
       label: const Text('Add'),
     ),
   );
+
+  /// The real files attached to this staff member's own record - SchoolOS's shared media service
+  /// (docs/MEDIA.md), the first place outside Gallery to use it. Online only: without a school server there is
+  /// nowhere a real file could live, so nothing is offered here.
+  Widget _staffFiles() {
+    final api = MediaScope.maybeOf(context);
+    final queue = MediaScope.queueOf(context);
+    final membership = widget.repository.session.activeMembership;
+    if (api == null || queue == null || membership == null) {
+      return const Text('Attaching a real file needs your school\'s server.', style: TextStyle(color: Color(0xFF5F6B7A)));
+    }
+    final canEdit = _view?.access.canEdit ?? false;
+    return MediaAttachmentsPanel(
+      api: api,
+      queue: queue,
+      membership: membership,
+      ownerType: 'staff_profile_document',
+      ownerId: _id,
+      canContribute: canEdit,
+      canManage: canEdit,
+      emptyLabel: 'No files attached yet.',
+      tileSize: 84,
+      options: const [
+        MediaAttachmentOption(label: 'Attach a document', category: 'staff_document', mediaType: 'document', icon: Icons.upload_file_outlined, allowedExtensions: ['pdf', 'doc', 'docx']),
+      ],
+    );
+  }
 
   Future<void> _addReview() async {
     final r = await _form('Add performance review', const {
