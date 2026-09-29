@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/media/media_api.dart';
 import '../../administrator/domain/administrator_academics_models.dart';
 import '../data/gallery_demo_data.dart';
 import '../data/gallery_repository.dart';
 import '../domain/gallery_models.dart';
+import 'gallery_album_media_page.dart';
 
 class GalleryPage extends StatefulWidget {
   const GalleryPage({
@@ -99,6 +101,23 @@ class _GalleryPageState extends State<GalleryPage> {
             child: const Text('Close'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openAlbum(GalleryMediaItem item, GalleryPermissions permissions) async {
+    final api = MediaScope.maybeOf(context);
+    final queue = MediaScope.queueOf(context);
+    if (api == null || queue == null) return; // no school server: nothing real to open - see MediaScope
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => GalleryAlbumMediaPage(
+          membership: widget.repository.activeMembership,
+          album: item,
+          permissions: permissions,
+          api: api,
+          queue: queue,
+        ),
       ),
     );
   }
@@ -242,6 +261,7 @@ class _GalleryPageState extends State<GalleryPage> {
                   width: 210,
                   child: DropdownButtonFormField<GalleryVisibility?>(
                     initialValue: _visibility,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Visibility',
                       border: OutlineInputBorder(),
@@ -275,7 +295,7 @@ class _GalleryPageState extends State<GalleryPage> {
               )
             else
               for (final item in items) ...[
-                _MediaRow(item: item),
+                _MediaRow(item: item, onOpen: () => _openAlbum(item, _snapshot!.permissions)),
                 if (item != items.last) const Divider(height: 24),
               ],
           ],
@@ -412,13 +432,15 @@ class _StatsGrid extends StatelessWidget {
 }
 
 class _MediaRow extends StatelessWidget {
-  const _MediaRow({required this.item});
+  const _MediaRow({required this.item, required this.onOpen});
 
   final GalleryMediaItem item;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasServer = MediaScope.maybeOf(context) != null;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -465,7 +487,21 @@ class _MediaRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          CircleAvatar(child: Text('${item.count}')),
+          Column(
+            children: [
+              CircleAvatar(child: Text('${item.count}')),
+              const SizedBox(height: 6),
+              if (hasServer)
+                OutlinedButton(
+                  key: ValueKey('open-album-${item.id}'),
+                  onPressed: onOpen,
+                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10)),
+                  child: const Text('Open', style: TextStyle(fontSize: 12)),
+                )
+              else
+                Text('Server needed\nfor real files', textAlign: TextAlign.center, style: theme.textTheme.labelSmall),
+            ],
+          ),
         ],
       ),
     );

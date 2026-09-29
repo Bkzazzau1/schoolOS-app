@@ -60,6 +60,10 @@ class GalleryRepository {
   final SchoolSessionController _schoolSession;
   final AdministratorAcademicsRepository _academics;
 
+  /// The membership acting right now - what a screen needs to reach the shared media service for this album's
+  /// real photos and videos, without this repository having to know anything about media itself.
+  SchoolMembership get activeMembership => _schoolSession.requireActiveMembership();
+
   GalleryPermissions permissionsFor(SchoolMembership membership) {
     return GalleryPermissions(
       canManage: _managers.contains(membership.role),
