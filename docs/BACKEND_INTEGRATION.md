@@ -2158,3 +2158,87 @@ sent once), `mandates_screens_test` (providers and connecting, mandates and star
 maker, the checker, stale and refused batches, partial failure and retry, unknown outcomes, and phone-width layouts), `mandates_access_test` (the
 four duties, the menus, and the owner's workspace with and without a server). Full suite: 1517 passing; the 83 failures are the same 83 as before
 this work, by name.
+
+## SchoolOS Media & Files: one shared file service, real in Gallery and staff documents (real backend and app)
+
+A canonical file/attachment service (`lib/core/media`), reused by every feature that needs a real file - a
+photo, a video, a document - instead of a separate upload system per screen. The backend side is
+`apps/media` (Django repository); its own docs are `docs/MEDIA.md` there.
+
+```
+A screen picks a file (file_picker) -> copied at once into this app's own storage (MediaLocalFiles) and
+   queued (LocalDatabase's new media_uploads table) -> the screen shows it as "Waiting" immediately, never
+   as uploaded
+        |
+        v
+MediaUploadQueue (online only, the same durable-queue shape SyncCoordinator uses): initiate -> the bytes go
+   straight to wherever the server said (its own /upload/ address for local/dev storage; a presigned URL for
+   S3-compatible storage, with no SchoolOS token in that second request) -> complete
+        |
+        v
+The server verifies and, for an image, builds a thumbnail; the file becomes "available". A transient failure
+   (offline, a 5xx) retries with a growing gap, the same shape SyncCoordinator's own backoff uses; a file the
+   server refuses outright is marked failed and is not retried automatically again.
+```
+
+**A file's real bytes are never faked.** Without a school server, nothing here is offered at all (the same
+"needs your school's server" pattern as Mandates, Smart Money Collection and Bank Connect) - a photo's real
+bytes, its checksum and whether it has been checked only ever exist on the server.
+
+**Where it is.**
+
+- `lib/core/media/`: `media_models.dart` (`MediaAsset`, upload/download instructions), `media_api.dart`
+  (`MediaApi`, `MediaScope` - both the read/write client and the queue, so a screen reaches everything through
+  one scope), `media_upload_queue.dart` (`MediaUploadQueue`, always present - even in demo mode, so a file can be
+  picked and queued offline - but only ever sends once a server exists), `media_local_files.dart`
+  (`MediaLocalFiles`, the one place that touches a queued file's bytes on disk), `media_thumbnail_view.dart` (a
+  single file's preview, asking `downloadInfo` first and only then reading bytes from wherever that says),
+  `presentation/media_attachments_panel.dart` (**the one reusable "files attached to this record" widget** -
+  lists the server's own confirmed files next to this device's own still-queued or failed ones, offers to add a
+  file per a screen's own `MediaAttachmentOption`s, and lets someone who manages the owner (or who added that one
+  file) remove it).
+- `LocalDatabase` gained a fourth table, `media_uploads`, the same durable-queue shape as the existing
+  `sync_outbox`: a row survives an app restart because it lives in the same database file, in states
+  `waiting -> uploading -> uploaded`/`failed`, with its own per-row retry time (`nextAttemptAt`) - unlike ordinary
+  sync mutations, uploads are not strictly ordered, so each retries independently.
+- `ApiClient` gained `putBytes` (raw bytes, not JSON) for local/dev storage's own direct-upload address; a
+  presigned S3-compatible upload is sent with `package:http` directly, with **no SchoolOS bearer token at all** -
+  sending one would only leak it to an address that is not SchoolOS's own.
+
+**Real today.**
+
+- **Gallery** (`lib/features/gallery`) is the first real consumer: an album (its own existing local record,
+  unchanged) can now hold several real photos and videos with captions and an uploader, opened from the album
+  list with an **Open** button that only appears once a school server exists. A teacher or staff member (or a
+  manager) can add a photo or video; only a manager, or whoever added that one file, may remove it - the same
+  rules Gallery's own album record already enforces, asked of the server, never duplicated on the phone.
+- **A staff member's onboarding documents** (`lib/features/proprietor/presentation/owner_staff_profiles_page.dart`,
+  the owner's staff-profile detail page): a real file can now be attached alongside the existing
+  requested/received/verified tracker. Attaching a file never changes a document's own status by itself - a
+  person still marks it received or verified, exactly as before.
+
+**Not yet wired to a screen (backend ready).** Administrator's generic document records and Community's post
+attachments both have their owner kind registered on the server (`apps/media/bridges/schoollife.py`), so either
+could use `MediaAttachmentsPanel` the same way Gallery and staff documents do; no screen calls it for either yet.
+Video is uploaded, stored and downloadable, but has no thumbnail yet (the server does not build one - see
+`docs/MEDIA.md`), so a video tile shows a plain icon rather than a preview frame. Camera capture (as opposed to
+picking an existing file) was not added this pass - `file_picker` (already a dependency) is what both platforms
+use; adding `image_picker` for a live camera capture was deliberately left out, since this checkout has no
+`android/` platform folder to verify a new plugin's Android wiring against.
+
+**Found and fixed while testing.** Real `dart:io` file writes (`MediaLocalFiles`) inside a `testWidgets` test
+never completed on their own - `flutter_test`'s widget-test clock does not drive the real event loop for
+non-Flutter-scheduled async work, so every test that picks a file wraps that step in `tester.runAsync()`. A
+"waiting"/"uploading" tile's indeterminate spinner keeps scheduling frames forever, so a test that leaves one on
+screen uses a bounded `tester.pump()` rather than `pumpAndSettle()`, which would never return. The dialog that
+asks for a reason before removing a file had the same "disposed a `TextEditingController` while its closing
+animation was still drawing it" bug the Mandates dialogs had; it now owns its own field the same way those do.
+Gallery's visibility filter dropdown overflowed at ordinary widths (nothing had ever rendered that screen in a
+test before); `isExpanded: true` fixed it.
+
+**Verification.** `dart analyze` clean. New tests: `media_queue_test` (the `LocalDatabase` table itself),
+`media_local_files_test`, `media_api_test`, `api_client_test`'s new `putBytes` group, `media_upload_queue_test`
+(sending against local storage and a fake object store, offline retry with backoff, a server refusal, cancelling,
+retrying by hand), `media_attachments_panel_test` (empty state, listing, picking, a rejected file type, a failed
+upload's retry, who may remove a file), `gallery_media_integration_test`, `owner_staff_profile_media_test`. Full
+suite: the same 83 failures as before this work, by name.
