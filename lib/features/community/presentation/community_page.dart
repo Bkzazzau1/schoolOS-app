@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/media/media_api.dart';
+import '../../../core/media/presentation/media_attachments_panel.dart';
+import '../../../shared/models/school_membership.dart';
 import '../data/community_demo_data.dart';
 import '../data/community_repository.dart';
 import '../domain/community_models.dart';
@@ -264,6 +267,8 @@ class _CommunityPageState extends State<CommunityPage> {
               for (final post in _visiblePosts) ...[
                 _CommunityPostCard(
                   post: post,
+                  membership: widget.repository.activeMembership,
+                  permissions: snapshot.permissions,
                   onReact: () => _react(post),
                   onComment: () => _comment(post),
                   onReport: () => _report(post),
@@ -675,12 +680,16 @@ class _Filters extends StatelessWidget {
 class _CommunityPostCard extends StatelessWidget {
   const _CommunityPostCard({
     required this.post,
+    required this.membership,
+    required this.permissions,
     required this.onReact,
     required this.onComment,
     required this.onReport,
   });
 
   final CommunityPost post;
+  final SchoolMembership membership;
+  final CommunityPermissions permissions;
   final VoidCallback onReact;
   final VoidCallback onComment;
   final VoidCallback onReport;
@@ -697,6 +706,7 @@ class _CommunityPostCard extends StatelessWidget {
     final isPublic = post.visibility == CommunityVisibility.publicShowcase;
 
     return Container(
+      key: ValueKey('post-${post.id}'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(color: theme.colorScheme.outlineVariant),
@@ -769,6 +779,8 @@ class _CommunityPostCard extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 10),
+          _attachments(context),
           const SizedBox(height: 12),
           Wrap(
             spacing: 14,
@@ -826,6 +838,30 @@ class _CommunityPostCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  /// The real photos attached to this post - the same shared media service (docs/BACKEND_INTEGRATION.md)
+  /// Gallery, staff onboarding documents and Administrator Records already use. Online only: without a school
+  /// server there is nowhere a real file could live, so nothing is offered here, and the existing mediaLabel
+  /// caption above is left exactly as it was.
+  Widget _attachments(BuildContext context) {
+    final api = MediaScope.maybeOf(context);
+    final queue = MediaScope.queueOf(context);
+    if (api == null || queue == null) return const SizedBox.shrink();
+    return MediaAttachmentsPanel(
+      api: api,
+      queue: queue,
+      membership: membership,
+      ownerType: 'community_post',
+      ownerId: post.id,
+      canContribute: permissions.canPost,
+      canManage: permissions.canModerate,
+      emptyLabel: 'No photos attached yet.',
+      tileSize: 84,
+      options: const [
+        MediaAttachmentOption(label: 'Attach a photo', category: 'community_attachment', mediaType: 'image', icon: Icons.add_photo_alternate_outlined),
+      ],
     );
   }
 }

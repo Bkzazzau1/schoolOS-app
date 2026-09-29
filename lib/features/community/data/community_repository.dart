@@ -37,6 +37,10 @@ class CommunityRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
+  /// The membership acting right now - what the feed needs to reach the shared media service for a post's real
+  /// attached files, without this repository having to know anything about media itself.
+  SchoolMembership get activeMembership => _schoolSession.requireActiveMembership();
+
   Future<CommunitySnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
     var postRecords = await _localDatabase.getLocalRecords(
