@@ -8,6 +8,7 @@ import '../features/administrator/presentation/administrator_workspace_page.dart
 import '../features/alumni/data/alumni_server_api.dart';
 import '../features/bankconnect/data/bank_connect_api.dart';
 import '../features/familyfees/data/family_fees_api.dart';
+import '../core/media/media_api.dart';
 import '../features/mandates/data/mandates_api.dart';
 import '../features/smartcollect/data/smart_collect_api.dart';
 import '../features/transferverify/data/transfer_verify_associations_api.dart';
@@ -274,6 +275,8 @@ class SchoolOsApp extends StatelessWidget {
             if (smartCollect != null) tree = SmartCollectScope(api: smartCollect, child: tree);
             final mandates = services.mandates;
             if (mandates != null) tree = MandatesScope(api: mandates, child: tree);
+            final mediaApi = services.mediaApi;
+            if (mediaApi != null) tree = MediaScope(api: mediaApi, queue: services.mediaQueue, child: tree);
             final familyFees = services.familyFees;
             if (familyFees != null) tree = FamilyFeesScope(api: familyFees, child: tree);
             final transferVerifyAssociations = services.transferVerifyAssociations;

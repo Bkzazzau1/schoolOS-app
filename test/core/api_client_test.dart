@@ -234,5 +234,36 @@ void main() {
       );
       await expectLater(apiFor(server).get('x/'), throwsA(isA<ApiException>()));
     });
+
+    group('putBytes', () {
+      test('sends the exact bytes, the token, and the mime type given - never JSON-encoded', () async {
+        final server = FakeServer((r) async => jsonResponse({'ok': true}));
+        await apiFor(server).putBytes('assets/1/upload/', [1, 2, 3, 4], mimeType: 'image/png');
+        final request = server.requests.single;
+        expect(request.method, 'PUT');
+        expect(request.bodyBytes, [1, 2, 3, 4]);
+        expect(request.headers['Content-Type'], 'image/png');
+        expect(request.headers['Authorization'], 'Bearer access-1');
+      });
+
+      test('the servers refusal comes back the same way any other call refuses', () async {
+        final server = FakeServer((r) async => jsonResponse({'code': 'size_mismatch', 'message': 'Wrong size.'}, 400));
+        await expectLater(
+          apiFor(server).putBytes('assets/1/upload/', [1], mimeType: 'image/png'),
+          throwsA(isA<ApiException>().having((e) => e.code, 'code', 'size_mismatch')),
+        );
+      });
+
+      test('an unreachable server is reported the same offline way as every other call', () async {
+        final server = FakeServer((r) async => throw const SocketException('no route'));
+        await expectLater(apiFor(server).putBytes('assets/1/upload/', [1], mimeType: 'image/png'), throwsA(isA<ApiOfflineException>()));
+      });
+
+      test('an ordinary JSON post is unaffected by putBytes existing: it still sends JSON, not bytes', () async {
+        final server = FakeServer((r) async => jsonResponse({}));
+        await apiFor(server).post('x/', body: {'a': 1});
+        expect(server.requests.single.headers['Content-Type'], 'application/json');
+      });
+    });
   });
 }

@@ -55,6 +55,13 @@ class ApiClient {
     throw const ApiOfflineException('The file could not be downloaded.');
   }
 
+  /// PUTs raw bytes rather than JSON - local/dev media storage's own direct-upload address only. Object storage
+  /// is written to straight from the device with its own address and no bearer token at all; this client is
+  /// never involved in that call - see MediaUploadQueue.
+  Future<void> putBytes(String path, List<int> bytes, {required String mimeType}) async {
+    _decode(await _exchange('PUT', path, body: bytes, contentType: mimeType));
+  }
+
   Future<Object?> delete(String path, {Map<String, String>? query}) =>
       _send('DELETE', path, query: query);
 
@@ -73,11 +80,12 @@ class ApiClient {
     Object? body,
     bool authenticated = true,
     String accept = 'application/json',
+    String? contentType,
   }) async {
-    var response = await _request(method, path, query, body, authenticated, accept);
+    var response = await _request(method, path, query, body, authenticated, accept, contentType);
     if (response.statusCode == 401 && authenticated) {
       if (await _refreshOnce()) {
-        response = await _request(method, path, query, body, authenticated, accept);
+        response = await _request(method, path, query, body, authenticated, accept, contentType);
       }
       if (response.statusCode == 401) {
         await _tokens.clear();
@@ -94,10 +102,12 @@ class ApiClient {
     Object? body,
     bool authenticated, [
     String accept = 'application/json',
+    String? contentType,
   ]) async {
+    final rawBytes = body is List<int>;
     final headers = <String, String>{
       'Accept': accept,
-      if (body != null) 'Content-Type': 'application/json',
+      if (body != null) 'Content-Type': contentType ?? (rawBytes ? 'application/octet-stream' : 'application/json'),
     };
     if (authenticated) {
       final tokens = await _tokens.read();
@@ -106,7 +116,7 @@ class ApiClient {
     }
     final uri = _config.uri(path, query);
     try {
-      final encoded = jsonEncode(body ?? const {});
+      final Object encoded = rawBytes ? body : jsonEncode(body ?? const {});
       final future = switch (method) {
         'GET' => _http.get(uri, headers: headers),
         'DELETE' => _http.delete(uri, headers: headers),

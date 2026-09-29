@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import '../media/media_queue_models.dart';
 import '../security/payload_cipher.dart';
 import '../sync/sync_mutation.dart';
 import '../sync/sync_store.dart';
@@ -29,6 +30,10 @@ class LocalDatabase implements SyncStore {
   /// Called whenever there is new work in the outbox, so the app can send it
   /// soon without every screen having to ask.
   void Function()? onMutationQueued;
+
+  /// Called whenever a file is queued (or asked to retry), so the upload queue can try soon without every
+  /// screen having to ask - the same role [onMutationQueued] plays for ordinary sync.
+  void Function()? onMediaUploadQueued;
   Database? _database;
 
   Database get _db {
@@ -102,6 +107,47 @@ class LocalDatabase implements SyncStore {
         cursor INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (tenant_id, membership_id)
       );
+    ''');
+
+    // A file picked or captured while offline (or while the queue has not caught up yet): the bytes are already
+    // copied into this app's own storage (local_path) before this row exists, so a picker handle that stops
+    // working later can never lose them. `state` is one of local/waiting/uploading/uploaded/failed - see
+    // media_queue_models.dart - and is never shown to a person as "uploaded" until the server has said so.
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS media_uploads (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        membership_id TEXT NOT NULL,
+        owner_type TEXT NOT NULL,
+        owner_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        byte_size INTEGER NOT NULL,
+        sha256 TEXT NOT NULL,
+        local_path TEXT NOT NULL,
+        caption TEXT NOT NULL DEFAULT '',
+        visibility TEXT NOT NULL DEFAULT 'private',
+        state TEXT NOT NULL DEFAULT 'waiting',
+        server_asset_id TEXT,
+        server_status TEXT,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at TEXT,
+        last_error_code TEXT,
+        last_error_message TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    ''');
+
+    db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_media_uploads_owner
+      ON media_uploads (tenant_id, owner_type, owner_id);
+    ''');
+
+    db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_media_uploads_state
+      ON media_uploads (tenant_id, state);
     ''');
 
     _database = db;
@@ -589,6 +635,178 @@ class LocalDatabase implements SyncStore {
 
     _db.execute('DELETE FROM sync_outbox WHERE id = ?;', [mutationId]);
   }
+
+  // -- media uploads --------------------------------------------------------------------------------------------
+  //
+  // A file's bytes are copied into this app's own storage before any of this runs (see
+  // media_local_files.dart), so nothing here ever touches a picker's own temporary handle. A row here is the
+  // durable record of one file's journey from that copy to the server; it survives an app restart the same way
+  // the ordinary sync outbox does, because it lives in the same database file.
+
+  /// Records a file already copied to [localPath], queued in the 'waiting' state. Nothing here has touched the
+  /// network yet.
+  Future<String> queueMediaUpload({
+    required String tenantId,
+    required String membershipId,
+    required String ownerType,
+    required String ownerId,
+    required String category,
+    required String fileName,
+    required String mimeType,
+    required int byteSize,
+    required String sha256,
+    required String localPath,
+    String caption = '',
+    String visibility = 'private',
+  }) async {
+    _requireTenant(tenantId);
+    final id = _newMutationId();
+    final now = DateTime.now().toUtc().toIso8601String();
+    _db.execute(
+      '''
+      INSERT INTO media_uploads (
+        id, tenant_id, membership_id, owner_type, owner_id, category, file_name, mime_type, byte_size, sha256,
+        local_path, caption, visibility, state, attempt_count, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', 0, ?, ?);
+      ''',
+      [
+        id, tenantId, membershipId, ownerType, ownerId, category, fileName, mimeType, byteSize, sha256,
+        localPath, caption, visibility, now, now,
+      ],
+    );
+    onMediaUploadQueued?.call();
+    return id;
+  }
+
+  /// Every upload - queued, sent, done or given up on - attached to one owner, oldest first: a screen shows this
+  /// alongside the server's own list so a file the server has not caught up to yet is never simply missing.
+  List<QueuedMediaUpload> mediaUploadsForOwner({
+    required String tenantId,
+    required String ownerType,
+    required String ownerId,
+  }) {
+    _requireTenant(tenantId);
+    final rows = _db.select(
+      '''
+      SELECT * FROM media_uploads WHERE tenant_id = ? AND owner_type = ? AND owner_id = ? ORDER BY created_at ASC;
+      ''',
+      [tenantId, ownerType, ownerId],
+    );
+    return rows.map(_decodeMediaUpload).toList(growable: false);
+  }
+
+  /// Uploads due to be attempted now: waiting for their first try, or waiting to be retried after a backoff.
+  List<QueuedMediaUpload> dueMediaUploads({required String tenantId, int limit = 3}) {
+    _requireTenant(tenantId);
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    final rows = _db.select(
+      '''
+      SELECT * FROM media_uploads
+      WHERE tenant_id = ? AND state = 'waiting' AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
+      ORDER BY created_at ASC LIMIT ?;
+      ''',
+      [tenantId, nowIso, limit],
+    );
+    return rows.map(_decodeMediaUpload).toList(growable: false);
+  }
+
+  int pendingMediaUploadCount({required String tenantId}) {
+    _requireTenant(tenantId);
+    final rows = _db.select(
+      "SELECT COUNT(*) AS count FROM media_uploads WHERE tenant_id = ? AND state IN ('waiting', 'uploading');",
+      [tenantId],
+    );
+    return rows.first['count'] as int;
+  }
+
+  QueuedMediaUpload? mediaUpload(String id) {
+    final rows = _db.select('SELECT * FROM media_uploads WHERE id = ? LIMIT 1;', [id]);
+    return rows.isEmpty ? null : _decodeMediaUpload(rows.first);
+  }
+
+  void markMediaUploadUploading(String id) {
+    _db.execute(
+      "UPDATE media_uploads SET state = 'uploading', updated_at = ? WHERE id = ?;",
+      [DateTime.now().toUtc().toIso8601String(), id],
+    );
+  }
+
+  /// A transient failure (no network, the server unreachable, a 5xx): back to 'waiting', tried again after
+  /// [nextAttemptAt] - never marked failed for something that might work next time.
+  void markMediaUploadWaitingRetry(
+    String id, {
+    required String errorCode,
+    required String errorMessage,
+    required DateTime nextAttemptAt,
+  }) {
+    _db.execute(
+      '''
+      UPDATE media_uploads
+      SET state = 'waiting', attempt_count = attempt_count + 1, last_error_code = ?, last_error_message = ?,
+          next_attempt_at = ?, updated_at = ?
+      WHERE id = ?;
+      ''',
+      [errorCode, errorMessage, nextAttemptAt.toUtc().toIso8601String(), DateTime.now().toUtc().toIso8601String(), id],
+    );
+  }
+
+  /// A definite refusal (the server rejected the file itself) or every retry used up: given up on automatically.
+  void markMediaUploadFailed(String id, {required String errorCode, required String errorMessage}) {
+    _db.execute(
+      "UPDATE media_uploads SET state = 'failed', last_error_code = ?, last_error_message = ?, updated_at = ? WHERE id = ?;",
+      [errorCode, errorMessage, DateTime.now().toUtc().toIso8601String(), id],
+    );
+  }
+
+  void markMediaUploadUploaded(String id, {required String serverAssetId, required String serverStatus}) {
+    _db.execute(
+      '''
+      UPDATE media_uploads
+      SET state = 'uploaded', server_asset_id = ?, server_status = ?, last_error_code = NULL, last_error_message = NULL, updated_at = ?
+      WHERE id = ?;
+      ''',
+      [serverAssetId, serverStatus, DateTime.now().toUtc().toIso8601String(), id],
+    );
+  }
+
+  /// A person asking to try a failed upload again, by hand.
+  void retryMediaUpload(String id) {
+    _db.execute(
+      "UPDATE media_uploads SET state = 'waiting', attempt_count = 0, next_attempt_at = NULL, last_error_code = NULL, last_error_message = NULL, updated_at = ? WHERE id = ? AND state = 'failed';",
+      [DateTime.now().toUtc().toIso8601String(), id],
+    );
+    onMediaUploadQueued?.call();
+  }
+
+  /// Forgets a queued upload without ever having sent it (a person cancelling their own pending pick).
+  void deleteMediaUpload(String id) {
+    _db.execute('DELETE FROM media_uploads WHERE id = ?;', [id]);
+  }
+
+  QueuedMediaUpload _decodeMediaUpload(Row row) => QueuedMediaUpload(
+        id: row['id'] as String,
+        tenantId: row['tenant_id'] as String,
+        membershipId: row['membership_id'] as String,
+        ownerType: row['owner_type'] as String,
+        ownerId: row['owner_id'] as String,
+        category: row['category'] as String,
+        fileName: row['file_name'] as String,
+        mimeType: row['mime_type'] as String,
+        byteSize: row['byte_size'] as int,
+        sha256: row['sha256'] as String,
+        localPath: row['local_path'] as String,
+        caption: row['caption'] as String,
+        visibility: row['visibility'] as String,
+        state: mediaUploadStateFrom(row['state'] as String),
+        serverAssetId: row['server_asset_id'] as String?,
+        serverStatus: row['server_status'] as String?,
+        attemptCount: row['attempt_count'] as int,
+        nextAttemptAt: row['next_attempt_at'] == null ? null : DateTime.parse(row['next_attempt_at'] as String),
+        lastErrorCode: row['last_error_code'] as String?,
+        lastErrorMessage: row['last_error_message'] as String?,
+        createdAt: DateTime.parse(row['created_at'] as String),
+        updatedAt: DateTime.parse(row['updated_at'] as String),
+      );
 
   void close() {
     _database?.close();

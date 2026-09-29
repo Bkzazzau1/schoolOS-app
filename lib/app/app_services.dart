@@ -3,6 +3,8 @@ import '../core/auth/auth_repository.dart';
 import '../core/auth/token_store.dart';
 import '../core/access/access_controller.dart';
 import '../core/database/local_database.dart';
+import '../core/media/media_api.dart';
+import '../core/media/media_upload_queue.dart';
 import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
 import '../core/security/payload_cipher.dart';
@@ -36,6 +38,7 @@ class AppServices {
     required this.localDatabase,
     required this.schoolSession,
     required this.schoolAppearance,
+    required this.mediaQueue,
     required this.apiConfig,
     this.auth,
     this.organizations,
@@ -51,6 +54,7 @@ class AppServices {
     this.bankConnect,
     this.smartCollect,
     this.mandates,
+    this.mediaApi,
     this.familyFees,
     this.transferVerifyAssociations,
     this.transferVerifyNetwork,
@@ -60,6 +64,10 @@ class AppServices {
   final LocalDatabase localDatabase;
   final SchoolSessionController schoolSession;
   final SchoolAppearanceController schoolAppearance;
+
+  /// The durable offline upload queue for real files (photos, videos, documents). Exists in demo mode too - a
+  /// file can be picked and queued without a server - but only sends once [mediaApi] exists.
+  final MediaUploadQueue mediaQueue;
   final ApiConfig apiConfig;
 
   final AuthRepository? auth;
@@ -96,6 +104,10 @@ class AppServices {
   /// Mandates & Direct Debit (Remita, Lendsqr). Online only: absent without a server. Separate from Smart Money Collection.
   final MandatesApi? mandates;
 
+  /// SchoolOS's one canonical file/media service. Online only: absent without a server. See [mediaQueue] for
+  /// queuing a file while offline.
+  final MediaApi? mediaApi;
+
   /// Families and the accounts each one pays into (the school's own accounts, never SchoolOS's). Online only.
   final FamilyFeesApi? familyFees;
   final TransferVerifyAssociationsApi? transferVerifyAssociations;
@@ -108,6 +120,7 @@ class AppServices {
     await access?.restore(membership);
     await notifications?.restore(membership);
     syncCoordinator?.start();
+    mediaQueue.start();
   }
 
   /// Stops school-scoped background work while the signed-in person is at the
@@ -115,6 +128,7 @@ class AppServices {
   /// intact, so opening a school again is immediate and safe.
   void pauseSchoolWorkspace() {
     syncCoordinator?.stop();
+    mediaQueue.stop();
     access?.clear();
     notifications?.clear();
   }
@@ -140,6 +154,9 @@ class AppServices {
     );
     await schoolAppearance.initialize();
 
+    final mediaQueue = MediaUploadQueue(database: localDatabase, schoolSession: schoolSession);
+    localDatabase.onMediaUploadQueued = mediaQueue.requestRun;
+
     AuthRepository? auth;
     OrganizationRepository? organizations;
     BillingRepository? billing;
@@ -153,6 +170,7 @@ class AppServices {
     BankConnectApi? bankConnect;
     SmartCollectApi? smartCollect;
     MandatesApi? mandates;
+    MediaApi? mediaApi;
     FamilyFeesApi? familyFees;
     TransferVerifyAssociationsApi? transferVerifyAssociations;
     TransferVerifyNetworkApi? transferVerifyNetwork;
@@ -196,6 +214,8 @@ class AppServices {
       bankConnect = BankConnectApi(api: api);
       smartCollect = SmartCollectApi(api: api);
       mandates = MandatesApi(api: api);
+      mediaApi = MediaApi(api: api);
+      mediaQueue.api = mediaApi;
       familyFees = FamilyFeesApi(api: api);
       transferVerifyAssociations = TransferVerifyAssociationsApi(api: api);
       transferVerifyNetwork = TransferVerifyNetworkApi(api: api);
@@ -227,6 +247,7 @@ class AppServices {
       localDatabase: localDatabase,
       schoolSession: schoolSession,
       schoolAppearance: schoolAppearance,
+      mediaQueue: mediaQueue,
       apiConfig: apiConfig,
       auth: auth,
       organizations: organizations,
@@ -242,6 +263,7 @@ class AppServices {
       bankConnect: bankConnect,
       smartCollect: smartCollect,
       mandates: mandates,
+      mediaApi: mediaApi,
       familyFees: familyFees,
       transferVerifyAssociations: transferVerifyAssociations,
       transferVerifyNetwork: transferVerifyNetwork,
