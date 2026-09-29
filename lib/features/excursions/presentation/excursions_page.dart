@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/media/media_api.dart';
+import '../../../core/media/presentation/media_attachments_panel.dart';
+import '../../../shared/models/school_membership.dart';
 import '../../administrator/domain/administrator_academics_models.dart';
 import '../data/excursion_demo_data.dart';
 import '../data/excursion_repository.dart';
@@ -207,6 +210,7 @@ class _ExcursionsPageState extends State<ExcursionsPage> {
               _TripRegister(
                 trips: _visibleTrips,
                 permissions: snapshot.permissions,
+                membership: widget.repository.activeMembership,
                 searchController: _searchController,
                 statusFilter: _statusFilter,
                 onQueryChanged: (_) => setState(() {}),
@@ -224,6 +228,7 @@ class _ExcursionsPageState extends State<ExcursionsPage> {
                     child: _TripRegister(
                       trips: _visibleTrips,
                       permissions: snapshot.permissions,
+                      membership: widget.repository.activeMembership,
                       searchController: _searchController,
                       statusFilter: _statusFilter,
                       onQueryChanged: (_) => setState(() {}),
@@ -282,6 +287,7 @@ class _TripRegister extends StatelessWidget {
   const _TripRegister({
     required this.trips,
     required this.permissions,
+    required this.membership,
     required this.searchController,
     required this.statusFilter,
     required this.onQueryChanged,
@@ -291,6 +297,7 @@ class _TripRegister extends StatelessWidget {
 
   final List<SchoolTrip> trips;
   final ExcursionPermissions permissions;
+  final SchoolMembership membership;
   final TextEditingController searchController;
   final TripStatus? statusFilter;
   final ValueChanged<String> onQueryChanged;
@@ -380,6 +387,9 @@ class _TripRegister extends StatelessWidget {
                 _TripCard(
                   trip: trip,
                   canReview: permissions.canReviewReadiness,
+                  membership: membership,
+                  canContribute: permissions.canCreateTrip,
+                  canManage: permissions.canManage,
                   onToggleReview: () => onToggleReview(trip),
                 ),
                 const SizedBox(height: 10),
@@ -395,17 +405,24 @@ class _TripCard extends StatelessWidget {
   const _TripCard({
     required this.trip,
     required this.canReview,
+    required this.membership,
+    required this.canContribute,
+    required this.canManage,
     required this.onToggleReview,
   });
 
   final SchoolTrip trip;
   final bool canReview;
+  final SchoolMembership membership;
+  final bool canContribute;
+  final bool canManage;
   final VoidCallback onToggleReview;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
+      key: ValueKey('trip-${trip.id}'),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         border: Border.all(color: theme.colorScheme.outlineVariant),
@@ -453,6 +470,8 @@ class _TripCard extends StatelessWidget {
             '${trip.consentReceived}/${trip.students} consent received · ${trip.transport} · ${trip.emergency}',
             style: theme.textTheme.bodySmall,
           ),
+          const SizedBox(height: 10),
+          _attachments(context),
           if (canReview) ...[
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -472,6 +491,30 @@ class _TripCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  /// The real evidence photos for this trip - the same shared media service (docs/BACKEND_INTEGRATION.md)
+  /// Gallery, staff onboarding documents, Administrator Records and Community already use. Online only: without
+  /// a school server there is nowhere a real file could live, so nothing is offered here, and neither the
+  /// trip's own status nor its readiness sign-off is touched by any of this.
+  Widget _attachments(BuildContext context) {
+    final api = MediaScope.maybeOf(context);
+    final queue = MediaScope.queueOf(context);
+    if (api == null || queue == null) return const SizedBox.shrink();
+    return MediaAttachmentsPanel(
+      api: api,
+      queue: queue,
+      membership: membership,
+      ownerType: 'school_excursion',
+      ownerId: trip.id,
+      canContribute: canContribute,
+      canManage: canManage,
+      emptyLabel: 'No evidence photos yet.',
+      tileSize: 84,
+      options: const [
+        MediaAttachmentOption(label: 'Attach evidence', category: 'excursion_evidence', mediaType: 'image', icon: Icons.add_photo_alternate_outlined),
+      ],
     );
   }
 }

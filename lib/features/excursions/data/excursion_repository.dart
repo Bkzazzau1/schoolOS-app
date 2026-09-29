@@ -59,6 +59,10 @@ class ExcursionRepository {
   final SchoolSessionController _schoolSession;
   final AdministratorAcademicsRepository _academics;
 
+  /// The membership acting right now - what the screen needs to reach the shared media service for a trip's
+  /// real evidence photos, without this repository having to know anything about media itself.
+  SchoolMembership get activeMembership => _schoolSession.requireActiveMembership();
+
   ExcursionPermissions permissionsFor(SchoolMembership membership) {
     final manage = _managers.contains(membership.role);
     return ExcursionPermissions(
