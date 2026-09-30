@@ -127,9 +127,8 @@ const gallerySafetyRules = <String, String>{
 };
 
 const galleryProductionBoundary =
-    'Album records (title, term, class, audience, visibility, consent status) are real and sync to the school\'s '
-    'server like any other record. Actual photo/video files are not: there is no upload, secure storage, signed '
-    'URL or moderation pipeline yet, so "media items" is a manually entered count, not a real file library.';
+    'Album details include the term, class, audience and consent status. '
+    'The media count is entered manually and may differ from the files attached to an album.';
 
 int get galleryMediaItemTotal =>
     galleryWebsiteSeed.fold<int>(0, (sum, item) => sum + item.count);

@@ -42,15 +42,13 @@ class ProprietorSchoolLifePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 18),
                     const _ScopeBanner(),
-                    const SizedBox(height: 18),
-                    _Stats(compact: compact),
+
                     const SizedBox(height: 18),
                     _CapabilitySection(
                       compact: compact,
                       onCapabilityRequested: onCapabilityRequested,
                     ),
-                    const SizedBox(height: 18),
-                    _Principles(compact: compact),
+
                   ],
                 ),
               ),
@@ -80,7 +78,7 @@ class _Header extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'SCHOOL-WIDE FOUNDATION · ${schoolName.toUpperCase()}',
+          'SCHOOL LIFE · ${schoolName.toUpperCase()}',
           style: theme.textTheme.labelMedium?.copyWith(
             color: theme.colorScheme.primary,
             fontWeight: FontWeight.w900,
@@ -186,84 +184,6 @@ class _ScopeBanner extends StatelessWidget {
   }
 }
 
-class _Stats extends StatelessWidget {
-  const _Stats({required this.compact});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = const [
-      _StatData('Active role', 'Proprietor', 'Owner workspace context'),
-      _StatData('Scope', 'Whole school', 'Does not bypass sensitivity rules'),
-      _StatData('Shared modules', '16', 'One School Life layer'),
-      _StatData('Cross-section override', 'Off', 'Use scoped memberships and permissions'),
-      _StatData('Backend enforcement', 'Pending API', 'UI is not the security boundary'),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = compact ? 1 : (constraints.maxWidth >= 1050 ? 5 : 3);
-        final rows = <Widget>[];
-        for (var start = 0; start < items.length; start += columns) {
-          final end = (start + columns).clamp(0, items.length);
-          rows.add(
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = start; i < end; i++) ...[
-                  Expanded(child: _StatCard(data: items[i])),
-                  if (i != end - 1) const SizedBox(width: 10),
-                ],
-                for (var i = end; i < start + columns; i++) ...[
-                  const Expanded(child: SizedBox()),
-                  if (i != start + columns - 1) const SizedBox(width: 10),
-                ],
-              ],
-            ),
-          );
-          if (end != items.length) rows.add(const SizedBox(height: 10));
-        }
-        return Column(children: rows);
-      },
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.data});
-
-  final _StatData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(data.label, style: theme.textTheme.labelMedium),
-          const SizedBox(height: 7),
-          Text(
-            data.value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(data.note, style: theme.textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
-}
-
 class _CapabilitySection extends StatelessWidget {
   const _CapabilitySection({
     required this.compact,
@@ -278,7 +198,7 @@ class _CapabilitySection extends StatelessWidget {
     return _Panel(
       title: 'Role permissions',
       subtitle:
-          'What the Proprietor can do when each shared School Life module is connected to production authorization.',
+          'Explore your school activities and services.',
       child: LayoutBuilder(
         builder: (context, constraints) {
           final columns = compact ? 1 : (constraints.maxWidth >= 1050 ? 2 : 1);
@@ -444,114 +364,6 @@ class _CapabilityCard extends StatelessWidget {
   }
 }
 
-class _Principles extends StatelessWidget {
-  const _Principles({required this.compact});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final cards = const [
-      _PrincipleCard(
-        kicker: 'ACCESS PRINCIPLE',
-        title: 'One module, different authority',
-        body: proprietorSchoolLifeAccessPrinciple,
-        icon: Icons.account_tree_outlined,
-      ),
-      _PrincipleCard(
-        kicker: 'PRODUCTION RULE',
-        title: 'UI permissions are not security',
-        body: proprietorSchoolLifeProductionRule,
-        icon: Icons.security_outlined,
-      ),
-      _PrincipleCard(
-        kicker: 'ACADEMIC BOUNDARY',
-        title: 'School Life stays separate from grades',
-        body:
-            'House points, participation, awards and service records can support school culture without changing academic marks or creating permanent student ranking.',
-        icon: Icons.school_outlined,
-      ),
-    ];
-
-    if (compact) {
-      return Column(
-        children: [
-          for (var i = 0; i < cards.length; i++) ...[
-            cards[i],
-            if (i != cards.length - 1) const SizedBox(height: 10),
-          ],
-        ],
-      );
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < cards.length; i++) ...[
-          Expanded(child: cards[i]),
-          if (i != cards.length - 1) const SizedBox(width: 10),
-        ],
-      ],
-    );
-  }
-}
-
-class _PrincipleCard extends StatelessWidget {
-  const _PrincipleCard({
-    required this.kicker,
-    required this.title,
-    required this.body,
-    required this.icon,
-  });
-
-  final String kicker;
-  final String title;
-  final String body;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: theme.colorScheme.primary),
-          const SizedBox(height: 10),
-          Text(
-            kicker,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            body,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _Panel extends StatelessWidget {
   const _Panel({
     required this.title,
@@ -595,14 +407,6 @@ class _Panel extends StatelessWidget {
       ),
     );
   }
-}
-
-class _StatData {
-  const _StatData(this.label, this.value, this.note);
-
-  final String label;
-  final String value;
-  final String note;
 }
 
 IconData _iconFor(String key) {

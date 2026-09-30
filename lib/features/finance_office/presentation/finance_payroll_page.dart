@@ -90,7 +90,7 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
     final held = _rows.where((row) => row.needsAttendanceReview).toList();
     final readyValue = ready.fold<int>(0, (sum, row) => sum + row.net);
     try {
-      await PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), 
+      await PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context),
         database: widget.localDatabase,
         session: widget.schoolSession,
       ).prepare(PayrollBatchRepository.periodFor(DateTime.now()), ready);
@@ -143,7 +143,7 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
         ],
         const SizedBox(height: 16),
         StaffProposalsPanel(
-          repository: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), 
+          repository: StaffProposalRepository(remote: StaffServerScope.maybeOf(context),
             database: widget.localDatabase,
             session: widget.schoolSession,
           ),
@@ -151,7 +151,7 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
           onStaffAdded: _load,
         ),
         PayrollBatchPanel(
-          repository: PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), 
+          repository: PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context),
             database: widget.localDatabase,
             session: widget.schoolSession,
           ),
@@ -164,8 +164,7 @@ class _FinancePayrollPageState extends State<FinancePayrollPage> {
         _PayrollRegister(rows: _rows),
         const SizedBox(height: 16),
         const _RulesGrid(),
-        const SizedBox(height: 16),
-        const _AuditBoundary(),
+
       ],
     );
   }
@@ -548,48 +547,6 @@ class _RuleCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _AuditBoundary extends StatelessWidget {
-  const _AuditBoundary();
-
-  @override
-  Widget build(BuildContext context) {
-    return _CardShell(
-      title: 'Payroll authority & settlement boundary',
-      subtitle: 'Keep approved pay, batch preparation, settlement and employment authority separate.',
-      child: const Column(
-        children: [
-          _BoundaryLine(icon: Icons.admin_panel_settings_outlined, text: financePayrollAuthorityBoundary),
-          SizedBox(height: 10),
-          _BoundaryLine(icon: Icons.playlist_add_check_rounded, text: financePayrollBatchBoundary),
-          SizedBox(height: 10),
-          _BoundaryLine(icon: Icons.account_balance_outlined, text: financePayrollSettlementBoundary),
-          SizedBox(height: 10),
-          _BoundaryLine(icon: Icons.history_rounded, text: financePayrollCorrectionBoundary),
-        ],
-      ),
-    );
-  }
-}
-
-class _BoundaryLine extends StatelessWidget {
-  const _BoundaryLine({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 19, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text)),
-      ],
     );
   }
 }

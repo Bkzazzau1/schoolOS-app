@@ -133,8 +133,7 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
           compact
               ? Column(children: [_priorityQueue(context), const SizedBox(height: 14), _aiCard(context)])
               : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: _priorityQueue(context)), const SizedBox(width: 14), Expanded(child: _aiCard(context))]),
-          const SizedBox(height: 16),
-          Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(14), child: Text('$principalStudentsScopeBoundary\n\n$principalStudentAiBoundary', style: Theme.of(context).textTheme.bodySmall))),
+
         ],
       );
     });
@@ -277,7 +276,7 @@ class _PrincipalStudentsPageState extends State<PrincipalStudentsPage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Priority intervention queue', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
             SizedBox(height: 8),
-            Text('No real attendance, assessment or incident evidence exists yet to compute a priority queue from. This will populate once that evidence is recorded, and only from real signals for real students — never from an invented risk label.'),
+            Text('No attendance, assessment or incident records are available for review yet.'),
           ]),
         ),
       );

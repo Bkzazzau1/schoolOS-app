@@ -155,26 +155,7 @@ class _ProprietorAiPageState extends State<ProprietorAiPage> with SyncRefresh<Pr
                         child: _SuggestedQuestions(onSelected: _ask),
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    _TwoColumn(
-                      compact: compact,
-                      left: const _AiCard(
-                        title: 'AI context boundary',
-                        subtitle: 'Hard production principle.',
-                        child: _BoundaryCallout(
-                          text: proprietorAiContextBoundary,
-                          warning: false,
-                        ),
-                      ),
-                      right: const _AiCard(
-                        title: 'Decision boundary',
-                        subtitle: 'AI advises; authorized humans decide.',
-                        child: _BoundaryCallout(
-                          text: proprietorAiDecisionBoundary,
-                          warning: true,
-                        ),
-                      ),
-                    ),
+
                     const SizedBox(height: 10),
                     Text(
                       'Answers from your school records on this device · ${widget.schoolName}',
@@ -496,53 +477,6 @@ class _SuggestedQuestions extends StatelessWidget {
           if (i != proprietorAiPrompts.length - 1) const Divider(height: 1),
         ],
       ],
-    );
-  }
-}
-
-class _BoundaryCallout extends StatelessWidget {
-  const _BoundaryCallout({required this.text, required this.warning});
-
-  final String text;
-  final bool warning;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final background = warning
-        ? theme.colorScheme.errorContainer.withValues(alpha: 0.48)
-        : theme.colorScheme.primaryContainer.withValues(alpha: 0.38);
-    final foreground = warning
-        ? theme.colorScheme.onErrorContainer
-        : theme.colorScheme.onPrimaryContainer;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            warning ? Icons.gavel_outlined : Icons.shield_outlined,
-            color: foreground,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: foreground,
-                height: 1.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

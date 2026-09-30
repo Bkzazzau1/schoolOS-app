@@ -69,14 +69,12 @@ class _DriverHistoryPageState extends State<DriverHistoryPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(flex: 7, child: _HistoryList(snapshot: snapshot)),
-                    const SizedBox(width: 18),
-                    const Expanded(flex: 3, child: _BoundaryCard()),
+
                   ],
                 )
               else ...[
                 _HistoryList(snapshot: snapshot),
-                const SizedBox(height: 18),
-                const _BoundaryCard(),
+
               ],
             ],
           );
@@ -415,39 +413,6 @@ class _RunSummary extends StatelessWidget {
           Text(primary),
           Text('$exceptions transport exception${exceptions == 1 ? '' : 's'}'),
         ],
-      ),
-    );
-  }
-}
-
-class _BoundaryCard extends StatelessWidget {
-  const _BoundaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Profile & history boundary',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This page is read-only and derived from transport records assigned to your Driver membership. It does not expose payroll, private HR notes, disciplinary records, other drivers, parent contact details, student academic records, or unrelated school data.',
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Queued local transport activity remains subject to synchronization and server acknowledgement; history shown on this device is not a substitute for the authoritative server audit record.',
-            ),
-          ],
-        ),
       ),
     );
   }

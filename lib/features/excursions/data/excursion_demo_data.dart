@@ -98,14 +98,14 @@ const excursionDepartureChecks = <String, String>{
 };
 
 const excursionPrivacyRule =
-    'The general trip view should not expose sensitive medical or family information. Supervisors receive only the minimum necessary safety information through restricted workflows later.';
+    'Share essential trip safety information privately with the authorized supervisor.';
 
 List<ExcursionStat> excursionStats(List<SchoolTrip> trips) => [
       ExcursionStat('Planned trips', '${trips.length}', 'Representative current term'),
       ExcursionStat(
         'Consent outstanding',
         '${trips.fold<int>(0, (sum, trip) => sum + trip.consentOutstanding)}',
-        'Across current mock trips',
+        'Across sample trips',
       ),
       ExcursionStat(
         'Ready to go',

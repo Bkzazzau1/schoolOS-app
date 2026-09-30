@@ -188,7 +188,7 @@ class TeacherSyllabusRepository {
       return const TeacherSyllabusActionResult(
         success: false,
         message:
-            'Canonical syllabus progress is generated from server-accepted lesson delivery. Open Lesson Plans & Delivery to record the real occurrence instead.',
+            'Record completed lessons in Lesson Plans & Delivery to update syllabus progress.',
       );
     }
 

@@ -78,8 +78,8 @@ void main() {
     expect(restored.type, TeacherTimetableIntentType.changeRequest);
     expect(restored.status, TeacherTimetableIntentStatus.queuedForReview);
     expect(restored.lessonId, isNull);
-    expect(teacherTimetableAuthorityBoundary, contains('does not edit'));
-    expect(teacherTimetableAuthorityBoundary, contains('server accepted'));
+    expect(teacherTimetableAuthorityBoundary, contains('request a schedule change'));
+    expect(teacherTimetableAuthorityBoundary, contains('only after approval'));
   });
 
   test('teacher timetable permissions can explicitly deny direct editing and sync authority', () {

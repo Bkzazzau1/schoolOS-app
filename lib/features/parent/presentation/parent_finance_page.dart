@@ -13,8 +13,8 @@ import 'family_payment_accounts_card.dart';
 // so initializing the picker to it would crash. The dropdown always falls back to a real option instead.
 const _mandateDebitDays = ['5th', '10th', '15th', '20th', '25th', '28th'];
 const _mandateCollectionMethods = [
-  'Bank direct debit · prototype',
-  'Salary-linked collection · prototype',
+  'Bank direct debit · preview',
+  'Salary-linked collection · preview',
 ];
 
 class ParentFinancePage extends StatefulWidget {
@@ -37,7 +37,7 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
   bool _autoPay = true;
   String _debitDay = '25th';
   String _mandateAmount = '30000';
-  String _collectionMethod = 'Bank direct debit · prototype';
+  String _collectionMethod = 'Bank direct debit · preview';
   final Map<String, bool> _selectedAccounts = <String, bool>{};
   final Map<String, String> _payAmounts = <String, String>{};
   bool _savingMandate = false;
@@ -239,12 +239,7 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
                     onReceipts: () => _openReceipts(snapshot),
                   ),
                   const SizedBox(height: 14),
-                  _ResponsivePair(
-                    left: _PaymentRailsCard(
-                      onPurchases: () => _openPurchases(snapshot),
-                    ),
-                    right: const _FinancePrincipleCard(),
-                  ),
+                  _PaymentRailsCard(onPurchases: () => _openPurchases(snapshot)),
                 ],
               );
             },
@@ -790,19 +785,6 @@ class _PaymentRailsCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _FinancePrincipleCard extends StatelessWidget {
-  const _FinancePrincipleCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _SectionCard(
-      title: 'Finance principle',
-      subtitle: 'Payment history is a factual record—not a child score.',
-      child: _Callout(text: parentFinancePrinciple),
     );
   }
 }

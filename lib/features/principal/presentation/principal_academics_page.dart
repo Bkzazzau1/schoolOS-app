@@ -196,7 +196,7 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
 
   Widget _aiContent(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Principal AI Academic Brief', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-        const Text('Prototype analysis'),
+        const Text('Sample analysis'),
         const SizedBox(height: 8),
         const Text('Not available yet. An AI brief needs real assessment and syllabus evidence across enough classes to summarise; ask Principal AI directly once more classes have recorded evidence.'),
         const SizedBox(height: 10),
@@ -458,7 +458,7 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
             ),
             const SizedBox(height: 5),
             const Text(
-              'Read-only current-term evidence from canonical Teacher assignments. Student private drafts are excluded; submission and late counts are server-derived.',
+              'Current-term assignments, submissions and late work.',
             ),
             const SizedBox(height: 14),
             _controlGrid([
@@ -470,7 +470,7 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
             ]),
             const SizedBox(height: 14),
             if (assignments.isEmpty)
-              const Text('No canonical Secondary assignment record has synced for the active term yet.')
+              const Text('No Secondary assignments have synced for the active term yet.')
             else
               for (final item in assignments.take(10)) ...[
                 ListTile(

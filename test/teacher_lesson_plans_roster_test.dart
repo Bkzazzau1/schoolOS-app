@@ -72,7 +72,7 @@ void main() {
     );
     final result = await lessonPlans.createPlan(occurrence: occurrence, topic: occurrence.topics.single);
     expect(result.success, isFalse);
-    expect(result.message, contains('server-backed timetable'));
+    expect(result.message, contains('Sync your timetable'));
   });
 
   test('a demo draft can be saved by any signed-in teacher; a locked (non-draft) plan cannot', () async {

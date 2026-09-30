@@ -156,7 +156,7 @@ class _NoticeboardPageState extends State<NoticeboardPage> {
               Text('Priority: ${notice.priority.label}'),
               Text('Acknowledgement required: ${notice.acknowledgementRequired ? 'Yes' : 'No'}'),
               const SizedBox(height: 12),
-              const Text('Production delivery will reconcile in-app read state with configured SMS, WhatsApp or email channels.'),
+              const Text('Check delivery status before following up with recipients.'),
             ],
           ),
         ),
@@ -334,7 +334,7 @@ class _Stats extends StatelessWidget {
       ('Active notices','${notices.length}','Across current audiences'),
       ('Pinned','${notices.where((n) => n.pinned).length}','High-visibility notices'),
       ('Need acknowledgement','${notices.where((n) => n.acknowledgementRequired).length}','Critical read confirmation'),
-      ('Average read rate','$noticeboardAverageReadRate%','Prototype audience delivery'),
+      ('Average read rate','$noticeboardAverageReadRate%','Sample delivery figures'),
       ('Scheduled','$noticeboardScheduledCount','Future publication queue'),
     ];
     return Wrap(spacing: 10, runSpacing: 10, children: [
@@ -390,7 +390,7 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) => Column(children: [
     _PolicyCard(title:'Publishing authority', subtitle:'Recommended school-wide policy.', items: noticeboardPublishingAuthority),
     const SizedBox(height: 12),
-    _PolicyCard(title:'Delivery channels', subtitle:'Planned production behavior.', items: noticeboardDeliveryChannels),
+    _PolicyCard(title:'Delivery channels', subtitle:'Available delivery options.', items: noticeboardDeliveryChannels),
     const SizedBox(height: 12),
     Card(elevation:0, child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[const Text('Noticeboard ≠ Community feed', style: TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height:6), const Text(noticeboardBoundary)]))),
   ]);

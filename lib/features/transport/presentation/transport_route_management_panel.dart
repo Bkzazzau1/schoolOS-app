@@ -230,7 +230,7 @@ class _TransportRouteManagementPanelState
                 const SizedBox(height: 12),
               ],
             Text(
-              'Configuration boundary: once a Driver manifest or vehicle check exists for today, route and stop changes are frozen for that service day. Changes otherwise save locally first and queue for synchronization.',
+              'Routes and stops are locked once today’s manifest or vehicle check exists. Other changes take effect after sync.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.45,

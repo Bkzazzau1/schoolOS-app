@@ -171,49 +171,11 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
               onNavigate: widget.onNavigate,
             ),
             const SizedBox(height: 18),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final cards = <Widget>[
-                  _InfoCard(
-                    title: 'Teacher AI student insight',
-                    body: teacherStudentAiInsight,
-                    actionLabel: 'Ask Teacher AI',
-                    onAction: () => widget.onNavigate('ai'),
-                  ),
-                  const _InfoCard(
-                    title: 'Privacy boundary',
-                    body: teacherStudentsPrivacyBoundary,
-                  ),
-                ];
-                if (constraints.maxWidth < 760) {
-                  return Column(
-                    children: [
-                      cards[0],
-                      const SizedBox(height: 12),
-                      cards[1],
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: cards[0]),
-                    const SizedBox(width: 12),
-                    Expanded(child: cards[1]),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            Card(
-              elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  teacherStudentsEvidenceBoundary,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
+            _InfoCard(
+              title: 'Teacher AI student insight',
+              body: teacherStudentAiInsight,
+              actionLabel: 'Ask Teacher AI',
+              onAction: () => widget.onNavigate('ai'),
             ),
           ],
         );
@@ -778,7 +740,7 @@ class _TeacherStudentProfileSheet extends StatelessWidget {
           ] else ...[
             const SizedBox(height: 18),
             const Text(
-              'This demo learner has directory-level teacher context only. No confidential profile fields are invented or cached.',
+              'Only directory information is available for this sample student.',
             ),
           ],
           const SizedBox(height: 18),

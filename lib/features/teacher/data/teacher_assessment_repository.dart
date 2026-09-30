@@ -329,7 +329,7 @@ class TeacherAssessmentRepository {
     if (!LocalDatabase.blockDemoSeeds) {
       return const TeacherAssessmentActionResult(
         success: false,
-        message: 'Score correction after submission is a canonical server workflow in connected mode.',
+        message: 'Connect to your school to correct submitted scores.',
       );
     }
     final existing = await _localDatabase.getLocalRecord(

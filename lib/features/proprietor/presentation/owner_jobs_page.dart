@@ -213,7 +213,7 @@ class _OwnerJobsPageState extends State<OwnerJobsPage> with SyncRefresh<OwnerJob
             ),
             if (_registered) ...[
               const Text(
-                'School staff records, including demo records in demo mode. A staff record does not confirm an activated login account.',
+                'Staff records. Account activation is shown separately.',
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(

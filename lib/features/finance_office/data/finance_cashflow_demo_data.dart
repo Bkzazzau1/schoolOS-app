@@ -57,7 +57,7 @@ const financeCashflowKpis = <FinanceCashflowKpi>[
   FinanceCashflowKpi(
     label: 'Net operating inflow',
     value: '₦12.2m',
-    hint: 'Prototype figure',
+    hint: 'Sample figure',
   ),
   FinanceCashflowKpi(
     label: 'Pending approvals',

@@ -72,7 +72,7 @@ class TeacherClassTeacherRepository {
     if (!LocalDatabase.blockDemoSeeds) {
       return const TeacherClassTeacherActionResult(
         success: false,
-        message: 'A class-teacher comment is a canonical server workflow in connected mode.',
+        message: 'Connect to your school to add a class-teacher comment.',
       );
     }
     final existing = await _localDatabase.getLocalRecord(

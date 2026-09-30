@@ -64,7 +64,7 @@ List<ServiceStat> serviceStats(List<ServiceProject> projects) {
 
   return <ServiceStat>[
     ServiceStat('Projects', '${projects.length}', 'Representative term activities'),
-    ServiceStat('Participants', '$participants', 'Across current mock projects'),
+    ServiceStat('Participants', '$participants', 'Across sample projects'),
     ServiceStat('Recorded hours', '$hours', 'Project participation hours'),
     ServiceStat('Active projects', '$active', 'Currently running'),
     ServiceStat('Verified records', '$verified', 'Local review status'),

@@ -170,8 +170,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                         ),
                       ),
             ),
-            const SizedBox(height: 14),
-            const _BoundaryPanel(),
+
           ],
         );
       },
@@ -473,7 +472,7 @@ class _RegisterHeader extends StatelessWidget {
       TeacherAttendanceSubmissionState.queued =>
         'Submission queued locally · waiting for server acknowledgement.',
       TeacherAttendanceSubmissionState.submitted =>
-        'Canonical submitted register · later changes require an audited correction.',
+        'Submitted register · request a correction to make changes.',
     };
     return Card(
       elevation: 0,
@@ -628,7 +627,7 @@ class _SubmissionPanel extends StatelessWidget {
     final title = switch (state) {
       TeacherAttendanceSubmissionState.draft => 'Ready to submit?',
       TeacherAttendanceSubmissionState.queued => 'Submission queued',
-      TeacherAttendanceSubmissionState.submitted => 'Canonical attendance',
+      TeacherAttendanceSubmissionState.submitted => 'Submitted attendance',
     };
     final detail = switch (state) {
       TeacherAttendanceSubmissionState.draft => register.unmarkedCount == 0
@@ -684,30 +683,6 @@ class _SubmissionPanel extends StatelessWidget {
       ),
     );
   }
-}
-
-class _BoundaryPanel extends StatelessWidget {
-  const _BoundaryPanel();
-
-  @override
-  Widget build(BuildContext context) => const Card(
-        elevation: 0,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.verified_user_outlined),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Subject attendance is tied to a real timetable occurrence and the canonical subject-eligible roster. A local draft or queued submission is not server acknowledgement. Canonical submitted records are historical evidence; attendance alone must not change grades, discipline or progression.',
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
 }
 
 class _EmptyState extends StatelessWidget {

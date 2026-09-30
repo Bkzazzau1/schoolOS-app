@@ -462,18 +462,18 @@ class _TeacherAssignmentsPageState extends State<TeacherAssignmentsPage> {
                     children: [
                       Text('Create assignment', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
                       SizedBox(height: 4),
-                      Text('Draft against one canonical class-subject and active term.'),
+                      Text('Create an assignment for a class subject in the active term.'),
                     ],
                   ),
                 ),
-                Chip(label: Text(data.canonical ? 'CANONICAL' : 'DEMO')),
+                Chip(label: Text(data.canonical ? 'SCHOOL RECORD' : 'DEMO')),
               ],
             ),
             const SizedBox(height: 14),
             if (data.canonical && options.isEmpty)
               const _InfoBox(
                 title: 'No current Teaching Assignment',
-                body: 'This Teacher membership has no active canonical class-subject to receive assignment authoring authority.',
+                body: 'No class subjects are assigned to you in the active term.',
               )
             else ...[
               if (data.canonical)
@@ -665,7 +665,7 @@ class _TeacherAssignmentsPageState extends State<TeacherAssignmentsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Assignment library', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                      Text('Canonical publication, recipient and marking evidence.'),
+                      Text('Publication, recipients and marking progress.'),
                     ],
                   ),
                 ),

@@ -820,11 +820,7 @@ class _AdministratorAcademicsPageState extends State<AdministratorAcademicsPage>
         Text(
           '${widget.schoolName} · ${activeSession?.name ?? 'No active session'}${activeTerm == null ? '' : ' · ${activeTerm.name}'}',
         ),
-        const SizedBox(height: 10),
-        const _Boundary(
-          text:
-              'Class progression is canonical and append-only. A bulk batch is not applied merely because it is queued on this device; server confirmation is the authority.',
-        ),
+
       ],
     );
   }
@@ -916,7 +912,7 @@ class _AdministratorAcademicsPageState extends State<AdministratorAcademicsPage>
           label: const Text('New class'),
         ),
         child: snapshot.classes.isEmpty
-            ? const Text('No canonical classes configured yet.')
+            ? const Text('No classes configured yet.')
             : Column(
                 children: [
                   for (final item in snapshot.classes)
@@ -1051,7 +1047,7 @@ class _AdministratorAcademicsPageState extends State<AdministratorAcademicsPage>
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 18),
               child: Text(
-                'No active pupils match the selected canonical class on this device.',
+                'No active pupils match the selected class on this device.',
               ),
             )
           else ...[

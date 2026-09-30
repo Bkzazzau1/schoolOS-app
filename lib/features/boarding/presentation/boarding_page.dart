@@ -153,7 +153,7 @@ class _BoardingPageState extends State<BoardingPage> {
             ),
             const SizedBox(height: 14),
             Text(
-              'Schools without boarding can remove this module through tenant configuration later. This screen previews enabled/disabled UI states; the preview toggle does not change school configuration.',
+              'View dormitories and resident lists. The preview toggle affects this view only.',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 20),
@@ -181,8 +181,7 @@ class _BoardingPageState extends State<BoardingPage> {
                 ),
                 onToggleReview: _toggleReview,
               ),
-              const SizedBox(height: 16),
-              const _BoundarySidebar(),
+
             ] else
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,8 +200,7 @@ class _BoardingPageState extends State<BoardingPage> {
                       onToggleReview: _toggleReview,
                     ),
                   ),
-                  const SizedBox(width: 18),
-                  const Expanded(flex: 3, child: _BoundarySidebar()),
+
                 ],
               ),
           ],
@@ -456,41 +454,6 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(label, style: theme.textTheme.labelSmall),
-    );
-  }
-}
-
-class _BoundarySidebar extends StatelessWidget {
-  const _BoundarySidebar();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(17),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'BOARDING BOUNDARY',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 10),
-            for (final entry in boardingBoundaryRules.entries) ...[
-              Text(
-                entry.key,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              Text(entry.value, style: theme.textTheme.bodySmall),
-              const SizedBox(height: 10),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }

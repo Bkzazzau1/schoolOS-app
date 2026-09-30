@@ -159,7 +159,7 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
               Text('${activity.members} participation entries are currently registered.'),
               const SizedBox(height: 12),
               const Text(
-                'The production register will list only members permitted by the active school, section and activity scope. This screen intentionally does not invent student identities.',
+                'No participants are available for this activity.',
               ),
             ],
           ),

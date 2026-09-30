@@ -65,7 +65,7 @@ const visitorAccessRules = <String, String>{
 };
 
 const visitorPickupBoundary =
-    'Authorized child pickup should later use its own relationship/authorization check. A generic visitor pass must not automatically authorize collection of a child.';
+    'A visitor pass does not authorize child pickup. Confirm pickup authorization with school staff.';
 
 List<VisitorStat> visitorStats(List<VisitorRecord> visits) => [
       VisitorStat(
@@ -91,6 +91,6 @@ List<VisitorStat> visitorStats(List<VisitorRecord> visits) => [
       const VisitorStat(
         'Unescorted exceptions',
         '0',
-        'Prototype indicator',
+        'Sample figure',
       ),
     ];

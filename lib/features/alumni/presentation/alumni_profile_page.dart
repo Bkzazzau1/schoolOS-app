@@ -251,7 +251,7 @@ class _AlumniProfilePageState extends State<AlumniProfilePage> {
           if (!widget.repository.hasServer) ...[
             const SizedBox(height: 8),
             Text(
-              'Offline/demo mode: the last downloaded profile can be viewed, but verification-sensitive edits require the SchoolOS server.',
+              'Connect to your school to update verified profile details.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

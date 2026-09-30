@@ -95,6 +95,6 @@ void main() {
     expect(boardingBoundaryRules.keys, contains('Welfare, not surveillance'));
     expect(boardingBoundaryRules.keys, contains('Restricted records'));
     expect(boardingBoundaryRules.keys, contains('Optional by tenant'));
-    expect(boardingDisabledPreviewNote, contains('does not persist'));
+    expect(boardingDisabledPreviewNote, contains('settings have not changed'));
   });
 }

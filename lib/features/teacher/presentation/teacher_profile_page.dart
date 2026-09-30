@@ -249,8 +249,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Edit contact details'),
           ),
-          const SizedBox(height: 12),
-          _boundary(teacherProfileAuthorityBoundary),
+
         ],
       );
 
@@ -266,8 +265,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         children: [
           _sectionHead('Teaching load', 'Assignments are read-only here and controlled by authorized academic leadership.', '28 periods / week'),
           ...teacherProfileTeachingLoad.map((row) => _tripleRow(row.$1, row.$2, row.$3)),
-          const SizedBox(height: 10),
-          _boundary('Teaching assignments cannot be changed from Teacher Profile. Academic leadership remains authoritative.'),
+
         ],
       );
 
@@ -350,7 +348,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
           ('Net pay', _money(slip.net)),
         ]),
         const SizedBox(height: 12),
-        _boundary('Production payslips require payroll approval, immutable payroll reference, payment date and audit history. Local display never changes payroll status.'),
+        _boundary('Payslips are available after payroll approval.'),
       ],
     );
   }
@@ -360,8 +358,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         children: [
           _sectionHead('Deductions', 'Every deduction should be named, traceable and visible to the staff member.', '${_money(p.monthlyDeductions)} this month'),
           ...teacherProfileDeductions.map((row) => _tripleRow(row.$1, row.$3, _money(row.$2))),
-          const SizedBox(height: 10),
-          _boundary('No unexplained payroll deduction should be hidden inside a combined number. Adjustments, reversals and arrears need their own ledger entries.'),
+
         ],
       );
 
@@ -372,8 +369,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
           _boundary('ACTIVE STAFF LOAN · STL-26014\n${_money(teacherProfileLoanBalance)} outstanding · Original principal ${_money(teacherProfileLoanPrincipal)} · Monthly payroll repayment ${_money(teacherProfileLoanMonthlyRepayment)} · Expected completion $teacherProfileLoanCompletion'),
           const SizedBox(height: 10),
           ...teacherProfileLoanHistory.map((row) => _tripleRow('${row.$1} · ${row.$2}', '${_money(row.$3)} payroll repayment', '${_money(row.$4)} balance · ${row.$5}')),
-          const SizedBox(height: 10),
-          _boundary('Loan applications remain separate from teacher-performance metrics. SchoolOS must not infer creditworthiness from teaching performance or student results.'),
+
         ],
       );
 
@@ -387,7 +383,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
 
   Widget _documents() => _simpleRows(
         'Staff documents',
-        'Document labels only in this UI prototype.',
+        'Document references. Files are not available here.',
         'Restricted HR',
         teacherProfileDocuments,
       );
@@ -425,9 +421,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
 
   Widget _side(TeacherProfileSnapshotData p) => Column(
         children: [
-          _sideCard('MONTHLY NET PAY', _money(p.netMonthly), 'Current mock payroll after pension, tax, loan and other deductions.', () => setState(() => _tab = TeacherProfileTab.payslips), 'View payslip'),
+          _sideCard('MONTHLY NET PAY', _money(p.netMonthly), 'Sample pay after deductions.', () => setState(() => _tab = TeacherProfileTab.payslips), 'View payslip'),
           _sideCard('ACTIVE LOAN', _money(teacherProfileLoanBalance), '${_money(teacherProfileLoanMonthlyRepayment)} monthly payroll repayment. Expected completion $teacherProfileLoanCompletion.', () => setState(() => _tab = TeacherProfileTab.loans), 'Open loan ledger'),
-          _sideCard('STAFF RECORD', '$teacherProfileCompleteness%', 'Mock profile completeness across HR, payroll, qualifications and assignments.', null, null),
+          _sideCard('STAFF RECORD', '$teacherProfileCompleteness%', 'Sample profile completeness.', null, null),
           _sideCard('PAYROLL PRIVACY', '', 'Salary, bank, loan and deduction data should be visible only to the staff member and specifically authorized HR/finance roles.', null, null),
           Card(
             elevation: 0,

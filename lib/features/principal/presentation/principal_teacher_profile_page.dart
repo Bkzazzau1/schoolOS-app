@@ -158,7 +158,7 @@ class _PrincipalTeacherProfilePageState extends State<PrincipalTeacherProfilePag
           subtitle: 'Use verified evidence rather than assumptions about teaching quality.',
           children: [
             _RowItem(title: p.qualification, copy: 'Primary qualification', end: 'Verified'),
-            _RowItem(title: p.professionalId, copy: 'Professional registration reference · mock', end: 'Verified'),
+            _RowItem(title: p.professionalId, copy: 'Sample registration reference', end: 'Verified'),
             const _RowItem(title: 'Professional development record', copy: 'School training and CPD history', end: 'Available'),
           ],
         );
@@ -196,7 +196,7 @@ class _PrincipalTeacherProfilePageState extends State<PrincipalTeacherProfilePag
           subtitle: 'Approved leave remains distinct from attendance concerns.',
           children: [
             if (p.leave.isEmpty)
-              const Padding(padding: EdgeInsets.all(12), child: Text('No leave entries in this mock record.'))
+              const Padding(padding: EdgeInsets.all(12), child: Text('No leave entries in this sample record.'))
             else
               for (final item in p.leave)
                 _RowItem(title: item.type, copy: '${item.dates} · ${item.days} day(s)', end: item.status),
@@ -205,7 +205,7 @@ class _PrincipalTeacherProfilePageState extends State<PrincipalTeacherProfilePag
       case 6:
         return _SectionCard(
           title: 'Staff documents',
-          subtitle: 'Labels only in this UI prototype; no real files are stored here.',
+          subtitle: 'Document references. Files are not available here.',
           children: [for (final d in p.documents) _RowItem(title: d.name, copy: d.visibility, end: d.status)],
         );
       case 7:
@@ -240,7 +240,7 @@ class _PrincipalTeacherProfilePageState extends State<PrincipalTeacherProfilePag
       case 9:
       default:
         return const _SectionCard(
-          title: 'Payroll & staff-finance boundary',
+          title: 'Payroll access',
           subtitle: 'Leadership can see whether payroll records exist, not confidential amounts by default.',
           children: [
             _InfoGrid(items: {
@@ -251,7 +251,7 @@ class _PrincipalTeacherProfilePageState extends State<PrincipalTeacherProfilePag
               'Deductions': 'Restricted',
               'Loans / advances': 'Restricted',
             }),
-            _Boundary(text: 'A future HR/Finance role may receive explicit permission to manage salary, deductions, staff loans, repayment history and payslips. Principal access does not imply payroll authority.'),
+
           ],
         );
     }

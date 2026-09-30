@@ -71,7 +71,7 @@ class _PrincipalTimetablePageState extends State<PrincipalTimetablePage> {
             icon: Icons.calendar_month_outlined,
             title: 'No Secondary timetable has been published',
             detail:
-                'The canonical active term contains no timetable entries visible to the Principal yet. SchoolOS does not fabricate a period grid from weekly teaching-assignment counts.',
+                'No timetable lessons are available for the active term yet.',
           )
         else
           _ScheduleGrid(lessons: snapshot.lessons),
@@ -99,10 +99,7 @@ class _PrincipalTimetablePageState extends State<PrincipalTimetablePage> {
             );
           },
         ),
-        const SizedBox(height: 12),
-        const _Boundary(text: principalTimetableAuthorityBoundary),
-        const SizedBox(height: 8),
-        const _Boundary(text: principalTimetableAiBoundary),
+
       ],
     );
   }
@@ -138,7 +135,7 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               const Text(
-                'Canonical Secondary lessons, teacher coverage, room usage and schedule exceptions.',
+                'Secondary lessons, teacher coverage, rooms and schedule exceptions.',
               ),
             ],
           ),
@@ -417,7 +414,7 @@ class _TeacherLoads extends StatelessWidget {
                 'Teacher workload',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
               ),
-              const Text('Weekly curriculum periods from canonical Teaching Assignments.'),
+              const Text('Weekly periods from teaching assignments.'),
               const SizedBox(height: 10),
               if (rows.isEmpty)
                 const Text('No Secondary teaching staff are assigned yet.'),
@@ -504,28 +501,6 @@ class _StateCard extends StatelessWidget {
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      );
-}
-
-class _Boundary extends StatelessWidget {
-  const _Boundary({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.verified_user_outlined, size: 20),
-              const SizedBox(width: 10),
-              Expanded(child: Text(text)),
             ],
           ),
         ),

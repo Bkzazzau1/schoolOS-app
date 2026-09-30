@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/parent_children_demo_data.dart';
 import '../data/parent_children_repository.dart';
 import '../domain/parent_children_models.dart';
 import 'parent_child_profile_page.dart';
@@ -71,8 +70,7 @@ class _ParentChildrenPageState extends State<ParentChildrenPage> {
                       onFinance: () => widget.onNavigate('finance'),
                       onMessageSchool: () => widget.onNavigate('messages'),
                     ),
-                  const SizedBox(height: 16),
-                  const _PrivacyBoundary(),
+
                 ],
               );
             },
@@ -385,35 +383,6 @@ class _InfoGrid extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _PrivacyBoundary extends StatelessWidget {
-  const _PrivacyBoundary();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.privacy_tip_outlined, color: scheme.primary),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                parentChildrenPrivacyBoundary,
-                style: TextStyle(height: 1.45),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -182,7 +182,7 @@ class _Hero extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'CANONICAL TEACHING RESPONSIBILITY',
+                    'YOUR TEACHING ASSIGNMENTS',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 4),
@@ -195,7 +195,7 @@ class _Hero extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'These assignments come from the school curriculum and Principal teaching assignments. Session, class, subject, periods and current-term topics are server-authoritative.',
+                    'Your assigned classes, subjects and current-term topics.',
                   ),
                 ],
               ),
@@ -243,7 +243,7 @@ class _ClassesContent extends StatelessWidget {
               ),
               SizedBox(height: 6),
               Text(
-                'A Principal must assign a subject from the canonical class curriculum to your active Teacher account before it appears here.',
+                'Ask the Principal to assign your class subjects.',
               ),
             ],
           ),
@@ -292,8 +292,7 @@ class _ClassesContent extends StatelessWidget {
         _ClassDetail(item: current, onNavigate: onNavigate),
         const SizedBox(height: 16),
         _TopicsCard(item: current, onNavigate: onNavigate),
-        const SizedBox(height: 16),
-        const _BoundaryCard(),
+
       ],
     );
   }
@@ -463,7 +462,7 @@ class _ClassDetail extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'SELECTED CANONICAL ASSIGNMENT',
+                      'SELECTED ASSIGNMENT',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
                     ),
                     Text(
@@ -489,7 +488,7 @@ class _ClassDetail extends StatelessWidget {
                   value: item.sessionName.isNotEmpty
                       ? item.sessionName
                       : (item.sessionId.isNotEmpty ? item.sessionId : '—'),
-                  hint: 'Canonical session',
+                  hint: 'Session',
                 ),
                 _DetailKpi(
                   label: 'Periods / week',
@@ -682,31 +681,6 @@ class _ActionGrid extends StatelessWidget {
       ],
     );
   }
-}
-
-class _BoundaryCard extends StatelessWidget {
-  const _BoundaryCard();
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: const Padding(
-          padding: EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Assignment authority',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'Teachers can work only with classes and subjects published to their own active Teacher membership. Class membership follows the pupils’ current enrollment; promotion, transfer or graduation must not leave a pupil attached to an old teaching roster.',
-              ),
-            ],
-          ),
-        ),
-      );
 }
 
 class _ErrorCard extends StatelessWidget {

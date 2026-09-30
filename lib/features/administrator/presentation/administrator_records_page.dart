@@ -122,10 +122,7 @@ class _AdministratorRecordsPageState extends State<AdministratorRecordsPage> wit
                 ),
                 const SizedBox(height: 8),
                 _attachments(record),
-                const SizedBox(height: 12),
-                const _BoundaryBox(text: administratorRecordsVisibilityBoundary),
-                const SizedBox(height: 8),
-                const _BoundaryBox(text: administratorRecordsReviewBoundary),
+
               ],
             ),
           ),
@@ -243,8 +240,7 @@ class _AdministratorRecordsPageState extends State<AdministratorRecordsPage> wit
               ),
             const SizedBox(height: 14),
             _Summary(records: _records),
-            const SizedBox(height: 14),
-            const _BoundaryBox(text: administratorRecordsVisibilityBoundary),
+
           ],
         );
       },
@@ -508,24 +504,6 @@ class _ReviewRow extends StatelessWidget {
           Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800))),
         ],
       ),
-    );
-  }
-}
-
-class _BoundaryBox extends StatelessWidget {
-  const _BoundaryBox({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(text),
     );
   }
 }

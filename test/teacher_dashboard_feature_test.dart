@@ -102,8 +102,8 @@ void main() {
     expect(teacherReviewSignalBoundary, contains('parent-facing labels'));
     expect(teacherAiBoundary, contains('cannot change marks'));
     expect(teacherAiBoundary, contains('hidden student judgments'));
-    expect(teacherOfflineBoundary, contains('tenant-scoped'));
-    expect(teacherOfflineBoundary, contains('durable sync'));
+    expect(teacherOfflineBoundary, contains('pending until sync confirms'));
+    expect(teacherOfflineBoundary, isNot(contains('tenant-scoped')));
   });
 
   test('teacher review search follows website name class and signal behavior', () {

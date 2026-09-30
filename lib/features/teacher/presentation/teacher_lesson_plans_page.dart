@@ -193,7 +193,7 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
     if (!snapshot.canonical) {
       setState(() {
         _notice =
-            'Standalone demo keeps seeded lesson-plan examples. Canonical plans require a real timetable occurrence.';
+            'Connect to your school and sync the timetable to create a scheduled lesson plan.';
       });
       return;
     }
@@ -351,8 +351,7 @@ class _TeacherLessonPlansPageState extends State<TeacherLessonPlansPage> {
                     onSelect: (selected) => _selectPlan(selected, data),
                     onCreate: () => _createPlan(data),
                   ),
-                  const SizedBox(height: 16),
-                  const _BoundaryCard(),
+
                 ],
               ),
             );
@@ -395,7 +394,7 @@ class _Header extends StatelessWidget {
                 Text(
                   canonical
                       ? 'Plan authorized occurrences in the rolling 21-day timetable horizon, submit for review, then record what was actually delivered.'
-                      : 'Standalone demo lesson-plan workspace.',
+                      : 'Sample lesson plans.',
                 ),
               ],
             ),
@@ -578,7 +577,7 @@ class _OccurrenceCard extends StatelessWidget {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Canonical lesson occurrence',
+                      'Scheduled lesson',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                     ),
                   ),
@@ -902,7 +901,7 @@ class _DeliveryPanel extends StatelessWidget {
               onChanged: enabled ? (value) => onTopicCompleted(value ?? false) : null,
               title: const Text('Curriculum topic completed by this delivered lesson'),
               subtitle: const Text(
-                'This evidence can move canonical syllabus coverage to Completed only after server acknowledgement.',
+                'Syllabus coverage updates after lesson delivery is confirmed.',
               ),
             ),
             if (delivery != null && delivery!.attendanceState != null) ...[
@@ -931,7 +930,7 @@ class _DeliveryPanel extends StatelessWidget {
             if (state == TeacherLessonDeliveryState.queued) ...[
               const SizedBox(height: 8),
               const Text(
-                'Delivery is queued, not canonical. Syllabus coverage remains unchanged until the server accepts it.',
+                'Delivery is queued. Syllabus coverage updates after confirmation.',
               ),
             ],
           ],
@@ -1011,7 +1010,7 @@ class _History extends StatelessWidget {
                         'Occurrence lesson plans',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                       ),
-                      Text('Each canonical plan stays attached to one scheduled occurrence.'),
+                      Text('Each plan belongs to a scheduled lesson.'),
                     ],
                   ),
                   Wrap(
@@ -1063,35 +1062,6 @@ class _History extends StatelessWidget {
                       label: Text(teacherLessonPlanStatusLabel(plan.status)),
                     ),
                   ),
-            ],
-          ),
-        ),
-      );
-}
-
-class _BoundaryCard extends StatelessWidget {
-  const _BoundaryCard();
-
-  @override
-  Widget build(BuildContext context) => const Card(
-        elevation: 0,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Lesson-delivery authority boundary',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'The timetable occurrence defines where and when the plan belongs. A Teacher may choose or correct only an approved curriculum topic while the plan remains editable. Submission does not equal Principal approval. A queued delivery does not equal a delivered lesson, and syllabus completion is generated only from server-accepted delivery evidence.',
-              ),
-              SizedBox(height: 6),
-              Text(
-                'AI may draft objectives, activities and assessment ideas, but it cannot approve a lesson plan, claim a lesson happened, or mark a curriculum topic complete.',
-              ),
             ],
           ),
         ),

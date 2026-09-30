@@ -28,7 +28,7 @@ const administratorQuickActions = <AdministratorQuickAction>[
     key: 'timetable',
     title: 'Timetable & Scheduling',
     description:
-        'Publish recurring lesson periods and date-specific schedule changes from canonical curriculum.',
+        'Manage recurring lessons and schedule changes.',
   ),
   AdministratorQuickAction(
     key: 'lifecycle',

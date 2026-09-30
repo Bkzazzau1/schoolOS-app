@@ -26,7 +26,7 @@ const mealWebsiteSeed = <SchoolMealDay>[
     snack: 'Fruit',
     servings: 418,
     status: MealServiceStatus.serving,
-    note: 'Sample active-service state in this prototype; the selected day is not tied to the current calendar date.',
+    note: 'Sample service schedule.',
   ),
   SchoolMealDay(
     day: 'Thursday',
@@ -66,5 +66,5 @@ List<MealStat> mealStats(
       ),
       const MealStat('Meal locations', '2', 'Main cafeteria + Early Years'),
       const MealStat('Special meal flags', '7', 'Details restricted'),
-      const MealStat('Payment integration', 'Later', 'UI phase only'),
+      const MealStat('Meal payments', 'Later', 'Not available yet'),
     ];

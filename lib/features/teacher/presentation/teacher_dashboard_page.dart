@@ -107,8 +107,7 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                   child: const _PerformanceSummary(),
                 ),
               ),
-              const SizedBox(height: 16),
-              const _BoundaryCard(),
+
             ],
           ),
         );
@@ -494,29 +493,5 @@ class _PerformanceSummary extends StatelessWidget {
             const SizedBox(height: 10),
           ],
         ],
-      );
-}
-
-class _BoundaryCard extends StatelessWidget {
-  const _BoundaryCard();
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: const Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Teacher evidence boundaries', style: TextStyle(fontWeight: FontWeight.w900)),
-              SizedBox(height: 6),
-              Text(teacherReviewSignalBoundary),
-              SizedBox(height: 6),
-              Text(teacherAiBoundary),
-              SizedBox(height: 6),
-              Text(teacherOfflineBoundary),
-            ],
-          ),
-        ),
       );
 }

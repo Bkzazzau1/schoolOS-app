@@ -123,16 +123,11 @@ class _DriverDashboardPageState extends State<DriverDashboardPage> {
                     const SizedBox(height: 16),
                     _QuickActions(onNavigate: widget.onNavigate),
                   ],
-                  const SizedBox(height: 16),
-                  const _BoundaryCard(
-                    icon: Icons.shield_outlined,
-                    title: 'Driver privacy boundary',
-                    body: driverPrivacyBoundary,
-                  ),
+
                   const SizedBox(height: 12),
                   const _BoundaryCard(
                     icon: Icons.fact_check_outlined,
-                    title: 'Transport event boundary',
+                    title: 'Transport updates',
                     body: driverSafetyBoundary,
                   ),
                 ],

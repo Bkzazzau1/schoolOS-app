@@ -88,4 +88,4 @@ const administratorWebsiteWhiteLabelPrinciple =
     'Parents, applicants and public visitors interact with BrightGate Academy. SchoolOS operates the management layer behind the school’s own brand.';
 
 const administratorWebsitePreviewBoundary =
-    'Public website preview belongs to the school web experience. The native app manages the same website settings but does not pretend to render the production public site.';
+    'Connect to the internet to preview the public school website.';

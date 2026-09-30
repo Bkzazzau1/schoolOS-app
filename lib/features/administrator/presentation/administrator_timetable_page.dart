@@ -114,7 +114,7 @@ class _AdministratorTimetablePageState
               const _InfoCard(
                 title: 'No active academic term',
                 detail:
-                    'Activate a term in Academic Structure before publishing a timetable. Timetable rows always belong to a canonical term.',
+                    'Activate a term in Academic Structure before publishing a timetable.',
               )
             else if (snapshot.curriculum.isEmpty)
               const _InfoCard(
@@ -126,7 +126,7 @@ class _AdministratorTimetablePageState
               const _InfoCard(
                 title: 'No published timetable rows yet',
                 detail:
-                    'Create the first lesson from a canonical ClassSubject. A queued local row is not authoritative until server sync accepts it.',
+                    'Add a lesson for a class subject. Changes take effect after sync.',
               )
             else
               _schedule(snapshot, visibleEntries),
@@ -549,7 +549,7 @@ class _AdministratorTimetablePageState
         endTime: end.text.trim(),
         room: room.text,
       ),
-      'Timetable lesson queued. It becomes canonical only after server validation.',
+      'Timetable lesson queued for confirmation.',
     );
   }
 
@@ -756,7 +756,7 @@ class _AuthorityCard extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(16),
           child: Text(
-            'Authority boundary: the timetable references the canonical active term and ClassSubject. Base lessons never accept a free-text teacher; Teacher authority comes from the active TeachingAssignment. Date-specific substitution requires a linked Teacher membership. Queued offline changes are not canonical until the server accepts them.',
+            'Assign teachers before scheduling lessons. Changes take effect after sync.',
           ),
         ),
       );

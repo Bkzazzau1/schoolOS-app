@@ -426,10 +426,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
                   ],
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.all(14),
-                child: _PrivacyBoundaryCard(),
-              ),
+
             ],
           ),
         ),
@@ -495,11 +492,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
                       ],
                     ),
                   ),
-                  if (extended)
-                    const Padding(
-                      padding: EdgeInsets.all(14),
-                      child: _PrivacyBoundaryCard(),
-                    ),
+
                 ],
               ),
             ),
@@ -702,7 +695,7 @@ class _UpcomingParentFeature extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'This destination exists in the SchoolOS website and is preserved in the native Family Portal navigation. It will be ported feature-by-feature and is intentionally not simulated yet.',
+                    'This feature is not available yet.',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 18),
@@ -783,53 +776,6 @@ class _FamilyAccountSummary extends StatelessWidget {
           SizedBox(height: 4),
           Text('FAM-BGA-0042', style: TextStyle(fontWeight: FontWeight.w900)),
           Text('2 linked children', style: TextStyle(fontSize: 12)),
-        ],
-      ),
-    );
-  }
-}
-
-class _PrivacyBoundaryCard extends StatelessWidget {
-  const _PrivacyBoundaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.lock_outline_rounded, size: 16, color: scheme.primary),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'PRIVATE FAMILY ACCESS',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .5,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text(
-            parentPrivacyBoundary,
-            style: TextStyle(
-              fontSize: 10,
-              color: scheme.onSurfaceVariant,
-              height: 1.35,
-            ),
-          ),
         ],
       ),
     );

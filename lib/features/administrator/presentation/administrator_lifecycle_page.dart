@@ -145,10 +145,7 @@ class _AdministratorLifecyclePageState
                         '${record.workflow} is an academic decision. Administration can process an approved decision, but cannot create or override it from this lifecycle desk.',
                   ),
                 ],
-                const SizedBox(height: 12),
-                const _BoundaryBox(text: administratorLifecycleAuthorityBoundary),
-                const SizedBox(height: 8),
-                const _BoundaryBox(text: administratorLifecycleHistoryBoundary),
+
               ],
             ),
           ),

@@ -391,12 +391,12 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     if (register.submissionState == TeacherAttendanceSubmissionState.submitted) {
       return TeacherAttendanceActionResult(
         success: false,
-        message: 'This occurrence is canonically submitted. Later changes require an audited correction workflow.',
+        message: 'This attendance has been submitted. Request a correction to make changes.',
         register: register,
       );
     }
     if (register.entries.isEmpty) {
-      return TeacherAttendanceActionResult(success: false, message: 'This lesson has no canonical subject-eligible students to submit.', register: register);
+      return TeacherAttendanceActionResult(success: false, message: 'There are no eligible students for this lesson.', register: register);
     }
     if (register.unmarkedCount > 0) {
       return TeacherAttendanceActionResult(
@@ -425,7 +425,7 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     await _persistAndQueue(membership, queued);
     return TeacherAttendanceActionResult(
       success: true,
-      message: 'Attendance submission queued. It is not canonical until the server acknowledges it.',
+      message: 'Attendance queued for confirmation.',
       register: queued,
     );
   }
@@ -446,7 +446,7 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
         success: false,
         message: register.submissionState == TeacherAttendanceSubmissionState.queued
             ? 'Submission is queued and locked locally while server acknowledgement is pending.'
-            : 'Canonical submitted attendance is locked. Use an audited correction workflow for later changes.',
+            : 'Submitted attendance is locked. Request a correction to make changes.',
         register: register,
       );
     }

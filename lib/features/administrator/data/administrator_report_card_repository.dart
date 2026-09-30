@@ -98,7 +98,7 @@ class AdministratorReportCardRepository {
     if (!LocalDatabase.blockDemoSeeds) {
       return const AdministratorReportCardActionResult(
         success: false,
-        message: 'Compiling report cards is a canonical server workflow in connected mode.',
+        message: 'Connect to your school to compile report cards.',
       );
     }
     if (classId.isEmpty || termId.isEmpty) {

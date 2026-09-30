@@ -11,7 +11,7 @@ const teacherProfile = TeacherProfileSnapshotData(
   hireDate: '15 January 2022',
   qualification: 'B.Ed Mathematics',
   campus: 'Kaduna Campus',
-  bank: 'Partner payroll bank · mock',
+  bank: 'Sample payroll bank',
   account: '0123456789',
   pensionId: 'PEN-BGA-2048',
   taxId: 'TIN-XXXX-2048',
@@ -80,7 +80,7 @@ const teacherProfileCompleteness = 96;
 
 const teacherProfileQualifications = [
   ('B.Ed Mathematics', 'Ahmadu Bello University · Verified', 'Primary qualification'),
-  ('Teachers Registration Council record', 'Registration document · Mock verified', 'Professional'),
+  ('Teachers Registration Council record', 'Sample registration document', 'Professional'),
   ('Classroom Assessment Workshop', 'May 2026 · Internal professional development', 'CPD'),
   ('Digital Learning & Safety', 'February 2026 · School training', 'CPD'),
 ];

@@ -390,11 +390,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefr
                       ],
                     ),
                   ),
-                  if (extended)
-                    const Padding(
-                      padding: EdgeInsets.all(14),
-                      child: _DriverBoundaryCard(),
-                    ),
+
                 ],
               ),
             ),
@@ -481,27 +477,6 @@ class _DriverIdentityCard extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _DriverBoundaryCard extends StatelessWidget {
-  const _DriverBoundaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: const Text(
-        'Assigned route only. Student access is limited to transport operations.',
-        style: TextStyle(fontSize: 11, height: 1.35),
-      ),
     );
   }
 }

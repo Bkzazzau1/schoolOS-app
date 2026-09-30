@@ -164,7 +164,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
   @override
   void initState() {
     super.initState();
-    _concessionRepository = ConcessionRepository(confirm: ServerConfirmScope.maybeOf(context), 
+    _concessionRepository = ConcessionRepository(confirm: ServerConfirmScope.maybeOf(context),
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -520,7 +520,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'This shared School Life module will be ported feature-by-feature and will reuse this proprietor permission scope.',
+                  'This feature is not available yet.',
                 ),
               ),
             ],
@@ -679,7 +679,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
   Widget _buildContent() {
     return switch (_activeModule) {
       'staff-profiles' => OwnerStaffProfilesPage(
-          proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), 
+          proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context),
             database: widget.localDatabase, session: widget.schoolSession),
           repository: OwnerStaffProfileRepository(
             database: widget.localDatabase, session: widget.schoolSession),

@@ -221,7 +221,7 @@ class _PrincipalStudentProfilePageState extends State<PrincipalStudentProfilePag
         for (final item in p.awards) ListTile(contentPadding: EdgeInsets.zero, dense: true, leading: const Icon(Icons.emoji_events_outlined), title: Text(item)),
       ]);
 
-  Widget _services(BuildContext context, PrincipalStudentProfile p) => _card('School services & health boundary', 'Operational relationships and minimum-necessary safety information only.', [
+  Widget _services(BuildContext context, PrincipalStudentProfile p) => _card('School services and health', 'Operational relationships and minimum-necessary safety information only.', [
         _row('Transport', p.transport),
         _row('Meals & Cafeteria', p.meals),
         _row('Boarding', p.boarding),

@@ -117,7 +117,7 @@ class AdministratorAssessmentReleaseRepository {
     if (!LocalDatabase.blockDemoSeeds) {
       return const AdministratorAssessmentReleaseActionResult(
         success: false,
-        message: 'Locking and release are canonical server workflows in connected mode.',
+        message: 'Connect to your school to lock or release assessments.',
       );
     }
     final existing = await _localDatabase.getLocalRecord(

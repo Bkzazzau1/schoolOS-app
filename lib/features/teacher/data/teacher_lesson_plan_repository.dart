@@ -333,7 +333,7 @@ class TeacherLessonPlanRepository {
     if (!LocalDatabase.blockDemoSeeds) {
       return const TeacherLessonPlanActionResult(
         success: false,
-        message: 'Canonical occurrence plans require a server-backed timetable.',
+        message: 'Sync your timetable before creating a lesson plan.',
       );
     }
     if (!permissionsFor(membership).canEditDrafts) {
@@ -438,7 +438,7 @@ class TeacherLessonPlanRepository {
       success: true,
       message: demo
           ? 'Demo lesson-plan draft saved locally.'
-          : 'Draft saved locally and queued. Canonical plan metadata stays server-controlled.',
+          : 'Draft saved on this device and queued for sync.',
       plan: next,
     );
   }
@@ -552,7 +552,7 @@ class TeacherLessonPlanRepository {
       return const TeacherLessonPlanActionResult(
         success: false,
         message:
-            'Canonical lesson delivery is available only in server-backed mode.',
+            'Connect to your school to record lesson delivery.',
       );
     }
     final membership = _session.requireActiveMembership();
@@ -602,7 +602,7 @@ class TeacherLessonPlanRepository {
         success: false,
         message: current.state == TeacherLessonDeliveryState.queued
             ? 'Lesson delivery is already queued and locked until server acknowledgement.'
-            : 'Delivered lesson evidence is canonical and locked.',
+            : 'Confirmed lesson delivery is locked.',
         delivery: current,
       );
     }

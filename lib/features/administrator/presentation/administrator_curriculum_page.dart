@@ -648,7 +648,7 @@ class _AdministratorCurriculumPageState
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'AUTHORITY RULE · Student subject access is derived from the canonical class curriculum. Compulsory subjects apply automatically. Electives require an explicit student selection. Promotion creates a new enrollment context, so a previous class elective is never silently carried into the next class.',
+                'Compulsory subjects apply automatically. Select electives for each new class enrollment.',
               ),
             ),
           ),
@@ -740,7 +740,7 @@ class _SubjectCatalogCard extends StatelessWidget {
     return _SectionCard(
       title: 'Subject catalog',
       subtitle:
-          'One canonical subject identity is reused across sessions and classes. Once used in curriculum history, its identity is frozen.',
+          'Subjects used in curriculum history cannot be renamed.',
       child: Column(
         children: [
           Align(

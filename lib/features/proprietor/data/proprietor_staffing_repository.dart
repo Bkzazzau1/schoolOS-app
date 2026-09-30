@@ -343,7 +343,7 @@ class ProprietorStaffingRepository {
       return const ProprietorStaffingActionResult(success: false, message: 'This membership cannot assign a class teacher.');
     }
     if (!LocalDatabase.blockDemoSeeds) {
-      return const ProprietorStaffingActionResult(success: false, message: 'Assigning a class teacher is a canonical server workflow in connected mode.');
+      return const ProprietorStaffingActionResult(success: false, message: 'Connect to your school to assign a class teacher.');
     }
     final session = await _activeSession(membership);
     if (session.$1.isEmpty) {

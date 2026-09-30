@@ -532,7 +532,7 @@ class _BackendRequiredCard extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.all(22),
               child: Text(
-                'Alumni verification is server-authoritative and is unavailable in demo-only mode.',
+                'Connect to your school to verify alumni.',
               ),
             ),
           ),

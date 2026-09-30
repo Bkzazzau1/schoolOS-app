@@ -274,12 +274,10 @@ class _PrincipalCommunicationPageState
           items: snapshot.announcements,
           onNavigate: widget.onNavigate,
         ),
-        const SizedBox(height: 12),
-        const _Boundary(text: principalCommunicationPrivacyBoundary),
+
         const SizedBox(height: 8),
         const _Boundary(text: principalCommunicationOfflineBoundary),
-        const SizedBox(height: 8),
-        const _Boundary(text: principalCommunicationScopeBoundary),
+
       ],
     );
   }

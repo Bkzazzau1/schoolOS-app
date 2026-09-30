@@ -584,7 +584,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                     Padding(
                       padding: const EdgeInsets.all(14),
                       child: Text(
-                        'ROLE BOUNDARY\nOperational records, academic structure, curriculum and timetable administration. Academic judgement and proprietor governance remain with authorized roles.',
+                        'Manage school operations, academic structure and timetables.',
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
@@ -724,7 +724,7 @@ class _UpcomingAdministratorFeature extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'This administrator feature is not simulated here until its real data contract is available.',
+                      'This feature is not available yet.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 18),

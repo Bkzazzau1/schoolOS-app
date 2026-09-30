@@ -91,7 +91,7 @@ void main() {
     expect(teacherPerformanceBoundary, contains('reward mechanism'));
     expect(teacherPerformanceBoundary, contains('caused a class outcome'));
     expect(teacherPerformancePrivacyBoundary, contains('private to the teacher'));
-    expect(teacherPerformanceReflectionBoundary, contains('does not create an HR record'));
+    expect(teacherPerformanceReflectionBoundary, contains('not shared with school leadership'));
   });
 
   test('teacher permissions expose own coaching view only', () {

@@ -109,20 +109,12 @@ class _ProprietorStaffPageState extends State<ProprietorStaffPage> with SyncRefr
                       ),
                     ),
                     const SizedBox(height: 18),
-                    _TwoColumn(
-                      compact: compact,
-                      left: _StaffCard(
-                        title: 'Staff mix',
-                        subtitle: 'Staff on record by section.',
-                        child: overview.empty
-                            ? const _Empty('No staff on record yet. Register staff in Staff Records.')
-                            : _StaffMix(mix: overview.mix, total: overview.total),
-                      ),
-                      right: const _StaffCard(
-                        title: 'HR privacy boundary',
-                        subtitle: 'Leadership overview is not payroll access.',
-                        child: _PrivacyBoundary(),
-                      ),
+                    _StaffCard(
+                      title: 'Staff mix',
+                      subtitle: 'Staff on record by section.',
+                      child: overview.empty
+                          ? const _Empty('No staff on record yet. Register staff in Staff Records.')
+                          : _StaffMix(mix: overview.mix, total: overview.total),
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -659,40 +651,6 @@ class _StaffMix extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _PrivacyBoundary extends StatelessWidget {
-  const _PrivacyBoundary();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.colorScheme.error.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.privacy_tip_outlined,
-            color: theme.colorScheme.error,
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'The proprietor may have authority to grant HR/finance access, but ordinary leadership views should not automatically expose staff bank details, salary deductions, loan balances or private medical information. Those remain need-to-know.',
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

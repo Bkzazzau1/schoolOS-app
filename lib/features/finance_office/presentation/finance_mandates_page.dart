@@ -31,21 +31,21 @@ class _FinanceMandatesPageState extends State<FinanceMandatesPage> {
     setState(() {
       _notice = switch (action) {
         'Retry collection' =>
-          'Retry is still a provider prototype. No debit was attempted and ${mandate.latestAttempt.label} remains unchanged.',
+          'Retry is unavailable. No debit was attempted; the latest attempt remains ${mandate.latestAttempt.label}.',
         'Reschedule' =>
-          'Reschedule is still a provider prototype. ${mandate.nextAttempt} remains the authoritative next attempt until the provider acknowledges a change.',
+          'Rescheduling is unavailable. The next attempt remains ${mandate.nextAttempt}.',
         'Pause mandate' =>
-          'Pause is still a provider prototype. The mandate status remains ${mandate.status.label} until provider acknowledgement.',
+          'Pausing is unavailable. The mandate remains ${mandate.status.label}.',
         'Contact guardian' =>
           'Guardian contact workflow opened locally. This does not change consent or mandate status.',
-        _ => '$action is still a website prototype action.',
+        _ => '$action is not available here yet.',
       };
     });
   }
 
   void _headerPrototype(String action) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$action is still a website prototype action.')),
+      SnackBar(content: Text('$action is not available here yet.')),
     );
   }
 
@@ -92,8 +92,7 @@ class _FinanceMandatesPageState extends State<FinanceMandatesPage> {
         ),
         const SizedBox(height: 18),
         const _WorkflowCard(),
-        const SizedBox(height: 14),
-        const _ControlBoundary(),
+
       ],
     );
   }
@@ -172,7 +171,7 @@ class _KpiWrap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const cards = <Widget>[
-      _Kpi('Active mandates', '$financeMandateActiveCount', 'School-wide prototype'),
+      _Kpi('Active mandates', '$financeMandateActiveCount', 'Sample mandates'),
       _Kpi('Expected next 30 days', financeMandateExpectedNext30Days, 'Scheduled collections'),
       _Kpi('Successful this month', '$financeMandateSuccessfulThisMonth', 'Completed attempts'),
       _Kpi('Failed attempts', '$financeMandateFailedAttempts', 'Need action'),
@@ -366,7 +365,7 @@ class _MandateDetail extends StatelessWidget {
           const SizedBox(height: 14),
           _InfoLine('Collection method', mandate.method),
           _InfoLine('Provider rail', mandate.provider),
-          const _InfoLine('Consent record', 'Parent authorization captured · prototype'),
+          const _InfoLine('Consent record', 'Sample authorization'),
           const SizedBox(height: 14),
           Wrap(
             spacing: 10,
@@ -526,34 +525,6 @@ class _SampleDataBanner extends StatelessWidget {
           Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600))),
         ]),
       );
-}
-
-class _ControlBoundary extends StatelessWidget {
-  const _ControlBoundary();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text('MANDATE CONTROL BOUNDARY', style: TextStyle(fontWeight: FontWeight.w900)),
-            SizedBox(height: 8),
-            Text(financeMandateConsentBoundary),
-            SizedBox(height: 6),
-            Text(financeMandateProviderBoundary),
-            SizedBox(height: 6),
-            Text(financeMandatePostingBoundary),
-            SizedBox(height: 6),
-            Text(financeMandateReceiptBoundary),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _CardShell extends StatelessWidget {

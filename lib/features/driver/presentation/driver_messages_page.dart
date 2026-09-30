@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/driver_messages_demo_data.dart';
 import '../data/driver_messages_repository.dart';
 import '../domain/driver_messages_models.dart';
 
@@ -89,8 +88,7 @@ class _DriverMessagesPageState extends State<DriverMessagesPage> {
                 _messages(snapshot, wide)
               else
                 _alerts(snapshot, wide),
-              const SizedBox(height: 18),
-              const _BoundaryCard(),
+
             ],
           );
         },
@@ -552,35 +550,6 @@ class _ConversationDialogState extends State<_ConversationDialog> {
           label: const Text('Queue message'),
         ),
       ],
-    );
-  }
-}
-
-class _BoundaryCard extends StatelessWidget {
-  const _BoundaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Communication boundaries',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            const Text(driverMessagingBoundary),
-            const SizedBox(height: 6),
-            const Text(driverDeliveryBoundary),
-          ],
-        ),
-      ),
     );
   }
 }

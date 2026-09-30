@@ -209,7 +209,7 @@ class PrincipalResultsRepository {
     if (!LocalDatabase.blockDemoSeeds) {
       return const PrincipalResultsActionResult(
         success: false,
-        message: 'Report-card review is a canonical server workflow in connected mode.',
+        message: 'Connect to your school to review report cards.',
       );
     }
     if (action == PrincipalReportReviewAction.returnWithComment && comment.trim().isEmpty) {

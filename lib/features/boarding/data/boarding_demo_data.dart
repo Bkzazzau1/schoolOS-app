@@ -46,7 +46,7 @@ const boardingBoundaryRules = <String, String>{
 };
 
 const boardingDisabledPreviewNote =
-    'In production, a day school would disable Boarding in tenant settings and the module would disappear from shared navigation. This local preview does not persist or alter access.';
+    'Preview only. Your school settings have not changed.';
 
 List<BoardingStat> boardingStats(
   List<BoardingDorm> dorms, {
@@ -64,9 +64,9 @@ List<BoardingStat> boardingStats(
     BoardingStat(
       'Preview state',
       previewEnabled ? 'Enabled' : 'Off',
-      'Local UI only',
+      'Preview only',
     ),
-    BoardingStat('Dorm occupancy', '$occupied/$capacity', 'Current mock residents'),
+    BoardingStat('Dorm occupancy', '$occupied/$capacity', 'Sample residents'),
     BoardingStat('On campus', '$onCampus', 'Derived from dorm records'),
     BoardingStat(
       'Approved leave',

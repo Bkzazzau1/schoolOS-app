@@ -426,13 +426,13 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
           _sectionHeader(
             title: 'My student record',
             description:
-                'Your official identity and current class come from the canonical SchoolOS roster.',
+                'Your identity and current class are provided by your school.',
           ),
           const _SectionCard(
-            title: 'Waiting for canonical profile',
+            title: 'Waiting for your school profile',
             subtitle: 'The device has not received your private server profile yet.',
             child: Text(
-              'Connect and sync. SchoolOS will never substitute demo student details for a real signed-in pupil.',
+              'Connect and sync to load your student details.',
             ),
           ),
         ],
@@ -448,7 +448,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
         _sectionHeader(
           title: 'My student record',
           description:
-              'Read-only facts from your canonical school record. Current class is determined only by your active enrollment.',
+              'Your school record and current class.',
         ),
         _SectionCard(
           title: profile['name'] as String? ?? 'Student',
@@ -486,7 +486,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
           subtitle:
               'Old placements are preserved. Promotion or class movement creates history instead of overwriting the previous class.',
           child: _enrollmentHistory.isEmpty
-              ? const Text('No canonical enrollment history has synced yet.')
+              ? const Text('No enrollment history has synced yet.')
               : Column(
                   children: [
                     for (final item in _enrollmentHistory)
@@ -882,7 +882,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
         _sectionHeader(
           title: 'CBT Practice',
           description:
-              'Teacher-published tests plus optional demo questions for practice.',
+              'Teacher-published tests and sample practice questions.',
         ),
         _classCbts(),
         const SizedBox(height: 16),

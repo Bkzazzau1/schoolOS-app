@@ -84,7 +84,7 @@ void main() {
   test('white-label and native preview boundaries remain explicit', () {
     expect(administratorWebsiteWhiteLabelPrinciple, contains('BrightGate Academy'));
     expect(administratorWebsiteWhiteLabelPrinciple, contains('SchoolOS'));
-    expect(administratorWebsitePreviewBoundary, contains('native app'));
-    expect(administratorWebsitePreviewBoundary, contains('production public site'));
+    expect(administratorWebsitePreviewBoundary, contains('Connect to the internet'));
+    expect(administratorWebsitePreviewBoundary, isNot(contains('production')));
   });
 }

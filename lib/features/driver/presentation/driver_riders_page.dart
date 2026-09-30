@@ -100,8 +100,7 @@ class _DriverRidersPageState extends State<DriverRidersPage> {
                   ),
                   const SizedBox(height: 14),
                 ],
-              const SizedBox(height: 4),
-              const _PrivacyBoundary(),
+
             ],
           );
         },
@@ -471,35 +470,6 @@ class _StatusLine extends StatelessWidget {
                   Text(note, style: Theme.of(context).textTheme.bodySmall),
                 ],
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PrivacyBoundary extends StatelessWidget {
-  const _PrivacyBoundary();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.lock_person_outlined),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Driver access is limited to assigned transport riders and operational trip status. Home addresses, guardian phone numbers, academic results, fees, medical records, siblings and unrelated student information are not exposed here.',
             ),
           ),
         ],

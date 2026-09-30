@@ -81,7 +81,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('No debit was attempted'), findsOneWidget);
-    expect(find.textContaining('Successful remains unchanged'), findsOneWidget);
+    expect(find.textContaining('latest attempt remains Successful'), findsOneWidget);
   });
 
   testWidgets('Payment Mandates renders on a phone viewport without exceptions', (tester) async {

@@ -74,7 +74,7 @@ List<LostFoundStat> lostFoundStats(List<LostFoundItem> items) => [
       LostFoundStat(
         'Open items',
         '${items.where((item) => item.isOpen).length}',
-        'Current mock register',
+        'Sample register',
       ),
       LostFoundStat(
         'Claim review',

@@ -496,26 +496,7 @@ class _BrandingCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'White-label principle',
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-                SizedBox(height: 5),
-                Text(administratorWebsiteWhiteLabelPrinciple),
-              ],
-            ),
-          ),
+
         ],
       ),
     );

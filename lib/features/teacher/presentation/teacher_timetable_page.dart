@@ -88,7 +88,7 @@ class _TeacherTimetablePageState extends State<TeacherTimetablePage> {
       TeacherTimetableKpi(
         label: 'Assigned classes',
         value: '$classes',
-        hint: 'Canonical timetable scope',
+        hint: 'Your timetable',
       ),
     ];
   }
@@ -167,7 +167,7 @@ class _TeacherTimetablePageState extends State<TeacherTimetablePage> {
                       icon: Icons.calendar_month_outlined,
                       title: 'No published timetable entries',
                       detail:
-                          'Your server-authorized Teacher membership has no active-term timetable lessons yet. SchoolOS will not substitute demo lessons for a connected school.',
+                          'No lessons are scheduled for you in the active term yet.',
                     )
                   else
                     ..._visibleDays(data).map(
@@ -182,7 +182,7 @@ class _TeacherTimetablePageState extends State<TeacherTimetablePage> {
                               .showSnackBar(
                             SnackBar(
                               content: Text(
-                                '${lesson.className} · ${lesson.subject} opened from the canonical timetable.',
+                                '${lesson.className} · ${lesson.subject}',
                               ),
                             ),
                           ),
@@ -235,7 +235,7 @@ class _TeacherTimetablePageState extends State<TeacherTimetablePage> {
   ) {
     final noticesPanel = _Panel(
       title: 'Schedule notices',
-      subtitle: 'Canonical changes affecting this teaching week',
+      subtitle: 'Changes this week',
       child: notices.isEmpty
           ? const Padding(
               padding: EdgeInsets.symmetric(vertical: 10),
@@ -399,8 +399,8 @@ class _Hero extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       canonical
-                          ? 'Server-published lessons from your active Teacher membership and canonical Teaching Assignments.'
-                          : 'Demo timetable data for local product preview.',
+                          ? 'Published lessons for your teaching assignments.'
+                          : 'Sample timetable.',
                     ),
                   ],
                 ),
@@ -410,7 +410,7 @@ class _Hero extends StatelessWidget {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Chip(label: Text(canonical ? 'Canonical' : 'Demo')),
+                  Chip(label: Text(canonical ? 'Published' : 'Demo')),
                   FilledButton.tonalIcon(
                     onPressed: onSync,
                     icon: const Icon(Icons.sync_rounded),

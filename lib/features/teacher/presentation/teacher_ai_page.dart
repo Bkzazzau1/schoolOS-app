@@ -224,12 +224,7 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
                         }
                       : null,
                 ),
-              const SizedBox(height: 10),
-              _BoundaryPanel(
-                title: 'Permission boundary',
-                body:
-                    'Teacher AI cannot retrieve unrelated classes, school finance, staff-confidential data or another school’s records.',
-              ),
+
               const SizedBox(height: 16),
               Container(
                 width: double.infinity,

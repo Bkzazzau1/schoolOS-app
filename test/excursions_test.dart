@@ -49,7 +49,7 @@ void main() {
       'Emergency contacts',
       'Medical/access needs',
     ]));
-    expect(excursionPrivacyRule, contains('should not expose sensitive medical or family information'));
-    expect(excursionPrivacyRule, contains('minimum necessary safety information'));
+    expect(excursionPrivacyRule, contains('safety information privately'));
+    expect(excursionPrivacyRule, contains('authorized supervisor'));
   });
 }

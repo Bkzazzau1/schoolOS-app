@@ -226,7 +226,7 @@ class ParentChildrenRepository {
     return ParentChildrenSnapshot(
       familyAccountId: membership.id,
       academicPeriod: canonicalChildren.isNotEmpty
-          ? 'Canonical enrollment history'
+          ? 'Enrollment history'
           : _notRecorded,
       children: children,
     );

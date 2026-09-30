@@ -391,23 +391,10 @@ class _Workspace extends StatelessWidget {
               value: '$pendingSyncCount',
               icon: Icons.sync_rounded,
             ),
-            const _SummaryCard(
-              label: 'Edge AI',
-              value: 'Boundary ready',
-              icon: Icons.auto_awesome_outlined,
-            ),
+
           ],
         ),
-        const SizedBox(height: 24),
-        const Card(
-          elevation: 0,
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Text(
-              'Offline foundation active. This workspace is filtered by the role attached to this school membership. Offline records remain tenant-scoped and encrypted before storage.',
-            ),
-          ),
-        ),
+
       ],
     );
   }

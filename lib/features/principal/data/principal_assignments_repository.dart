@@ -336,7 +336,7 @@ class PrincipalAssignmentsRepository {
       return const PrincipalAssignmentActionResult(
         success: false,
         message:
-            'Onboard and activate the staff member as a Teacher first. Canonical teaching responsibility cannot be assigned to a provisional identity.',
+            'Activate the staff member as a Teacher before assigning subjects.',
       );
     }
 

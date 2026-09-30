@@ -112,7 +112,7 @@ class ParentPaymentMandatePreference {
         monthlyAmount: (json['monthlyAmount'] as num? ?? 0).toInt(),
         debitDay: json['debitDay'] as String? ?? '25th',
         collectionMethod:
-            json['collectionMethod'] as String? ?? 'Bank direct debit · prototype',
+            json['collectionMethod'] as String? ?? 'Bank direct debit · preview',
       );
 }
 

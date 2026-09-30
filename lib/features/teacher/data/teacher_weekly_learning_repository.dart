@@ -283,7 +283,7 @@ class TeacherWeeklyLearningRepository {
     if (factual == null) {
       return const TeacherWeeklyLearningActionResult(
         success: false,
-        message: 'Canonical weekly evidence is incomplete. Reload before publishing.',
+        message: 'Weekly learning records are incomplete. Reload before publishing.',
       );
     }
 

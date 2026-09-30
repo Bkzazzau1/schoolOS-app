@@ -245,7 +245,7 @@ class AdministratorRegistrationRepository {
     return AdministratorRegistrationActionResult(
       success: true,
       message: (completed
-              ? 'Registration completion saved offline and queued for sync. The student becomes canonical Active and billable only after the SchoolOS server accepts this change.'
+              ? 'Registration queued for sync. Student activation and billing begin after confirmation.'
               : 'Registration draft saved offline and queued for sync.') +
           (sibling == null
               ? ''

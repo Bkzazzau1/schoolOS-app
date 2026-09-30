@@ -328,7 +328,7 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
         ),
         const SizedBox(height: 5),
         const Text(
-          'Assign real Teacher accounts only to class-subjects already defined in the canonical active curriculum.',
+          'Assign teachers to subjects in the active curriculum.',
         ),
       ],
     );
@@ -373,7 +373,7 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'CANONICAL ASSIGNMENT SCOPE',
+                'TEACHING ASSIGNMENTS',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 4),
@@ -389,7 +389,7 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Teacher qualification-to-subject evidence is not yet a canonical SchoolOS model. Assignment authority stays with the Principal; SchoolOS does not invent qualification claims.',
+                'Review teacher qualifications before assigning a subject.',
               ),
             ],
           ),
@@ -602,7 +602,7 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
               const Text(
-                'A transfer preserves the previous teacher assignment as canonical history.',
+                'Previous teacher assignments remain in the history.',
               ),
               const SizedBox(height: 12),
               compact
@@ -699,7 +699,7 @@ class _PrincipalAssignmentsPageState extends State<PrincipalAssignmentsPage> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
               const Text(
-                'Server-validated history of canonical teacher changes.',
+                'Confirmed teacher assignment history.',
               ),
               const SizedBox(height: 10),
               if (snapshot.transfers.isEmpty)

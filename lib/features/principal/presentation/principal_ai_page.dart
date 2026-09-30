@@ -52,8 +52,7 @@ class _PrincipalAIPageState extends State<PrincipalAIPage> {
       padding: const EdgeInsets.all(20),
       children: [
         _Header(onNavigate: widget.onNavigate),
-        const SizedBox(height: 16),
-        const _Guardrail(),
+
         const SizedBox(height: 16),
         LayoutBuilder(builder: (context, constraints) {
           final chat = _ChatCard(
@@ -68,14 +67,7 @@ class _PrincipalAIPageState extends State<PrincipalAIPage> {
               ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(flex: 7, child: chat), const SizedBox(width: 16), Expanded(flex: 4, child: side)])
               : Column(children: [chat, const SizedBox(height: 16), side]);
         }),
-        const SizedBox(height: 16),
-        LayoutBuilder(builder: (context, constraints) {
-          const path = _DataPathCard();
-          const principle = _ProductionPrincipleCard();
-          return constraints.maxWidth >= 900
-              ? const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: path), SizedBox(width: 16), Expanded(child: principle)])
-              : const Column(children: [path, SizedBox(height: 16), principle]);
-        }),
+
       ],
     );
   }
@@ -111,28 +103,6 @@ class _Header extends StatelessWidget {
       );
 }
 
-class _Guardrail extends StatelessWidget {
-  const _Guardrail();
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            CircleAvatar(backgroundColor: Theme.of(context).colorScheme.primaryContainer, child: const Text('AI', style: TextStyle(fontWeight: FontWeight.w900))),
-            const SizedBox(width: 12),
-            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Permission-bound school intelligence', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-              SizedBox(height: 4),
-              Text(principalAIGuardrail),
-            ])),
-            const SizedBox(width: 12),
-            const Chip(label: Text('Prototype data')),
-          ]),
-        ),
-      );
-}
-
 class _ChatCard extends StatelessWidget {
   const _ChatCard({required this.questionController, required this.lastQuestion, required this.insight, required this.onAsk, required this.onNavigate});
   final TextEditingController questionController;
@@ -165,7 +135,7 @@ class _ChatCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Row(children: [
-              Expanded(child: Text('Prototype workspace: not yet connected to a real reasoning model.', style: Theme.of(context).textTheme.bodySmall)),
+              Expanded(child: Text('AI answers are not available yet.', style: Theme.of(context).textTheme.bodySmall)),
               FilledButton.icon(onPressed: () => onAsk(), icon: const Icon(Icons.auto_awesome_rounded), label: const Text('Ask Principal AI')),
             ]),
             const Divider(height: 28),
@@ -206,75 +176,10 @@ class _SideColumn extends StatelessWidget {
         ]))),
         const SizedBox(height: 12),
         Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Row(children: [Expanded(child: Text('Recent questions', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20))), Chip(label: Text('Prototype'))]),
+          const Row(children: [Expanded(child: Text('Recent questions', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20))), Chip(label: Text('Sample'))]),
           const SizedBox(height: 6),
           for (final item in history) Align(alignment: Alignment.centerLeft, child: TextButton(onPressed: () => onAsk(item), child: Text(item))),
         ]))),
-        const SizedBox(height: 12),
-        const _BoundariesCard(),
+
       ]);
-}
-
-class _BoundariesCard extends StatelessWidget {
-  const _BoundariesCard();
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-            Text('What Principal AI can do', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            SizedBox(height: 10),
-            _BoundaryRow(icon: Icons.check_circle_outline, text: 'Summarize academics, attendance, teachers, students, timetable, results and incidents within principal permissions.'),
-            _BoundaryRow(icon: Icons.check_circle_outline, text: 'Explain why a risk was surfaced and link back to the source workflow.'),
-            _BoundaryRow(icon: Icons.check_circle_outline, text: 'Suggest review steps while leaving decisions to authorized school staff.'),
-            _BoundaryRow(icon: Icons.block, text: 'No cross-school retrieval, hidden staff-confidential access, automatic punishment or autonomous safeguarding decisions.'),
-          ]),
-        ),
-      );
-}
-
-class _BoundaryRow extends StatelessWidget {
-  const _BoundaryRow({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, size: 19), const SizedBox(width: 8), Expanded(child: Text(text))]));
-}
-
-class _DataPathCard extends StatelessWidget {
-  const _DataPathCard();
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('AI data path', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              for (var i = 0; i < principalAIDataPath.length; i++) ...[
-                Chip(label: Text(principalAIDataPath[i])),
-                if (i < principalAIDataPath.length - 1) const Icon(Icons.arrow_forward_rounded, size: 18),
-              ],
-            ]),
-          ]),
-        ),
-      );
-}
-
-class _ProductionPrincipleCard extends StatelessWidget {
-  const _ProductionPrincipleCard();
-  @override
-  Widget build(BuildContext context) => const Card(
-        elevation: 0,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Production principle', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            SizedBox(height: 8),
-            Text(principalAIProductionPrinciple),
-          ]),
-        ),
-      );
 }

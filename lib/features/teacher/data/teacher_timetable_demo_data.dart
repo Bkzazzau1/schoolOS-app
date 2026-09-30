@@ -27,4 +27,4 @@ const teacherTimetableNotices = <TeacherTimetableNotice>[
 ];
 
 const teacherTimetableAuthorityBoundary =
-    'Teachers may view their assigned timetable, take attendance, report lesson issues and request timetable changes. A local request or sync intent does not edit the authoritative school timetable or prove that a server accepted a change.';
+    'View your timetable, take attendance or request a schedule change. Requests take effect only after approval.';

@@ -160,8 +160,7 @@ class _QueueCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Sample counts only: not yet wired to real Transport, Meals or Visitors records, and there is no way '
-              'here to mark a task done. Open those workspaces directly for real, current figures.',
+              'Sample counts. Open Transport, Meals or Visitors for current records.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),

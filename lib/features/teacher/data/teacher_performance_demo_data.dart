@@ -104,4 +104,4 @@ const teacherPerformanceBoundary =
 const teacherPerformancePrivacyBoundary =
     'This detailed performance view is private to the teacher by default. Other teachers cannot inspect it, and any leadership use requires authorized human review.';
 const teacherPerformanceReflectionBoundary =
-    'Private reflections stay on the teacher device in this native workflow unless a future explicit share action is added. Adding a reflection does not create an HR record or notify leadership.';
+    'Reflections stay on this device and are not shared with school leadership.';

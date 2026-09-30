@@ -65,10 +65,7 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                   const SizedBox(height: 16),
                   _AttendanceHistory(events: data.events),
                   const SizedBox(height: 16),
-                  _ResponsivePair(
-                    left: _NotificationHistory(items: data.notifications),
-                    right: const _AttendancePrinciple(),
-                  ),
+                  _NotificationHistory(items: data.notifications),
                 ],
               );
             },
@@ -683,71 +680,6 @@ class _NotificationRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _AttendancePrinciple extends StatelessWidget {
-  const _AttendancePrinciple();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const _SectionHeader(
-              title: 'Attendance principle',
-              subtitle: 'Facts, not assumptions.',
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Text(
-                parentAttendancePrinciple,
-                style: TextStyle(height: 1.5),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ResponsivePair extends StatelessWidget {
-  const _ResponsivePair({required this.left, required this.right});
-
-  final Widget left;
-  final Widget right;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 900) {
-          return Column(
-            children: [left, const SizedBox(height: 14), right],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: left),
-            const SizedBox(width: 14),
-            Expanded(child: right),
-          ],
-        );
-      },
     );
   }
 }

@@ -280,7 +280,7 @@ class PrincipalTimetableRepository {
     return const PrincipalTimetableActionResult(
       success: false,
       message:
-          'Timetable exception acknowledgement is not an edit to the canonical schedule. Use the Administrator timetable workflow to correct a clash or uncovered lesson.',
+          'Acknowledging an issue does not change the timetable. Ask the Administrator to correct the schedule.',
     );
   }
 

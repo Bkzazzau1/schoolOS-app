@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/sync/sync_scope.dart';
 import '../../proprietor/presentation/owner_dialogs.dart';
-import '../data/administrator_admissions_demo_data.dart';
 import '../data/administrator_admissions_repository.dart';
 import '../domain/administrator_admissions_models.dart';
 import 'administrator_admissions_dialogs.dart';
@@ -204,10 +203,7 @@ class _AdministratorAdmissionsPageState
               const SizedBox(height: 16),
               _buildApplicantDetail(),
             ],
-            const SizedBox(height: 18),
-            _BoundaryCallout(
-              text: administratorAdmissionsBoundary,
-            ),
+
           ],
         );
       },
@@ -792,43 +788,6 @@ class _StagePill extends StatelessWidget {
       child: Text(
         stage.label,
         style: const TextStyle(fontWeight: FontWeight.w900),
-      ),
-    );
-  }
-}
-
-class _BoundaryCallout extends StatelessWidget {
-  const _BoundaryCallout({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.policy_outlined),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Admissions boundary',
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 4),
-                Text(text),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

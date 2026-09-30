@@ -592,7 +592,7 @@ class _DesktopBrandPanel extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            'SchoolOS native application',
+            'SchoolOS',
             style: theme.textTheme.bodySmall,
           ),
         ],

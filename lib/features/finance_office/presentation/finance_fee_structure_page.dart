@@ -157,7 +157,7 @@ class _FinanceFeeStructurePageState extends State<FinanceFeeStructurePage> with 
           const SizedBox(height: 12),
         ],
         Text(
-          'Optional charges (transport, meals, boarding, books) are not billed yet. They will be added as their own charges, never merged into tuition silently.',
+          'Optional charges for transport, meals, boarding and books are not billed here yet.',
           style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],

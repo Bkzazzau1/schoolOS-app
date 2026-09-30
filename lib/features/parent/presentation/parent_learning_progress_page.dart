@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/parent_learning_progress_demo_data.dart';
 import '../data/parent_learning_progress_repository.dart';
 import '../domain/parent_learning_progress_models.dart';
 
@@ -97,8 +96,7 @@ class _ParentLearningProgressPageState
                     left: _LearningInsightCard(child: selected),
                     right: _LearningTimelineCard(child: selected),
                   ),
-                  const SizedBox(height: 16),
-                  const _GuardianBoundaryCard(),
+
                 ],
               );
             },
@@ -766,7 +764,7 @@ class _EvidenceMixCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Evidence mix',
-      subtitle: 'Current learning signals used in this prototype view.',
+      subtitle: 'Current learning signals.',
       child: child.evidence.isEmpty
           ? const _NoEvidence()
           : LayoutBuilder(
@@ -977,36 +975,6 @@ class _SectionCard extends StatelessWidget {
             child,
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _GuardianBoundaryCard extends StatelessWidget {
-  const _GuardianBoundaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline_rounded),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              parentLearningProgressBoundary,
-              style: TextStyle(height: 1.45, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -163,11 +163,7 @@ class _AssemblyPageState extends State<AssemblyPage> {
                 onQueryChanged: (_) => setState(() {}),
                 onTypeChanged: (value) => setState(() => _typeFilter = value),
               ),
-              const SizedBox(height: 16),
-              _ConfigurationSidebar(
-                canConfigureSchoolWide:
-                    snapshot.permissions.canConfigureSchoolWide,
-              ),
+
             ] else
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,14 +179,7 @@ class _AssemblyPageState extends State<AssemblyPage> {
                           setState(() => _typeFilter = value),
                     ),
                   ),
-                  const SizedBox(width: 18),
-                  Expanded(
-                    flex: 3,
-                    child: _ConfigurationSidebar(
-                      canConfigureSchoolWide:
-                          snapshot.permissions.canConfigureSchoolWide,
-                    ),
-                  ),
+
                 ],
               ),
           ],
@@ -424,72 +413,6 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(label, style: theme.textTheme.labelSmall),
-    );
-  }
-}
-
-class _ConfigurationSidebar extends StatelessWidget {
-  const _ConfigurationSidebar({required this.canConfigureSchoolWide});
-
-  final bool canConfigureSchoolWide;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(17),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'CONFIGURATION PRINCIPLE',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                for (final entry in assemblyConfigurationPrinciples.entries) ...[
-                  Text(
-                    entry.key,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  Text(entry.value, style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 10),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(17),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'OWNER AUTHORITY',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  canConfigureSchoolWide
-                      ? 'This membership has school-wide configuration authority, but the website does not yet expose an editor here. The native app therefore preserves the current read/filter workflow instead of inventing one.'
-                      : 'This membership can view only the assembly data made available to its scope.',
-                  style: theme.textTheme.bodySmall?.copyWith(height: 1.5),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

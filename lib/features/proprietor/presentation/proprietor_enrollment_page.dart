@@ -191,20 +191,7 @@ class _ProprietorEnrollmentPageState extends State<ProprietorEnrollmentPage> wit
                         'Retention and the enrollment trend need students recorded across earlier terms. They will appear once terms are closed and kept.',
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        'Admissions should support eligibility, capacity and documented school policy. SchoolOS should not make opaque '
-                        'admissions decisions from family income, ethnicity, religion, disability, health history or other sensitive traits.',
-                        style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
-                      ),
-                    ),
+
                   ],
                 ),
               ),

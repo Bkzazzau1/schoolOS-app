@@ -80,7 +80,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
     if (_navigation.any((item) => item.key == widget.initialPage)) {
       _activeKey = widget.initialPage;
     }
-    _concessions = FinanceConcessionsRepository(confirm: ServerConfirmScope.maybeOf(context), 
+    _concessions = FinanceConcessionsRepository(confirm: ServerConfirmScope.maybeOf(context),
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
     );
@@ -475,7 +475,7 @@ class _UpcomingFinanceFeature extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(item.label, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900), textAlign: TextAlign.center),
                   const SizedBox(height: 8),
-                  const Text('This Finance Office destination exists on the SchoolOS website and will be ported in sequence. It is intentionally not simulated yet.', textAlign: TextAlign.center),
+                  const Text('This feature is not available yet.', textAlign: TextAlign.center),
                   const SizedBox(height: 16),
                   FilledButton.icon(onPressed: onDashboard, icon: const Icon(Icons.dashboard_rounded), label: const Text('Back to dashboard')),
                 ],

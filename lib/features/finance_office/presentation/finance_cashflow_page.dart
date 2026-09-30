@@ -39,8 +39,7 @@ class _FinanceCashflowPageState extends State<FinanceCashflowPage> {
         const _Kpis(),
         const SizedBox(height: 16),
         const _MainGrid(),
-        const SizedBox(height: 16),
-        const _PostingBoundary(),
+
       ],
     );
   }
@@ -418,50 +417,6 @@ class _SampleDataBanner extends StatelessWidget {
           Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600))),
         ]),
       );
-}
-
-class _PostingBoundary extends StatelessWidget {
-  const _PostingBoundary();
-
-  @override
-  Widget build(BuildContext context) {
-    return _CardShell(
-      title: 'Posting & audit boundary',
-      subtitle: 'Keep authorization, cash movement and accounting history distinct.',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          _BoundaryLine(icon: Icons.account_balance_wallet_outlined, text: financeIncomeEntryBoundary),
-          SizedBox(height: 10),
-          _BoundaryLine(icon: Icons.approval_outlined, text: financeExpenseRequestBoundary),
-          SizedBox(height: 10),
-          _BoundaryLine(icon: Icons.attach_file_outlined, text: financeExpenseEvidenceBoundary),
-          SizedBox(height: 10),
-          _BoundaryLine(icon: Icons.history_rounded, text: financeCashflowCorrectionBoundary),
-          SizedBox(height: 10),
-          _BoundaryLine(icon: Icons.science_outlined, text: financeCashflowPrototypeBoundary),
-        ],
-      ),
-    );
-  }
-}
-
-class _BoundaryLine extends StatelessWidget {
-  const _BoundaryLine({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 19, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text)),
-      ],
-    );
-  }
 }
 
 class _CardShell extends StatelessWidget {

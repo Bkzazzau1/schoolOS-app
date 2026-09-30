@@ -155,7 +155,7 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
                   _Stat(
                     label: 'Completed topics',
                     value: '$completed/${classRows.length}',
-                    hint: data.canonical ? 'delivery-backed' : 'demo reporting',
+                    hint: data.canonical ? 'completed lessons' : 'sample progress',
                   ),
                   _Stat(
                     label: 'In progress',
@@ -165,14 +165,14 @@ class _TeacherSyllabusPageState extends State<TeacherSyllabusPage> {
                   _Stat(
                     label: 'Delivered lessons',
                     value: '$deliveredLessons',
-                    hint: data.canonical ? 'server accepted' : 'demo evidence',
+                    hint: data.canonical ? 'confirmed' : 'sample records',
                   ),
                   _Stat(
                     label: 'Coverage',
                     value: '${data.coverageOf(className)}%',
                     hint: data.canonical
                         ? 'not a pacing judgement'
-                        : 'demo syllabus coverage',
+                        : 'sample coverage',
                   ),
                 ],
               ),
@@ -231,7 +231,7 @@ class _Topbar extends StatelessWidget {
                 Text(
                   canonical
                       ? 'Coverage is derived from server-accepted delivered lessons. This screen cannot manufacture curriculum completion.'
-                      : 'Standalone demo syllabus tracker.',
+                      : 'Sample syllabus tracker.',
                 ),
               ],
             ),
@@ -316,7 +316,7 @@ class _Hero extends StatelessWidget {
                     Text(
                       canonical
                           ? 'Completed only when delivery evidence says the topic was completed.'
-                          : 'Demo-reported coverage.',
+                          : 'Sample coverage.',
                     ),
                   ],
                 ),
@@ -420,7 +420,7 @@ class _SchemePanel extends StatelessWidget {
                       Text(
                         snapshot.canonical
                             ? 'Progress shown below comes from delivered lesson evidence.'
-                            : 'Demo mode allows direct progress reporting.',
+                            : 'Changes to sample progress stay on this device.',
                       ),
                     ],
                   ),
@@ -565,14 +565,14 @@ class _EvidenceBoundary extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Syllabus evidence boundary',
+                'Update syllabus progress',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 8),
               Text(
                 canonical
-                    ? 'A Teacher cannot directly mark a canonical topic complete here. The server derives In progress / Completed from accepted Lesson Delivery records tied to real timetable occurrences and approved lesson plans.'
-                    : 'Demo progress is local-only and does not represent server curriculum authority.',
+                    ? 'Record completed lessons in Lesson Plans & Delivery. Progress updates after confirmation.'
+                    : 'Sample progress is saved on this device only.',
               ),
               const SizedBox(height: 10),
               FilledButton.tonalIcon(

@@ -45,14 +45,13 @@ void main() {
     expect(restored.count, source.count);
   });
 
-  test('media safety and production boundaries remain explicit', () {
+  test('media safety and manually entered counts remain clear', () {
     expect(gallerySafetyRules['Audience first'], contains('distinct'));
     expect(gallerySafetyRules['Consent-aware'], contains('guardian/media permissions'));
     expect(gallerySafetyRules['No automatic public posting'], contains('explicit approval'));
-    // The album record itself is honestly real, only the file storage isn't.
-    expect(galleryProductionBoundary, contains('Album records'));
-    expect(galleryProductionBoundary, contains('real and sync'));
-    expect(galleryProductionBoundary, contains('signed URL'));
+    expect(galleryProductionBoundary, contains('entered manually'));
+    expect(galleryProductionBoundary, contains('may differ from the files'));
+    expect(galleryProductionBoundary, isNot(contains('signed URL')));
   });
 
   test('every seeded album is tied to a real academic term, not free text', () {

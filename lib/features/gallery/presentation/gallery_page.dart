@@ -89,7 +89,7 @@ class _GalleryPageState extends State<GalleryPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'Before real photo/video upload is enabled, SchoolOS must connect secure object storage, signed URLs, audience authorization and a moderation pipeline.',
+                  'Open an album to view or add its photos and videos.',
                 ),
               ),
             ],
@@ -558,27 +558,7 @@ class _GallerySidebar extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 14),
-        Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'PRODUCTION LATER',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(galleryProductionBoundary, style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.55)),
-              ],
-            ),
-          ),
-        ),
+
       ],
     );
   }

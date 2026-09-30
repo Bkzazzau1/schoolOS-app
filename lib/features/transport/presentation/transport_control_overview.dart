@@ -102,7 +102,7 @@ class TransportControlOverview extends StatelessWidget {
               ),
             const SizedBox(height: 10),
             Text(
-              'Operational boundary: this view can include local queued Driver activity. Queued does not mean server-confirmed, and a baseline route without Driver records is not presented as a live trip.',
+              'Queued driver updates are awaiting sync. Routes without trip records are not live trips.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.45,

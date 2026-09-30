@@ -137,7 +137,7 @@ class _ParentAssignmentsPageState extends State<ParentAssignmentsPage> {
                 child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Text(
-                    'Family boundary: this screen receives only recipient snapshots for children linked to this guardian account. It never exposes another learner, the class recipient roster, or unfinished Student drafts.',
+                    'Assignments for your linked children.',
                   ),
                 ),
               ),

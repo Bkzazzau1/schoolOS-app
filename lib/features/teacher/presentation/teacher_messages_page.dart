@@ -430,7 +430,7 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
                 alignment: WrapAlignment.end,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () => _showNotice('Attachment picker would use tenant-scoped Wasabi storage in production. No file has been attached yet.'),
+                    onPressed: () => _showNotice('Attachments are not available here yet. No file was attached.'),
                     icon: const Icon(Icons.attach_file, size: 18),
                     label: const Text('Attach'),
                   ),

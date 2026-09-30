@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/parent_documents_demo_data.dart';
 import '../data/parent_documents_repository.dart';
 import '../domain/parent_documents_models.dart';
 
@@ -102,8 +101,7 @@ class _ParentDocumentsPageState extends State<ParentDocumentsPage> {
                     ),
                     right: _ConsentHistoryCard(items: data.consentHistory),
                   ),
-                  const SizedBox(height: 16),
-                  const _BoundaryCard(),
+
                 ],
               );
             },
@@ -501,31 +499,6 @@ class _SectionCard extends StatelessWidget {
             child,
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _BoundaryCard extends StatelessWidget {
-  const _BoundaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.lock_outline_rounded, size: 20),
-          SizedBox(width: 10),
-          Expanded(child: Text(parentDocumentsVisibilityBoundary)),
-        ],
       ),
     );
   }

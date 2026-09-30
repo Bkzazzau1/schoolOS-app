@@ -302,8 +302,7 @@ class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
                 ],
               ),
           ],
-          const SizedBox(height: 16),
-          const _CanonicalBoundary(),
+
         ];
         return SingleChildScrollView(
           padding: EdgeInsets.all(compact ? 16 : 24),
@@ -385,8 +384,7 @@ class _TeacherWeeklyLearningPageState extends State<TeacherWeeklyLearningPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          const _DemoBoundary(),
+
         ],
       ),
     );
@@ -754,7 +752,7 @@ class _CanonicalEmpty extends StatelessWidget {
               Text(
                 hasAssignments
                     ? 'No weekly subject report has been created yet.'
-                    : 'No canonical class-subject assignment has synced for this Teacher yet.',
+                    : 'No class subjects have synced for your account yet.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
@@ -806,50 +804,6 @@ class _FlowCard extends StatelessWidget {
                 ],
               ),
             ],
-          ),
-        ),
-      );
-}
-
-class _CanonicalBoundary extends StatelessWidget {
-  const _CanonicalBoundary();
-
-  @override
-  Widget build(BuildContext context) => const Card(
-        elevation: 0,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Weekly learning evidence boundary',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'Planned topics, delivered lessons, curriculum completion and attendance evidence come from canonical academic records. The Teacher may add next-focus and support context, but cannot rewrite those facts here.',
-              ),
-              SizedBox(height: 6),
-              Text(
-                'Queued does not mean published. Only a server-published snapshot becomes family-visible, and that snapshot is preserved as historical evidence.',
-              ),
-            ],
-          ),
-        ),
-      );
-}
-
-class _DemoBoundary extends StatelessWidget {
-  const _DemoBoundary();
-
-  @override
-  Widget build(BuildContext context) => const Card(
-        elevation: 0,
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            'Standalone demo content remains local. In a connected school, weekly learning is subject-scoped, evidence-derived and server-published before families can see it.',
           ),
         ),
       );

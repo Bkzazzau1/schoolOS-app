@@ -59,7 +59,7 @@ void main() {
     await tester.tap(find.text('Alumni').first);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('server-authoritative'), findsOneWidget);
+    expect(find.text('Connect to your school to verify alumni.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -58,7 +58,7 @@ void main() {
     expect(json.containsKey('childPickupAuthorized'), isFalse);
     expect(json.containsKey('studentRelationship'), isFalse);
     expect(json.containsKey('pickupStudentId'), isFalse);
-    expect(visitorPickupBoundary, contains('must not automatically authorize'));
+    expect(visitorPickupBoundary, contains('does not authorize child pickup'));
   });
 
   test('visitor access rules preserve restricted-log boundary', () {

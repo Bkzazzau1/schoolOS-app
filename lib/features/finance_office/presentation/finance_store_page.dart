@@ -60,13 +60,13 @@ class _FinanceStorePageState extends State<FinanceStorePage> {
           else
             order,
       ];
-      _notice = '${current.id} marked fully issued locally in this prototype.';
+      _notice = '${current.id} marked fully issued on this device.';
     });
   }
 
   void _prototype(String action) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$action is still a website prototype action.')),
+      SnackBar(content: Text('$action is not available here yet.')),
     );
   }
 
@@ -79,7 +79,7 @@ class _FinanceStorePageState extends State<FinanceStorePage> {
         _Header(onPrototype: _prototype),
         const SizedBox(height: 12),
         const _SampleDataBanner(
-          text: 'This screen shows sample store orders, not real ones. Finance AI already treats the school store as not recorded yet; this screen is not yet connected to real orders or stock.',
+          text: 'Sample store orders and stock. No purchases or payments are processed here.',
         ),
         const SizedBox(height: 18),
         _Kpis(totals: totals),
@@ -136,8 +136,7 @@ class _FinanceStorePageState extends State<FinanceStorePage> {
             );
           },
         ),
-        const SizedBox(height: 14),
-        const _BoundaryCard(),
+
       ],
     );
   }
@@ -549,33 +548,6 @@ class _SampleDataBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600))),
         ]),
-      );
-}
-
-class _BoundaryCard extends StatelessWidget {
-  const _BoundaryCard();
-
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(financeStoreRailBoundary),
-              const SizedBox(height: 8),
-              const Text(financeStorePrototypeBoundary),
-              if (!financeStoreStock.first.reconciles) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Source-data review: School Shirt opening/issued/available values do not arithmetically reconcile in the website prototype.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ],
-            ],
-          ),
-        ),
       );
 }
 

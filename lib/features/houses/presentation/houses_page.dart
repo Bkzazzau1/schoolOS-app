@@ -178,7 +178,7 @@ class _HousesPageState extends State<HousesPage> {
                       const SizedBox(height: 6),
                       Text(current.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 14),
-                      _DetailLine('${current.points} points', 'Current-term prototype total.'),
+                      _DetailLine('${current.points} points', 'Current-term sample total.'),
                       _DetailLine(current.captain, 'Student captain'),
                       _DetailLine(current.coordinator, 'Staff coordinator'),
                       const SizedBox(height: 10),

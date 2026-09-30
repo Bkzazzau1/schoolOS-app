@@ -158,37 +158,37 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
       'directory' => _foundationCard(
           title: 'Alumni Directory',
           description:
-              'A privacy-controlled directory of verified alumni will be added here. No private contact information will be exposed by default.',
+              'The alumni directory is not available yet.',
           icon: Icons.groups_outlined,
         ),
       'community' => _foundationCard(
           title: 'Community',
           description:
-              'Alumni networking and discussion will use its own access-controlled community surface rather than automatically exposing the full School Life workspace.',
+              'Alumni community is not available yet.',
           icon: Icons.forum_outlined,
         ),
       'events' => _foundationCard(
           title: 'Events & Reunions',
           description:
-              'School-approved alumni events, reunions and RSVP flows will be built here.',
+              'Alumni events are not available yet.',
           icon: Icons.event_outlined,
         ),
       'mentorship' => _foundationCard(
           title: 'Mentorship',
           description:
-              'Verified alumni will be able to opt in to approved mentorship opportunities without exposing student or alumni private records.',
+              'Alumni mentorship is not available yet.',
           icon: Icons.handshake_outlined,
         ),
       'opportunities' => _foundationCard(
           title: 'Jobs & Opportunities',
           description:
-              'Approved jobs, internships, scholarships and professional opportunities will appear here.',
+              'Jobs and opportunities are not available yet.',
           icon: Icons.work_outline,
         ),
       'give-back' => _foundationCard(
           title: 'Give Back',
           description:
-              'Volunteering, sponsorship and school support workflows will be added here. A queued action will never be presented as a confirmed payment or donation.',
+              'School support is not available yet.',
           icon: Icons.volunteer_activism_outlined,
         ),
       _ => const SizedBox.shrink(),
@@ -243,7 +243,7 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Identity boundary',
+                  'Your alumni account',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
@@ -285,7 +285,7 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
             const SizedBox(height: 14),
             const Chip(
               avatar: Icon(Icons.lock_outline_rounded, size: 17),
-              label: Text('Foundation ready · feature not yet activated'),
+              label: Text('Not available yet'),
             ),
           ],
         ),

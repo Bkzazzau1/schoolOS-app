@@ -203,7 +203,7 @@ class _TransportDriverAssignmentsPanelState
               ),
             const SizedBox(height: 12),
             Text(
-              'Assignment boundary: assigning a route changes the Driver Portal operational scope only. It does not change the person’s staff role, payroll, employment status or vehicle maintenance state. Changes are stored offline first and queued for sync.',
+              'Route assignments take effect after sync. Staff roles and payroll are unchanged.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.45,

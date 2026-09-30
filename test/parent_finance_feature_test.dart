@@ -171,7 +171,7 @@ void main() {
       // ("Not recorded yet"), which is not one of the picker's own selectable options; the page must
       // still render the picker with a real default instead of crashing on that mismatch.
       expect(find.text('Automatic payment mandate'), findsOneWidget);
-      expect(find.text('Bank direct debit · prototype'), findsOneWidget);
+      expect(find.text('Bank direct debit · preview'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

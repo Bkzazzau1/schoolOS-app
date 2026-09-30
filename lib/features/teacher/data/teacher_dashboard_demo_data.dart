@@ -85,4 +85,4 @@ const teacherAiBoundary =
     'Teacher AI may summarize evidence and suggest teaching actions, but it cannot change marks, punish a student, make promotion decisions or convert attendance and assessment patterns into hidden student judgments.';
 
 const teacherOfflineBoundary =
-    'The dashboard may use tenant-scoped cached teaching evidence offline. Actual attendance, lesson-plan, assignment, assessment and message mutations remain local-first records with durable sync rather than being silently treated as server-confirmed.';
+    'Offline changes remain pending until sync confirms them.';

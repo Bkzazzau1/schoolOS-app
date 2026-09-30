@@ -261,7 +261,7 @@ class _TransportRiderAssignmentsPanelState
               ),
             const SizedBox(height: 12),
             Text(
-              'Safety boundary: rider changes affect future manifests only. Once a route has today’s manifest or vehicle check, assignments on that route are locked for the service day. Queued assignment changes are not server-confirmed until synchronization succeeds.',
+              'Rider changes apply to future trips. Assignments are locked once today’s manifest or vehicle check exists.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.45,

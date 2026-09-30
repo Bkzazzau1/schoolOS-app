@@ -123,7 +123,7 @@ const communityModerationRules = <String, String>{
   'Public showcase approval':
       'Public-facing posts should require authorized approval and media/privacy checks.',
   'Audit trail':
-      'Edits, removals and moderation actions should be logged in the backend.',
+      'Review the history of edits and moderation actions.',
 };
 
 const communityNoticeboardBoundary =

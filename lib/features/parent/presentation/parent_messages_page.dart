@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/parent_messages_demo_data.dart';
 import '../data/parent_messages_repository.dart';
 import '../domain/parent_messages_models.dart';
 
@@ -205,8 +204,7 @@ class _ParentMessagesPageState extends State<ParentMessagesPage> {
                       onQueue: () => _queueReply(selected),
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  const _BoundaryCard(),
+
                 ],
               );
             },
@@ -712,45 +710,6 @@ class _MessageStateChip extends StatelessWidget {
             style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BoundaryCard extends StatelessWidget {
-  const _BoundaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.lock_outline_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Family communication boundary',
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(parentMessagesPrivacyBoundary),
-            const SizedBox(height: 8),
-            Text(
-              parentMessagesDeliveryBoundary,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
       ),
     );
   }

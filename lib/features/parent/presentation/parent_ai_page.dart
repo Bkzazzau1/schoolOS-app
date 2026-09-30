@@ -140,13 +140,13 @@ class _ParentAIPageState extends State<ParentAIPage> {
                 _ResponsivePair(
                   left: _BoundaryCard(
                     icon: Icons.lock_outline_rounded,
-                    title: 'Privacy boundary',
+                    title: 'Your privacy',
                     subtitle: 'Family context is filtered before AI sees it.',
                     body: data.privacyBoundary,
                   ),
                   right: _BoundaryCard(
                     icon: Icons.rule_outlined,
-                    title: 'Decision boundary',
+                    title: 'Review suggestions',
                     subtitle: 'AI supports communication; it does not judge families.',
                     body: data.decisionBoundary,
                   ),

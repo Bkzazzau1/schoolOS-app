@@ -57,7 +57,7 @@ class _OwnerAccessPageState extends State<OwnerAccessPage> with SyncRefresh<Owne
                   color: Theme.of(context).colorScheme.secondaryContainer,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: const Text(
-                    'Demo school: your decisions apply on this device at once. Sign in as the person to see what they now get.',
+                    'Sample school. Access changes are saved on this device only.',
                   ),
                 ),
               const TabBar(

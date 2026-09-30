@@ -422,16 +422,7 @@ class _Sidebar extends StatelessWidget {
         const SizedBox(height: 8),
         const Text(eventAuthorityRule),
       ]))),
-      const SizedBox(height: 12),
-      Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('INTEGRATIONS LATER', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 8),
-        for (final entry in eventFutureIntegrations.entries) ...[
-          Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w900)),
-          Text(entry.value, style: theme.textTheme.bodySmall),
-          if (entry != eventFutureIntegrations.entries.last) const Divider(height: 18),
-        ],
-      ]))),
+
       const SizedBox(height: 12),
       Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16)), child: const Text(eventAcademicBoundary)),
     ]);

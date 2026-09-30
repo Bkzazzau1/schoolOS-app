@@ -283,7 +283,7 @@ class TeacherAssignmentRepository {
     if (!LocalDatabase.blockDemoSeeds) {
       return const TeacherAssignmentActionResult(
         success: false,
-        message: 'Revision and closure are canonical server workflows in connected mode.',
+        message: 'Connect to your school to revise or close an assignment.',
       );
     }
     final existing = await _localDatabase.getLocalRecord(
@@ -400,7 +400,7 @@ class TeacherAssignmentRepository {
     return TeacherAssignmentActionResult(
       success: true,
       message: action == 'grade'
-          ? 'Grade queued. It is not canonical until the server acknowledges it.'
+          ? 'Grade queued for confirmation.'
           : 'Return-for-revision queued. The Student sees it only after server acknowledgement.',
     );
   }

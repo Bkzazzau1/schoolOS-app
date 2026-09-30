@@ -53,7 +53,7 @@ const houseWebsiteSeed = <SchoolHouse>[
 
 const houseKpis = <HouseKpi>[
   HouseKpi('Active houses', '4', 'Whole-school structure'),
-  HouseKpi('Members', '683', 'Mock total across houses'),
+  HouseKpi('Members', '683', 'Sample total across houses'),
   HouseKpi('Events this term', '12', 'Sports, quiz, service'),
   HouseKpi('Leading house', 'Blue', '428 points'),
   HouseKpi('Ranking scope', 'House only', 'No academic rank conversion'),

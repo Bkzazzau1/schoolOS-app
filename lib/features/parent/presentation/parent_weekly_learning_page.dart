@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/parent_weekly_learning_demo_data.dart';
 import '../data/parent_weekly_learning_repository.dart';
 import '../domain/parent_weekly_learning_models.dart';
 
@@ -117,8 +116,7 @@ class _ParentWeeklyLearningPageState extends State<ParentWeeklyLearningPage> {
                   ),
                   const SizedBox(height: 16),
                   _BottomCards(update: current),
-                  const SizedBox(height: 16),
-                  const _LearningBoundaryCard(),
+
                 ],
               );
             },
@@ -712,34 +710,6 @@ class _GuidanceItem extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LearningBoundaryCard extends StatelessWidget {
-  const _LearningBoundaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.shield_outlined,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(parentWeeklyLearningBoundary, style: TextStyle(height: 1.45)),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

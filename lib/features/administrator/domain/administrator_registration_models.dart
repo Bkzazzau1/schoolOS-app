@@ -262,4 +262,4 @@ const registrationQrSafetyBoundary =
     'QR/barcode must use a safe opaque server identifier only. Do not encode date of birth, guardian phone, health information or fee balance directly.';
 
 const registrationActivationBoundary =
-    'Local completion may be queued offline. Canonical Active status, login provisioning and billing begin only after the SchoolOS server accepts registration and creates the active enrollment; finance, transport and meal setup remain separate workflows.';
+    'Registration is pending until sync completes. Finance, transport and meals are set up separately.';

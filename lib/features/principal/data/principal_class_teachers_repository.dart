@@ -117,7 +117,7 @@ class PrincipalClassTeachersRepository {
     if (!LocalDatabase.blockDemoSeeds) {
       return const PrincipalClassTeacherActionResult(
         success: false,
-        message: 'Assigning a class teacher is a canonical server workflow in connected mode.',
+        message: 'Connect to your school to assign a class teacher.',
       );
     }
     if (classId.isEmpty || sessionId.isEmpty || teacherId.isEmpty) {

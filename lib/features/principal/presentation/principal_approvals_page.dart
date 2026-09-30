@@ -290,7 +290,7 @@ class _Kpis extends StatelessWidget {
       _Kpi(
         label: 'Approved today',
         value: '${snapshot.approvedCount}',
-        note: 'Prototype count',
+        note: 'Sample count',
       ),
       _Kpi(
         label: 'Returned',
