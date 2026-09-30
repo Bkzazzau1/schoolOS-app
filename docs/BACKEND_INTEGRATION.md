@@ -2380,3 +2380,77 @@ Older media tests, unchanged by this pass: `media_queue_test` (the `LocalDatabas
 (sending against local storage and a fake object store, offline retry with backoff, a server refusal, cancelling,
 retrying by hand), `media_attachments_panel_test` (empty state, listing, picking, a rejected file type, a failed
 upload's retry, who may remove a file), `gallery_media_integration_test`, `owner_staff_profile_media_test`.
+
+## Unified SchoolOS Messaging: Parent Messages becomes real and two-way (first of four; Driver Messages, Teacher's
+## own Messages and the Principal Communication Hub stay exactly as they are for now)
+
+Four separate, mutually incompatible "Messages" features exist in this app today (Parent, Teacher, Driver,
+Principal Communication Hub). Rather than merging them into one system, each becomes real on its own, one at a
+time. This pass makes Parent Messages real, including a genuine two-way reply from the child's real class
+teacher - not only a deeper fix to the guardian's own side.
+
+**What was actually wrong.** `parent_message` was a generic `Spec` (`manage=MANAGERS`,
+`contribute={'parent'}`, `read=STAFF_SIDE`): readable by the *entire* staff side of the school, not only the
+child's real class teacher, and writable only by a parent - no real reply path existed at all, by design or by
+accident. On the app side, `ParentMessagesRepository.load()` filtered to only this device's own queued messages
+(so nothing anyone else ever sent could be seen even if the backend allowed it), and `queueReply` sent a mutation
+payload shape (`messageId`, `deliveryState`, `familyAccountId`, ...) that never matched what the Spec actually
+required, nor what the local cache itself stored.
+
+**Backend: a hand-rolled handler, not a Spec.** `apps/schoollife/messaging/parent_messages.py` replaces the old
+Spec entirely (`apps/schoollife/specs/communications.py` no longer defines `PARENT_MESSAGE` at all). Correct
+authorization here needs a real, per-record relationship - a real `GuardianLink` (this membership really is this
+child's guardian) or a real `TeachingAssignment` for the child's real *current* class (this membership really
+teaches it) - which `Spec`'s own `audience` hook cannot express at all: it is only ever given the payload, never
+the membership (see `framework.py`). This follows the exact precedent `ParentFamilyLinkHandler` and
+`apps/weekly_learning/visibility.py` already established for the same two relationships. A thread is
+`channel-<studentCode>`, reusing the id `apps/students/parent_sync.py` already publishes to a parent's own
+device as `childIds`, so no new identity scheme was invented. Every message is its own row, created once and
+never changed or removed - the same append-only shape `apps/transport/driver_messages.py` already uses for the
+school's other real messaging channel. The stored payload is `{id, threadId, body, authorRole,
+authorMembershipId, createdAt}`; who really sent a message and when are always the server's own stamp, never
+taken from the app. Visible to exactly three kinds of membership: the real guardian, the real current class
+teacher, and a manager (proprietor/administrator/principal, for oversight) - nobody else, not another family's
+guardian, not a teacher who does not teach this child, not even another teacher in the same school.
+
+**App: `ParentMessagesRepository` now reads and writes the real channel.** `load()` reads every real message in
+a thread generically off this device's local cache (not filtered to this membership's own messages, the way a
+purely outbound channel would be), so a reply from the real class teacher shows up here once an ordinary sync
+pull delivers it - the exact same mechanism that already writes every other real sync entity into local cache.
+`queueReply` now sends only `{id, threadId, body}`, the fields a guardian actually contributes; `direction`,
+`authorLabel` and `state` are never stored - `ParentMessageItem.fromCanonical` derives them at read time from the
+real `authorRole`/`authorMembershipId` against whoever is actually viewing the thread, so the same row reads as
+"You" to whoever sent it and by their real role to everyone else. No read-receipt record exists yet, so a real
+reply is simply visible once pulled - nothing marks it seen or unseen.
+
+**App: a new, separate Teacher Family Messages screen**
+(`lib/features/teacher/presentation/teacher_family_messages_page.dart`) gives a class teacher the other side of
+the same conversation: one real thread per real student in their real assigned classes (from `TeacherRoster`,
+deduplicated across subjects when a teacher teaches more than one to the same class), scoped by the same server
+check as the guardian's own side. Deliberately **not** merged into `TeacherMessagesPage` - that screen's own
+class-wide broadcast channels (a whole class's guardian group) are a different kind of thing and stay completely
+untouched. The new screen reuses `ParentMessageThread`/`ParentMessageItem` from Parent's own domain models rather
+than duplicating them (the same cross-feature-import precedent Excursions already set by importing
+Administrator's academics models), and is registered as its own gated activity, `teacher.family-messages`,
+alongside the existing `teacher.messages`.
+
+**Still not done, on purpose.** Driver Messages' own gaps, Teacher Messages' own broadcast channel becoming
+server-backed, and the Principal Communication Hub are unrelated future passes, per the "make the existing four
+real, one at a time" plan - none of their code changed here. Read-receipt/unread tracking for Parent and Teacher
+Family Messages does not exist yet either; that stays a known, honestly-labelled gap rather than a fabricated
+badge.
+
+**Verification.** Backend: new `apps.schoollife.tests.test_messaging` (11/11 - who may write into a thread, that
+the server stamps the real author and a message can never be changed or removed, and that reads never cross
+families or schools), `apps.schoollife`/`apps.administration`/`apps.access` together, full backend suite (2111
+tests, the same 39 pre-existing failures as before this work, by name - including two pre-existing, unrelated
+`apps.access.tests.test_catalog` failures from drift this pass did not introduce and did not attempt to fix:
+`owner.mandates`/`owner.alumni`/`owner.collections` and the Alumni workspace's own activities were never added to
+that test's own tracking lists by the passes that added them). App: `dart analyze` clean; new
+`test/teacher_family_messages_test.dart` (7/7: real per-family threads deduplicated across subjects, no assigned
+classes leaves an honest empty list, a queued reply persists and stays scoped to the right family, an unknown or
+unassigned thread and an empty/overlong body are refused, only a Teacher membership may use it, and a guardian
+message and a teacher reply are each real to the other on the exact same thread); `test/parent_messages_feature_test.dart`
+(5/5, its existing pinned behaviour unaffected); `test/teacher_dashboard_feature_test.dart`'s own pinned
+twenty-item navigation list updated to twenty-one for the new screen. Full app suite: the same 83 pre-existing
+failures as before this work, by name.
