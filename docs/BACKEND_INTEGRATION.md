@@ -234,6 +234,13 @@ Backend: `apps/structure/appearance.py` accepts the new theme ids, `custom` with
 `test/school_appearance_test.dart`, backend `apps.structure`.
 The logo also shows in the teacher, parent, finance, principal and driver side panels and the owner's side mark. Not done: the login page (no school is chosen yet there).
 
+**Also keeps a real copy in SchoolOS Media & Files.** When a school server exists, choosing a new logo now also queues it
+into the same shared `MediaUploadQueue` every other real attachment uses (`school_appearance`/`theme`'s now-registered owner
+kind, `school_logo` category). This is additive, not a replacement: every screen still renders the logo from the
+controller's own cached bytes above, in every mode including fully offline, and demo mode is entirely unaffected, since
+nothing from Media & Files is offered without a server. Removing a logo stays a base64-only action; an earlier durable copy
+is left as it is. Test: `test/school_logo_media_test.dart`.
+
 ## Owner cleanup
 
 - The staff approval, rejection, salary and document dialogs now own and dispose their own text boxes
@@ -2253,13 +2260,23 @@ bytes, its checksum and whether it has been checked only ever exist on the serve
   its own append-only audit trail; a case is never created through the app today, only noted and status-changed,
   matching the one flow that already existed. Both contribute and manage follow the single principal-only gate
   every other action on this screen already uses - no other role has any access to a case at all.
+- **The school logo** (`lib/features/proprietor/presentation/proprietor_appearance_page.dart`, `lib/core/appearance/`):
+  unlike every owner above, this one already had a real, working, tested mechanism - a small PNG/JPEG shrunk to
+  ~140KB and carried as base64 text inside the school's own `school_appearance`/`theme` sync record, rendered
+  everywhere from a local cache so it keeps working fully offline. That stays exactly as it is and stays what
+  every screen renders from, in every mode. What changed: when a school server exists, choosing a new logo now
+  *also* queues it into the same shared `MediaUploadQueue`, so the logo becomes a real, durable, canonical file
+  there too, not only a small copy inside a payload. Its owner kind (`school_appearance`, a hand-rolled
+  `AppearanceHandler`, not a `Spec` - proprietor writes, everyone reads) was, like excursion evidence, defined as
+  a media category but never actually registered as an owner kind; now fixed the same way. Removing a logo stays
+  base64-only for now; an earlier durable copy is left as it is rather than retired automatically.
 
-**Not yet wired to a screen.** Video transcoding, antivirus/malware scanning and school logo migration remain out
-of scope. Video is uploaded, stored and downloadable, but has no thumbnail yet (the server does not build
-one - see `docs/MEDIA.md`), so a video tile shows a plain icon rather than a preview frame. Camera capture (as
-opposed to picking an existing file) was not added this pass - `file_picker` (already a dependency) is what both
-platforms use; adding `image_picker` for a live camera capture was deliberately left out, since this checkout has
-no `android/` platform folder to verify a new plugin's Android wiring against.
+**Not yet wired to a screen.** Video transcoding and antivirus/malware scanning remain out of scope. Video is
+uploaded, stored and downloadable, but has no thumbnail yet (the server does not build one - see
+`docs/MEDIA.md`), so a video tile shows a plain icon rather than a preview frame. Camera capture (as opposed to
+picking an existing file) was not added this pass - `file_picker` (already a dependency) is what both platforms
+use; adding `image_picker` for a live camera capture was deliberately left out, since this checkout has no
+`android/` platform folder to verify a new plugin's Android wiring against.
 
 **Found and fixed while testing.** Real `dart:io` file writes (`MediaLocalFiles`) inside a `testWidgets` test
 never completed on their own - `flutter_test`'s widget-test clock does not drive the real event loop for
@@ -2300,21 +2317,34 @@ hold; `apps.administration`'s own equivalent generic tests pick a manager from e
 instead, which is why `PRINCIPAL_TEACHER_NOTES` (and now the incident specs) live there rather than in
 `apps.schoollife.specs`.
 
+The school logo's own test pass turned up a sharper version of the very first `tester.runAsync()` lesson above.
+`ProprietorAppearancePage`'s logo picker does genuine `dart:ui` image encoding (the picked picture, then
+`logo_processor.dart: shrinkLogo()`) - real async work the widget-test clock does not drive on its own, same as
+any real file write. Wrapping only a *later* poll in `tester.runAsync()` (the idiom every other `*_media_test.dart`
+file's simple in-memory `pickFile` stub never needed to worry about) was not enough: the encoding itself, kicked
+off by a bare `tester.tap()`, never got real event-loop time and the test hung until `flutter_test`'s hard
+10-minute limit - reproduced twice, confirmed by checkpoint logging to land inside the poll itself, and fixed by
+wrapping the `tester.tap()` call that triggers the picker in `tester.runAsync()` too, the same shape
+`media_attachments_panel_test.dart`'s own "picking a photo" test already uses for exactly this reason.
+
 **Verification.** `dart analyze` clean, backend and app. Backend: `apps.media`'s own suite (84/84, the one new
 test added this pass), `apps.administration`/`apps.schoollife`/`apps.media`/`apps.sync` together (196/196, minus
-the same pre-existing `apps.sync` failures), full backend suite (2076 tests: the two new `apps.administration`
-incident tests, plus the same 39 pre-existing failures as before this work, by name). App: new
-`test/administrator_records_media_test.dart` (11/11: no attachment with and without a server, each of the five
-supported types, a rejected type never reaching the queue, an offline queued file staying honestly local, retry
-after failure, an existing server file, removing one with a reason, status untouched by any of this, a teacher
-unable to reach the control, per-school queue isolation, the staff-kind category match), `test/community_media_test.dart`
-(12/12), `test/excursion_media_test.dart` (12/12) and `test/principal_incidents_media_test.dart` (10/10) - each
-following the same shape: no attachment with/without a server, an existing server file, a rejected type, every
-supported type, an offline queued file staying honestly local, retry after failure with the record's own
-status/workflow untouched, removing a file with a reason, a role with no access seeing no control at all, and
-per-school queue isolation - plus the pre-existing `administrator_records_actions_test.dart`,
-`administrator_records_feature_test.dart`, `community_test.dart`, `community_repository_test.dart`,
-`excursions_test.dart`, `excursion_repository_test.dart` and `principal_incidents_feature_test.dart` (all
+the same pre-existing `apps.sync` failures), full backend suite (2078 tests: the two new `apps.administration`
+incident tests, the two new `apps.media` school-logo integration tests, plus the same 39 pre-existing failures as
+before this work, by name). App: new `test/administrator_records_media_test.dart` (11/11: no attachment with and
+without a server, each of the five supported types, a rejected type never reaching the queue, an offline queued
+file staying honestly local, retry after failure, an existing server file, removing one with a reason, status
+untouched by any of this, a teacher unable to reach the control, per-school queue isolation, the staff-kind
+category match), `test/community_media_test.dart` (12/12), `test/excursion_media_test.dart` (12/12) and
+`test/principal_incidents_media_test.dart` (10/10) - each following the same shape: no attachment with/without a
+server, an existing server file, a rejected type, every supported type, an offline queued file staying honestly
+local, retry after failure with the record's own status/workflow untouched, removing a file with a reason, a role
+with no access seeing no control at all, and per-school queue isolation - plus `test/school_logo_media_test.dart`
+(4/4: demo mode unaffected, a server-side choice also keeps a durable copy with the right category/mime type,
+removing a logo leaves an earlier durable copy alone, an offline queued copy stays honestly local) - plus the
+pre-existing `administrator_records_actions_test.dart`, `administrator_records_feature_test.dart`,
+`community_test.dart`, `community_repository_test.dart`, `excursions_test.dart`, `excursion_repository_test.dart`,
+`principal_incidents_feature_test.dart`, `school_appearance_test.dart` and `school_theme_test.dart` (all
 unaffected). Full app suite: the same 83 failures as before this work, by name.
 
 Older media tests, unchanged by this pass: `media_queue_test` (the `LocalDatabase` table itself),
