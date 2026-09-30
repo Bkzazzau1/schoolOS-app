@@ -2620,3 +2620,59 @@ Messages, Driver Messages, Teacher Messages' guardian-group channels, and now th
 guardian announcements. What remains honestly unbuilt across all four, by design, stays labelled rather than
 faked: Parent/Teacher/Driver read-receipt (unread) tracking, Teacher Messages' staff/leadership channels, real
 SMS/email/WhatsApp delivery, and the Communication Hub's own reply-thread inbox.
+
+## Every real messaging channel gets a real read receipt
+
+Asked explicitly to carry each messaging feature to full completion rather than leaving a known gap behind once
+its core claim was real, the four items named above become the next work, taken one at a time. First: every
+real thread's `unread` flag, which every one of the four passes above had left hardcoded to `false` since
+nothing recorded who had actually seen a thread.
+
+**Design.** A real "I have seen this thread" receipt - its own append-only row, the same shape every message in
+these channels already uses - rather than a mutable "last read" field on the thread itself, matching the
+precedent `apps/transport/driver_messages.py`'s own Driver receipts had already set. `parent_message` gets a new
+`ParentMessageReceiptHandler` (`apps/schoollife/messaging/parent_messages.py`): the real guardian, the real
+current class teacher, or a manager may each record their own receipt for a thread they may actually reach - the
+exact same `_may_reach_thread` check the message handler itself uses. `driver_message`'s own
+`MessageReceiptHandler` is widened from Driver-only to `{"driver"} | MANAGERS`, the same way the message handler
+itself already was, so Transport Control can record a receipt too - resolving which real Driver's thread a
+manager means from a real, active `driver_transport_assignment`, never trusted from the app. Both are visible
+only to whoever made them (and managers, for oversight) - never to the other side of the conversation, since a
+receipt only matters to the person computing their own unread state.
+
+**App.** A thread is unread when its own latest real message was not sent by the person looking at it (its
+`authorLabel` is not `"You"`), and either they have never recorded a receipt for it or a real message arrived
+after their last one - computed fresh on every `load()`, never stored. Two small shared helpers
+(`lib/features/parent/data/parent_message_receipts.dart`, `lib/features/driver/data/driver_message_receipts.dart`)
+read a membership's own receipts and queue a new one, reused as-is by both real participants on each channel
+(Parent Messages and Teacher Family Messages share one; Driver Messages and Transport Control share the other) -
+the same reuse precedent `ParentMessageItem.fromCanonical` and `TeacherFamilyMessagesRepository.queueReply`
+already set. `markThreadSeen` is wired into every page at the same two points a conversation actually opens: an
+explicit tap, and the thread auto-selected when the screen first loads (deferred a frame past `build()`, since
+marking a receipt is a real write and must never run as a build-time side effect) - tolerating a failed receipt
+queue without blocking the read, the same as Driver Messages' own page already did.
+
+**A real bug found while building this.** Both new receipt-queueing helpers initially wrote a local cache copy
+that omitted `membershipId` from the payload entirely - the receipt was queued and would have synced correctly,
+but this device's own next `load()` could never find its own receipt back (the filter `payload['membershipId']
+== membershipId` never matched anything), so a thread stayed shown as unread even immediately after
+`markThreadSeen` ran. Caught by the pass's own tests before this ever reached a commit; fixed by writing the
+membership id into the local copy alongside the fields the wire payload actually sends (who recorded a receipt
+is the server's own stamp regardless, exactly as every message's own author fields already are).
+
+**Verification.** Backend: `apps.schoollife.tests.test_messaging` extended to 22/22 (the real guardian and real
+class teacher each marking their own receipt, a manager marking one for oversight, nobody outside the real
+conversation being able to mark one at all, a receipt never changed or removed once recorded, a forged receipt
+id refused, and only the person who made a receipt - plus managers - ever reading it back);
+`apps.transport.tests.test_incidents_messages` extended to 81/81 (the two pre-existing Driver-only receipt tests
+updated to the real per-Driver thread id scheme, plus new coverage for Transport Control marking a real Driver's
+thread seen and a thread id that does not match the real Driver being refused); `apps.schoollife`/
+`apps.transport`/`apps.administration` all individually clean; full backend suite unaffected in the areas this
+pass touched (the suite's own run-to-run count fluctuates by a test or two - see the session's own notes on
+this pre-existing flakiness - but zero failures ever appeared in `schoollife`, `transport` or `administration`
+across repeated runs). App: `dart analyze` clean; extended all four messaging test files (parent, teacher
+family, driver, transport - 9 new tests across them: a fresh thread is never unread, a device's own message
+never makes its own view unread, a real message from the other side makes a thread unread until marked seen, an
+already-read thread is a harmless no-op to mark again, and - for each two-sided channel - one side marking a
+thread seen never affects the other side's own independent unread state). Full app suite: the same 83
+pre-existing failures as before this work, by name.
