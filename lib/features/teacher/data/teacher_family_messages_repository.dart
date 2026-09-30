@@ -2,6 +2,7 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../parent/data/parent_message_receipts.dart';
 import '../../parent/domain/parent_messages_models.dart';
 import '../domain/teacher_family_messages_models.dart';
 import 'teacher_roster.dart';
@@ -53,6 +54,11 @@ class TeacherFamilyMessagesRepository {
             ),
           );
     }
+    final receipts = await loadOwnThreadReceipts(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+    );
 
     final threads = <ParentMessageThread>[];
     for (final className in classNames) {
@@ -71,7 +77,7 @@ class TeacherFamilyMessagesRepository {
           childLabel: student.name,
           preview: messages.isEmpty ? 'No messages yet' : messages.last.body,
           timeLabel: messages.isEmpty ? '' : messages.last.timeLabel,
-          unread: false,
+          unread: isThreadUnread(messages, receipts[threadId]),
           approvedParticipant: true,
           messages: messages,
         ));
@@ -79,6 +85,24 @@ class TeacherFamilyMessagesRepository {
     }
 
     return TeacherFamilyMessagesSnapshot(teacherMembershipId: membership.id, threads: threads);
+  }
+
+  /// Records this Teacher membership's own real receipt for a family's thread.
+  Future<void> markThreadSeen(String threadId) async {
+    final membership = _requireTeacherMembership();
+    final normalizedThreadId = threadId.trim();
+    final snapshot = await load();
+    final thread = snapshot.threadById(normalizedThreadId);
+    if (thread == null || !thread.approvedParticipant) {
+      throw StateError('This is not a family conversation you teach into.');
+    }
+    if (!thread.unread) return;
+    await queueThreadSeenReceipt(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      threadId: normalizedThreadId,
+    );
   }
 
   Future<ParentMessageItem> queueReply({

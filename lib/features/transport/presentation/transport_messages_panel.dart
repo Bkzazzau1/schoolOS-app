@@ -32,11 +32,22 @@ class _TransportMessagesPanelState extends State<TransportMessagesPanel> {
   }
 
   Future<void> _openThread(TransportMessagesSnapshot snapshot, DriverMessageThread thread) async {
+    try {
+      await widget.repository.markThreadSeen(thread.id);
+      widget.onChanged?.call();
+    } catch (_) {
+      // Opening the conversation remains possible even if a read receipt cannot be queued.
+    }
+    if (!mounted) return;
+
     final result = await showDialog<String>(
       context: context,
       builder: (_) => _ConversationDialog(thread: thread, canReply: snapshot.canReply),
     );
-    if (result == null || result.trim().isEmpty) return;
+    if (result == null || result.trim().isEmpty) {
+      _reload();
+      return;
+    }
 
     try {
       await widget.repository.queueReply(threadId: thread.id, body: result);
@@ -49,6 +60,7 @@ class _TransportMessagesPanelState extends State<TransportMessagesPanel> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_message(error))));
+      _reload();
     }
   }
 
@@ -148,7 +160,19 @@ class _ThreadTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(thread.participantName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(thread.participantName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      ),
+                      if (thread.unread)
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, shape: BoxShape.circle),
+                        ),
+                    ],
+                  ),
                   Text(thread.participantRole, style: const TextStyle(fontSize: 12)),
                   const SizedBox(height: 3),
                   Text(

@@ -4,6 +4,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/driver_messages_models.dart';
 import 'driver_dashboard_repository.dart';
+import 'driver_message_receipts.dart';
 
 class DriverMessagesRepository {
   DriverMessagesRepository({
@@ -17,7 +18,6 @@ class DriverMessagesRepository {
         );
 
   static const messageEntityType = 'driver_message';
-  static const receiptEntityType = 'driver_message_receipt';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -45,6 +45,11 @@ class DriverMessagesRepository {
             isDirty: record.isDirty,
           ),
     ]..sort((a, b) => (a.createdAt ?? DateTime(0)).compareTo(b.createdAt ?? DateTime(0)));
+    final receipts = await loadOwnDriverThreadReceipts(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+    );
 
     final thread = DriverMessageThread(
       id: threadId,
@@ -53,9 +58,7 @@ class DriverMessagesRepository {
       channelLabel: 'Assigned route operations',
       preview: messages.isEmpty ? 'No messages yet' : messages.last.body,
       timeLabel: messages.isEmpty ? '' : messages.last.timeLabel,
-      // No read-receipt reconciliation is wired into this view yet, so a real reply from
-      // Transport Control is simply visible in the thread once pulled.
-      unread: false,
+      unread: isDriverThreadUnread(messages, receipts[threadId]),
       approvedOperationalChannel: true,
       messages: messages,
     );
@@ -136,21 +139,14 @@ class DriverMessagesRepository {
     if (threadId.trim() != ownThreadId) {
       throw StateError('This Driver conversation is unavailable.');
     }
-    final dashboard = await _dashboardRepository.load();
-    final now = DateTime.now().toUtc();
-    final receiptId = '${membership.id}:thread-seen:$ownThreadId:${now.microsecondsSinceEpoch}';
-    await _localDatabase.queueMutation(
+    final snapshot = await load();
+    if (!snapshot.threads.single.unread) return;
+    await queueDriverThreadSeenReceipt(
+      _localDatabase,
       tenantId: membership.schoolId,
       membershipId: membership.id,
-      entityType: receiptEntityType,
-      entityId: receiptId,
-      operation: SyncOperation.create,
-      payload: {
-        'id': receiptId,
-        'threadId': ownThreadId,
-        'routeId': dashboard.assignment.routeId,
-        'seenAt': now.toIso8601String(),
-      },
+      threadId: ownThreadId,
+      driverMembershipId: membership.id,
     );
   }
 

@@ -1,6 +1,7 @@
 import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
+import '../../driver/data/driver_message_receipts.dart';
 import '../../driver/domain/driver_messages_models.dart';
 import '../domain/transport_messages_models.dart';
 import 'transport_repository.dart';
@@ -51,6 +52,11 @@ class TransportMessagesRepository {
             ),
           );
     }
+    final receipts = await loadOwnDriverThreadReceipts(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+    );
 
     final threads = <DriverMessageThread>[];
     for (final driver in assignments.drivers.where((d) => d.assigned)) {
@@ -64,13 +70,33 @@ class TransportMessagesRepository {
         channelLabel: 'Assigned route operations',
         preview: messages.isEmpty ? 'No messages yet' : messages.last.body,
         timeLabel: messages.isEmpty ? '' : messages.last.timeLabel,
-        unread: false,
+        unread: isDriverThreadUnread(messages, receipts[threadId]),
         approvedOperationalChannel: true,
         messages: messages,
       ));
     }
 
     return TransportMessagesSnapshot(threads: threads, canReply: permissions.canManageDriverAssignments);
+  }
+
+  /// Records Transport Control's own real receipt for a real Driver's thread.
+  Future<void> markThreadSeen(String threadId) async {
+    final membership = _schoolSession.requireActiveMembership();
+    final normalizedThreadId = threadId.trim();
+    final snapshot = await load();
+    final thread = snapshot.threadById(normalizedThreadId);
+    if (thread == null) {
+      throw StateError('This Driver conversation is unavailable.');
+    }
+    if (!thread.unread) return;
+    final driverMembershipId = normalizedThreadId.substring(_threadPrefix.length);
+    await queueDriverThreadSeenReceipt(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      threadId: normalizedThreadId,
+      driverMembershipId: driverMembershipId,
+    );
   }
 
   Future<DriverMessageItem> queueReply({

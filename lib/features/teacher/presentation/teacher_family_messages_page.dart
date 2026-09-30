@@ -28,6 +28,8 @@ class _TeacherFamilyMessagesPageState extends State<TeacherFamilyMessagesPage> {
   final _composer = TextEditingController();
   String? _selectedThreadId;
   bool _queueing = false;
+  bool _autoSelectHandled = false;
+  final _markingSeen = <String>{};
 
   @override
   void initState() {
@@ -50,6 +52,16 @@ class _TeacherFamilyMessagesPageState extends State<TeacherFamilyMessagesPage> {
     setState(() {
       _selectedThreadId = threadId;
       _composer.clear();
+    });
+    _markSeen(threadId);
+  }
+
+  void _markSeen(String threadId) {
+    if (!_markingSeen.add(threadId)) return;
+    widget.repository.markThreadSeen(threadId).then((_) {
+      if (mounted) setState(() {});
+    }).catchError((_) {
+      // Opening the conversation remains possible even if a read receipt cannot be queued.
     });
   }
 
@@ -100,6 +112,10 @@ class _TeacherFamilyMessagesPageState extends State<TeacherFamilyMessagesPage> {
 
         final selected = data.threadById(_selectedThreadId ?? '') ?? data.threads.first;
         _selectedThreadId ??= selected.id;
+        if (!_autoSelectHandled) {
+          _autoSelectHandled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _markSeen(selected.id));
+        }
 
         return RefreshIndicator(
           onRefresh: () async => _reload(),

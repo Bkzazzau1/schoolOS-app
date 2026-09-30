@@ -4,6 +4,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/parent_messages_models.dart';
 import 'parent_children_repository.dart';
+import 'parent_message_receipts.dart';
 
 class ParentMessagesRepository {
   ParentMessagesRepository({
@@ -47,6 +48,11 @@ class ParentMessagesRepository {
             ),
           );
     }
+    final receipts = await loadOwnThreadReceipts(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+    );
 
     final threads = <ParentMessageThread>[];
     for (final child in linked) {
@@ -61,15 +67,33 @@ class ParentMessagesRepository {
         childLabel: child.name,
         preview: messages.isEmpty ? 'No messages yet' : messages.last.body,
         timeLabel: messages.isEmpty ? '' : messages.last.timeLabel,
-        // No read-receipt record exists yet for this channel, so a real reply from the class
-        // teacher is not tracked as seen/unseen — it is simply visible in the thread once pulled.
-        unread: false,
+        unread: isThreadUnread(messages, receipts[threadId]),
         approvedParticipant: true,
         messages: messages,
       ));
     }
 
     return ParentMessagesSnapshot(familyAccountId: membership.id, threads: threads);
+  }
+
+  /// Records this guardian's own real receipt for a thread - a real reply from the class teacher
+  /// stops showing as unread only once this is called (and, in time, a real sync pull confirms it
+  /// for any other device this guardian also uses).
+  Future<void> markThreadSeen(String threadId) async {
+    final membership = _requireParentMembership();
+    final normalizedThreadId = threadId.trim();
+    final snapshot = await load();
+    final thread = snapshot.threadById(normalizedThreadId);
+    if (thread == null || !thread.approvedParticipant) {
+      throw StateError('This conversation is not an approved family communication channel.');
+    }
+    if (!thread.unread) return;
+    await queueThreadSeenReceipt(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      threadId: normalizedThreadId,
+    );
   }
 
   Future<ParentMessageItem> queueReply({
