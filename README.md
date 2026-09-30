@@ -8,9 +8,23 @@ One Flutter codebase targets:
 
 - Android phones
 - Android tablets
+- iPhone and iPad (iOS 15 or later; native build requires macOS and Xcode)
 - Windows desktop
 
 Phone, tablet, and desktop share domain/business logic while using adaptive navigation and workspace layouts.
+
+## Running on iPhone or iPad
+
+The `ios/` folder contains the native Xcode project. Building or installing the iOS app requires a Mac with Xcode and Flutter's iOS tooling configured; Windows cannot build an iOS binary.
+
+On the Mac:
+
+1. Run `flutter pub get` and `flutter doctor` and resolve any iOS toolchain issues.
+2. Open `ios/Runner.xcworkspace` in Xcode. Select the Runner target, choose your signing team, and replace the placeholder bundle identifier `com.example.schoolosApp` with your own unique identifier.
+3. Connect and trust your iPhone or iPad, enable Developer Mode if prompted, and select it with `flutter devices`.
+4. Run `flutter run -d <device-id>`. For a live backend, append `--dart-define=API_BASE_URL=https://your-server/api/v1`; otherwise the app uses demo data.
+
+The Runner target includes Keychain entitlements for secure storage. Native compilation, signing, and device behavior still need verification on macOS.
 
 ## Core product rules
 
