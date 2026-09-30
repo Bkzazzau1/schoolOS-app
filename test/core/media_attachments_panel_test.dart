@@ -114,6 +114,36 @@ void main() {
     expect(find.byKey(const ValueKey('asset-status-a1')), findsNothing); // available: no status word shown
   });
 
+  testWidgets('a video with a real server-built thumbnail shows the preview frame, not the plain icon', (tester) async {
+    server = mediaServer(assets: [assetJson(id: 'v1', mediaType: 'video')]); // hasThumbnail: true is assetJson's own default
+    api = MediaApi(api: apiFor(server));
+    final q = makeQueue();
+    // Not pump()/pumpAndSettle(): a video's own thumbnail loads the moment this tile first builds (no tap to
+    // wrap), and pumpAndSettle() advances fake time in large jumps to hunt for a settled frame - racing ahead
+    // of mediaServer()'s own tinyPng() (genuine dart:ui image encoding) before it gets real event-loop time to
+    // finish, so the download call fails with a fake-clock "took too long to answer" timeout. A handful of real,
+    // bounded waits (the same shape settle() helpers elsewhere in this app's tests already use) gives that real
+    // work the real time it needs instead.
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: MediaAttachmentsPanel(api: api, queue: q, membership: membership, ownerType: 'gallery_media_album', ownerId: 'album-1', canContribute: false, canManage: false))));
+    for (var i = 0; i < 8; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
+      await tester.pump();
+    }
+    expect(find.byKey(const ValueKey('asset-v1')), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget); // the real frame a school server with ffmpeg installed built
+    expect(find.byIcon(Icons.videocam_outlined), findsNothing);
+  });
+
+  testWidgets('a video with no thumbnail (no ffmpeg on that school\'s server) shows the plain video icon, honestly', (tester) async {
+    server = mediaServer(assets: [assetJson(id: 'v2', mediaType: 'video', hasThumbnail: false)]);
+    api = MediaApi(api: apiFor(server));
+    final q = makeQueue();
+    await pump(tester, MediaAttachmentsPanel(api: api, queue: q, membership: membership, ownerType: 'gallery_media_album', ownerId: 'album-1', canContribute: false, canManage: false));
+    expect(find.byKey(const ValueKey('asset-v2')), findsOneWidget);
+    expect(find.byIcon(Icons.videocam_outlined), findsOneWidget); // never faked as a preview that does not exist
+    expect(find.byType(Image), findsNothing);
+  });
+
   testWidgets('picking a photo queues it at once, showing it as waiting - never as uploaded', (tester) async {
     final q = makeQueue(); // no api: it will never actually send during this test
     final bytes = Uint8List.fromList([1, 2, 3]);
