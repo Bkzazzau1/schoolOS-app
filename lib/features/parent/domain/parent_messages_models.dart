@@ -112,6 +112,8 @@ String _authorLabelFor(String authorRole) {
       return 'Class teacher';
     case 'parent':
       return 'Guardian';
+    case 'principal':
+      return 'Principal';
     default:
       return 'School';
   }
