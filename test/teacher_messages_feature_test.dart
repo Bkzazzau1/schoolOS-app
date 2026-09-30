@@ -6,47 +6,39 @@ import 'package:schoolos_app/features/teacher/domain/teacher_messages_models.dar
 import 'package:schoolos_app/features/teacher/presentation/teacher_messages_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+// The fake channels/messages this page's own rendering is tested against. Guardian-group
+// (parentGroup) channels are real now - built from the teacher's real assigned classes in
+// teacher_messages_repository.dart, never demo furniture - so this page-level suite exercises
+// them through its own literal fixture rather than the production demo constants (which now hold
+// only the two channel types with no real backend yet: staff/leadership). See
+// test/teacher_messages_roster_test.dart for the real guardian-group channel's own behaviour.
+const _fakeThreads = <TeacherMessageThread>[
+  TeacherMessageThread(id: 'thread-1', name: 'JSS 2A Guardians', type: TeacherMessageChannelType.parentGroup, preview: 'Send a real announcement to 2 real families.', timeLabel: '', unread: 0, className: 'JSS 2A'),
+  TeacherMessageThread(id: 'thread-2', name: 'Academic Office', type: TeacherMessageChannelType.schoolLeadership, preview: 'Week 6 lesson-plan review completed.', timeLabel: 'Yesterday', unread: 0),
+  TeacherMessageThread(id: 'thread-4', name: 'Mathematics Department', type: TeacherMessageChannelType.staffChannel, preview: 'Department meeting moved to Thursday.', timeLabel: 'Mon', unread: 0),
+];
+
+const _fakeMessages = <TeacherMessage>[
+  TeacherMessage(id: 'msg-seed-1', threadId: 'thread-2', direction: TeacherMessageDirection.outgoing, body: 'Please see the attached lesson-plan review summary.', timeLabel: 'Yesterday', deliveryState: TeacherMessageDeliveryState.read, serverMessageId: 'server-msg-1'),
+];
+
 void main() {
-  test('Messages preserves exact website conversation snapshot', () {
-    expect(teacherMessageThreads, hasLength(4));
-    expect(teacherMessageThreads[0].name, 'JSS 2A Guardians');
-    expect(teacherMessageThreads[0].unread, 3);
-    expect(teacherMessageThreads[1].name, 'Academic Office');
-    expect(teacherMessageThreads[1].type, TeacherMessageChannelType.schoolLeadership);
-    expect(teacherMessageThreads[2].name, 'JSS 2B Guardians');
-    expect(teacherMessageThreads[2].unread, 1);
-    expect(teacherMessageThreads[3].name, 'Mathematics Department');
-    expect(teacherMessageThreads[3].type, TeacherMessageChannelType.staffChannel);
-    expect(teacherMessageThreads.fold<int>(0, (sum, item) => sum + item.unread), 4);
-  });
-
-  test('guardian-group threads are tagged with the real class they belong to', () {
-    final guardianGroups = teacherMessageThreads.where((t) => t.type == TeacherMessageChannelType.parentGroup);
-    expect(guardianGroups.length, 2);
-    for (final thread in guardianGroups) {
-      expect(thread.className, isNotNull, reason: '${thread.name} must be scoped to a real class so it can be filtered to the teacher\'s real assignment');
-    }
-    expect(teacherMessageThreads.firstWhere((t) => t.name == 'JSS 2A Guardians').className, 'JSS 2A');
-    // Staff/leadership channels are not class-scoped, so every teacher may see them.
-    expect(teacherMessageThreads.firstWhere((t) => t.name == 'Academic Office').className, isNull);
-  });
-
-  test('JSS 2A seed conversation preserves exact three website messages', () {
-    expect(teacherMessageSeedMessages, hasLength(3));
-    expect(teacherMessageSeedMessages[0].body, contains('linear-equations assignment closes tomorrow at 6:00 PM'));
-    expect(teacherMessageSeedMessages[1].body, 'Thank you. Is the revision sheet available inside SchoolOS?');
-    expect(teacherMessageSeedMessages[2].body, contains('attached to the assignment page'));
-    expect(teacherMessageSeedMessages.every((item) => item.threadId == 'thread-1'), isTrue);
+  test('Messages demo data preserves the two channel types with no real backend yet', () {
+    expect(teacherMessageThreads, hasLength(2));
+    expect(teacherMessageThreads.every((t) => t.type != TeacherMessageChannelType.parentGroup), isTrue,
+        reason: 'guardian-group channels are real now, built from the teacher\'s own real assigned classes');
+    expect(teacherMessageThreads[0].name, 'Academic Office');
+    expect(teacherMessageThreads[0].type, TeacherMessageChannelType.schoolLeadership);
+    expect(teacherMessageThreads[1].name, 'Mathematics Department');
+    expect(teacherMessageThreads[1].type, TeacherMessageChannelType.staffChannel);
+    expect(teacherMessageSeedMessages, isEmpty);
   });
 
   test('message and thread serialization preserve communication evidence', () {
-    final thread = TeacherMessageThread.fromJson(teacherMessageThreads.first.toJson());
-    final message = TeacherMessage.fromJson(teacherMessageSeedMessages.first.toJson());
+    final thread = TeacherMessageThread.fromJson(_fakeThreads.first.toJson());
     expect(thread.name, 'JSS 2A Guardians');
     expect(thread.type, TeacherMessageChannelType.parentGroup);
-    expect(message.direction, TeacherMessageDirection.outgoing);
-    expect(message.deliveryState, TeacherMessageDeliveryState.read);
-    expect(message.serverMessageId, 'server-msg-1');
+    expect(thread.className, 'JSS 2A');
   });
 
   test('delivery and AI boundaries prevent false communication claims', () {
@@ -112,7 +104,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('thread switching does not leak JSS 2A history into other channels', (tester) async {
+  testWidgets('thread switching does not leak one channel\'s content into another', (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -128,12 +120,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('linear-equations assignment closes'), findsOneWidget);
+    expect(find.text('No cached messages in this approved channel yet.'), findsOneWidget);
+    expect(find.textContaining('attached lesson-plan review summary'), findsNothing);
 
     await tester.tap(find.text('Academic Office'));
     await tester.pump();
-    expect(find.textContaining('linear-equations assignment closes'), findsNothing);
-    expect(find.text('No cached messages in this approved channel yet.'), findsOneWidget);
+    expect(find.text('No cached messages in this approved channel yet.'), findsNothing);
+    expect(find.textContaining('attached lesson-plan review summary'), findsOneWidget);
   });
 
   testWidgets('Send queues locally without claiming Sent or Delivered', (tester) async {
@@ -246,8 +239,8 @@ void main() {
 }
 
 class _FakeMessagesRepository implements TeacherMessagesRepository {
-  List<TeacherMessageThread> threads = List<TeacherMessageThread>.from(teacherMessageThreads);
-  List<TeacherMessage> messages = List<TeacherMessage>.from(teacherMessageSeedMessages);
+  List<TeacherMessageThread> threads = List<TeacherMessageThread>.from(_fakeThreads);
+  List<TeacherMessage> messages = List<TeacherMessage>.from(_fakeMessages);
 
   @override
   TeacherMessagePermissions permissionsFor(SchoolMembership membership) {
