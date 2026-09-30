@@ -2,6 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_attendance_desk.dart' show sectionOfClass;
+import 'package:schoolos_app/features/administrator/data/administrator_attendance_repository.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
+import 'package:schoolos_app/features/administrator/domain/administrator_students_models.dart';
+import 'package:schoolos_app/features/finance_office/data/finance_ledger_repository.dart';
+import 'package:schoolos_app/features/parent/data/parent_children_repository.dart';
+import 'package:schoolos_app/features/parent/data/parent_messages_repository.dart';
+import 'package:schoolos_app/features/proprietor/data/concession_repository.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 import 'package:schoolos_app/features/principal/data/principal_communication_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_communication_models.dart';
@@ -150,5 +158,66 @@ void main() {
     );
     expect((await queue()).success, isFalse);
     expect((await repo.load()).outgoing, isEmpty);
+  });
+
+  const parent = SchoolMembership(id: 'm-parent', schoolId: 's', schoolName: 'School', role: SchoolRole.parent);
+
+  test('a portal announcement to guardians really reaches every real Secondary family', () async {
+    await setup();
+    final register = (await AdministratorStudentsRepository(localDatabase: db!, schoolSession: session).load()).students;
+    final secondaryCount = register
+        .where((s) => s.status == AdministratorStudentStatus.active && sectionOfClass(s.className) == 'Secondary')
+        .length;
+    expect(secondaryCount, greaterThan(0));
+
+    final result = await queue(audience: PrincipalCommunicationAudience.guardians, message: 'PTA meeting Friday.');
+    expect(result.success, isTrue, reason: result.message);
+    expect(result.message, contains('Queued for $secondaryCount real Secondary famil'));
+    // One real parent_message per real Secondary family, plus the Principal's own local
+    // principal_outgoing_communication "sent" record.
+    expect(db!.pendingCount(tenantId: 's'), secondaryCount + 1);
+  });
+
+  test('a portal announcement to guardians with no Secondary students on the register is refused', () async {
+    await setup();
+    LocalDatabase.blockDemoSeeds = true;
+    addTearDown(() => LocalDatabase.blockDemoSeeds = false);
+    final result = await queue(audience: PrincipalCommunicationAudience.guardians);
+    expect(result.success, isFalse);
+    expect(result.message, contains('No Secondary students'));
+  });
+
+  test('a non-portal channel to guardians stays local-only, not a real send', () async {
+    await setup();
+    final result = await queue(audience: PrincipalCommunicationAudience.guardians, channel: PrincipalCommunicationChannel.sms);
+    expect(result.success, isTrue, reason: result.message);
+    expect(db!.pendingCount(tenantId: 's'), 1, reason: 'only the local principal_outgoing_communication record, no real parent_message fan-out');
+  });
+
+  test('a real guardian announcement really lands in a real guardian\'s own Parent Messages thread', () async {
+    await setup();
+    final result = await queue(audience: PrincipalCommunicationAudience.guardians, message: 'PTA meeting Friday.');
+    expect(result.success, isTrue, reason: result.message);
+
+    await session.setMemberships([principal, parent]);
+    await session.selectSchool(parent);
+    final students = AdministratorStudentsRepository(localDatabase: db!, schoolSession: session);
+    final children = ParentChildrenRepository(
+      localDatabase: db!,
+      schoolSession: session,
+      students: students,
+      attendance: AdministratorAttendanceRepository(localDatabase: db!, schoolSession: session),
+      ledger: FinanceLedgerRepository(
+        database: db!,
+        session: session,
+        students: students,
+        concessions: ConcessionRepository(localDatabase: db!, schoolSession: session),
+      ),
+    );
+    final parentMessages = ParentMessagesRepository(localDatabase: db!, schoolSession: session, children: children);
+    final snapshot = await parentMessages.load();
+    final maryamThread = snapshot.threadById('channel-STU-001')!;
+    expect(maryamThread.messages.single.body, 'PTA meeting Friday.');
+    expect(maryamThread.messages.single.authorLabel, 'Principal');
   });
 }
