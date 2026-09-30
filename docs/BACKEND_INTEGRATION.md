@@ -2276,8 +2276,14 @@ bytes, its checksum and whether it has been checked only ever exist on the serve
   unimplemented in the sense that it needs a real `ffmpeg` binary installed on a server, which no environment
   this app has been built or tested in so far has - see the backend's `docs/MEDIA.md`. Until then, a video tile
   shows the same plain icon it always has; nothing here is faked as a preview that does not exist.
+- **Malware scanning**: every upload is now scanned as part of the server's own verification step, the same
+  pluggable-and-honestly-absent shape as video thumbnails - a real `MalwareScanner` seam, tested against a fake
+  scanner, with the real `ClamAvScanner` implementation needing a real `clamscan` binary no environment this app
+  has been built or tested in so far actually has. Nothing changed on the app side for this one: the `quarantined`
+  status this reuses was already handled honestly by `MediaAttachmentsPanel`/`MediaAsset` from the very first
+  media work this app did, long before anything ever set it.
 
-**Not yet wired to a screen.** Antivirus/malware scanning remains out of scope. Camera capture (as opposed to
+**Not yet wired to a screen.** Camera capture (as opposed to
 picking an existing file) was not added this pass - `file_picker` (already a dependency) is what both platforms
 use; adding `image_picker` for a live camera capture was deliberately left out, since this checkout has no
 `android/` platform folder to verify a new plugin's Android wiring against.
@@ -2363,6 +2369,11 @@ copy alone, an offline queued copy stays honestly local) and two new tests in `t
 `principal_incidents_feature_test.dart`, `school_appearance_test.dart`, `school_theme_test.dart`,
 `media_api_test.dart`, `media_upload_queue_test.dart` and `media_local_files_test.dart` (all unaffected). Full app
 suite: the same 83 failures as before this work, by name.
+
+Malware scanning needed no app-side change at all - `quarantined` was already handled honestly - so its own
+verification is entirely on the backend: `apps.media`'s suite (105/105, this pass's ten new tests: five
+`ClamAvScannerTests`, two `ScannerRegistryTests`, three `MalwareScanningTests`), full backend suite (2097 tests,
+the same 39 pre-existing failures as before this work, by name).
 
 Older media tests, unchanged by this pass: `media_queue_test` (the `LocalDatabase` table itself),
 `media_local_files_test`, `media_api_test`, `api_client_test`'s new `putBytes` group, `media_upload_queue_test`
