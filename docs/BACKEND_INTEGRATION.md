@@ -2676,3 +2676,49 @@ never makes its own view unread, a real message from the other side makes a thre
 already-read thread is a harmless no-op to mark again, and - for each two-sided channel - one side marking a
 thread seen never affects the other side's own independent unread state). Full app suite: the same 83
 pre-existing failures as before this work, by name.
+
+## Teacher Messages' staff/leadership channels become real
+
+The second named gap: the two remaining demo channel types on Teacher Messages (school leadership, staff/
+department), which had stayed untouched, on purpose, through the guardian-group pass above.
+
+**Design.** Two new hand-rolled backend entities (`apps/schoollife/messaging/teacher_channels.py`), not Specs,
+for the same reason `parent_message` is not one: correct authorization needs a real, per-record relationship
+`Spec.audience` cannot express. A **leadership thread** is `leadership-thread-<teacherMembershipId>` - one real
+thread per real teacher, the exact `roles = {role} | MANAGERS`, "one thread per real non-manager participant,
+managers may reply" shape `driver_message` already uses. A **department thread** is
+`department-thread-<subjectCode>` - one real, *shared* thread per real subject a teacher currently teaches
+(checked against a real `TeachingAssignment`, the same query shape `weekly_learning/visibility.py` and
+`parent_messages.py` already use): any real teacher who currently teaches that subject may read and write it,
+plus managers for oversight - a genuine peer group, not a single family. Both get their own real read-receipt
+entity from the start (not retrofitted afterward, the way the first four channels needed), sharing one generic
+Flutter helper across both.
+
+**App.** `TeacherMessage` gains a `fromCanonical` factory - the same shape `ParentMessageItem.fromCanonical`
+established - so the existing UI model keeps working unchanged against the new real payload. A department
+thread is keyed by the real subject's own school-wide `code` (`Subject.code`), not its free-text name: matching
+by name would have meant slugifying and un-slugifying a human-entered string with no guarantee of a clean round
+trip, whereas a subject's own code is already a stable, school-scoped identifier. `AssignedClass` (a teacher's
+own real roster entry, `teacher_class_assignment`) gains a `subjectCode` field - the backend already published
+it (`apps/academics/curriculum_services.py: serialize_class_subject`), the Dart model had simply never parsed
+it. `teacher_messages_demo_data.dart` loses the last of its channel/message constants; only the boundary and
+AI-draft text, which never described a channel or a message, remains.
+
+**What is explicitly not yet built.** A manager replying to a teacher's leadership thread, or to a department
+thread, is already authorized server-side (`roles` already includes `MANAGERS` on both new handlers) - there is
+simply no Flutter screen yet for a manager to do it from. That is deliberately deferred to the Principal
+Communication Hub's own reply-thread inbox, the next item on this list: wiring that inbox to real
+`teacher_leadership_message` threads is the natural, non-duplicated way to give managers that reply surface,
+rather than building a second, throwaway mini-panel now and a proper one later.
+
+**Verification.** Backend: new `apps.schoollife.tests.test_teacher_channels` (22/22 - who may write into a
+leadership thread and a department thread, a real peer sharing the same subject, an unrelated teacher refused
+from both, server stamping and immutability, cross-channel isolation, and receipts for both including a forged
+receipt id); `apps.schoollife`/`apps.administration` together (104/104); full backend suite unaffected in the
+areas this pass touched. App: `dart analyze` clean; `test/teacher_messages_roster_test.dart` extended to 13/13
+(a teacher has exactly one real leadership thread and can message it, a real leadership reply makes it unread
+until marked seen, a different teacher is refused from someone else's leadership thread; a real peer teaching
+the same real subject shares the exact same department thread end to end, a teacher who does not teach it has
+no such thread at all); `test/teacher_messages_feature_test.dart` drops its now-nonexistent demo-data assertions
+and gives its fake repository a `markThreadSeen` implementation, otherwise unchanged (9/9). Full app suite: the
+same 83 pre-existing failures as before this work, by name.
