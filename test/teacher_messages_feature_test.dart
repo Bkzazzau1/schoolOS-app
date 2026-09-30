@@ -23,16 +23,6 @@ const _fakeMessages = <TeacherMessage>[
 ];
 
 void main() {
-  test('Messages demo data preserves the two channel types with no real backend yet', () {
-    expect(teacherMessageThreads, hasLength(2));
-    expect(teacherMessageThreads.every((t) => t.type != TeacherMessageChannelType.parentGroup), isTrue,
-        reason: 'guardian-group channels are real now, built from the teacher\'s own real assigned classes');
-    expect(teacherMessageThreads[0].name, 'Academic Office');
-    expect(teacherMessageThreads[0].type, TeacherMessageChannelType.schoolLeadership);
-    expect(teacherMessageThreads[1].name, 'Mathematics Department');
-    expect(teacherMessageThreads[1].type, TeacherMessageChannelType.staffChannel);
-    expect(teacherMessageSeedMessages, isEmpty);
-  });
 
   test('message and thread serialization preserve communication evidence', () {
     final thread = TeacherMessageThread.fromJson(_fakeThreads.first.toJson());
@@ -241,6 +231,9 @@ void main() {
 class _FakeMessagesRepository implements TeacherMessagesRepository {
   List<TeacherMessageThread> threads = List<TeacherMessageThread>.from(_fakeThreads);
   List<TeacherMessage> messages = List<TeacherMessage>.from(_fakeMessages);
+
+  @override
+  Future<void> markThreadSeen(String threadId) async {}
 
   @override
   TeacherMessagePermissions permissionsFor(SchoolMembership membership) {

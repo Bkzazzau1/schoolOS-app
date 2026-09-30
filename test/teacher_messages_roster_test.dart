@@ -111,4 +111,123 @@ void main() {
     expect(maryamThread.messages.single.body, 'Field trip permission slips are due Friday.');
     expect(maryamThread.messages.single.authorLabel, 'Class teacher');
   });
+
+  group('school leadership channel', () {
+    test('a teacher has exactly one real leadership thread, scoped to their own membership', () async {
+      await setUpSchool(mathsTeacher);
+      final snapshot = await messages.load();
+      final leadership = snapshot.threads.where((t) => t.type == TeacherMessageChannelType.schoolLeadership);
+      expect(leadership, hasLength(1));
+      expect(leadership.single.id, 'leadership-thread-${mathsTeacher.id}');
+      expect(snapshot.messagesForThread(leadership.single.id), isEmpty);
+      expect(leadership.single.unread, 0);
+    });
+
+    test('a teacher can message their own real leadership thread', () async {
+      await setUpSchool(mathsTeacher);
+      final threadId = 'leadership-thread-${mathsTeacher.id}';
+      final result = await messages.queueMessage(threadId: threadId, body: 'Requesting guidance on a parent concern.');
+      expect(result.success, isTrue, reason: result.message);
+      expect(db.pendingCount(tenantId: mathsTeacher.schoolId), greaterThan(0));
+
+      final after = await messages.load();
+      final threadMessages = after.messagesForThread(threadId);
+      expect(threadMessages.single.body, 'Requesting guidance on a parent concern.');
+      expect(threadMessages.single.isOutgoing, isTrue);
+    });
+
+    test('a real reply from school leadership makes the thread unread until marked seen', () async {
+      await setUpSchool(mathsTeacher);
+      final threadId = 'leadership-thread-${mathsTeacher.id}';
+
+      // The exact canonical shape a real sync pull would write for a real leadership reply.
+      await db.upsertLocalRecord(
+        tenantId: mathsTeacher.schoolId,
+        entityType: 'teacher_leadership_message',
+        entityId: 'MSG-FROM-PRINCIPAL',
+        payload: {
+          'id': 'MSG-FROM-PRINCIPAL',
+          'threadId': threadId,
+          'body': "Noted, let's discuss tomorrow.",
+          'authorRole': 'principal',
+          'authorMembershipId': 'm-principal',
+          'createdAt': DateTime.now().toUtc().toIso8601String(),
+        },
+        isDirty: false,
+      );
+
+      final afterReply = await messages.load();
+      final threadAfterReply = afterReply.threads.firstWhere((t) => t.id == threadId);
+      expect(threadAfterReply.unread, 1);
+      expect(afterReply.messagesForThread(threadId).single.isOutgoing, isFalse);
+
+      await messages.markThreadSeen(threadId);
+      final afterSeen = await messages.load();
+      expect(afterSeen.threads.firstWhere((t) => t.id == threadId).unread, 0);
+    });
+
+    test('a different teacher cannot message someone else\'s leadership thread', () async {
+      await setUpSchool(newTeacher);
+      final result = await messages.queueMessage(threadId: 'leadership-thread-${mathsTeacher.id}', body: 'Hello');
+      expect(result.success, isFalse);
+    });
+  });
+
+  group('department channel', () {
+    const coTeacher = SchoolMembership(id: 'm-co-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
+
+    Future<void> seedCoTeacher() async {
+      await session.setMemberships([mathsTeacher, newTeacher, parent, coTeacher]);
+      await db.upsertLocalRecord(
+        tenantId: 'school-1',
+        entityType: TeacherRoster.assignmentType,
+        entityId: coTeacher.id,
+        payload: {
+          'teacherMembershipId': coTeacher.id,
+          'classes': [
+            const AssignedClass(className: 'JSS 2C', subject: 'Mathematics', subjectCode: 'MATH').toJson(),
+          ],
+        },
+      );
+    }
+
+    test('a real peer teaching the same real subject shares the exact same department thread', () async {
+      await setUpSchool(mathsTeacher);
+      await seedCoTeacher();
+      final mathsThread = (await messages.load()).threads.firstWhere((t) => t.type == TeacherMessageChannelType.staffChannel);
+      expect(mathsThread.name, 'Mathematics Department');
+
+      await session.selectSchool(coTeacher);
+      final coMathsThread = (await messages.load()).threads.firstWhere((t) => t.type == TeacherMessageChannelType.staffChannel);
+      expect(coMathsThread.id, mathsThread.id, reason: 'the same real subject is the same real department thread');
+    });
+
+    test('a message to the department really reaches the real peer, on the exact same thread', () async {
+      await setUpSchool(mathsTeacher);
+      await seedCoTeacher();
+      final threadId = (await messages.load()).threads.firstWhere((t) => t.type == TeacherMessageChannelType.staffChannel).id;
+
+      final result = await messages.queueMessage(threadId: threadId, body: 'Can we align on the mid-term test date?');
+      expect(result.success, isTrue, reason: result.message);
+
+      await session.selectSchool(coTeacher);
+      final coSnapshot = await messages.load();
+      final coMessages = coSnapshot.messagesForThread(threadId);
+      expect(coMessages.single.body, 'Can we align on the mid-term test date?');
+      expect(coMessages.single.isOutgoing, isFalse, reason: 'from the peer\'s own side, this was not their message');
+    });
+
+    test('a teacher who does not teach this subject has no such department thread and cannot message it', () async {
+      await setUpSchool(mathsTeacher);
+      await seedCoTeacher();
+      final threadId = (await messages.load()).threads.firstWhere((t) => t.type == TeacherMessageChannelType.staffChannel).id;
+
+      await session.selectSchool(newTeacher);
+      final newTeacherSnapshot = await messages.load();
+      expect(newTeacherSnapshot.threads.any((t) => t.type == TeacherMessageChannelType.staffChannel), isFalse);
+
+      final result = await messages.queueMessage(threadId: threadId, body: 'Hello');
+      expect(result.success, isFalse);
+    });
+  });
 }
