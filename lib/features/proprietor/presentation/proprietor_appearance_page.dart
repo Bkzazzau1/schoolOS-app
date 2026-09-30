@@ -7,6 +7,7 @@ import '../../../core/appearance/logo_processor.dart';
 import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/appearance/school_logo.dart';
 import '../../../core/appearance/school_theme.dart';
+import '../../../core/media/media_api.dart';
 import 'appearance_colour_picker.dart';
 
 /// Lets the picture for the logo be chosen. Returns null when the owner cancels. Replaceable in tests.
@@ -122,7 +123,31 @@ class _ProprietorAppearancePageState extends State<ProprietorAppearancePage> {
     }
     if (picked == null) return;
     final logo = picked;
-    await _run(() async => widget.controller.applyLogo(await shrinkLogo(logo)), 'Logo saved. Everyone in the school will see it.');
+    await _run(() async {
+      final shrunk = await shrinkLogo(logo);
+      await widget.controller.applyLogo(shrunk);
+      await _keepDurableCopy(shrunk);
+    }, 'Logo saved. Everyone in the school will see it.');
+  }
+
+  /// Every screen still renders the logo straight from the controller above, in every mode including fully
+  /// offline - that never changes. When a school server exists, this also queues the same bytes into the
+  /// shared media service (the same durable, offline-tolerant queue Gallery and every other real attachment
+  /// already uses), so the school's logo becomes a real, canonical file there too - not just a small base64
+  /// copy inside a sync payload. Nothing is offered here without a server, the same "needs your school's
+  /// server" rule every other attachment already follows.
+  Future<void> _keepDurableCopy(Uint8List bytes) async {
+    final queue = MediaScope.queueOf(context);
+    if (queue == null) return;
+    await queue.enqueue(
+      membership: widget.controller.activeMembership,
+      ownerType: 'school_appearance',
+      ownerId: 'theme',
+      category: 'school_logo',
+      fileName: 'logo.png',
+      mimeType: 'image/png',
+      bytes: bytes,
+    );
   }
 
   Future<void> _removeLogo() => _run(() => widget.controller.applyLogo(null), 'Logo removed.');

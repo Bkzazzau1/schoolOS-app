@@ -41,6 +41,12 @@ class SchoolAppearanceController extends ChangeNotifier {
   Uint8List? get logo => _logo;
   bool get ready => _ready;
 
+  /// The membership acting right now - what the appearance page needs to also keep a real, durable copy of a
+  /// newly chosen logo in the shared media service, without this controller having to know anything about
+  /// media itself. This record's own bytes (above) stay the one source every screen renders from, in every
+  /// mode including fully offline; the media copy is an additional durable store for when a server exists.
+  SchoolMembership get activeMembership => _schoolSession.requireActiveMembership();
+
   Future<void> initialize() async {
     await _loadForActiveSchool();
   }
