@@ -24,9 +24,11 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
   late Future<TeacherMessagesSnapshot> _future;
   final _searchController = TextEditingController();
   final _messageController = TextEditingController();
-  String _selectedThreadId = 'thread-1';
+  String _selectedThreadId = '';
   String? _notice;
   bool _noticeSuccess = false;
+  bool _autoSelectHandled = false;
+  final _markingSeen = <String>{};
 
   @override
   void initState() {
@@ -77,6 +79,15 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
     });
   }
 
+  void _markSeen(String threadId) {
+    if (!_markingSeen.add(threadId)) return;
+    widget.repository.markThreadSeen(threadId).then((_) {
+      if (mounted) setState(() {});
+    }).catchError((_) {
+      // Opening the conversation remains possible even if a read receipt cannot be queued.
+    });
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<TeacherMessagesSnapshot>(
         future: _future,
@@ -120,6 +131,13 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
             (thread) => thread.id == _selectedThreadId,
             orElse: () => data.threads.first,
           );
+          if (_selectedThreadId.isEmpty) {
+            _selectedThreadId = selected.id;
+          }
+          if (!_autoSelectHandled) {
+            _autoSelectHandled = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) => _markSeen(selected.id));
+          }
           final messages = data.messagesForThread(selected.id);
           return LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
@@ -298,10 +316,13 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => setState(() {
-            _selectedThreadId = thread.id;
-            _notice = null;
-          }),
+          onTap: () {
+            setState(() {
+              _selectedThreadId = thread.id;
+              _notice = null;
+            });
+            _markSeen(thread.id);
+          },
           child: Padding(
             padding: const EdgeInsets.all(10),
             child: Row(

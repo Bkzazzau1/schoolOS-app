@@ -127,6 +127,37 @@ class TeacherMessage {
         serverMessageId: json['serverMessageId'] as String?,
         attachmentName: json['attachmentName'] as String?,
       );
+
+  /// Builds the UI view of one real message row from the server's own canonical shape -
+  /// `{id, threadId, body, authorRole, authorMembershipId, createdAt}`, the payload
+  /// `apps/schoollife/messaging/teacher_channels.py` actually stores and publishes for both the
+  /// leadership and department channels. `direction` and `deliveryState` depend on who is
+  /// viewing: the same row reads as outgoing to whoever sent it and incoming to everyone else, and
+  /// shows this device's own not-yet-confirmed copy as queued only for the person who queued it -
+  /// the same shape `ParentMessageItem.fromCanonical` already established.
+  factory TeacherMessage.fromCanonical({
+    required Map<String, Object?> payload,
+    required String viewerMembershipId,
+    required bool isDirty,
+  }) {
+    final authorMembershipId = payload['authorMembershipId'] as String? ?? '';
+    final mine = authorMembershipId.isNotEmpty && authorMembershipId == viewerMembershipId;
+    final createdAt = payload['createdAt'] as String?;
+    final parsed = createdAt == null ? null : DateTime.tryParse(createdAt)?.toLocal();
+    return TeacherMessage(
+      id: payload['id'] as String? ?? '',
+      threadId: payload['threadId'] as String? ?? '',
+      direction: mine ? TeacherMessageDirection.outgoing : TeacherMessageDirection.incoming,
+      body: payload['body'] as String? ?? '',
+      timeLabel: parsed == null
+          ? ''
+          : '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}',
+      deliveryState: mine
+          ? (isDirty ? TeacherMessageDeliveryState.queued : TeacherMessageDeliveryState.sent)
+          : TeacherMessageDeliveryState.received,
+      createdAt: createdAt,
+    );
+  }
 }
 
 class TeacherMessageEvent {

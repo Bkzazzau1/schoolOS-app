@@ -43,6 +43,7 @@ class AssignedClass {
     this.sessionId = '',
     this.classId = '',
     this.subjectId = '',
+    this.subjectCode = '',
     this.classSubjectId = '',
     this.teachingAssignmentId = '',
     this.periodsPerWeek = 0,
@@ -58,6 +59,12 @@ class AssignedClass {
   final String sessionId;
   final String classId;
   final String subjectId;
+
+  /// The real subject's own school-wide code (`apps/academics/models.py: Subject.code`) -
+  /// what a real department channel is really keyed by (`apps/schoollife/messaging/
+  /// teacher_channels.py`), since it is a plain, school-scoped identifier a device can never
+  /// misread as a different subject the way a free-text name could.
+  final String subjectCode;
   final String classSubjectId;
   final String teachingAssignmentId;
   final int periodsPerWeek;
@@ -73,6 +80,7 @@ class AssignedClass {
         'sessionId': sessionId,
         'classId': classId,
         'subjectId': subjectId,
+        'subjectCode': subjectCode,
         'classSubjectId': classSubjectId,
         'teachingAssignmentId': teachingAssignmentId,
         'periodsPerWeek': periodsPerWeek,
@@ -89,6 +97,7 @@ class AssignedClass {
         sessionId: json['sessionId'] as String? ?? '',
         classId: json['classId'] as String? ?? '',
         subjectId: json['subjectId'] as String? ?? '',
+        subjectCode: json['subjectCode'] as String? ?? '',
         classSubjectId: json['classSubjectId'] as String? ?? '',
         teachingAssignmentId: json['teachingAssignmentId'] as String? ?? '',
         periodsPerWeek: json['periodsPerWeek'] as int? ?? 0,
@@ -111,12 +120,14 @@ const _demoAssignments = <String, List<AssignedClass>>{
     AssignedClass(
       className: 'Primary 3',
       subject: 'Class teacher',
+      subjectCode: 'FORM',
       room: 'P3',
       time: '8:00',
     ),
     AssignedClass(
       className: 'Primary 4',
       subject: 'English',
+      subjectCode: 'ENG',
       room: 'P4',
       time: '9:20',
     ),
@@ -125,12 +136,14 @@ const _demoAssignments = <String, List<AssignedClass>>{
     AssignedClass(
       className: 'JSS 2A',
       subject: 'Mathematics',
+      subjectCode: 'MATH',
       room: 'B12',
       time: '8:00',
     ),
     AssignedClass(
       className: 'JSS 2B',
       subject: 'Mathematics',
+      subjectCode: 'MATH',
       room: 'B14',
       time: '9:20',
     ),

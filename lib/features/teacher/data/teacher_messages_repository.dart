@@ -3,8 +3,8 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_messages_models.dart';
+import 'teacher_channel_receipts.dart';
 import 'teacher_family_messages_repository.dart';
-import 'teacher_messages_demo_data.dart';
 import 'teacher_roster.dart';
 
 class TeacherMessagesSnapshot {
@@ -36,7 +36,18 @@ class TeacherMessageActionResult {
 }
 
 const _classThreadPrefix = 'class-broadcast-';
+const _leadershipThreadPrefix = 'leadership-thread-';
+const _departmentThreadPrefix = 'department-thread-';
+const _leadershipMessageType = 'teacher_leadership_message';
+const _leadershipReceiptType = 'teacher_leadership_receipt';
+const _departmentMessageType = 'teacher_department_message';
+const _departmentReceiptType = 'teacher_department_receipt';
 
+/// Every channel Teacher Messages shows is now real: a guardian-group broadcast per real assigned
+/// class (`_classThreads`, sending through the real `parent_message` channel - see
+/// TeacherFamilyMessagesRepository), one real private thread to school leadership per real teacher,
+/// and one real, shared thread per real subject a teacher currently teaches
+/// (`apps/schoollife/messaging/teacher_channels.py`). Nothing here is demo furniture any more.
 class TeacherMessagesRepository {
   TeacherMessagesRepository({
     required LocalDatabase localDatabase,
@@ -50,9 +61,6 @@ class TeacherMessagesRepository {
           schoolSession: schoolSession,
           roster: roster,
         );
-
-  static const _threadType = 'teacher_message_thread';
-  static const _messageType = 'teacher_message';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -103,53 +111,101 @@ class TeacherMessagesRepository {
     return threads;
   }
 
-  /// A teacher only ever sees a guardian group for a class they are really assigned to; channels not scoped to a
-  /// class (staff/leadership) are visible to every teacher.
-  Future<List<TeacherMessageThread>> _visibleThreads(
-    SchoolMembership membership,
-    List<TeacherMessageThread> all,
-  ) async {
-    final classes = await _roster.assignedClasses(membership);
-    final classNames = {for (final c in classes) c.className};
-    return all
-        .where((thread) => thread.className == null || classNames.contains(thread.className))
-        .toList(growable: false);
+  Future<List<TeacherMessage>> _loadChannelMessages(
+    SchoolMembership membership, {
+    required String entityType,
+    required String threadId,
+  }) async {
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: entityType,
+    );
+    final messages = [
+      for (final record in records)
+        if (record.payload['threadId'] == threadId)
+          TeacherMessage.fromCanonical(
+            payload: Map<String, Object?>.from(record.payload),
+            viewerMembershipId: membership.id,
+            isDirty: record.isDirty,
+          ),
+    ]..sort((a, b) => _parsed(a.createdAt).compareTo(_parsed(b.createdAt)));
+    return messages;
+  }
+
+  /// The one real private thread from this teacher to school leadership
+  /// (`apps/schoollife/messaging/teacher_channels.py: TeacherLeadershipMessageHandler`).
+  Future<TeacherMessageThread> _leadershipThread(SchoolMembership membership) async {
+    final threadId = '$_leadershipThreadPrefix${membership.id}';
+    final messages = await _loadChannelMessages(membership, entityType: _leadershipMessageType, threadId: threadId);
+    final receipts = await loadOwnChannelReceipts(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      receiptEntityType: _leadershipReceiptType,
+    );
+    return TeacherMessageThread(
+      id: threadId,
+      name: 'Academic Office',
+      type: TeacherMessageChannelType.schoolLeadership,
+      preview: messages.isEmpty ? 'No messages yet' : messages.last.body,
+      timeLabel: messages.isEmpty ? '' : messages.last.timeLabel,
+      unread: isChannelThreadUnread(messages, receipts[threadId]) ? 1 : 0,
+    );
+  }
+
+  /// One real, shared thread per real subject this teacher currently teaches
+  /// (`apps/schoollife/messaging/teacher_channels.py: TeacherDepartmentMessageHandler`) -
+  /// deduplicated the same way the guardian-group broadcast deduplicates by class, since a
+  /// teacher who teaches the same subject to more than one class shares one department, not one
+  /// per class.
+  Future<List<TeacherMessageThread>> _departmentThreads(SchoolMembership membership) async {
+    final assigned = await _roster.assignedClasses(membership);
+    final subjectNameByCode = <String, String>{
+      for (final entry in assigned)
+        if (entry.subjectCode.trim().isNotEmpty) entry.subjectCode: entry.subject,
+    };
+    final threads = <TeacherMessageThread>[];
+    for (final code in subjectNameByCode.keys) {
+      final threadId = '$_departmentThreadPrefix$code';
+      final messages = await _loadChannelMessages(membership, entityType: _departmentMessageType, threadId: threadId);
+      final receipts = await loadOwnChannelReceipts(
+        _localDatabase,
+        tenantId: membership.schoolId,
+        membershipId: membership.id,
+        receiptEntityType: _departmentReceiptType,
+      );
+      threads.add(TeacherMessageThread(
+        id: threadId,
+        name: '${subjectNameByCode[code]} Department',
+        type: TeacherMessageChannelType.staffChannel,
+        preview: messages.isEmpty ? 'No messages yet' : messages.last.body,
+        timeLabel: messages.isEmpty ? '' : messages.last.timeLabel,
+        unread: isChannelThreadUnread(messages, receipts[threadId]) ? 1 : 0,
+      ));
+    }
+    threads.sort((a, b) => a.name.compareTo(b.name));
+    return threads;
   }
 
   Future<TeacherMessagesSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
-    final threadRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _threadType,
-    );
-    final messageRecords = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _messageType,
-    );
-    var nonClassThreads = threadRecords
-        .map((record) => TeacherMessageThread.fromJson(record.payload))
-        .toList(growable: false);
-    nonClassThreads.sort((a, b) {
-      final ai = teacherMessageThreads.indexWhere((item) => item.id == a.id);
-      final bi = teacherMessageThreads.indexWhere((item) => item.id == b.id);
-      return ai.compareTo(bi);
-    });
-    nonClassThreads = await _visibleThreads(membership, nonClassThreads);
-    final visibleIds = {for (final thread in nonClassThreads) thread.id};
+    if (membership.role != SchoolRole.teacher) {
+      return TeacherMessagesSnapshot(threads: const [], messages: const [], permissions: permissionsFor(membership));
+    }
 
-    final nonClassMessages = messageRecords
-        .map((record) => TeacherMessage.fromJson(record.payload))
-        .where((message) => visibleIds.contains(message.threadId))
-        .toList(growable: false);
+    final classThreads = await _classThreads(membership);
+    final leadershipThread = await _leadershipThread(membership);
+    final departmentThreads = await _departmentThreads(membership);
 
-    final classThreads = membership.role == SchoolRole.teacher
-        ? await _classThreads(membership)
-        : const <TeacherMessageThread>[];
+    final leadershipMessages = await _loadChannelMessages(membership, entityType: _leadershipMessageType, threadId: leadershipThread.id);
+    final departmentMessages = <TeacherMessage>[];
+    for (final thread in departmentThreads) {
+      departmentMessages.addAll(await _loadChannelMessages(membership, entityType: _departmentMessageType, threadId: thread.id));
+    }
 
     return TeacherMessagesSnapshot(
-      threads: [...classThreads, ...nonClassThreads],
-      messages: nonClassMessages,
+      threads: [...classThreads, leadershipThread, ...departmentThreads],
+      messages: [...leadershipMessages, ...departmentMessages],
       permissions: permissionsFor(membership),
     );
   }
@@ -174,49 +230,105 @@ class TeacherMessagesRepository {
         message: 'Write a professional school message before sending.',
       );
     }
+    if (trimmed.length > 4000) {
+      return const TeacherMessageActionResult(
+        success: false,
+        message: 'Messages cannot exceed 4000 characters.',
+      );
+    }
 
     if (threadId.startsWith(_classThreadPrefix)) {
       return _broadcastToClass(membership, threadId: threadId, body: trimmed, attachmentName: attachmentName);
     }
-
-    final visible = await _visibleThreads(membership, teacherMessageThreads);
-    if (!visible.any((thread) => thread.id == threadId)) {
-      return const TeacherMessageActionResult(
-        success: false,
-        message: 'Messages can only be queued to an approved channel you have access to.',
-      );
+    if (threadId == '$_leadershipThreadPrefix${membership.id}') {
+      return _sendChannelMessage(membership, entityType: _leadershipMessageType, threadId: threadId, body: trimmed);
     }
-    final now = DateTime.now().toUtc().toIso8601String();
-    final id = 'teacher-msg-${DateTime.now().microsecondsSinceEpoch}';
-    final queued = TeacherMessage(
-      id: id,
-      threadId: threadId,
-      direction: TeacherMessageDirection.outgoing,
-      body: trimmed,
-      timeLabel: 'Queued',
-      deliveryState: TeacherMessageDeliveryState.queued,
-      createdAt: now,
-      attachmentName: attachmentName,
+    if (threadId.startsWith(_departmentThreadPrefix)) {
+      final code = threadId.substring(_departmentThreadPrefix.length);
+      final assigned = await _roster.assignedClasses(membership);
+      final reallyTeaches = assigned.any((entry) => entry.subjectCode == code);
+      if (!reallyTeaches) {
+        return const TeacherMessageActionResult(
+          success: false,
+          message: 'Messages can only be queued to an approved channel you have access to.',
+        );
+      }
+      return _sendChannelMessage(membership, entityType: _departmentMessageType, threadId: threadId, body: trimmed);
+    }
+    return const TeacherMessageActionResult(
+      success: false,
+      message: 'Messages can only be queued to an approved channel you have access to.',
     );
+  }
+
+  Future<TeacherMessageActionResult> _sendChannelMessage(
+    SchoolMembership membership, {
+    required String entityType,
+    required String threadId,
+    required String body,
+  }) async {
+    final now = DateTime.now().toUtc();
+    final id = 'LOCAL-${membership.id}-${now.microsecondsSinceEpoch}';
+
+    // The wire payload carries only what the teacher actually contributes; who really sent it
+    // and when are the server's own stamp (see teacher_channels.py's own clean()), never taken
+    // on trust from the app.
+    final wirePayload = <String, Object?>{'id': id, 'threadId': threadId, 'body': body};
+    final localPayload = <String, Object?>{
+      ...wirePayload,
+      'authorRole': membership.role.name,
+      'authorMembershipId': membership.id,
+      'createdAt': now.toIso8601String(),
+    };
+
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
-      entityType: _messageType,
-      entityId: queued.id,
-      payload: queued.toJson(),
+      entityType: entityType,
+      entityId: id,
+      payload: localPayload,
       isDirty: true,
     );
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
-      entityType: _messageType,
-      entityId: queued.id,
+      entityType: entityType,
+      entityId: id,
       operation: SyncOperation.create,
-      payload: queued.toJson(),
+      payload: wirePayload,
     );
+
     return TeacherMessageActionResult(
       success: true,
       message: 'Message queued locally. Sent, delivered and read status require authoritative acknowledgement.',
-      queuedMessage: queued,
+      queuedMessage: TeacherMessage.fromCanonical(payload: localPayload, viewerMembershipId: membership.id, isDirty: true),
+    );
+  }
+
+  /// Records this teacher's own real receipt for their leadership thread or a department thread
+  /// they are really part of. The guardian-group broadcast has no merged thread to mark seen (see
+  /// `_classThreads`), so this is a no-op for those ids.
+  Future<void> markThreadSeen(String threadId) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (membership.role != SchoolRole.teacher) return;
+
+    String receiptEntityType;
+    if (threadId == '$_leadershipThreadPrefix${membership.id}') {
+      receiptEntityType = _leadershipReceiptType;
+    } else if (threadId.startsWith(_departmentThreadPrefix)) {
+      receiptEntityType = _departmentReceiptType;
+    } else {
+      return;
+    }
+
+    final snapshot = await load();
+    final thread = snapshot.threads.where((t) => t.id == threadId).firstOrNull;
+    if (thread == null || thread.unread == 0) return;
+    await queueChannelSeenReceipt(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      threadId: threadId,
+      receiptEntityType: receiptEntityType,
     );
   }
 
@@ -232,12 +344,6 @@ class TeacherMessagesRepository {
       return const TeacherMessageActionResult(
         success: false,
         message: 'Messages can only be queued to an approved channel you have access to.',
-      );
-    }
-    if (body.length > 4000) {
-      return const TeacherMessageActionResult(
-        success: false,
-        message: 'Messages cannot exceed 4000 characters.',
       );
     }
     final students = await _roster.studentsIn(thread.className!);
@@ -262,38 +368,9 @@ class TeacherMessagesRepository {
           'See Teacher Family Messages for each family\'s own copy and any reply.',
     );
   }
-
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    final threads = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _threadType,
-    );
-    if (threads.isEmpty) {
-      for (final thread in teacherMessageThreads) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _threadType,
-          entityId: thread.id,
-          payload: thread.toJson(),
-        );
-      }
-    }
-    final messages = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _messageType,
-    );
-    if (messages.isEmpty) {
-      for (final message in teacherMessageSeedMessages) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _messageType,
-          entityId: message.id,
-          payload: message.toJson(),
-        );
-      }
-    }
-  }
 }
+
+DateTime _parsed(String? value) => value == null ? DateTime(0) : (DateTime.tryParse(value) ?? DateTime(0));
 
 String _slug(String value) => value
     .trim()

@@ -1,16 +1,7 @@
-import '../domain/teacher_messages_models.dart';
-
-// Guardian-group (parentGroup) channels are no longer demo furniture - they are real, built from
-// the teacher's own real assigned classes in teacher_messages_repository.dart, and a real send
-// fans out into the same real parent_message channel ParentMessagesRepository/
-// TeacherFamilyMessagesRepository already use. Only the two channel types with no real backend
-// yet (staff/leadership) stay demo content, unchanged.
-const teacherMessageThreads = <TeacherMessageThread>[
-  TeacherMessageThread(id: 'thread-2', name: 'Academic Office', type: TeacherMessageChannelType.schoolLeadership, preview: 'Week 6 lesson-plan review completed.', timeLabel: 'Yesterday', unread: 0),
-  TeacherMessageThread(id: 'thread-4', name: 'Mathematics Department', type: TeacherMessageChannelType.staffChannel, preview: 'Department meeting moved to Thursday.', timeLabel: 'Mon', unread: 0),
-];
-
-const teacherMessageSeedMessages = <TeacherMessage>[];
+// Every channel type Teacher Messages shows is real now, built in teacher_messages_repository.dart:
+// guardian-group broadcasts from the teacher's own real assigned classes, a real leadership thread
+// per real teacher, and a real, shared thread per real subject a teacher currently teaches. Only
+// the constants below - which never described a channel or a message - remain.
 
 const teacherMessageAiDraft = 'Dear guardian, I am sharing a short academic progress update for your child. Please review the latest assignment and revision guidance in SchoolOS.';
 
