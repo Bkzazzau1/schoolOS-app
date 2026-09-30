@@ -2562,3 +2562,61 @@ types with no real backend) and moved its page-rendering fixture to its own lite
 channels are no longer demo constants to pin against - its widget-level coverage (search, thread switching,
 send, AI draft, routing, phone rendering) is otherwise unchanged (10/10). Full app suite: the same 83
 pre-existing failures as before this work, by name.
+
+## Unified SchoolOS Messaging (fourth of four): the Principal Communication Hub's guardian announcements become real
+
+The last of the four separate "Messages" features. Like the Teacher Messages pass, this needed no new
+authorization concept - a Principal was already a real participant in the channel that actually delivers it.
+
+**What was actually wrong, and what stays exactly as it was.** The Communication Hub mixes several different
+ideas behind one screen: a reply-thread inbox (`threads` was always `const []` - genuinely nothing to show,
+honestly empty, not fabricated), follow-ups (also always `const []`, already labelled "Not available yet"), and
+an announcement composer (audience: Secondary staff or Secondary guardians; channel: portal, SMS, email or
+WhatsApp). The composer's own `queueAnnouncement` always wrote only to a local, unregistered
+`principal_outgoing_communication` record - every combination "succeeded" with a cosmetic "queued offline"
+message, but nothing ever reached a real person. This pass makes exactly one of those combinations real -
+**guardian audience, portal channel** - and leaves every other combination (staff audience; SMS, email or
+WhatsApp channel) exactly as it was: still local-only, still honestly labelled as not yet confirmed. The
+reply-thread inbox is untouched too; it stays the honest empty stub it already was.
+
+**No new backend entity or authorization needed.** A Principal is already `MANAGERS`
+(`apps/schoollife/framework.py`: `{proprietor, principal, administrator}`), and `ParentMessageHandler` already
+lets any `MANAGERS` member write into *any* real family's thread, for oversight - the same fact the Teacher
+Messages pass relied on for a real class teacher. "Announce to Secondary guardians" is just that same real write,
+done once per real, currently active student whose class falls in the Secondary section
+(`sectionOfClass`, the same real derivation `lib/features/parent/data/parent_children_repository.dart` already
+uses) - through `_sendParentMessage`, the same wire-payload shape `TeacherFamilyMessagesRepository.queueReply`
+already established (the Principal contributes only `{id, threadId, body}`; who really sent it and when are the
+server's own stamp). Each family receives their own real copy in their own real thread, exactly as Teacher
+Messages' own class broadcast already does - because underneath, it is the identical mechanism, just scoped to
+"every Secondary family" instead of "every family in one class." A principal-authored message now reads as
+"Principal" in a guardian's own thread, rather than falling back to the generic "School" label every other
+manager role still uses.
+
+**One real, small backend fix found and made along the way.** `principal_outgoing_communication` - the
+Principal's own "what did I send" log, read back by their own Communication Hub screen - was already being
+pushed by the app on every send, but had no handler registered at all, so outside `DEBUG` it could only ever be
+silently rejected (`SYNC_ALLOW_UNLISTED_ENTITY_TYPES` defaults to `False`), the same class of gap Incident
+Evidence and Teacher Messages each had before their own fixes. It is now a real Spec
+(`apps/administration/specs.py`), the same "not even another manager reads this by default" shape
+`PRINCIPAL_TEACHER_NOTES` already uses - this only lets the Principal's own compose history sync across their
+own devices; it has nothing to do with what a guardian actually receives, which was already real and unaffected
+by this gap.
+
+**Verification.** Backend: `apps.administration`'s own suite (11/11, including the generic
+`EveryModuleTests` run against every registered Spec), `django check` clean, full backend suite (2115 tests).
+The full suite's run-to-run failure count fluctuated by one or two tests across repeated runs, on both the
+changed and the unchanged code - confirmed to be pre-existing, timing-sensitive flakiness in unrelated tests
+(`apps.transferverify`, `apps.invitations`, `apps.bankconnect`) rather than anything this change caused; see the
+session's own notes on this. App: `dart analyze` clean; `test/principal_communication_feature_test.dart`
+extended (15/15, the 11 pre-existing tests unaffected: a real portal announcement to guardians reaches every
+real Secondary family by real pending-mutation count, an honest refusal when no Secondary students are on the
+register, a non-portal channel stays local-only exactly as before, and - end to end - a real guardian's own
+Parent Messages thread really receives it with the Principal correctly attributed). Full app suite: the same 83
+pre-existing failures as before this work, by name.
+
+This completes the four-part "make the existing four Messages features real, one at a time" plan: Parent
+Messages, Driver Messages, Teacher Messages' guardian-group channels, and now the Principal Communication Hub's
+guardian announcements. What remains honestly unbuilt across all four, by design, stays labelled rather than
+faked: Parent/Teacher/Driver read-receipt (unread) tracking, Teacher Messages' staff/leadership channels, real
+SMS/email/WhatsApp delivery, and the Communication Hub's own reply-thread inbox.
