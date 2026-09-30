@@ -153,4 +153,47 @@ void main() {
     expect(reply.isGuardianMessage, isFalse, reason: 'this message was really authored by the class teacher, not a guardian');
     expect(reply.authorLabel, 'Class teacher');
   });
+
+  group('read receipts', () {
+    test('a fresh family thread is never unread', () async {
+      await setUpSchool();
+      final snapshot = await familyMessages.load();
+      expect(snapshot.threads.every((t) => !t.unread), isTrue);
+    });
+
+    test('my own reply never makes my own view unread', () async {
+      await setUpSchool();
+      await familyMessages.queueReply(threadId: 'channel-STU-001', body: 'Hello');
+      final after = await familyMessages.load();
+      expect(after.threadById('channel-STU-001')!.unread, isFalse);
+    });
+
+    test('a real guardian message makes the family thread unread for the teacher until marked seen', () async {
+      await setUpSchool();
+      await session.selectSchool(parent);
+      await parentMessages.queueReply(threadId: 'channel-STU-001', body: 'Please confirm the PTA date.');
+
+      await session.selectSchool(teacher);
+      final afterMessage = await familyMessages.load();
+      expect(afterMessage.threadById('channel-STU-001')!.unread, isTrue);
+
+      await familyMessages.markThreadSeen('channel-STU-001');
+      final afterSeen = await familyMessages.load();
+      expect(afterSeen.threadById('channel-STU-001')!.unread, isFalse);
+    });
+
+    test('the teacher marking a thread seen never affects the guardian\'s own unread state, and vice versa', () async {
+      await setUpSchool();
+      await session.selectSchool(parent);
+      await parentMessages.queueReply(threadId: 'channel-STU-001', body: 'Please confirm the PTA date.');
+
+      await session.selectSchool(teacher);
+      await familyMessages.markThreadSeen('channel-STU-001');
+      await familyMessages.queueReply(threadId: 'channel-STU-001', body: 'Confirmed for next Friday.');
+
+      await session.selectSchool(parent);
+      final parentView = await parentMessages.load();
+      expect(parentView.threadById('channel-STU-001')!.unread, isTrue, reason: 'the guardian never marked the teacher\'s new reply seen');
+    });
+  });
 }

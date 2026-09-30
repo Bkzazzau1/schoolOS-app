@@ -89,4 +89,56 @@ void main() {
     await session.selectSchool(teacher);
     expect(messages.load(), throwsStateError);
   });
+
+  group('read receipts', () {
+    test('a fresh channel with no messages is never unread', () async {
+      await setUpDriver();
+      final snapshot = await messages.load();
+      expect(snapshot.threads.single.unread, isFalse);
+    });
+
+    test('my own message never makes my own view unread', () async {
+      await setUpDriver();
+      final threadId = (await messages.load()).threads.single.id;
+      await messages.queueReply(threadId: threadId, body: 'Running ten minutes late.');
+      expect((await messages.load()).threads.single.unread, isFalse);
+    });
+
+    test('a real reply from Transport Control makes the channel unread until marked seen', () async {
+      await setUpDriver();
+      final threadId = (await messages.load()).threads.single.id;
+
+      // The exact canonical shape a real sync pull would write for a real Transport Control reply.
+      await db!.upsertLocalRecord(
+        tenantId: driver.schoolId,
+        entityType: 'driver_message',
+        entityId: 'MSG-FROM-CONTROL',
+        payload: {
+          'messageId': 'MSG-FROM-CONTROL',
+          'threadId': threadId,
+          'body': 'Please confirm the afternoon vehicle check.',
+          'senderRole': 'administrator',
+          'senderMembershipId': 'm-admin',
+          'receivedAt': DateTime.now().toUtc().toIso8601String(),
+        },
+        isDirty: false,
+      );
+
+      final afterReply = await messages.load();
+      expect(afterReply.threads.single.unread, isTrue);
+      expect(afterReply.unreadThreads, 1);
+
+      await messages.markThreadSeen(threadId);
+      final afterSeen = await messages.load();
+      expect(afterSeen.threads.single.unread, isFalse);
+      expect(db!.pendingCount(tenantId: driver.schoolId), greaterThan(0), reason: 'a real receipt was queued');
+    });
+
+    test('marking an already-read channel seen again is a harmless no-op', () async {
+      await setUpDriver();
+      final threadId = (await messages.load()).threads.single.id;
+      await messages.markThreadSeen(threadId);
+      expect(db!.pendingCount(tenantId: driver.schoolId), 0, reason: 'no receipt should be queued when nothing is unread');
+    });
+  });
 }

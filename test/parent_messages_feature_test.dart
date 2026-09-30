@@ -114,4 +114,67 @@ void main() {
     await session.selectSchool(teacher);
     expect(messages.load(), throwsStateError);
   });
+
+  group('read receipts', () {
+    test('a fresh channel with no messages is never unread', () async {
+      await setUpFamily();
+      final snapshot = await messages.load();
+      expect(snapshot.threads.every((t) => !t.unread), isTrue);
+      expect(snapshot.unreadCount, 0);
+    });
+
+    test('my own message never makes my own view unread', () async {
+      await setUpFamily();
+      final before = await messages.load();
+      final maryamThread = before.threads.firstWhere((t) => t.childLabel == 'Maryam Abdullahi');
+      await messages.queueReply(threadId: maryamThread.id, body: 'Hello');
+      final after = await messages.load();
+      expect(after.threadById(maryamThread.id)!.unread, isFalse);
+    });
+
+    test('a real reply from the class teacher makes the thread unread until marked seen', () async {
+      await setUpFamily();
+      final before = await messages.load();
+      final maryamThread = before.threads.firstWhere((t) => t.childLabel == 'Maryam Abdullahi');
+
+      // The exact canonical shape a real sync pull would write for a real teacher reply.
+      await db!.upsertLocalRecord(
+        tenantId: parent.schoolId,
+        entityType: 'parent_message',
+        entityId: 'MSG-FROM-TEACHER',
+        payload: {
+          'id': 'MSG-FROM-TEACHER',
+          'threadId': maryamThread.id,
+          'body': 'Maryam did very well today.',
+          'authorRole': 'teacher',
+          'authorMembershipId': teacher.id,
+          'createdAt': DateTime.now().toUtc().toIso8601String(),
+        },
+        isDirty: false,
+      );
+
+      final afterReply = await messages.load();
+      final afterThread = afterReply.threadById(maryamThread.id)!;
+      expect(afterThread.unread, isTrue);
+      expect(afterReply.unreadCount, 1);
+
+      await messages.markThreadSeen(maryamThread.id);
+      final afterSeen = await messages.load();
+      expect(afterSeen.threadById(maryamThread.id)!.unread, isFalse);
+      expect(afterSeen.unreadCount, 0);
+      expect(db!.pendingCount(tenantId: parent.schoolId), greaterThan(0), reason: 'a real receipt was queued');
+    });
+
+    test('marking an already-read thread seen again is a harmless no-op', () async {
+      await setUpFamily();
+      final before = await messages.load();
+      await messages.markThreadSeen(before.threads.first.id);
+      expect(db!.pendingCount(tenantId: parent.schoolId), 0, reason: 'no receipt should be queued when nothing is unread');
+    });
+
+    test('marking an unknown thread seen is rejected', () async {
+      await setUpFamily();
+      expect(messages.markThreadSeen('not-a-real-channel'), throwsStateError);
+    });
+  });
 }

@@ -117,4 +117,42 @@ void main() {
     expect(() => transportMessages.queueReply(threadId: threadId, body: '   '), throwsArgumentError);
     expect(() => transportMessages.queueReply(threadId: threadId, body: 'x' * 2001), throwsArgumentError);
   });
+
+  group('read receipts', () {
+    test('a fresh thread is never unread', () async {
+      await setUpSchool();
+      final snapshot = await transportMessages.load();
+      expect(snapshot.threads.single.unread, isFalse);
+    });
+
+    test('a real Driver message makes the thread unread for Transport Control until marked seen', () async {
+      await setUpSchool();
+      await session.selectSchool(driver);
+      await driverMessages.queueReply(threadId: 'driver-thread-${driver.id}', body: 'Running ten minutes late.');
+
+      await session.selectSchool(admin);
+      final afterMessage = await transportMessages.load();
+      final threadId = afterMessage.threads.single.id;
+      expect(afterMessage.threads.single.unread, isTrue);
+
+      await transportMessages.markThreadSeen(threadId);
+      final afterSeen = await transportMessages.load();
+      expect(afterSeen.threads.single.unread, isFalse);
+    });
+
+    test('Transport Control marking a thread seen never affects the Driver\'s own unread state, and vice versa', () async {
+      await setUpSchool();
+      await session.selectSchool(driver);
+      await driverMessages.queueReply(threadId: 'driver-thread-${driver.id}', body: 'Running ten minutes late.');
+
+      await session.selectSchool(admin);
+      final threadId = (await transportMessages.load()).threads.single.id;
+      await transportMessages.markThreadSeen(threadId);
+      await transportMessages.queueReply(threadId: threadId, body: 'Noted, thank you.');
+
+      await session.selectSchool(driver);
+      final driverView = await driverMessages.load();
+      expect(driverView.threads.single.unread, isTrue, reason: 'the Driver never marked Transport Control\'s new reply seen');
+    });
+  });
 }
