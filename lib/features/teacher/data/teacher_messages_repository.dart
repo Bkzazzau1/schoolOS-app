@@ -3,6 +3,7 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_messages_models.dart';
+import 'teacher_family_messages_repository.dart';
 import 'teacher_messages_demo_data.dart';
 import 'teacher_roster.dart';
 
@@ -34,6 +35,8 @@ class TeacherMessageActionResult {
   final TeacherMessage? queuedMessage;
 }
 
+const _classThreadPrefix = 'class-broadcast-';
+
 class TeacherMessagesRepository {
   TeacherMessagesRepository({
     required LocalDatabase localDatabase,
@@ -41,15 +44,20 @@ class TeacherMessagesRepository {
     required TeacherRoster roster,
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession,
-        _roster = roster;
+        _roster = roster,
+        _familyMessages = TeacherFamilyMessagesRepository(
+          localDatabase: localDatabase,
+          schoolSession: schoolSession,
+          roster: roster,
+        );
 
   static const _threadType = 'teacher_message_thread';
   static const _messageType = 'teacher_message';
-  static const _eventType = 'teacher_message_event';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final TeacherRoster _roster;
+  final TeacherFamilyMessagesRepository _familyMessages;
 
   TeacherMessagePermissions permissionsFor(SchoolMembership membership) {
     final teacher = membership.role == SchoolRole.teacher;
@@ -62,6 +70,37 @@ class TeacherMessagesRepository {
       canConfirmRead: false,
       canUseAiDraft: teacher,
     );
+  }
+
+  /// A real guardian-group channel per real class this Teacher membership is really assigned to -
+  /// sending here really reaches every real family in the class, through the exact same real
+  /// `parent_message` channel `TeacherFamilyMessagesRepository` already writes to, one real
+  /// per-family message per real student. There is no merged "history" to read back for a class
+  /// as a whole (each family's own copy lives in their own real thread - see Teacher Family
+  /// Messages), so this stays a real send action rather than a fabricated conversation.
+  Future<List<TeacherMessageThread>> _classThreads(SchoolMembership membership) async {
+    final assigned = await _roster.assignedClasses(membership);
+    final classNames = <String>{
+      for (final entry in assigned)
+        if (entry.className.trim().isNotEmpty) entry.className,
+    };
+    final threads = <TeacherMessageThread>[];
+    for (final className in classNames) {
+      final students = await _roster.studentsIn(className);
+      threads.add(TeacherMessageThread(
+        id: '$_classThreadPrefix${_slug(className)}',
+        name: '$className Guardians',
+        type: TeacherMessageChannelType.parentGroup,
+        preview: students.isEmpty
+            ? 'No students are on the register for this class yet.'
+            : 'Send a real announcement to ${students.length} real famil${students.length == 1 ? 'y' : 'ies'}.',
+        timeLabel: '',
+        unread: 0,
+        className: className,
+      ));
+    }
+    threads.sort((a, b) => a.name.compareTo(b.name));
+    return threads;
   }
 
   /// A teacher only ever sees a guardian group for a class they are really assigned to; channels not scoped to a
@@ -88,32 +127,29 @@ class TeacherMessagesRepository {
       tenantId: membership.schoolId,
       entityType: _messageType,
     );
-    var threads = threadRecords
+    var nonClassThreads = threadRecords
         .map((record) => TeacherMessageThread.fromJson(record.payload))
         .toList(growable: false);
-    threads.sort((a, b) {
+    nonClassThreads.sort((a, b) {
       final ai = teacherMessageThreads.indexWhere((item) => item.id == a.id);
       final bi = teacherMessageThreads.indexWhere((item) => item.id == b.id);
       return ai.compareTo(bi);
     });
-    threads = await _visibleThreads(membership, threads);
-    final visibleIds = {for (final thread in threads) thread.id};
+    nonClassThreads = await _visibleThreads(membership, nonClassThreads);
+    final visibleIds = {for (final thread in nonClassThreads) thread.id};
 
-    final messages = messageRecords
+    final nonClassMessages = messageRecords
         .map((record) => TeacherMessage.fromJson(record.payload))
         .where((message) => visibleIds.contains(message.threadId))
         .toList(growable: false);
-    messages.sort((a, b) {
-      final aSeed = teacherMessageSeedMessages.indexWhere((item) => item.id == a.id);
-      final bSeed = teacherMessageSeedMessages.indexWhere((item) => item.id == b.id);
-      if (aSeed >= 0 && bSeed >= 0) return aSeed.compareTo(bSeed);
-      if (aSeed >= 0) return -1;
-      if (bSeed >= 0) return 1;
-      return (a.createdAt ?? '').compareTo(b.createdAt ?? '');
-    });
+
+    final classThreads = membership.role == SchoolRole.teacher
+        ? await _classThreads(membership)
+        : const <TeacherMessageThread>[];
+
     return TeacherMessagesSnapshot(
-      threads: threads,
-      messages: messages,
+      threads: [...classThreads, ...nonClassThreads],
+      messages: nonClassMessages,
       permissions: permissionsFor(membership),
     );
   }
@@ -138,6 +174,11 @@ class TeacherMessagesRepository {
         message: 'Write a professional school message before sending.',
       );
     }
+
+    if (threadId.startsWith(_classThreadPrefix)) {
+      return _broadcastToClass(membership, threadId: threadId, body: trimmed, attachmentName: attachmentName);
+    }
+
     final visible = await _visibleThreads(membership, teacherMessageThreads);
     if (!visible.any((thread) => thread.id == threadId)) {
       return const TeacherMessageActionResult(
@@ -172,33 +213,53 @@ class TeacherMessagesRepository {
       operation: SyncOperation.create,
       payload: queued.toJson(),
     );
-    final event = TeacherMessageEvent(
-      id: '$id-queued',
-      messageId: id,
-      threadId: threadId,
-      action: TeacherMessageEventAction.queued,
-      actorMembershipId: membership.id,
-      occurredAt: now,
-    );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _eventType,
-      entityId: event.id,
-      payload: event.toJson(),
-      isDirty: true,
-    );
-    await _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _eventType,
-      entityId: event.id,
-      operation: SyncOperation.create,
-      payload: event.toJson(),
-    );
     return TeacherMessageActionResult(
       success: true,
       message: 'Message queued locally. Sent, delivered and read status require authoritative acknowledgement.',
       queuedMessage: queued,
+    );
+  }
+
+  Future<TeacherMessageActionResult> _broadcastToClass(
+    SchoolMembership membership, {
+    required String threadId,
+    required String body,
+    String? attachmentName,
+  }) async {
+    final classThreads = await _classThreads(membership);
+    final thread = classThreads.where((t) => t.id == threadId).firstOrNull;
+    if (thread == null) {
+      return const TeacherMessageActionResult(
+        success: false,
+        message: 'Messages can only be queued to an approved channel you have access to.',
+      );
+    }
+    if (body.length > 4000) {
+      return const TeacherMessageActionResult(
+        success: false,
+        message: 'Messages cannot exceed 4000 characters.',
+      );
+    }
+    final students = await _roster.studentsIn(thread.className!);
+    if (students.isEmpty) {
+      return const TeacherMessageActionResult(
+        success: false,
+        message: 'No students are on the register for this class yet.',
+      );
+    }
+    try {
+      for (final student in students) {
+        await _familyMessages.queueReply(threadId: 'channel-${student.id}', body: body);
+      }
+    } catch (error) {
+      return TeacherMessageActionResult(success: false, message: 'Could not send to every family: $error');
+    }
+    return TeacherMessageActionResult(
+      success: true,
+      message:
+          'Sent to ${students.length} real famil${students.length == 1 ? 'y' : 'ies'}, one real message per family. '
+          'Sent, delivered and read status require authoritative acknowledgement. '
+          'See Teacher Family Messages for each family\'s own copy and any reply.',
     );
   }
 
@@ -231,5 +292,19 @@ class TeacherMessagesRepository {
         );
       }
     }
+  }
+}
+
+String _slug(String value) => value
+    .trim()
+    .toLowerCase()
+    .replaceAll(RegExp(r'\s+'), '-')
+    .replaceAll(RegExp(r'[^a-z0-9-]'), '');
+
+extension _FirstOrNull<T> on Iterable<T> {
+  T? get firstOrNull {
+    final iterator = this.iterator;
+    if (!iterator.moveNext()) return null;
+    return iterator.current;
   }
 }
