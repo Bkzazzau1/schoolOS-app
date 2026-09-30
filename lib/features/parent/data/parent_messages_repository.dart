@@ -20,11 +20,13 @@ class ParentMessagesRepository {
   final SchoolSessionController _schoolSession;
   final ParentChildrenRepository _children;
 
-  /// One real, approved communication channel per real linked child, scoped to their real class — never
-  /// a pre-populated conversation that never actually happened. No real school-to-guardian messaging
-  /// system exists anywhere in the app yet (Teacher's own Messages screen is class-wide sample content
-  /// that was never addressed to a specific real family — see docs/BACKEND_INTEGRATION.md), so every
-  /// channel honestly starts with zero messages until the guardian queues a real one with [queueReply].
+  /// One real, approved communication channel per real linked child, scoped to their real class —
+  /// never a pre-populated conversation that never actually happened. The server's own
+  /// `ParentMessageHandler` (`apps/schoollife/messaging/parent_messages.py`) authorizes and publishes
+  /// this same channel to the real guardian and the child's real current class teacher, so a reply
+  /// from the actual class teacher lands here through the ordinary sync pull, read generically off
+  /// this device's local cache the same way every other real sync entity is — not filtered to this
+  /// membership's own messages the way a purely outbound channel would be.
   Future<ParentMessagesSnapshot> load() async {
     final membership = _requireParentMembership();
     final linked = (await _children.load()).children;
@@ -33,20 +35,23 @@ class ParentMessagesRepository {
       tenantId: membership.schoolId,
       entityType: _messageEntityType,
     );
-    final queuedByThread = <String, List<ParentMessageItem>>{};
+    final byThread = <String, List<ParentMessageItem>>{};
     for (final record in records) {
-      if (record.payload['membershipId'] != membership.id) continue;
       final threadId = record.payload['threadId'] as String?;
       if (threadId == null) continue;
-      queuedByThread
-          .putIfAbsent(threadId, () => [])
-          .add(ParentMessageItem.fromJson(Map<String, dynamic>.from(record.payload)));
+      byThread.putIfAbsent(threadId, () => []).add(
+            ParentMessageItem.fromCanonical(
+              payload: Map<String, Object?>.from(record.payload),
+              viewerMembershipId: membership.id,
+              isDirty: record.isDirty,
+            ),
+          );
     }
 
     final threads = <ParentMessageThread>[];
     for (final child in linked) {
       final threadId = 'channel-${child.id}';
-      final messages = [...(queuedByThread[threadId] ?? const <ParentMessageItem>[])]
+      final messages = [...(byThread[threadId] ?? const <ParentMessageItem>[])]
         ..sort((a, b) => (a.createdAt ?? DateTime(0)).compareTo(b.createdAt ?? DateTime(0)));
 
       threads.add(ParentMessageThread(
@@ -56,8 +61,8 @@ class ParentMessagesRepository {
         childLabel: child.name,
         preview: messages.isEmpty ? 'No messages yet' : messages.last.body,
         timeLabel: messages.isEmpty ? '' : messages.last.timeLabel,
-        // Every real message here is guardian-authored — no real school-to-guardian channel exists
-        // yet — so there is nothing school-sent for a guardian to have left unread.
+        // No read-receipt record exists yet for this channel, so a real reply from the class
+        // teacher is not tracked as seen/unseen — it is simply visible in the thread once pulled.
         unread: false,
         approvedParticipant: true,
         messages: messages,
@@ -97,30 +102,30 @@ class ParentMessagesRepository {
       );
     }
 
-    final now = DateTime.now();
-    final messageId =
-        'LOCAL-${membership.id}-${now.toUtc().microsecondsSinceEpoch}';
-    final message = ParentMessageItem(
-      id: messageId,
-      direction: ParentMessageDirection.guardianToSchool,
-      authorLabel: 'You',
-      body: normalizedBody,
-      timeLabel: _clockLabel(now),
-      state: ParentMessageState.queued,
-      createdAt: now,
-    );
+    final now = DateTime.now().toUtc();
+    final messageId = 'LOCAL-${membership.id}-${now.microsecondsSinceEpoch}';
 
-    final payload = message.toJson()
-      ..addAll(<String, Object?>{
-        'membershipId': membership.id,
-        'threadId': thread.id,
-      });
+    // The wire payload carries only what a guardian actually contributes; who really sent it and
+    // when are the server's own stamp (see ParentMessageHandler.clean), never taken on trust from
+    // the app. The local cache copy also keeps a same-shaped, locally-inferred author so this
+    // device can render its own just-sent message correctly before the next pull confirms it.
+    final wirePayload = <String, Object?>{
+      'id': messageId,
+      'threadId': thread.id,
+      'body': normalizedBody,
+    };
+    final localPayload = <String, Object?>{
+      ...wirePayload,
+      'authorRole': 'parent',
+      'authorMembershipId': membership.id,
+      'createdAt': now.toIso8601String(),
+    };
 
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: _messageEntityType,
-      entityId: message.id,
-      payload: payload,
+      entityId: messageId,
+      payload: localPayload,
       isDirty: true,
     );
 
@@ -128,22 +133,16 @@ class ParentMessagesRepository {
       tenantId: membership.schoolId,
       membershipId: membership.id,
       entityType: _messageEntityType,
-      entityId: message.id,
+      entityId: messageId,
       operation: SyncOperation.create,
-      payload: {
-        'messageId': message.id,
-        'threadId': thread.id,
-        'familyAccountId': snapshot.familyAccountId,
-        'participantName': thread.participantName,
-        'participantRole': thread.participantRole,
-        'childLabel': thread.childLabel,
-        'body': normalizedBody,
-        'deliveryState': ParentMessageState.queued.name,
-        'createdAt': now.toUtc().toIso8601String(),
-      },
+      payload: wirePayload,
     );
 
-    return message;
+    return ParentMessageItem.fromCanonical(
+      payload: localPayload,
+      viewerMembershipId: membership.id,
+      isDirty: true,
+    );
   }
 
   SchoolMembership _requireParentMembership() {
@@ -152,11 +151,5 @@ class ParentMessagesRepository {
       throw StateError('Family messages require an active Parent membership.');
     }
     return membership;
-  }
-
-  String _clockLabel(DateTime dateTime) {
-    final hour = dateTime.hour.toString().padLeft(2, '0');
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
   }
 }

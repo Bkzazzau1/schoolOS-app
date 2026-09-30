@@ -73,6 +73,55 @@ class ParentMessageItem {
         state: ParentMessageState.fromJson(json['state'] as String? ?? ''),
         createdAt: _date(json['createdAt']),
       );
+
+  /// Builds the UI view of one real message row from the server's own canonical shape —
+  /// `{id, threadId, body, authorRole, authorMembershipId, createdAt}`, the payload
+  /// `apps/schoollife/messaging/parent_messages.py` actually stores and publishes. `direction`
+  /// reflects who actually wrote the message (a real guardian, or the real school side) regardless
+  /// of who is viewing it; `authorLabel` and `state` do depend on the viewer, so the same row reads
+  /// as "You" to whoever sent it and by their real role to everyone else, and shows this device's
+  /// own not-yet-confirmed copy as queued only for the person who queued it.
+  factory ParentMessageItem.fromCanonical({
+    required Map<String, Object?> payload,
+    required String viewerMembershipId,
+    required bool isDirty,
+  }) {
+    final authorRole = payload['authorRole'] as String? ?? '';
+    final authorMembershipId = payload['authorMembershipId'] as String? ?? '';
+    final mine = authorMembershipId.isNotEmpty && authorMembershipId == viewerMembershipId;
+    final createdAt = _date(payload['createdAt']);
+    return ParentMessageItem(
+      id: payload['id'] as String? ?? '',
+      direction: authorRole == 'parent'
+          ? ParentMessageDirection.guardianToSchool
+          : ParentMessageDirection.schoolToGuardian,
+      authorLabel: mine ? 'You' : _authorLabelFor(authorRole),
+      body: payload['body'] as String? ?? '',
+      timeLabel: createdAt == null ? '' : _clockLabel(createdAt),
+      state: mine
+          ? (isDirty ? ParentMessageState.queued : ParentMessageState.sent)
+          : ParentMessageState.received,
+      createdAt: createdAt,
+    );
+  }
+}
+
+String _authorLabelFor(String authorRole) {
+  switch (authorRole) {
+    case 'teacher':
+      return 'Class teacher';
+    case 'parent':
+      return 'Guardian';
+    default:
+      return 'School';
+  }
+}
+
+String _clockLabel(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
 }
 
 class ParentMessageThread {
