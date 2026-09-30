@@ -50,6 +50,7 @@ import '../../service/presentation/service_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../../teaching_models/data/teaching_model_repository.dart';
 import '../../teaching_models/presentation/teaching_models_page.dart';
+import '../../transport/data/transport_messages_repository.dart';
 import '../../transport/data/transport_repository.dart';
 import '../../transport/data/transport_route_management_repository.dart';
 import '../../transport/presentation/transport_page.dart';
@@ -337,17 +338,23 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     }
 
     if (capability.key == 'transport') {
+      final transportRepository = TransportRepository(
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+      );
       await _pushSharedModule(
         title: 'School Transport',
         body: TransportPage(
           schoolName: widget.membership.schoolName,
-          repository: TransportRepository(
-            localDatabase: widget.localDatabase,
-            schoolSession: widget.schoolSession,
-          ),
+          repository: transportRepository,
           routeManagementRepository: TransportRouteManagementRepository(
             localDatabase: widget.localDatabase,
             schoolSession: widget.schoolSession,
+          ),
+          messagesRepository: TransportMessagesRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+            transport: transportRepository,
           ),
           onBack: () => Navigator.of(context).pop(),
           onTransportChanged: _refreshPendingCount,

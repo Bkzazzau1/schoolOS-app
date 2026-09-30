@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../data/transport_demo_data.dart';
+import '../data/transport_messages_repository.dart';
 import '../data/transport_repository.dart';
 import '../data/transport_route_management_repository.dart';
 import '../domain/transport_control_models.dart';
 import '../domain/transport_models.dart';
 import 'transport_control_overview.dart';
 import 'transport_driver_assignments_panel.dart';
+import 'transport_messages_panel.dart';
 import 'transport_route_management_panel.dart';
 
 class TransportPage extends StatefulWidget {
@@ -15,6 +17,7 @@ class TransportPage extends StatefulWidget {
     required this.schoolName,
     required this.repository,
     required this.routeManagementRepository,
+    required this.messagesRepository,
     required this.onBack,
     this.onTransportChanged,
   });
@@ -22,6 +25,7 @@ class TransportPage extends StatefulWidget {
   final String schoolName;
   final TransportRepository repository;
   final TransportRouteManagementRepository routeManagementRepository;
+  final TransportMessagesRepository messagesRepository;
   final VoidCallback onBack;
   final VoidCallback? onTransportChanged;
 
@@ -200,6 +204,11 @@ class _TransportPageState extends State<TransportPage> {
                 const SizedBox(height: 18),
                 TransportRouteManagementPanel(
                   repository: widget.routeManagementRepository,
+                  onChanged: _transportControlChanged,
+                ),
+                const SizedBox(height: 18),
+                TransportMessagesPanel(
+                  repository: widget.messagesRepository,
                   onChanged: _transportControlChanged,
                 ),
               ],
