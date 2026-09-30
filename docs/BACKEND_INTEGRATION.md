@@ -2517,3 +2517,48 @@ can view but not reply, an unrelated role sees nothing, an unknown thread or a b
 same end-to-end shape Teacher Family Messages proved for Parent Messages - a Driver's message and a Transport
 Control reply are each real to the other on the exact same thread). Full app suite: the same 83 pre-existing
 failures as before this work, by name.
+
+## Unified SchoolOS Messaging (third of four): Teacher Messages' guardian-group channels become real
+
+The third of the four separate "Messages" features. Unlike the first two passes, this one needed **no backend
+change at all** - the real capability it needed already existed.
+
+**What was actually wrong.** Teacher's "Messages" screen mixes three different kinds of channel: a guardian
+group per class, a school-leadership channel, and a staff channel. The guardian-group channels were demo
+furniture exactly like Parent Messages' own conversation had been: a fixed, fabricated back-and-forth ("JSS 2A
+Guardians"), including an *incoming* guardian reply ("Thank you. Is the revision sheet available...") credited
+to nobody real. Sending into one of these channels only ever wrote to this device's own local cache; nothing a
+teacher "sent" here ever reached an actual guardian.
+
+**The fix needed no new entity.** `ParentMessageHandler` (`apps/schoollife/messaging/parent_messages.py`, see the
+Parent Messages pass above) already lets a real class teacher write into *any* real family's thread for a
+student in a class they really teach - that authorization was never specific to a single family, it was already
+"this real class teacher, this real family." A class-wide "send to every guardian" is just that same real write,
+done once per real family in the class. So a guardian-group channel is no longer demo content: it is now built
+from the teacher's own real assigned classes (`TeacherRoster.assignedClasses`), and sending fans out one real
+`parent_message` create per real, currently enrolled student in that class - through the exact same repository
+call (`TeacherFamilyMessagesRepository.queueReply`) the Teacher Family Messages pass already built and tested.
+Each family receives their own real copy in their own real thread, exactly as if the teacher had written to them
+individually - because that is, underneath, exactly what happens.
+
+**What this deliberately does not do.** There is no merged "history" to scroll back through for a class as a
+whole: each family's own copy lives in their own real, separate thread (one row per family, not one shared
+broadcast row), and trying to reconstruct a unified view from N nearly-identical rows would mean either showing
+the same text N times or inventing a deduplication/grouping scheme with no real backend concept behind it.
+Instead, the guardian-group channel stays an honest **send action** - its "preview" text says how many real
+families a send would reach, not a fabricated last message - and a family's own copy, along with any reply, is
+read back through **Teacher Family Messages**, not through this screen. The two channel types with no real
+backend concept at all (school-leadership, staff) are completely untouched, still demo content, exactly as they
+were. The Principal Communication Hub remains the one still-untouched pass of the original four.
+
+**Verification.** No backend changes, so no backend tests changed; the full backend suite was not re-run for
+this pass. App: `dart analyze` clean; `test/teacher_messages_roster_test.dart` extended (6/6: a teacher only
+sees guardian-group channels for classes they really teach, a teacher with no assigned classes sees only the
+non-class channels, a send outside a real assignment is refused, a send to a real channel really reaches every
+real family - by real pending-mutation count - and, end to end, a real class broadcast really lands in a real
+guardian's own Parent Messages thread with the real class teacher correctly attributed);
+`test/teacher_messages_feature_test.dart` updated to pin the demo data's new, smaller shape (the two channel
+types with no real backend) and moved its page-rendering fixture to its own literal data, since guardian-group
+channels are no longer demo constants to pin against - its widget-level coverage (search, thread switching,
+send, AI draft, routing, phone rendering) is otherwise unchanged (10/10). Full app suite: the same 83
+pre-existing failures as before this work, by name.
