@@ -2454,3 +2454,66 @@ message and a teacher reply are each real to the other on the exact same thread)
 (5/5, its existing pinned behaviour unaffected); `test/teacher_dashboard_feature_test.dart`'s own pinned
 twenty-item navigation list updated to twenty-one for the new screen. Full app suite: the same 83 pre-existing
 failures as before this work, by name.
+
+## Unified SchoolOS Messaging (second of four): Driver Messages becomes real and two-way
+
+The second of the four separate "Messages" features (see the Parent Messages pass above). Unlike Parent
+Messages, the Driver-to-school direction here was already real and tested - the gap was entirely the missing
+reply, and a Flutter side that had never actually been wired to read it.
+
+**What was actually wrong.** `driver_message`'s own docstring said it plainly: "nothing in the app yet sends a
+message or an alert *to* a Driver... these records simply stop waiting forever on a device." A Driver could
+send, but nothing could ever answer, and no screen anywhere in the app - Administrator's or Proprietor's - had
+ever been built to read a Driver's messages at all. On top of that, `DriverMessagesRepository.load()` fabricated
+three entire conversations on first load, crediting invented departments ("School Operations", "Maintenance &
+Dispatch") with a pre-populated back-and-forth the Driver never actually had, the same shape Parent Messages'
+own fabrication took before its own fix.
+
+**Backend: the existing handler learns to accept a reply.** `apps/transport/driver_messages.py`'s
+`DriverMessageHandler` now accepts writes from Transport Control (`apps/transport/constants.py` `MANAGERS` -
+Proprietor or Administrator, the same role set that already sets every other transport policy in this module),
+the same `roles = {"driver"} | c.MANAGERS` shape `incident.py` already uses for a Driver-reported,
+management-reviewed record. The channel is now one real thread **per Driver** (`driver-thread-<membershipId>`),
+not per route, since a Driver's real assigned route can change without starting a new conversation - reusing a
+fixed thread id the tests had already anticipated, just never per-Driver before. Who the real Driver is when
+Transport Control writes is checked against a real, currently active `driver_transport_assignment` - never taken
+on trust from the app. The client-supplied `participantName`/`participantRole`/`channelLabel` labels (and the
+word-matching policy that used to police them against "parent"/"guardian"/"family") are gone entirely: once
+there is only ever one real counterparty to label, the school's own identity in the thread is never something a
+device gets to declare, the same principle Parent Messages' `authorRole` already established.
+
+**App: both real sides now exist.** `DriverMessagesRepository` no longer fabricates a snapshot on first load; it
+reads and writes the one real `driver_message` thread generically, the exact same `fromCanonical` pattern
+`ParentMessageItem` uses - `DriverMessageItem.fromCanonical` derives `direction`, `authorLabel` and `state` from
+the real `senderRole`/`senderMembershipId` against whoever is viewing, never storing them. A new
+**Transport Control** panel (`lib/features/transport/presentation/transport_messages_panel.dart`), added to the
+existing School Transport screen the Proprietor workspace already hosts, gives Transport Control the other side:
+one real thread per real, currently assigned Driver, built from the exact same real driver roster
+`TransportDriverAssignmentsPanel` already reads (`TransportRepository.loadDriverAssignments`) rather than a
+second, separate roster, reusing `DriverMessageThread`/`DriverMessageItem` rather than duplicating them. Gated by
+the same `canViewOperationsControl`/`canManageDriverAssignments` permissions every other panel on that screen
+already uses, so a read-only Principal can see a thread but not reply to it. (Administrator itself has no path
+to the School Transport screen in the app yet at all - a pre-existing gap this pass did not create and did not
+fix, since the backend's own management role, `Proprietor or Administrator`, was already correct either way.)
+
+**Still not done, on purpose.** Operational alerts (`DriverOperationalAlert` - a broadcast, priority-ranked
+notice, not a private thread) have no real backend at all; the list now honestly stays empty rather than
+fabricated, and `markAlertRead` openly refuses rather than pretending to acknowledge something that was never
+real. Teacher Messages' own broadcast channel and the Principal Communication Hub remain the two still-untouched
+passes of the original four.
+
+**Verification.** Backend: rewrote `apps.transport.tests.test_incidents_messages`'s `DriverMessageTests` for the
+new per-Driver thread and the reply direction (a Driver sends and the server stamps sender/role/route/vehicle; a
+Driver's own route is always the server's, never the device's; Transport Control replies into a real Driver's
+thread; a fake or unassigned `driverMembershipId` is refused; a `threadId` that does not match the real Driver is
+refused; messages never cross between two real Drivers, each with their own real route; an unrelated role cannot
+send; body validation; the message is never changed or removed), `apps.transport` together (79/79), full backend
+suite (2115 tests, the same 39 pre-existing failures as before this work, by name). App: `dart analyze` clean;
+replaced the old demo-seed pin with `test/driver_messages_feature_test.dart` (5/5: a fresh Driver gets one real
+empty thread rather than a fabricated conversation, operational alerts honestly stay empty, a queued message is
+real and persists, an unknown channel or a bad body is refused, only a Driver membership may use it); new
+`test/transport_messages_feature_test.dart` (5/5: threads are the real assigned Drivers, a read-only Principal
+can view but not reply, an unrelated role sees nothing, an unknown thread or a bad body is refused, and - the
+same end-to-end shape Teacher Family Messages proved for Parent Messages - a Driver's message and a Transport
+Control reply are each real to the other on the exact same thread). Full app suite: the same 83 pre-existing
+failures as before this work, by name.
