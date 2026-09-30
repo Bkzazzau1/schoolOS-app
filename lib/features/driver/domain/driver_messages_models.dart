@@ -79,6 +79,44 @@ class DriverMessageItem {
         state: DriverMessageState.fromJson(json['state'] as String? ?? ''),
         createdAt: _date(json['createdAt']),
       );
+
+  /// Builds the UI view of one real message row from the server's own canonical shape -
+  /// `{messageId, threadId, driverMembershipId, routeId, vehicle, body, senderMembershipId,
+  /// senderRole, receivedAt}`, the payload `apps/transport/driver_messages.py` actually stores
+  /// and publishes. `direction`, `authorLabel` and `state` are never stored; they are read off
+  /// who is actually viewing this message and whether this device's own copy has been confirmed
+  /// by the server yet - the same shape `ParentMessageItem.fromCanonical` uses for the other real
+  /// two-way channel in this app.
+  factory DriverMessageItem.fromCanonical({
+    required Map<String, Object?> payload,
+    required String viewerMembershipId,
+    required bool isDirty,
+  }) {
+    final senderRole = payload['senderRole'] as String? ?? '';
+    final senderMembershipId = payload['senderMembershipId'] as String? ?? '';
+    final mine = senderMembershipId.isNotEmpty && senderMembershipId == viewerMembershipId;
+    final createdAt = _date(payload['receivedAt']);
+    return DriverMessageItem(
+      id: payload['messageId'] as String? ?? '',
+      direction: senderRole == 'driver'
+          ? DriverMessageDirection.driverToSchool
+          : DriverMessageDirection.schoolToDriver,
+      authorLabel: mine ? 'You' : (senderRole == 'driver' ? 'Driver' : 'Transport Control'),
+      body: payload['body'] as String? ?? '',
+      timeLabel: createdAt == null ? '' : _clockLabel(createdAt),
+      state: mine
+          ? (isDirty ? DriverMessageState.queued : DriverMessageState.sent)
+          : DriverMessageState.received,
+      createdAt: createdAt,
+    );
+  }
+}
+
+String _clockLabel(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
 }
 
 class DriverMessageThread {
