@@ -6,8 +6,8 @@ import 'package:schoolos_app/features/teacher/presentation/teacher_dashboard_pag
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 void main() {
-  test('teacher workspace preserves exact twenty website destinations', () {
-    expect(teacherNavigation.length, 20);
+  test('teacher workspace preserves exact website destinations, plus real Family Messages', () {
+    expect(teacherNavigation.length, 21);
     expect(teacherNavigation.map((item) => item.label).toList(), [
       'Dashboard',
       'My Timetable',
@@ -25,6 +25,7 @@ void main() {
       'Excursions',
       'Media Gallery',
       'Messages',
+      'Family Messages',
       'Teacher AI',
       'My Performance',
       'Profile',

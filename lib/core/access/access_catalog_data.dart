@@ -99,6 +99,7 @@ const accessCatalogEntries = <CatalogEntry>[
   CatalogEntry('teacher.excursions', 'Excursions', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.gallery', 'Media Gallery', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.messages', 'Messages', 'Teacher', {'teacher'}),
+  CatalogEntry('teacher.family-messages', 'Family Messages', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.ai', 'Teacher AI', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.performance', 'My Performance', 'Teacher', {'teacher'}),
   CatalogEntry('teacher.profile', 'Profile', 'Teacher', {'teacher'}, sensitive: true),

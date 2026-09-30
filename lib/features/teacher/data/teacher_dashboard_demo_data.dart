@@ -24,6 +24,7 @@ const teacherNavigation = <TeacherNavItem>[
   TeacherNavItem(key: 'excursions', label: 'Excursions'),
   TeacherNavItem(key: 'gallery', label: 'Media Gallery'),
   TeacherNavItem(key: 'messages', label: 'Messages'),
+  TeacherNavItem(key: 'family-messages', label: 'Family Messages'),
   TeacherNavItem(key: 'ai', label: 'Teacher AI'),
   TeacherNavItem(key: 'performance', label: 'My Performance'),
   TeacherNavItem(key: 'profile', label: 'Profile'),

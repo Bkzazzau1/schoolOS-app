@@ -29,6 +29,7 @@ import '../data/teacher_cbt_repository.dart';
 import '../data/teacher_class_teacher_repository.dart';
 import '../data/teacher_classes_repository.dart';
 import '../data/teacher_dashboard_demo_data.dart';
+import '../data/teacher_family_messages_repository.dart';
 import '../data/teacher_learning_progress_repository.dart';
 import '../data/teacher_lesson_plan_repository.dart';
 import '../data/teacher_messages_repository.dart';
@@ -47,6 +48,7 @@ import 'teacher_attendance_page.dart';
 import 'teacher_cbt_page.dart';
 import 'teacher_classes_page.dart';
 import 'teacher_dashboard_page.dart';
+import 'teacher_family_messages_page.dart';
 import 'teacher_learning_progress_page.dart';
 import 'teacher_lesson_plans_page.dart';
 import 'teacher_messages_page.dart';
@@ -97,6 +99,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
   late final TeacherLearningProgressRepository _learningProgress;
   late final TeacherStudentsRepository _students;
   late final TeacherMessagesRepository _messages;
+  late final TeacherFamilyMessagesRepository _familyMessages;
   late final TeacherAiRepository _teacherAi;
   late final TeacherPerformanceRepository _performance;
   late final TeacherProfileRepository _profile;
@@ -127,6 +130,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
     _learningProgress = TeacherLearningProgressRepository(schoolSession: widget.schoolSession, roster: _roster);
     _students = TeacherStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _messages = TeacherMessagesRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
+    _familyMessages = TeacherFamilyMessagesRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _teacherAi = TeacherAiRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _performance = TeacherPerformanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _profile = TeacherProfileRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
@@ -226,6 +230,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
             onBack: () => _select('dashboard'),
           ),
         'messages' => TeacherMessagesPage(repository: _messages, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'family-messages' => TeacherFamilyMessagesPage(repository: _familyMessages, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'ai' => TeacherAiPage(repository: _teacherAi, onNavigate: _select),
         'performance' => TeacherPerformancePage(repository: _performance, onNavigate: _select),
         'profile' => TeacherProfilePage(repository: _profile, onNavigate: _select, onMutationQueued: _refreshPendingCount),
@@ -452,6 +457,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         'excursions' => Icons.directions_bus_filled_outlined,
         'gallery' => Icons.photo_library_outlined,
         'messages' => Icons.forum_outlined,
+        'family-messages' => Icons.chat_outlined,
         'ai' => Icons.auto_awesome_rounded,
         'performance' => Icons.insights_rounded,
         'profile' => Icons.person_outline_rounded,
