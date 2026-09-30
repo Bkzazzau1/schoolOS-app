@@ -25,17 +25,22 @@ class MediaThumbnailView extends StatefulWidget {
 class _MediaThumbnailViewState extends State<MediaThumbnailView> {
   Future<Object>? _future; // either a String (an openable url) or bytes (List<int>) to show with Image.memory
 
+  /// Whether the server could ever have built a real preview for this asset - an image always gets one; a video
+  /// only where the school's own server has a real transcoder installed (see the backend's transcoding.py),
+  /// which [MediaAsset.hasThumbnail] already reflects either way - this never assumes on its own.
+  bool get _mayHaveThumbnail => widget.asset.isImage || widget.asset.isVideo;
+
   @override
   void initState() {
     super.initState();
-    if (widget.asset.isImage && widget.asset.hasThumbnail) _future = _load();
+    if (_mayHaveThumbnail && widget.asset.hasThumbnail) _future = _load();
   }
 
   @override
   void didUpdateWidget(MediaThumbnailView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.asset.id != oldWidget.asset.id || (widget.asset.hasThumbnail && !oldWidget.asset.hasThumbnail)) {
-      _future = widget.asset.isImage && widget.asset.hasThumbnail ? _load() : null;
+      _future = _mayHaveThumbnail && widget.asset.hasThumbnail ? _load() : null;
     }
   }
 
