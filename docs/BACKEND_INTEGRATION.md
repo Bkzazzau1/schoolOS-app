@@ -2270,10 +2270,14 @@ bytes, its checksum and whether it has been checked only ever exist on the serve
   `AppearanceHandler`, not a `Spec` - proprietor writes, everyone reads) was, like excursion evidence, defined as
   a media category but never actually registered as an owner kind; now fixed the same way. Removing a logo stays
   base64-only for now; an earlier durable copy is left as it is rather than retired automatically.
+- **Video thumbnails** (`MediaThumbnailView`): a video tile now shows a real preview frame wherever the school's
+  own server actually built one. The backend machinery (a pluggable `VideoTranscoder`, job dispatch, graceful
+  degradation) is real and tested against a fake transcoder; the real, `ffmpeg`-backed implementation is honestly
+  unimplemented in the sense that it needs a real `ffmpeg` binary installed on a server, which no environment
+  this app has been built or tested in so far has - see the backend's `docs/MEDIA.md`. Until then, a video tile
+  shows the same plain icon it always has; nothing here is faked as a preview that does not exist.
 
-**Not yet wired to a screen.** Video transcoding and antivirus/malware scanning remain out of scope. Video is
-uploaded, stored and downloadable, but has no thumbnail yet (the server does not build one - see
-`docs/MEDIA.md`), so a video tile shows a plain icon rather than a preview frame. Camera capture (as opposed to
+**Not yet wired to a screen.** Antivirus/malware scanning remains out of scope. Camera capture (as opposed to
 picking an existing file) was not added this pass - `file_picker` (already a dependency) is what both platforms
 use; adding `image_picker` for a live camera capture was deliberately left out, since this checkout has no
 `android/` platform folder to verify a new plugin's Android wiring against.
@@ -2327,25 +2331,38 @@ off by a bare `tester.tap()`, never got real event-loop time and the test hung u
 wrapping the `tester.tap()` call that triggers the picker in `tester.runAsync()` too, the same shape
 `media_attachments_panel_test.dart`'s own "picking a photo" test already uses for exactly this reason.
 
-**Verification.** `dart analyze` clean, backend and app. Backend: `apps.media`'s own suite (84/84, the one new
-test added this pass), `apps.administration`/`apps.schoollife`/`apps.media`/`apps.sync` together (196/196, minus
-the same pre-existing `apps.sync` failures), full backend suite (2078 tests: the two new `apps.administration`
-incident tests, the two new `apps.media` school-logo integration tests, plus the same 39 pre-existing failures as
-before this work, by name). App: new `test/administrator_records_media_test.dart` (11/11: no attachment with and
-without a server, each of the five supported types, a rejected type never reaching the queue, an offline queued
-file staying honestly local, retry after failure, an existing server file, removing one with a reason, status
-untouched by any of this, a teacher unable to reach the control, per-school queue isolation, the staff-kind
-category match), `test/community_media_test.dart` (12/12), `test/excursion_media_test.dart` (12/12) and
-`test/principal_incidents_media_test.dart` (10/10) - each following the same shape: no attachment with/without a
-server, an existing server file, a rejected type, every supported type, an offline queued file staying honestly
-local, retry after failure with the record's own status/workflow untouched, removing a file with a reason, a role
-with no access seeing no control at all, and per-school queue isolation - plus `test/school_logo_media_test.dart`
-(4/4: demo mode unaffected, a server-side choice also keeps a durable copy with the right category/mime type,
-removing a logo leaves an earlier durable copy alone, an offline queued copy stays honestly local) - plus the
-pre-existing `administrator_records_actions_test.dart`, `administrator_records_feature_test.dart`,
-`community_test.dart`, `community_repository_test.dart`, `excursions_test.dart`, `excursion_repository_test.dart`,
-`principal_incidents_feature_test.dart`, `school_appearance_test.dart` and `school_theme_test.dart` (all
-unaffected). Full app suite: the same 83 failures as before this work, by name.
+Video thumbnails' own test turned up a sharper version still: a thumbnail load that starts automatically on a
+tile's own `initState()` has no tap at all to wrap in `tester.runAsync()`. `pumpAndSettle()` advances fake time in
+large jumps hunting for a settled frame, and did so faster than `mediaServer()`'s own `tinyPng()` helper (real
+`dart:ui` image encoding, in the *fake server's own response handler* this time, not the picker) could get real
+event-loop time to finish - the API client's own timeout fired first, in fake time, producing a
+"server took too long to answer" error on a call that, given real time, always succeeds; confirmed by logging the
+exact `FutureBuilder` snapshot (`hasError: true`, an error `tester.takeException()` never sees, since
+`FutureBuilder` catches it into its own snapshot rather than letting it become an uncaught exception). Bounded
+real-time waits (`runAsync(delay)` + plain `pump()`, never `pumpAndSettle()`) fixed it, same as every other real
+async trap this phase found.
+
+**Verification.** `dart analyze` clean, backend and app. Backend: `apps.media`'s own suite (95/95, this pass's
+ten new tests: two school-logo integration tests, three `VideoThumbnailTests`, six `test_transcoding.py` unit
+tests), `apps.administration`/`apps.schoollife`/`apps.media`/`apps.sync` together, full backend suite (2087
+tests, the same 39 pre-existing failures as before this work, by name). App: new
+`test/administrator_records_media_test.dart` (11/11: no attachment with and without a server, each of the five
+supported types, a rejected type never reaching the queue, an offline queued file staying honestly local, retry
+after failure, an existing server file, removing one with a reason, status untouched by any of this, a teacher
+unable to reach the control, per-school queue isolation, the staff-kind category match), `test/community_media_test.dart`
+(12/12), `test/excursion_media_test.dart` (12/12) and `test/principal_incidents_media_test.dart` (10/10) - each
+following the same shape: no attachment with/without a server, an existing server file, a rejected type, every
+supported type, an offline queued file staying honestly local, retry after failure with the record's own
+status/workflow untouched, removing a file with a reason, a role with no access seeing no control at all, and
+per-school queue isolation - plus `test/school_logo_media_test.dart` (4/4: demo mode unaffected, a server-side
+choice also keeps a durable copy with the right category/mime type, removing a logo leaves an earlier durable
+copy alone, an offline queued copy stays honestly local) and two new tests in `test/core/media_attachments_panel_test.dart`
+(a video with a real thumbnail shows the frame; one without still shows the honest icon) - plus the pre-existing
+`administrator_records_actions_test.dart`, `administrator_records_feature_test.dart`, `community_test.dart`,
+`community_repository_test.dart`, `excursions_test.dart`, `excursion_repository_test.dart`,
+`principal_incidents_feature_test.dart`, `school_appearance_test.dart`, `school_theme_test.dart`,
+`media_api_test.dart`, `media_upload_queue_test.dart` and `media_local_files_test.dart` (all unaffected). Full app
+suite: the same 83 failures as before this work, by name.
 
 Older media tests, unchanged by this pass: `media_queue_test` (the `LocalDatabase` table itself),
 `media_local_files_test`, `media_api_test`, `api_client_test`'s new `putBytes` group, `media_upload_queue_test`
