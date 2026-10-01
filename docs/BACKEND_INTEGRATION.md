@@ -3954,3 +3954,93 @@ this pass introduced no new failures and fixed none of the pre-existing cluster,
 This closes the Teacher role entirely: every screen audited this session now reflects only what a teacher has
 really been assigned, really recorded, or really been reviewed on. Administrator's 7-instance and Finance
 Office's 3-instance findings from the second audit remain open for a future pass.
+
+## Administrator stops fabricating: Admissions, Notices, Attendance - and a shared fake 16-student roster
+## that turned out to feed Students, Lifecycle, Records, Principal and Driver too
+
+This continues Administrator's 7-instance finding from the second audit. Fixing it surfaced a much larger,
+previously-unknown fabrication: `administrator_demo_school.dart` and three repositories' own seeds together
+invented a single fake 16-student "demo school" that `AdministratorStudentsRepository` silently handed to every
+other role's repository built on top of "the student register" - Parent, Principal, Teacher, Finance Office,
+Proprietor, Staff, Student, Transport and Owner all compose it. Removing a shared fabrication like that is not an
+Administrator-only fix, so this pass closes it everywhere it reached rather than narrowing scope to Administrator
+alone.
+
+**Design - Admissions and Notices.** Textbook instances: `AdministratorAdmissionsRepository.load()` and
+`AdministratorNoticesRepository.load()` each auto-seeded a small fabricated set into local storage the first time
+`load()` ran, even though both already have complete real write paths (`addApplicant`/`markDocumentReceived`/
+`scheduleScreening`/`issueOffer`/`acceptOffer`/`close` for admissions; `saveDraft` for notices). The seed blocks
+are removed; both now start honestly empty. `administrator_admissions_demo_data.dart` and
+`administrator_notices_demo_data.dart` are renamed to `*_policy_copy.dart`, keeping only genuinely static
+boundary text (the admissions journey/boundary strings, the notice audience/type option lists, the authority and
+draft boundaries) - nothing that was ever seeded into storage.
+
+**Design - Attendance's three ungated seeds, two fixed and one kept.** `AdministratorAttendanceRepository.load()`
+had three separate auto-seed blocks: fabricated gate-scan check-in events for the day (`demoScansFor`, deterministic
+per student but entirely invented), fabricated gate devices (`administratorAttendanceWebsiteDevices`), and
+fabricated correction requests (`demoCorrectionsFor`, also attributed to real register names). The devices block
+is the one exception kept as-is: `administrator_attendance_page.dart` already carries an explicit "Sample devices.
+Gate hardware is not connected yet, so these are examples." disclosure directly above the list, the same
+already-reviewed "labeled sample" pattern an earlier pass established for Teacher's lesson-plan scheme (a fixed,
+honestly-labelled sample set is a deliberate design choice, not a bug, once it's actually labelled). The events and
+corrections have no such disclosure and are presented as if genuinely captured today, so both seeds - and the
+`demoScansFor`/`demoCorrectionsFor` generator functions in `administrator_attendance_desk.dart`, now with no
+caller - are removed; `checkIn`/`identifyUnknown`/`decideCorrection` already provide the real write paths. The
+`eventEntityType` and `correctionEntityType` constants are made public (matching the existing
+`OwnerStaffProfileRepository.entityType` precedent) so tests can write real fixture events and corrections
+directly instead of relying on the deleted generators.
+
+**Design - the shared fake roster.** `administrator_students_repository.dart`, `administrator_lifecycle_repository.dart`
+and `administrator_records_repository.dart` each auto-seeded from `administrator_demo_school.dart` (16 fabricated
+students, 3 fabricated lifecycle changes, 10 fabricated documents) plus their own smaller website seeds, the
+first time each repository's `load()` ran. All three already have complete real write paths - students become
+real only through Admissions -> Registration (already fixed above and in an earlier pass); lifecycle changes
+through `request`/`markRecordsPackReady`/`complete`/`cancel`; documents through `add`/`act` - so every seed block,
+and the now-dead `administrator_demo_school.dart` itself, is removed. `administrator_students_demo_data.dart` is
+renamed to `*_policy_copy.dart`, keeping only the two genuinely static task lists
+(`administratorFamilyTasks`/`administratorRecordQualityTasks`) that `administrator_students_page.dart` already
+discloses as "Sample counts. Open the registers for current records." - the same accepted pattern as Attendance's
+devices. `administrator_lifecycle_demo_data.dart` and `administrator_records_demo_data.dart` had nothing else
+worth keeping and are deleted outright. A new `AdministratorStudentsRepository.registrationEntityType` constant
+(public, same precedent) lets tests write real registrations directly without duplicating the full
+`StudentRegistrationRecord` construction inline everywhere.
+
+**Design - Administrator Operations, deliberately left alone.** `administrator_operations_repository.dart`'s own
+seed (Transport/Meals/Visitors queue counts) was investigated under the same test but intentionally **not**
+changed: `administrator_operations_page.dart` already discloses "Sample counts. Open Transport, Meals or Visitors
+for current records." directly above the list, and the repository has no write path of its own by design (it is
+a cross-module preview pointing at the real modules, not a claim to be the live source itself) - the same
+"already labelled, leave it" exception as Attendance's devices and Students' task lists.
+
+**Design - the cascade.** `principal_attendance_repository.dart` had its own separate, unrelated fabrication in
+the same family: fabricated biometric scanner hardware and fabricated matched scan events
+(`principalBiometricScanners`/`principalBiometricSeedEvents`, attributed to the same now-fictional register ids),
+seeded with no disclosure anywhere on the page - unlike Administrator's own devices list. Both are removed;
+`_scannerType` is made public (`PrincipalAttendanceRepository.scannerEntityType`) and the page's own existing
+"No real local biometric devices are registered yet." honest-empty copy, previously unreachable behind the seed,
+now actually renders. `parent_children_repository.dart`'s `_familyPayload` had a parallel bug one level up: it
+fabricated which children a guardian is linked to (`_seedChildIds = ['STU-001', 'PRI-003']`) whenever no real
+family link existed yet, rather than honestly reporting none - `replaceLinkedChildren` is the real write path and
+is now the only way a guardian ever gets linked children. `driver_morning_run_demo_data.dart` is updated rather
+than reverted: an earlier pass had already reduced a 26-rider fabricated manifest down to the one rider
+(STU-001) that was genuinely real at the time; now that the seed STU-001 itself came from is gone, that one
+rider is updated to honestly empty too, following the exact same "every stop with no real registered rider
+honestly stays empty" rule the earlier pass itself established.
+
+**Verification.** `flutter analyze` clean across `lib/` and `test/`. Removing the shared roster broke 141 tests
+across 41 files app-wide (every role composing `AdministratorStudentsRepository`, directly or through
+`TeacherRoster`/`ParentChildrenRepository`) - each file's fixture setup now builds its own real students (via a
+new shared `test/core/real_student_fixtures.dart` helper that writes a real, completed `student_registration`
+record directly, the same real entity the repository merges) instead of relying on the removed ambient seed; a
+`classicRosterFixture`/`seedClassicRoster` convenience in the same helper reproduces the exact removed 16-student
+roster's names, ids, classes and guardians for tests that need the full set. Every one of the 41 files was
+re-verified individually; a handful of additional failures that surfaced along the way (a pre-existing
+Promotion-message wording mismatch, the already-documented `TeacherRoster.assign()` stub, a few others) were each
+independently confirmed via `git stash` A/B comparison against the untouched baseline before being left alone as
+pre-existing and unrelated. Full app suite, diffed by exact failure name against an 85-failure baseline taken
+immediately before this pass: zero new failures, zero fixed, a byte-for-byte identical failing-test-name set.
+
+This closes Administrator's Admissions, Notices and Attendance instances, plus the previously-unknown shared
+Students/Lifecycle/Records roster and its full cross-role cascade. Administrator's remaining flagged instances
+(staff, staff attendance, website) and Finance Office's 3-instance findings from the second audit remain open for
+a future pass.
