@@ -3430,3 +3430,45 @@ but not manage-all or take attendance; `addActivity()` lets a teacher really add
 zero members/attendance and refuses a role outside manage/contribute or a blank name/coordinator;
 `updateAttendance()` lets a manager really record attendance and refuses a teacher or an out-of-range value). All
 14 Activities tests pass; full app suite back to the same 83 pre-existing failures as before this work, by name.
+
+## Events & School Calendar stops fabricating its stat grid, and closes out Tier 1 of the cluster
+
+Sixth of the 14-directory cluster, and the last of the six "Community-shaped" ones (noticeboard, houses,
+assembly, meals, activities, events) sized up together before starting. `EventRepository` already had a real
+`addEvent()`, but `permissionsFor` collapsed the real `EVENTS = Spec("school_event", manage=MANAGERS,
+contribute={"teacher"}, required=("title", "date"))` (in `apps/schoollife/specs/calendar.py`) down to a single
+`canManageAll` flag at proprietor only - the same ACTIVITIES/ASSEMBLY shape, ignoring `contribute` entirely.
+Since nothing else in this repository needs managing beyond creation (no edit/delete method exists), the field
+was renamed `canCreate` outright rather than keeping an unused `canManageAll` around for a capability that
+doesn't exist yet. The stat grid's `eventThisMonthCount`, `eventParentFacingCount` and `eventCalendarConflicts`
+were fixed, disconnected constants.
+
+**Design.** `permissionsFor` now returns `canCreate` (manage ∪ contribute), matching the real Spec; the "Add
+event" button and composer both check it, so a teacher really can create an event now. Of the four fabricated
+stats, two could not be honestly computed at all and were dropped rather than kept with a fragile heuristic:
+`SchoolEvent.date` and `.audience` are free text a manager can type anything into, so "this month" and
+"parent-facing" have no reliable source - any string-matching attempt risked silently misclassifying a real
+event. "Registration open" is real and computable (`status == registrationOpen`, a real enum, not free text) and
+was kept; "Total events" was added as a second honest, trivially-real count. `event_demo_data.dart` is renamed
+`event_policy_copy.dart`, keeping `eventAuthorityRule`, `eventAcademicBoundary` and `eventFutureIntegrations` as
+static reference copy.
+
+The full suite caught a second instance of the same regression pattern Meals found:
+`parent_school_life_feature_test.dart`'s events test asserted `snapshot.events` was `isNotEmpty` "because the
+seeded demo school always has real upcoming events" - true only because of the seed itself. The test now creates
+two real events as proprietor first (one upcoming, one completed) before asserting the parent's view reflects
+exactly the upcoming one, which is a stronger assertion than the original (it now actually proves the
+`isUpcoming` filter works, not just that some seed data survived a round-trip).
+
+**Verification.** `flutter analyze` clean. `test/events_feature_test.dart`: the seed-preservation and fixed-KPI
+tests were removed; filtering and serialization rewritten against inline fixtures; new tests confirm
+`eventStats([])` is honestly all zeros and that a completed event is never upcoming. New
+`test/event_repository_test.dart` (7 tests - a fresh school's `load()` is genuinely empty; `permissionsFor`
+matches the real Spec exactly; `addEvent()` lets a teacher really create an event and refuses a role outside
+manage/contribute or a blank title/audience). `test/parent_school_life_feature_test.dart`'s events test rewritten
+to set up real data instead of relying on a seed. All related tests pass; full app suite back to the same 83
+pre-existing failures as before this work, by name.
+
+This closes Tier 1 of the cluster: noticeboard, houses, assembly, meals, activities and events are all genuinely
+real. Awards, boarding, lost_found, service, visitors and teaching_models remain, followed by excursions (coupled
+to Administrator's academic-term data) and transport (its own larger, multi-file pass) as separate decisions.
