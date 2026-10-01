@@ -5,6 +5,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/alumni_directory_models.dart';
 import '../domain/alumni_event_models.dart';
+import '../domain/alumni_mentorship_models.dart';
 import '../domain/alumni_opportunity_models.dart';
 import '../domain/alumni_pledge_models.dart';
 import '../domain/alumni_profile_models.dart';
@@ -326,6 +327,99 @@ class AlumniServerApi {
     );
     final map = Map<String, dynamic>.from(data as Map);
     return AlumniOpportunity.fromJson(Map<String, dynamic>.from(map['opportunity'] as Map));
+  }
+
+  /// Every real, active mentor profile for this school - never contact info.
+  Future<List<AlumniMentorProfile>> loadMentors(SchoolMembership membership) async {
+    final data = await _api.get(
+      'alumni/schools/${membership.schoolId}/mentorship/mentors/',
+      query: _who(membership),
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return [
+      for (final item in (map['mentors'] as List? ?? const []))
+        AlumniMentorProfile.fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
+  }
+
+  /// This alumnus's own real mentor profile - `null` if they have never opted in.
+  Future<AlumniMentorProfile?> loadMyMentorProfile(SchoolMembership membership) async {
+    final data = await _api.get(
+      'alumni/schools/${membership.schoolId}/mentorship/me/',
+      query: _who(membership),
+    );
+    if (data is! Map || data['mentorProfile'] == null) return null;
+    return AlumniMentorProfile.fromJson(Map<String, dynamic>.from(data['mentorProfile'] as Map));
+  }
+
+  Future<AlumniMentorProfile> saveMyMentorProfile(
+    SchoolMembership membership, {
+    required String expertise,
+    required String bio,
+    bool isActive = true,
+  }) async {
+    final data = await _api.put(
+      'alumni/schools/${membership.schoolId}/mentorship/me/',
+      query: _who(membership),
+      body: {'expertise': expertise.trim(), 'bio': bio.trim(), 'isActive': isActive},
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniMentorProfile.fromJson(Map<String, dynamic>.from(map['mentorProfile'] as Map));
+  }
+
+  /// Every real mentorship request involving this alumnus, as mentor or as mentee.
+  Future<List<AlumniMentorshipRequest>> loadMyMentorshipRequests(SchoolMembership membership) async {
+    final data = await _api.get(
+      'alumni/schools/${membership.schoolId}/mentorship/requests/',
+      query: _who(membership),
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return [
+      for (final item in (map['requests'] as List? ?? const []))
+        AlumniMentorshipRequest.fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
+  }
+
+  Future<AlumniMentorshipRequest> requestMentor(
+    SchoolMembership membership, {
+    required String mentorMembershipId,
+    String message = '',
+  }) async {
+    final data = await _api.post(
+      'alumni/schools/${membership.schoolId}/mentorship/requests/',
+      query: _who(membership),
+      body: {'mentorMembershipId': mentorMembershipId, 'message': message.trim()},
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniMentorshipRequest.fromJson(Map<String, dynamic>.from(map['request'] as Map));
+  }
+
+  /// Only the real mentor named on the request may call this - the server enforces it; this is
+  /// just the real answer (`accept: true` -> `accepted`, `false` -> `declined`).
+  Future<AlumniMentorshipRequest> respondToMentorshipRequest(
+    SchoolMembership membership,
+    String requestId, {
+    required bool accept,
+  }) async {
+    final data = await _api.post(
+      'alumni/schools/${membership.schoolId}/mentorship/requests/$requestId/respond/',
+      query: _who(membership),
+      body: {'status': accept ? 'accepted' : 'declined'},
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniMentorshipRequest.fromJson(Map<String, dynamic>.from(map['request'] as Map));
+  }
+
+  Future<AlumniMentorshipRequest> withdrawMentorshipRequest(
+    SchoolMembership membership,
+    String requestId,
+  ) async {
+    final data = await _api.post(
+      'alumni/schools/${membership.schoolId}/mentorship/requests/$requestId/withdraw/',
+      query: _who(membership),
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniMentorshipRequest.fromJson(Map<String, dynamic>.from(map['request'] as Map));
   }
 
   AlumniProfileRecord _profileFromEnvelope(Object? data) {

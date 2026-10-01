@@ -10,12 +10,14 @@ import '../../community/presentation/community_page.dart';
 import '../data/alumni_directory_repository.dart';
 import '../data/alumni_events_repository.dart';
 import '../data/alumni_give_back_repository.dart';
+import '../data/alumni_mentorship_repository.dart';
 import '../data/alumni_opportunities_repository.dart';
 import '../data/alumni_profile_repository.dart';
 import '../data/alumni_server_api.dart';
 import 'alumni_directory_page.dart';
 import 'alumni_events_page.dart';
 import 'alumni_give_back_page.dart';
+import 'alumni_mentorship_page.dart';
 import 'alumni_opportunities_page.dart';
 import 'alumni_profile_page.dart';
 
@@ -186,11 +188,11 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
             remote: AlumniServerScope.maybeOf(context),
           ),
         ),
-      'mentorship' => _foundationCard(
-          title: 'Mentorship',
-          description:
-              'Alumni mentorship is not available yet.',
-          icon: Icons.handshake_outlined,
+      'mentorship' => AlumniMentorshipPage(
+          repository: AlumniMentorshipRepository(
+            membership: widget.membership,
+            remote: AlumniServerScope.maybeOf(context),
+          ),
         ),
       'opportunities' => AlumniOpportunitiesPage(
           repository: AlumniOpportunitiesRepository(
@@ -274,38 +276,6 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
     );
   }
 
-  Widget _foundationCard({
-    required String title,
-    required String description,
-    required IconData icon,
-  }) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 34, color: theme.colorScheme.primary),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(description),
-            const SizedBox(height: 14),
-            const Chip(
-              avatar: Icon(Icons.lock_outline_rounded, size: 17),
-              label: Text('Not available yet'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _IdentityCard extends StatelessWidget {
