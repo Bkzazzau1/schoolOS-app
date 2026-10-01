@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/meal_models.dart';
-import 'meal_demo_data.dart';
 
 class MealSnapshot {
   const MealSnapshot({required this.meals, required this.permissions});
@@ -28,34 +27,23 @@ class MealRepository {
 
   static const _entityType = 'school_meal_day';
 
+  // Mirrors apps.schoollife.specs.campus.MEALS exactly: manage=MANAGERS, the same
+  // proprietor/principal/administrator set every other campus Spec uses - never proprietor alone.
+  static const _managers = {SchoolRole.proprietor, SchoolRole.principal, SchoolRole.administrator};
+
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
   MealPermissions permissionsFor(SchoolMembership membership) {
-    return MealPermissions(canEditMenu: membership.role == SchoolRole.proprietor);
+    return MealPermissions(canEditMenu: _managers.contains(membership.role));
   }
 
   Future<MealSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
-
-    if (records.isEmpty) {
-      for (final meal in mealWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: meal.day.toLowerCase(),
-          payload: meal.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
 
     final dayOrder = <String, int>{
       'Monday': 0,

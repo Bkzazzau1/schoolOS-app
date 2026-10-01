@@ -26,6 +26,20 @@ class SchoolMealDay {
   final MealServiceStatus status;
   final String note;
 
+  /// A real saved day always has all three meals filled in (the repository requires it); an
+  /// unset placeholder for a weekday nobody has configured yet never does.
+  bool get isSet => breakfast.isNotEmpty;
+
+  factory SchoolMealDay.unset(String day) => SchoolMealDay(
+        day: day,
+        breakfast: '',
+        lunch: '',
+        snack: '',
+        servings: 0,
+        status: MealServiceStatus.planned,
+        note: '',
+      );
+
   bool matches(String query) {
     final normalized = query.trim().toLowerCase();
     if (normalized.isEmpty) return true;

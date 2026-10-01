@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/meal_demo_data.dart';
+import '../data/meal_policy_copy.dart';
 import '../data/meal_repository.dart';
 import '../domain/meal_models.dart';
 
@@ -25,7 +25,7 @@ class MealsPage extends StatefulWidget {
 class _MealsPageState extends State<MealsPage> {
   final _searchController = TextEditingController();
   MealSnapshot? _snapshot;
-  String _selectedDay = 'Wednesday';
+  String _selectedDay = mealWeekdays.first;
   bool _loading = true;
   String? _error;
 
@@ -49,12 +49,8 @@ class _MealsPageState extends State<MealsPage> {
     try {
       final snapshot = await widget.repository.load();
       if (!mounted) return;
-      final selectedExists = snapshot.meals.any((meal) => meal.day == _selectedDay);
       setState(() {
         _snapshot = snapshot;
-        if (!selectedExists && snapshot.meals.isNotEmpty) {
-          _selectedDay = snapshot.meals.first.day;
-        }
         _loading = false;
       });
     } catch (error) {
@@ -66,17 +62,25 @@ class _MealsPageState extends State<MealsPage> {
     }
   }
 
-  SchoolMealDay get _selectedMeal {
+  /// Every weekday gets its own slot, whether or not this school has set that day's menu yet -
+  /// a real menu day where one exists, an honest [SchoolMealDay.unset] placeholder otherwise.
+  List<SchoolMealDay> get _weekSlots {
     final meals = _snapshot?.meals ?? const <SchoolMealDay>[];
-    return meals.firstWhere(
+    return [
+      for (final day in mealWeekdays)
+        meals.firstWhere((meal) => meal.day == day, orElse: () => SchoolMealDay.unset(day)),
+    ];
+  }
+
+  SchoolMealDay get _selectedMeal {
+    return _weekSlots.firstWhere(
       (meal) => meal.day == _selectedDay,
-      orElse: () => meals.first,
+      orElse: () => SchoolMealDay.unset(_selectedDay),
     );
   }
 
   List<SchoolMealDay> get _visibleMeals {
-    final meals = _snapshot?.meals ?? const <SchoolMealDay>[];
-    return meals.where((meal) => meal.matches(_searchController.text)).toList(growable: false);
+    return _weekSlots.where((meal) => meal.matches(_searchController.text)).toList(growable: false);
   }
 
   Future<void> _editSelectedMeal() async {
@@ -386,7 +390,7 @@ class _MenuCard extends StatelessWidget {
                       Text('Weekly menu', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 4),
                       Text(
-                        'This is a sample service week, not a live calendar. Families can later see published menus; sensitive dietary notes stay in restricted staff workflows.',
+                        'Each weekday shows this school\'s real menu once it is set. Families can later see published menus; sensitive dietary notes stay in restricted staff workflows.',
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
@@ -469,20 +473,29 @@ class _MealRow extends StatelessWidget {
                       spacing: 7,
                       runSpacing: 7,
                       children: [
-                        _Pill(meal.status.label),
-                        _Pill('${meal.servings} servings'),
+                        if (meal.isSet) ...[
+                          _Pill(meal.status.label),
+                          _Pill('${meal.servings} servings'),
+                        ] else
+                          const _Pill('Not set yet'),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(meal.day, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                     const SizedBox(height: 4),
-                    Text('Breakfast: ${meal.breakfast}'),
-                    Text('Lunch: ${meal.lunch} · Snack: ${meal.snack}'),
-                    const SizedBox(height: 6),
-                    Text(
-                      meal.note,
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
+                    if (meal.isSet) ...[
+                      Text('Breakfast: ${meal.breakfast}'),
+                      Text('Lunch: ${meal.lunch} · Snack: ${meal.snack}'),
+                      const SizedBox(height: 6),
+                      Text(
+                        meal.note,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ] else
+                      Text(
+                        'This school has not set a menu for ${meal.day} yet.',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
                   ],
                 ),
               ),
@@ -519,9 +532,12 @@ class _MealSidebar extends StatelessWidget {
                 const SizedBox(height: 5),
                 Text(selected.day, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                 const SizedBox(height: 10),
-                _MenuDetail(value: selected.breakfast, label: 'Breakfast'),
-                _MenuDetail(value: selected.lunch, label: 'Lunch'),
-                _MenuDetail(value: selected.snack, label: 'Snack'),
+                if (selected.isSet) ...[
+                  _MenuDetail(value: selected.breakfast, label: 'Breakfast'),
+                  _MenuDetail(value: selected.lunch, label: 'Lunch'),
+                  _MenuDetail(value: selected.snack, label: 'Snack'),
+                ] else
+                  Text('No menu set for this day yet.', style: theme.textTheme.bodySmall),
               ],
             ),
           ),
