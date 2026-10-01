@@ -4041,6 +4041,47 @@ pre-existing and unrelated. Full app suite, diffed by exact failure name against
 immediately before this pass: zero new failures, zero fixed, a byte-for-byte identical failing-test-name set.
 
 This closes Administrator's Admissions, Notices and Attendance instances, plus the previously-unknown shared
-Students/Lifecycle/Records roster and its full cross-role cascade. Administrator's remaining flagged instances
-(staff, staff attendance, website) and Finance Office's 3-instance findings from the second audit remain open for
-a future pass.
+Students/Lifecycle/Records roster and its full cross-role cascade.
+
+## Administrator closes out: Staff, Staff Attendance and Website
+
+The last three of the second audit's 7 Administrator instances.
+
+**Design - Staff directory.** `administrator_staff_repository.dart`'s seed (5 fabricated staff rows, one of
+them - STAFF-030 "Mr. Peter James" - doing double duty as the Staff role's own demo login identity) is removed;
+`registerSupportStaff` is the real write path. The one real dependency this broke is fixed properly rather than
+papered over: `StaffSelfServiceRepository._seedDemoSelfIfKnown` no longer calls
+`AdministratorStaffRepository.load()` just to trigger its seed as a side effect - it now writes STAFF-030's own
+real directory entry directly, the same real entity a connected school's own onboarding would have created
+alongside the login. `administrator_staff_demo_data.dart` renames to `*_policy_copy.dart`, keeping only the
+genuinely static onboarding checklist.
+
+**Design - Staff Attendance.** Both of `administrator_staff_attendance_repository.dart`'s seeds (4 fabricated
+ledger rows, 3 fabricated hardware devices) are removed with no disclosure on the page to justify keeping either
+- unlike Administrator's own gate-attendance devices - and `sendPayrollSummary` only ever marks an existing
+summary sent, so there is no real write path for individual attendance at all; the ledger and devices cards gain
+honest empty-state text ("No real staff attendance has been recorded yet." / "No real attendance hardware is
+connected yet.") where none existed before.
+
+**Design - Website.** A narrower case: `administrator_website_repository.dart`'s seed is a single homepage
+settings record (headline, supporting text, admissions status), not a list of fabricated people - but it is
+still presented as the school's real homepage copy with no disclosure, and `save()` is a complete real write
+path, so the same rule applies. `load()` now returns an honest all-empty `AdministratorWebsiteSettings` until the
+administrator saves their own. The static KPI/section/requirement/branding reference lists already live outside
+local storage and are untouched - the page already builds its displayed admissions KPI from the real
+`admissionsOpen`/`admissionSession` values at render time, never from the static list.
+
+**Verification.** `flutter analyze` clean. Removing the Staff and Staff Attendance seeds broke 9 more tests
+across 7 files reached through `AdministratorStaffRepository`/`AdministratorStaffAttendanceRepository` from
+Proprietor and Finance Office (`owner_staff_profiles_test.dart`, `staff_proposals_test.dart`,
+`finance_payroll_feature_test.dart`, `owner_jobs_test.dart`, `owner_staff_profile_media_test.dart`,
+`principal_dashboard_test.dart`, `principal_teachers_feature_test.dart`) - each now builds its own real staff
+fixtures via a new `test/core/real_staff_fixtures.dart` helper (`seedRealStaff`/`seedRealStaffAttendance`, and a
+`seedClassicStaff` convenience reproducing the two names - Mrs. Amina Yusuf, Mr. Ahmad Sani - several of these
+files were already written against). `administrator_website_repository.dart` gains its first-ever direct
+repository test (`administrator_website_actions_test.dart`): honest-empty on a fresh school, a real save
+round-trip, validation, and the permission check. Full app suite, diffed by exact failure name against the same
+85-failure baseline: zero new failures, zero fixed.
+
+This closes Administrator's full 7-instance finding from the second audit entirely. Finance Office's 3-instance
+findings from the same audit remain open for a future pass.
