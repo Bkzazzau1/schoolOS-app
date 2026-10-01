@@ -1,33 +1,63 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/assembly/data/assembly_demo_data.dart';
+import 'package:schoolos_app/features/assembly/data/assembly_policy_copy.dart';
 import 'package:schoolos_app/features/assembly/domain/assembly_models.dart';
 
+List<AssemblySession> _sessions() => const [
+      AssemblySession(
+        id: 'ASM-TEST-01',
+        title: 'Monday Whole-School Assembly',
+        type: AssemblySessionType.generalAssembly,
+        audience: 'Whole school',
+        day: 'Monday',
+        time: '7:45 AM',
+        venue: 'Main assembly ground',
+        lead: 'School Leadership',
+        participation: 'Whole school',
+        note: 'Announcements, recognition, safety reminders and weekly priorities.',
+      ),
+      AssemblySession(
+        id: 'ASM-TEST-02',
+        title: 'Primary Values Assembly',
+        type: AssemblySessionType.sectionAssembly,
+        audience: 'Primary',
+        day: 'Wednesday',
+        time: '8:00 AM',
+        venue: 'Primary courtyard',
+        lead: 'Headmistress Office',
+        participation: 'Primary pupils + staff',
+        note: 'Age-appropriate school values, reading, songs and pupil presentations.',
+      ),
+      AssemblySession(
+        id: 'ASM-TEST-03',
+        title: 'Friday Faith Programme',
+        type: AssemblySessionType.faithReligious,
+        audience: 'Configured participants',
+        day: 'Friday',
+        time: '12:30 PM',
+        venue: 'Configured venue',
+        lead: 'Approved school coordinator',
+        participation: 'School-policy controlled',
+        note: 'Example faith activity. Schools configure programme type, audience, alternatives and participation rules to fit their own context.',
+      ),
+    ];
+
 void main() {
-  test('website assembly seed preserves five configured sessions and types', () {
-    expect(assemblyWebsiteSeed, hasLength(5));
-    expect(AssemblySessionType.values, hasLength(5));
-    expect(
-      assemblyWebsiteSeed.map((session) => session.type).toSet(),
-      containsAll(AssemblySessionType.values),
-    );
-  });
-
-  test('assembly stats preserve website whole-school and section totals', () {
-    final stats = assemblyStats(assemblyWebsiteSeed);
-
-    expect(stats[0].value, '5');
+  test('assembly stats are computed from the real sessions given, never a fixed sample', () {
+    final stats = assemblyStats(_sessions());
+    expect(stats[0].value, '3');
     expect(stats[1].value, '1');
-    expect(stats[2].value, '3');
+    expect(stats[2].value, '1');
     expect(stats[3].value, '1');
     expect(stats[4].value, 'Config');
+
+    expect(assemblyStats(const []).every((stat) => stat.value == '0' || stat.value == 'Config'), isTrue);
   });
 
   test('faith programme remains explicitly tenant configurable', () {
-    final faith = assemblyWebsiteSeed.singleWhere(
+    final faith = _sessions().singleWhere(
       (session) => session.type == AssemblySessionType.faithReligious,
     );
 
-    expect(faith.id, 'ASM-03');
     expect(faith.audience, 'Configured participants');
     expect(faith.venue, 'Configured venue');
     expect(faith.participation, 'School-policy controlled');
@@ -35,8 +65,9 @@ void main() {
   });
 
   test('assembly filtering covers query and type without merging audiences', () {
-    final primary = assemblyWebsiteSeed[1];
-    final faith = assemblyWebsiteSeed[2];
+    final sessions = _sessions();
+    final primary = sessions[1];
+    final faith = sessions[2];
 
     expect(primary.matches('headmistress', null), isTrue);
     expect(primary.matches('primary', AssemblySessionType.sectionAssembly), isTrue);
@@ -45,13 +76,22 @@ void main() {
   });
 
   test('assembly session serialization preserves participation metadata', () {
-    final original = assemblyWebsiteSeed.first;
+    final original = _sessions().first;
     final restored = AssemblySession.fromJson(original.toJson());
 
     expect(restored.id, original.id);
     expect(restored.type, original.type);
     expect(restored.audience, original.audience);
     expect(restored.participation, original.participation);
+  });
+
+  test('copyWith only changes the fields given', () {
+    final original = _sessions().first;
+    final updated = original.copyWith(venue: 'New venue', time: '9:00 AM');
+    expect(updated.venue, 'New venue');
+    expect(updated.time, '9:00 AM');
+    expect(updated.title, original.title);
+    expect(updated.type, original.type);
   });
 
   test('configuration principles prevent a hard-coded faith model', () {
