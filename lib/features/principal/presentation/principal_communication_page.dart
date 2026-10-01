@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../administrator/domain/administrator_students_models.dart';
 import '../../teacher/domain/teacher_messages_models.dart' show TeacherMessageDeliveryState;
 import '../data/principal_communication_demo_data.dart';
 import '../data/principal_communication_repository.dart';
@@ -37,6 +38,11 @@ class _PrincipalCommunicationPageState
   bool _saving = false;
   final _markingSeen = <String>{};
 
+  /// The one real guardian thread the Principal has explicitly looked up, if any - takes over the
+  /// detail panel from the leadership inbox selection while it is open.
+  PrincipalCommunicationThread? _familyThread;
+  String? _familyStudentId;
+
   @override
   void initState() {
     super.initState();
@@ -58,12 +64,13 @@ class _PrincipalCommunicationPageState
       setState(() {
         _snapshot = snapshot;
         _error = null;
-        if (!snapshot.threads.any((thread) => thread.id == _activeThreadId) &&
+        if (_familyThread == null &&
+            !snapshot.threads.any((thread) => thread.id == _activeThreadId) &&
             snapshot.threads.isNotEmpty) {
           _activeThreadId = snapshot.threads.first.id;
         }
       });
-      if (_activeThreadId.isNotEmpty) _markSeen(_activeThreadId);
+      if (_familyThread == null && _activeThreadId.isNotEmpty) _markSeen(_activeThreadId);
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = '$error');
@@ -74,6 +81,25 @@ class _PrincipalCommunicationPageState
     if (!_markingSeen.add(threadId)) return;
     widget.repository.markThreadSeen(threadId).then((_) {
       if (mounted) setState(() {});
+    }).catchError((_) {
+      // Opening the conversation remains possible even if a read receipt cannot be queued.
+    });
+  }
+
+  Future<void> _openFamily(String studentId) async {
+    final thread = await widget.repository.familyThread(studentId);
+    if (!mounted || thread == null) return;
+    setState(() {
+      _familyThread = thread;
+      _familyStudentId = studentId;
+      _activeThreadId = '';
+      _replyController.clear();
+    });
+    if (!_markingSeen.add('family-$studentId')) return;
+    widget.repository.markFamilyThreadSeen(studentId).then((_) async {
+      if (!mounted) return;
+      final refreshed = await widget.repository.familyThread(studentId);
+      if (mounted && refreshed != null) setState(() => _familyThread = refreshed);
     }).catchError((_) {
       // Opening the conversation remains possible even if a read receipt cannot be queued.
     });
@@ -102,14 +128,24 @@ class _PrincipalCommunicationPageState
   Future<void> _sendReply() async {
     if (_saving) return;
     setState(() => _saving = true);
-    final result = await widget.repository.queueReply(
-      threadId: _activeThreadId,
-      message: _replyController.text,
-    );
+    final familyStudentId = _familyStudentId;
+    final result = familyStudentId != null
+        ? await widget.repository.queueFamilyReply(
+            studentId: familyStudentId,
+            message: _replyController.text,
+          )
+        : await widget.repository.queueReply(
+            threadId: _activeThreadId,
+            message: _replyController.text,
+          );
     if (!mounted) return;
     if (result.success) {
       _replyController.clear();
       await _load();
+      if (familyStudentId != null) {
+        final refreshed = await widget.repository.familyThread(familyStudentId);
+        if (mounted && refreshed != null) setState(() => _familyThread = refreshed);
+      }
       widget.onMutationQueued?.call();
     }
     if (!mounted) return;
@@ -140,6 +176,24 @@ class _PrincipalCommunicationPageState
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(result.message)));
+  }
+
+  Future<void> _pickFamily(List<AdministratorStudentRecord> families) async {
+    final selected = await showDialog<AdministratorStudentRecord>(
+      context: context,
+      builder: (context) => _FamilyPickerDialog(families: families),
+    );
+    if (selected != null) await _openFamily(selected.id);
+  }
+
+  void _selectThreadId(String id) {
+    _replyController.clear();
+    setState(() {
+      _familyThread = null;
+      _familyStudentId = null;
+      _activeThreadId = id;
+    });
+    _markSeen(id);
   }
 
   void _useAttendanceTemplate() {
@@ -187,6 +241,7 @@ class _PrincipalCommunicationPageState
     final activeThread = snapshot.threads.isEmpty
         ? null
         : _activeThread(snapshot);
+    final displayThread = _familyThread ?? activeThread;
     final filteredThreads = _filteredThreads(snapshot);
 
     return ListView(
@@ -201,15 +256,21 @@ class _PrincipalCommunicationPageState
             final wide = constraints.maxWidth >= 980;
             final inbox = _InboxCard(
               threads: filteredThreads,
-              activeThreadId: activeThread?.id ?? '',
+              activeThreadId: _familyThread == null ? (activeThread?.id ?? '') : '',
+              families: snapshot.families,
               onQueryChanged: (value) => setState(() => _query = value),
               onSelected: (id) {
                 _replyController.clear();
-                setState(() => _activeThreadId = id);
+                setState(() {
+                  _familyThread = null;
+                  _familyStudentId = null;
+                  _activeThreadId = id;
+                });
                 _markSeen(id);
               },
+              onPickFamily: () => _pickFamily(snapshot.families),
             );
-            final thread = activeThread == null
+            final thread = displayThread == null
                 ? const Card(
                     child: Padding(
                       padding: EdgeInsets.all(20),
@@ -219,7 +280,7 @@ class _PrincipalCommunicationPageState
                     ),
                   )
                 : _ThreadCard(
-                    thread: activeThread,
+                    thread: displayThread,
                     controller: _replyController,
                     saving: _saving,
                     canSend: snapshot.permissions.canQueueMessages,
@@ -257,7 +318,7 @@ class _PrincipalCommunicationPageState
             );
             final followUps = _FollowUpsCard(
               items: snapshot.followUps,
-              onNavigate: widget.onNavigate,
+              onOpen: _selectThreadId,
             );
             if (constraints.maxWidth >= 980) {
               return Row(
@@ -416,14 +477,18 @@ class _InboxCard extends StatelessWidget {
   const _InboxCard({
     required this.threads,
     required this.activeThreadId,
+    required this.families,
     required this.onQueryChanged,
     required this.onSelected,
+    required this.onPickFamily,
   });
 
   final List<PrincipalCommunicationThread> threads;
   final String activeThreadId;
+  final List<AdministratorStudentRecord> families;
   final ValueChanged<String> onQueryChanged;
   final ValueChanged<String> onSelected;
+  final VoidCallback onPickFamily;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -433,9 +498,20 @@ class _InboxCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Inbox',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Inbox',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: families.isEmpty ? null : onPickFamily,
+                icon: const Icon(Icons.person_search_rounded, size: 18),
+                label: const Text('Message a family'),
+              ),
+            ],
           ),
           const Text('Staff and authorized guardian conversations.'),
           const SizedBox(height: 12),
@@ -523,6 +599,74 @@ class _InboxCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _FamilyPickerDialog extends StatefulWidget {
+  const _FamilyPickerDialog({required this.families});
+  final List<AdministratorStudentRecord> families;
+
+  @override
+  State<_FamilyPickerDialog> createState() => _FamilyPickerDialogState();
+}
+
+class _FamilyPickerDialogState extends State<_FamilyPickerDialog> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _query.trim().toLowerCase();
+    final matches = widget.families.where((student) {
+      if (query.isEmpty) return true;
+      return '${student.name} ${student.primaryGuardian} ${student.className}'
+          .toLowerCase()
+          .contains(query);
+    }).toList(growable: false);
+    return AlertDialog(
+      title: const Text('Message a Secondary family'),
+      content: SizedBox(
+        width: 420,
+        height: 420,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search_rounded),
+                hintText: 'Search by student, guardian or class...',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) => setState(() => _query = value),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: matches.isEmpty
+                  ? const Center(child: Text('No Secondary student matches this search.'))
+                  : ListView.builder(
+                      itemCount: matches.length,
+                      itemBuilder: (context, index) {
+                        final student = matches[index];
+                        return ListTile(
+                          title: Text(student.name),
+                          subtitle: Text(
+                            '${student.primaryGuardian.trim().isEmpty ? "Guardian" : student.primaryGuardian} · ${student.className}',
+                          ),
+                          onTap: () => Navigator.of(context).pop(student),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
 }
 
 class _ThreadCard extends StatelessWidget {
@@ -837,9 +981,9 @@ class _ComposeCard extends StatelessWidget {
 }
 
 class _FollowUpsCard extends StatelessWidget {
-  const _FollowUpsCard({required this.items, required this.onNavigate});
+  const _FollowUpsCard({required this.items, required this.onOpen});
   final List<PrincipalCommunicationFollowUp> items;
-  final ValueChanged<String> onNavigate;
+  final ValueChanged<String> onOpen;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -859,7 +1003,7 @@ class _FollowUpsCard extends StatelessWidget {
           const SizedBox(height: 10),
           if (items.isEmpty)
             const Text(
-              'Not available yet. Nothing in the app currently generates a real communication follow-up from attendance, academics or staff oversight, so this list stays honestly empty rather than showing an illustrative task.',
+              'Nothing is currently awaiting your reply. A follow-up appears here for each real leadership thread a teacher has messaged that you have not yet replied to or marked seen - attendance and academics do not generate one yet.',
             ),
           for (final item in items) ...[
             Container(
@@ -890,7 +1034,7 @@ class _FollowUpsCard extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       TextButton(
-                        onPressed: () => onNavigate(item.targetKey),
+                        onPressed: () => onOpen(item.targetKey),
                         child: const Text('Open'),
                       ),
                     ],

@@ -7,6 +7,7 @@ import '../../administrator/data/administrator_staff_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_staff_models.dart';
 import '../../administrator/domain/administrator_students_models.dart';
+import '../../parent/data/parent_message_receipts.dart' show parentMessageReceiptEntityType;
 import '../../proprietor/data/owner_staff_profile_repository.dart';
 import '../../proprietor/domain/owner_staff_profile_models.dart';
 import '../../teacher/data/teacher_channel_receipts.dart';
@@ -16,6 +17,7 @@ import '../domain/principal_communication_models.dart';
 class PrincipalCommunicationSnapshot {
   const PrincipalCommunicationSnapshot({
     required this.threads,
+    required this.families,
     required this.announcements,
     required this.followUps,
     required this.outgoing,
@@ -23,14 +25,24 @@ class PrincipalCommunicationSnapshot {
   });
 
   final List<PrincipalCommunicationThread> threads;
+
+  /// Every real, currently active Secondary student on the register - who the Principal can look
+  /// up and message individually from this same screen (`familyThread`/`queueFamilyReply`), not a
+  /// bulk inbox of every family's conversation: the Principal picks one real family on purpose,
+  /// the same way the leadership inbox is a list of threads that were really sent to, not a
+  /// roster the Principal is assumed to be watching by default.
+  final List<AdministratorStudentRecord> families;
   final List<PrincipalRecentAnnouncement> announcements;
   final List<PrincipalCommunicationFollowUp> followUps;
   final List<PrincipalOutgoingCommunication> outgoing;
   final PrincipalCommunicationPermissions permissions;
 
   int get unreadCount => threads.where((thread) => thread.unread).length;
-  int get dueTodayCount =>
-      followUps.where((item) => item.status == 'Due today').length;
+
+  /// Every real follow-up this Principal currently has - there is no real due-date tracking
+  /// behind a reply, so "due today" means "currently awaiting a reply" rather than a finer,
+  /// unbuilt urgency split.
+  int get dueTodayCount => followUps.length;
   int get queuedCount => outgoing
       .where((item) => item.deliveryState == PrincipalDeliveryState.queued)
       .length;
@@ -81,6 +93,7 @@ class PrincipalCommunicationRepository {
     if (!permissionsFor(membership).canViewSecondaryCommunication) {
       return PrincipalCommunicationSnapshot(
         threads: const [],
+        families: const [],
         announcements: const [],
         followUps: const [],
         outgoing: const [],
@@ -107,9 +120,11 @@ class PrincipalCommunicationRepository {
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     final threads = await _leadershipThreads(membership);
+    final families = await secondaryFamilies();
 
     return PrincipalCommunicationSnapshot(
       threads: threads,
+      families: families,
       announcements: [
         for (final item in outgoing.where(
           (item) => item.kind == PrincipalOutgoingKind.announcement,
@@ -128,7 +143,17 @@ class PrincipalCommunicationRepository {
             read: 'Not recorded',
           ),
       ],
-      followUps: const [],
+      followUps: [
+        for (final thread in threads.where((item) => item.unread))
+          PrincipalCommunicationFollowUp(
+            id: thread.id,
+            title: 'Reply to ${thread.title}',
+            context: thread.context,
+            action: 'Reply',
+            status: 'Awaiting your reply',
+            targetKey: thread.id,
+          ),
+      ],
       outgoing: outgoing,
       permissions: permissionsFor(membership),
     );
@@ -257,13 +282,28 @@ class PrincipalCommunicationRepository {
       );
     }
 
+    await _sendLeadershipMessage(membership, threadId: threadId, body: text);
+    return const PrincipalCommunicationActionResult(
+      success: true,
+      message: 'Reply queued locally. Sent, delivered and read status require authoritative acknowledgement.',
+    );
+  }
+
+  /// Writes one real message into a real `teacher_leadership_message` thread - the exact wire
+  /// shape `queueReply` always sent, pulled out so a staff-wide announcement can send the same
+  /// real write once per real Secondary teacher's own thread instead of duplicating it.
+  Future<void> _sendLeadershipMessage(
+    SchoolMembership membership, {
+    required String threadId,
+    required String body,
+  }) async {
     final now = DateTime.now().toUtc();
-    final id = 'LOCAL-${membership.id}-${now.microsecondsSinceEpoch}';
+    final id = 'LOCAL-${membership.id}-${now.microsecondsSinceEpoch}-$threadId';
 
     // The wire payload carries only what the Principal actually contributes; who really sent it
     // and when are the server's own stamp (see teacher_channels.py's own clean()), never taken
     // on trust from the app.
-    final wirePayload = <String, Object?>{'id': id, 'threadId': threadId, 'body': text};
+    final wirePayload = <String, Object?>{'id': id, 'threadId': threadId, 'body': body};
     final localPayload = <String, Object?>{
       ...wirePayload,
       'authorRole': membership.role.name,
@@ -286,11 +326,6 @@ class PrincipalCommunicationRepository {
       operation: SyncOperation.create,
       payload: wirePayload,
     );
-
-    return const PrincipalCommunicationActionResult(
-      success: true,
-      message: 'Reply queued locally. Sent, delivered and read status require authoritative acknowledgement.',
-    );
   }
 
   /// Records this Principal's own real receipt for a real teacher's leadership thread.
@@ -309,6 +344,169 @@ class PrincipalCommunicationRepository {
       threadId: threadId,
       receiptEntityType: _leadershipReceiptType,
     );
+  }
+
+  /// Every real, currently active Secondary student on the register - the lookup list behind
+  /// "message a family", the same real source `_broadcastToSecondaryGuardians` already reads.
+  Future<List<AdministratorStudentRecord>> secondaryFamilies() async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (!permissionsFor(membership).canViewSecondaryCommunication) return const [];
+    final register = (await _students.load()).students;
+    final secondary = register
+        .where(
+          (student) =>
+              student.status == AdministratorStudentStatus.active &&
+              sectionOfClass(student.className) == 'Secondary',
+        )
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return secondary;
+  }
+
+  /// One specific real guardian's own real `parent_message` thread, read through the exact same
+  /// `MANAGERS` oversight access `_broadcastToSecondaryGuardians` already relies on to write into
+  /// it - a targeted lookup of a real family this Principal picked, never a bulk inbox of every
+  /// family's conversation.
+  Future<PrincipalCommunicationThread?> familyThread(String studentId) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (!permissionsFor(membership).canViewSecondaryCommunication) return null;
+    final families = await secondaryFamilies();
+    final student = families.where((item) => item.id == studentId).firstOrNull;
+    if (student == null) return null;
+
+    final threadId = 'channel-$studentId';
+    final records = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _messageType,
+    );
+    final messages = [
+      for (final record in records)
+        if (record.payload['threadId'] == threadId)
+          TeacherMessage.fromCanonical(
+            payload: Map<String, Object?>.from(record.payload),
+            viewerMembershipId: membership.id,
+            isDirty: record.isDirty,
+          ),
+    ]..sort((a, b) => (DateTime.tryParse(a.createdAt ?? '') ?? DateTime(0))
+        .compareTo(DateTime.tryParse(b.createdAt ?? '') ?? DateTime(0)));
+
+    final receipts = await loadOwnChannelReceipts(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      receiptEntityType: parentMessageReceiptEntityType,
+    );
+    final guardianLabel = student.primaryGuardian.trim().isEmpty ? 'Guardian' : student.primaryGuardian;
+
+    return PrincipalCommunicationThread(
+      id: threadId,
+      title: guardianLabel,
+      person: guardianLabel,
+      context: 'Guardian · ${student.className} · ${student.name}',
+      time: messages.isEmpty ? '' : messages.last.timeLabel,
+      unread: isChannelThreadUnread(messages, receipts[threadId]),
+      priority: PrincipalCommunicationPriority.normal,
+      preview: messages.isEmpty ? 'No messages yet' : messages.last.body,
+      messages: messages,
+    );
+  }
+
+  /// Records this Principal's own real receipt for one real guardian's thread.
+  Future<void> markFamilyThreadSeen(String studentId) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (!permissionsFor(membership).canViewSecondaryCommunication) return;
+    final thread = await familyThread(studentId);
+    if (thread == null || !thread.unread) return;
+    await queueChannelSeenReceipt(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      threadId: thread.id,
+      receiptEntityType: parentMessageReceiptEntityType,
+    );
+  }
+
+  /// Sends into one specific real guardian's own thread - the targeted counterpart to
+  /// `_broadcastToSecondaryGuardians`'s "every family" send, through the exact same real,
+  /// server-authorized channel.
+  Future<PrincipalCommunicationActionResult> queueFamilyReply({
+    required String studentId,
+    required String message,
+  }) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (!permissionsFor(membership).canQueueMessages) {
+      return const PrincipalCommunicationActionResult(
+        success: false,
+        message: 'This membership cannot send Secondary communication.',
+      );
+    }
+    final text = message.trim();
+    if (text.isEmpty) {
+      return const PrincipalCommunicationActionResult(
+        success: false,
+        message: 'Write a reply first.',
+      );
+    }
+    if (text.length > 4000) {
+      return const PrincipalCommunicationActionResult(
+        success: false,
+        message: 'Messages cannot exceed 4000 characters.',
+      );
+    }
+    final families = await secondaryFamilies();
+    if (!families.any((item) => item.id == studentId)) {
+      return const PrincipalCommunicationActionResult(
+        success: false,
+        message: 'Choose a real, currently active Secondary student on the register.',
+      );
+    }
+
+    await _sendParentMessage(membership, studentId: studentId, body: text);
+    return const PrincipalCommunicationActionResult(
+      success: true,
+      message: 'Reply queued locally. Sent, delivered and read status require authoritative acknowledgement.',
+    );
+  }
+
+  /// Every real, currently active Secondary teacher's own linked membership id - the same real
+  /// directory/profile cross-reference `_teacherNamesByMembershipId` already uses, filtered to who
+  /// a "Secondary staff" announcement can actually reach.
+  Future<List<String>> _secondaryTeacherMembershipIds(SchoolMembership membership) async {
+    final directoryRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: AdministratorStaffRepository.directoryEntityType,
+    );
+    final peopleByStaffId = {
+      for (final record in directoryRecords) record.entityId: AdministratorStaffRecord.fromJson(record.payload),
+    };
+    final profileRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: OwnerStaffProfileRepository.entityType,
+    );
+    final ids = <String>[];
+    for (final record in profileRecords) {
+      final profile = StaffProfile.fromJson(record.payload);
+      if (profile.systemRole != 'teacher') continue;
+      final teacherMembershipId = profile.linkedMembershipId.trim();
+      if (teacherMembershipId.isEmpty) continue;
+      final person = peopleByStaffId[profile.staffId];
+      if (person == null || person.section != 'Secondary') continue;
+      ids.add(teacherMembershipId);
+    }
+    return ids;
+  }
+
+  /// A real announcement to every real Secondary teacher's own school-leadership thread - the
+  /// staff-audience counterpart to `_broadcastToSecondaryGuardians`, through the exact same real
+  /// `teacher_leadership_message` channel `queueReply` already writes into.
+  Future<int> _broadcastToSecondaryStaff(SchoolMembership membership, String body) async {
+    final teacherIds = await _secondaryTeacherMembershipIds(membership);
+    var count = 0;
+    for (final teacherId in teacherIds) {
+      await _sendLeadershipMessage(membership, threadId: '$_leadershipThreadPrefix$teacherId', body: body);
+      count += 1;
+    }
+    return count;
   }
 
   Future<PrincipalCommunicationActionResult> queueAnnouncement({
@@ -354,6 +552,18 @@ class PrincipalCommunicationRepository {
       deliveryNote =
           'Queued for $reached real Secondary famil${reached == 1 ? 'y' : 'ies'}, one real message per family. '
           'Sent, delivered and read status require authoritative acknowledgement.';
+    } else if (audience == PrincipalCommunicationAudience.staff &&
+        channel == PrincipalCommunicationChannel.portal) {
+      final reached = await _broadcastToSecondaryStaff(membership, cleanMessage);
+      if (reached == 0) {
+        return const PrincipalCommunicationActionResult(
+          success: false,
+          message: 'No Secondary teachers are linked to an active account yet.',
+        );
+      }
+      deliveryNote =
+          'Queued for $reached real Secondary teacher${reached == 1 ? '' : 's'}, one real message per teacher\'s '
+          'own leadership thread. Sent, delivered and read status require authoritative acknowledgement.';
     } else if (channel == PrincipalCommunicationChannel.portal) {
       deliveryNote = 'Portal announcement queued offline for synchronization.';
     } else {
