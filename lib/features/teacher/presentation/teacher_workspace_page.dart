@@ -28,7 +28,7 @@ import '../data/teacher_attendance_repository.dart';
 import '../data/teacher_cbt_repository.dart';
 import '../data/teacher_class_teacher_repository.dart';
 import '../data/teacher_classes_repository.dart';
-import '../data/teacher_dashboard_demo_data.dart';
+import '../data/teacher_dashboard_demo_data.dart' show teacherNavigation;
 import '../data/teacher_family_messages_repository.dart';
 import '../data/teacher_learning_progress_repository.dart';
 import '../data/teacher_lesson_plan_repository.dart';
@@ -40,6 +40,7 @@ import '../data/teacher_syllabus_repository.dart';
 import '../data/teacher_timetable_repository.dart';
 import '../data/teacher_weekly_learning_repository.dart';
 import '../domain/teacher_dashboard_models.dart';
+import '../domain/teacher_profile_models.dart';
 import 'teacher_ai_page.dart';
 import 'teacher_assignments_page.dart';
 import 'teacher_assessments_page.dart';
@@ -84,6 +85,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
 
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+  TeacherProfileSnapshotData? _identity;
 
   late final TeacherTimetableRepository _timetable;
   late final TeacherClassesRepository _classes;
@@ -133,8 +135,14 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
     _familyMessages = TeacherFamilyMessagesRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _teacherAi = TeacherAiRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _performance = TeacherPerformanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
-    _profile = TeacherProfileRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
+    _profile = TeacherProfileRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _refreshPendingCount();
+    _loadIdentity();
+  }
+
+  Future<void> _loadIdentity() async {
+    final snapshot = await _profile.load();
+    if (mounted) setState(() => _identity = snapshot.profile);
   }
 
   void _select(String key) {
@@ -348,7 +356,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
                               const Text('ACTIVE WORKSPACE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                               const SizedBox(height: 4),
                               Text(widget.membership.schoolName, style: const TextStyle(fontWeight: FontWeight.w900)),
-                              const Text(teacherCampusLabel, style: TextStyle(fontSize: 12)),
+                              Text(
+                                _identity?.campus.isNotEmpty == true
+                                    ? '${_identity!.campus} · Teacher'
+                                    : 'Teacher',
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ],
                           ),
                         ),
@@ -369,20 +382,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
                       ],
                     ),
                   ),
-                  if (extended)
-                    const Padding(
-                      padding: EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Weekly compliance', style: TextStyle(fontSize: 12)),
-                          Text('92%', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                          LinearProgressIndicator(value: .92),
-                          SizedBox(height: 6),
-                          Text('Lesson plans, attendance & scores', style: TextStyle(fontSize: 12)),
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -415,14 +414,14 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
                           label: Text(_pendingSyncCount == 0 ? 'Synced' : '$_pendingSyncCount pending'),
                         ),
                         const SizedBox(width: 12),
-                        const CircleAvatar(child: Text('AY')),
+                        CircleAvatar(child: Text(_initials(_identity?.displayName ?? 'Teacher'))),
                         if (constraints.maxWidth >= 1080) ...[
                           const SizedBox(width: 8),
-                          const Column(
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(teacherName, style: TextStyle(fontWeight: FontWeight.w800)),
-                              Text(teacherTitle, style: TextStyle(fontSize: 12)),
+                              Text(_identity?.displayName ?? 'Teacher', style: const TextStyle(fontWeight: FontWeight.w800)),
+                              Text(_identity?.jobTitle.isNotEmpty == true ? _identity!.jobTitle : 'Teacher', style: const TextStyle(fontSize: 12)),
                             ],
                           ),
                         ],
@@ -438,6 +437,13 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         ],
       ),
     );
+  }
+
+  static String _initials(String name) {
+    final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty) return 'T';
+    if (words.length == 1) return words.first.substring(0, 1).toUpperCase();
+    return (words.first.substring(0, 1) + words.last.substring(0, 1)).toUpperCase();
   }
 
   static IconData _iconFor(String key) => switch (key) {

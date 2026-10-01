@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/teacher_profile_demo_data.dart';
+import '../data/teacher_profile_policy_copy.dart';
 import '../data/teacher_profile_repository.dart';
 import '../domain/teacher_profile_models.dart';
 
@@ -100,7 +100,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                 Text('Teacher Profile',
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
                 SizedBox(height: 4),
-                Text('Employment, teaching assignments, salary, deductions, loans, payslips and staff records.'),
+                Text('Employment, teaching assignments, salary, payslips and staff records.'),
               ],
             ),
           ),
@@ -113,13 +113,15 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                 child: const Text('Dashboard'),
               ),
               OutlinedButton(
-                onPressed: () {
-                  setState(() => _tab = TeacherProfileTab.payslips);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Payslip opened. Printing/export requires the authenticated platform print service; no print was falsely recorded.')),
-                  );
-                },
-                child: const Text('Print current payslip'),
+                onPressed: profile.payslips.isEmpty
+                    ? null
+                    : () {
+                        setState(() => _tab = TeacherProfileTab.payslips);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Payslip opened. Printing/export requires the authenticated platform print service; no print was falsely recorded.')),
+                        );
+                      },
+                child: const Text('Open latest payslip'),
               ),
               FilledButton(
                 onPressed: () => _editContact(profile.contact),
@@ -130,40 +132,45 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         ],
       );
 
-  Widget _hero(TeacherProfileSnapshotData profile) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Wrap(
-            spacing: 18,
-            runSpacing: 16,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              const CircleAvatar(radius: 32, child: Text('AY')),
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 260, maxWidth: 520),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${profile.staffId} · ${profile.payrollId}', style: const TextStyle(fontSize: 12)),
-                    Text(profile.displayName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-                    Text('${profile.jobTitle} · ${profile.department} · ${profile.campus}'),
-                    const SizedBox(height: 8),
+  Widget _hero(TeacherProfileSnapshotData profile) {
+    final periodsPerWeek = profile.teachingLoad.length;
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Wrap(
+          spacing: 18,
+          runSpacing: 16,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            CircleAvatar(radius: 32, child: Text(_initials(profile.displayName))),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 260, maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile.hasLinkedStaffRecord ? profile.staffId : 'Not yet linked to a staff record',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  Text(profile.displayName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                  Text([profile.jobTitle, profile.department, profile.campus].where((v) => v.isNotEmpty).join(' · ')),
+                  const SizedBox(height: 8),
+                  if (profile.hasLinkedStaffRecord)
                     Wrap(spacing: 6, children: [
-                      Chip(label: Text(profile.employmentStatus)),
-                      Chip(label: Text(profile.employmentType)),
-                      const Chip(label: Text('Payroll active')),
+                      if (profile.employmentType.isNotEmpty) Chip(label: Text(profile.employmentType)),
                     ]),
-                  ],
-                ),
+                ],
               ),
-              _metric('Net salary', _money(profile.netMonthly)),
-              _metric('Attendance', '${teacherProfileAttendance.attendance}%'),
-              _metric('Loan balance', _money(teacherProfileLoanBalance)),
-            ],
-          ),
+            ),
+            _metric('Net salary', _money(profile.netMonthly)),
+            _metric('Attendance', '${profile.attendance.presentPercent}%'),
+            _metric('Classes taught', '$periodsPerWeek'),
+          ],
         ),
-      );
+      ),
+    );
+  }
 
   Widget _tabs() => Wrap(
         spacing: 7,
@@ -189,16 +196,14 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
           child: switch (_tab) {
             TeacherProfileTab.overview => _overview(p),
             TeacherProfileTab.employment => _employment(p, permissions),
-            TeacherProfileTab.qualifications => _qualifications(),
-            TeacherProfileTab.teachingLoad => _teachingLoad(),
-            TeacherProfileTab.attendance => _attendance(),
+            TeacherProfileTab.qualifications => _qualifications(p),
+            TeacherProfileTab.teachingLoad => _teachingLoad(p),
+            TeacherProfileTab.attendance => _attendance(p),
             TeacherProfileTab.salary => _salary(p),
             TeacherProfileTab.payslips => _payslips(p),
-            TeacherProfileTab.deductions => _deductions(p),
-            TeacherProfileTab.loans => _loans(),
             TeacherProfileTab.payments => _payments(p),
-            TeacherProfileTab.documents => _documents(),
-            TeacherProfileTab.timeline => _timeline(),
+            TeacherProfileTab.documents => _documents(p),
+            TeacherProfileTab.timeline => _timeline(p),
             TeacherProfileTab.security => _security(),
           },
         ),
@@ -208,21 +213,22 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionHead('Staff overview', 'Core identity, employment and payroll context.', 'Teacher self-service'),
-          _infoGrid([
-            ('Staff ID', p.staffId),
-            ('Payroll ID', p.payrollId),
-            ('Department', p.department),
-            ('Job title', p.jobTitle),
-            ('Hire date', p.hireDate),
-            ('Employment', p.employmentType),
-          ]),
-          const SizedBox(height: 14),
-          _infoGrid([
-            ('Gross monthly', _money(p.grossMonthly)),
-            ('Total deductions', _money(p.monthlyDeductions)),
-            ('Net monthly', _money(p.netMonthly)),
-            ('Annual gross', _money(p.annualGross)),
-          ]),
+          if (!p.hasLinkedStaffRecord)
+            _boundary('This account has not yet been linked to a staff record. Identity, employment and payroll details appear here once HR/Administrator links it.')
+          else ...[
+            _infoGrid([
+              ('Staff ID', p.staffId),
+              ('Department', p.department),
+              ('Job title', p.jobTitle),
+              ('Hire date', p.hireDate.isEmpty ? 'Not recorded' : p.hireDate),
+              ('Employment', p.employmentType.isEmpty ? 'Not recorded' : p.employmentType),
+            ]),
+            const SizedBox(height: 14),
+            _infoGrid([
+              ('Net monthly', _money(p.netMonthly)),
+              ('Annual net', _money(p.annualNet)),
+            ]),
+          ],
           const SizedBox(height: 14),
           _boundary(teacherProfilePayrollBoundary),
         ],
@@ -234,14 +240,13 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
           _sectionHead('Employment record', 'Self-service contact details plus authoritative employment context.', 'HR record'),
           _infoGrid([
             ('Display name', p.displayName),
-            ('Employment status', p.employmentStatus),
-            ('Hire date', p.hireDate),
+            ('Hire date', p.hireDate.isEmpty ? 'Not recorded' : p.hireDate),
             ('Phone', p.contact.phone),
             ('Email', p.contact.email),
             ('Address', p.contact.address),
             ('Next of kin', p.contact.nextOfKin),
             ('Emergency contact', p.contact.emergencyPhone),
-            ('Campus', p.campus),
+            ('Campus', p.campus.isEmpty ? 'Not recorded' : p.campus),
           ]),
           const SizedBox(height: 12),
           FilledButton.icon(
@@ -249,39 +254,38 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Edit contact details'),
           ),
-
         ],
       );
 
-  Widget _qualifications() => _simpleRows(
-        'Qualifications & professional record',
-        'Verified qualifications, certifications and development activity.',
-        'Evidence-based',
-        teacherProfileQualifications,
-      );
+  Widget _qualifications(TeacherProfileSnapshotData p) => p.qualifications.isEmpty
+      ? _emptySection('Qualifications & professional record', 'No qualification or credential has been recorded for this staff member yet.')
+      : _simpleRows(
+          'Qualifications & professional record',
+          'Verified qualifications, certifications and development activity.',
+          'Evidence-based',
+          p.qualifications,
+        );
 
-  Widget _teachingLoad() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHead('Teaching load', 'Assignments are read-only here and controlled by authorized academic leadership.', '28 periods / week'),
-          ...teacherProfileTeachingLoad.map((row) => _tripleRow(row.$1, row.$2, row.$3)),
+  Widget _teachingLoad(TeacherProfileSnapshotData p) => p.teachingLoad.isEmpty
+      ? _emptySection('Teaching load', 'No class is currently assigned to this membership.')
+      : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHead('Teaching load', 'Assignments are read-only here and controlled by authorized academic leadership.', '${p.teachingLoad.length} ${p.teachingLoad.length == 1 ? 'class' : 'classes'}'),
+            ...p.teachingLoad.map((row) => _tripleRow(row.$1, row.$2, row.$3)),
+          ],
+        );
 
-        ],
-      );
-
-  Widget _attendance() => Column(
+  Widget _attendance(TeacherProfileSnapshotData p) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionHead('Attendance & leave', 'Operational attendance and approved leave record.', 'Current term'),
           _infoGrid([
-            ('Attendance', '${teacherProfileAttendance.attendance}%'),
-            ('Late arrivals', '${teacherProfileAttendance.lateArrivals}'),
-            ('Approved leave', '${teacherProfileAttendance.approvedLeaveDays} days'),
-            ('Unapproved absence', '${teacherProfileAttendance.unapprovedAbsence}'),
+            ('Attendance', '${p.attendance.presentPercent}%'),
+            ('Late arrivals', '${p.attendance.lateArrivals}'),
+            ('Approved leave', '${p.attendance.approvedLeaveDays} days'),
+            ('Unapproved absence', '${p.attendance.unapprovedAbsence}'),
           ]),
-          const SizedBox(height: 14),
-          const Text('Leave history', style: TextStyle(fontWeight: FontWeight.w900)),
-          ...teacherProfileLeaveHistory.map((row) => _tripleRow(row.$1, row.$2, row.$3)),
           const SizedBox(height: 10),
           _boundary('Attendance may support operational follow-up, but should not be converted into an automatic employment decision or opaque staff score.'),
         ],
@@ -290,23 +294,17 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   Widget _salary(TeacherProfileSnapshotData p) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHead('Salary structure', 'Current monthly payroll composition.', 'Confidential payroll'),
+          _sectionHead('Salary', 'Net payroll amount and destination.', 'Confidential payroll'),
           _infoGrid([
-            ('Basic salary', _money(p.payslips.first.basic)),
-            ('Total allowances', _money(65000)),
-            ('Gross salary', _money(p.grossMonthly)),
             ('Net salary', _money(p.netMonthly)),
           ]),
-          const SizedBox(height: 14),
-          const Text('Allowances', style: TextStyle(fontWeight: FontWeight.w900)),
-          ...teacherProfileAllowances.map((row) => _pairRow(row.$1, _money(row.$2))),
+          const SizedBox(height: 10),
+          _boundary('Only net pay is recorded once payroll is prepared; an itemized gross/allowance/deduction breakdown is not tracked by this app.'),
           const SizedBox(height: 14),
           const Text('Payroll destination', style: TextStyle(fontWeight: FontWeight.w900)),
           _infoGrid([
-            ('Bank / provider', p.bank),
-            ('Salary account', p.account),
-            ('Pension ID', p.pensionId),
-            ('Tax ID', p.taxId),
+            ('Bank / provider', p.bank.isEmpty ? 'Not recorded' : p.bank),
+            ('Salary account', p.account.isEmpty ? 'Not recorded' : p.account),
           ]),
           const SizedBox(height: 12),
           _boundary(teacherProfilePayrollBoundary),
@@ -314,18 +312,21 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       );
 
   Widget _payslips(TeacherProfileSnapshotData p) {
+    if (p.payslips.isEmpty) {
+      return _emptySection('Payslips', 'No payroll batch has included this staff member yet.');
+    }
     final slip = p.payslips[_payslipIndex.clamp(0, p.payslips.length - 1)];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHead('BrightGate Academy · Payslip', '${slip.month} · ${p.displayName} · ${p.staffId}', slip.status),
+        _sectionHead('Payslip', '${slip.period} · ${p.displayName} · ${p.staffId}', slip.status),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
             for (var i = 0; i < p.payslips.length; i++)
               ChoiceChip(
-                label: Text(p.payslips[i].month),
+                label: Text(p.payslips[i].period),
                 selected: _payslipIndex == i,
                 onSelected: (_) => setState(() => _payslipIndex = i),
               ),
@@ -335,96 +336,66 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         Text(slip.reference, style: const TextStyle(fontWeight: FontWeight.w900)),
         const SizedBox(height: 10),
         _infoGrid([
-          ('Basic salary', _money(slip.basic)),
-          ('Housing', _money(slip.housing)),
-          ('Transport', _money(slip.transport)),
-          ('Responsibility', _money(slip.responsibility)),
-          ('Gross', _money(slip.gross)),
-          ('Pension', _money(slip.pension)),
-          ('PAYE / Tax', _money(slip.tax)),
-          ('Loan repayment', _money(slip.loan)),
-          ('Other', _money(slip.other)),
-          ('Total deductions', _money(slip.deductions)),
           ('Net pay', _money(slip.net)),
+          ('Status', slip.status),
         ]),
         const SizedBox(height: 12),
-        _boundary('Payslips are available after payroll approval.'),
+        _boundary('Payslips are available after payroll disbursement is instructed. No itemized breakdown is tracked by this app.'),
       ],
     );
   }
 
-  Widget _deductions(TeacherProfileSnapshotData p) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHead('Deductions', 'Every deduction should be named, traceable and visible to the staff member.', '${_money(p.monthlyDeductions)} this month'),
-          ...teacherProfileDeductions.map((row) => _tripleRow(row.$1, row.$3, _money(row.$2))),
+  Widget _payments(TeacherProfileSnapshotData p) => p.payslips.isEmpty
+      ? _emptySection('Salary payment history', 'No payroll batch has included this staff member yet.')
+      : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHead('Salary payment history', 'Auditable payroll periods and net amounts received.', 'Payroll ledger'),
+            ...p.payslips.map((slip) => _tripleRow(slip.period, slip.reference, '${_money(slip.net)} · ${slip.status}')),
+          ],
+        );
 
-        ],
-      );
+  Widget _documents(TeacherProfileSnapshotData p) => p.documents.isEmpty
+      ? _emptySection('Staff documents', 'No document has been requested from this staff member yet.')
+      : _simpleRows(
+          'Staff documents',
+          'Document references. Files are not available here.',
+          'Restricted HR',
+          p.documents,
+        );
 
-  Widget _loans() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHead('Staff loans & salary advances', 'Approved facilities, repayment schedule and outstanding amount.', 'Human approval required'),
-          _boundary('ACTIVE STAFF LOAN · STL-26014\n${_money(teacherProfileLoanBalance)} outstanding · Original principal ${_money(teacherProfileLoanPrincipal)} · Monthly payroll repayment ${_money(teacherProfileLoanMonthlyRepayment)} · Expected completion $teacherProfileLoanCompletion'),
-          const SizedBox(height: 10),
-          ...teacherProfileLoanHistory.map((row) => _tripleRow('${row.$1} · ${row.$2}', '${_money(row.$3)} payroll repayment', '${_money(row.$4)} balance · ${row.$5}')),
-
-        ],
-      );
-
-  Widget _payments(TeacherProfileSnapshotData p) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHead('Salary payment history', 'Auditable payroll payments and net amounts received.', 'Payroll ledger'),
-          ...p.payslips.map((slip) => _tripleRow('${slip.month} · ${slip.reference}', 'Gross ${_money(slip.gross)} · Deductions ${_money(slip.deductions)}', '${_money(slip.net)} · ${slip.status}')),
-        ],
-      );
-
-  Widget _documents() => _simpleRows(
-        'Staff documents',
-        'Document references. Files are not available here.',
-        'Restricted HR',
-        teacherProfileDocuments,
-      );
-
-  Widget _timeline() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHead('Staff timeline', 'Employment, payroll and professional-development events.', 'Audit-friendly'),
-          ...teacherProfileTimeline.map((row) => _tripleRow(row.$2, row.$3, row.$1)),
-        ],
-      );
+  Widget _timeline(TeacherProfileSnapshotData p) => p.timeline.isEmpty
+      ? _emptySection('Staff timeline', 'No staff timeline event has been recorded yet.')
+      : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHead('Staff timeline', 'Employment and payroll events this app can really track.', 'Audit-friendly'),
+            ...p.timeline.map((row) => _tripleRow(row.$2, row.$3, row.$1)),
+          ],
+        );
 
   Widget _security() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHead('Security & sessions', 'Teacher-account security controls.', 'Self-service'),
-          for (final row in teacherProfileSecurityRows)
-            Card(
-              elevation: 0,
-              child: ListTile(
-                title: Text(row.$1, style: const TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text(row.$2),
-                trailing: OutlinedButton(
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${row.$3} requires the authenticated account-security service. No security state was changed offline.')),
-                  ),
-                  child: Text(row.$3),
-                ),
-              ),
-            ),
-          const SizedBox(height: 10),
+          _sectionHead('Security & sessions', 'Teacher-account security controls.', 'Not implemented'),
           _boundary(teacherProfileSecurityBoundary),
+        ],
+      );
+
+  Widget _emptySection(String title, String message) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 10),
+          _boundary(message),
         ],
       );
 
   Widget _side(TeacherProfileSnapshotData p) => Column(
         children: [
-          _sideCard('MONTHLY NET PAY', _money(p.netMonthly), 'Sample pay after deductions.', () => setState(() => _tab = TeacherProfileTab.payslips), 'View payslip'),
-          _sideCard('ACTIVE LOAN', _money(teacherProfileLoanBalance), '${_money(teacherProfileLoanMonthlyRepayment)} monthly payroll repayment. Expected completion $teacherProfileLoanCompletion.', () => setState(() => _tab = TeacherProfileTab.loans), 'Open loan ledger'),
-          _sideCard('STAFF RECORD', '$teacherProfileCompleteness%', 'Sample profile completeness.', null, null),
-          _sideCard('PAYROLL PRIVACY', '', 'Salary, bank, loan and deduction data should be visible only to the staff member and specifically authorized HR/finance roles.', null, null),
+          _sideCard('MONTHLY NET PAY', _money(p.netMonthly), 'Most recent real payroll period for this staff member.', p.payslips.isEmpty ? null : () => setState(() => _tab = TeacherProfileTab.payslips), p.payslips.isEmpty ? null : 'View payslip'),
+          _sideCard('STAFF RECORD', '${p.profileCompleteness}%', 'Real share of requested staff documents marked verified.', null, null),
+          _sideCard('PAYROLL PRIVACY', '', 'Salary, bank and deduction data should be visible only to the staff member and specifically authorized HR/finance roles.', null, null),
           Card(
             elevation: 0,
             child: Padding(
@@ -551,12 +522,6 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         ),
       );
 
-  Widget _pairRow(String title, String value) => ListTile(
-        dense: true,
-        title: Text(title),
-        trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
-      );
-
   Widget _infoGrid(List<(String, String)> rows) => Wrap(
         spacing: 10,
         runSpacing: 10,
@@ -625,6 +590,13 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
           ),
         ),
       );
+
+  String _initials(String name) {
+    final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty) return 'T';
+    if (words.length == 1) return words.first.substring(0, 1).toUpperCase();
+    return (words.first.substring(0, 1) + words.last.substring(0, 1)).toUpperCase();
+  }
 
   String _money(int value) {
     final digits = value.toString();

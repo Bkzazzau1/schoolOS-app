@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_attendance_models.dart';
-import 'teacher_attendance_demo_data.dart';
 import 'teacher_roster.dart';
 
 class TeacherAttendanceActionResult {
@@ -496,35 +495,71 @@ class TeacherAttendanceRepository implements TeacherAttendanceDataSource {
     );
   }
 
+  /// No fabricated lesson slots or pre-filled present/absent entries: this reads the same real
+  /// One real register per class this teacher is really assigned to ([TeacherRoster.assignedClasses]),
+  /// with the real enrolled students in it ([TeacherRoster.studentsIn]) - never a fixed lesson list or
+  /// fabricated pre-filled present/absent/late statuses. A teacher with no real assigned class honestly
+  /// sees no registers. The register id is keyed by class+subject (stable across reassignment) rather
+  /// than a timetable occurrence, since standalone demo mode has no real published schedule to key off.
   Future<TeacherAttendanceSnapshot> _loadDemo(SchoolMembership membership) async {
+    final assigned = await _roster.assignedClasses(membership);
     final registers = <TeacherAttendanceRegister>[];
-    for (final lesson in teacherAttendanceLessons) {
+    for (final cls in assigned) {
+      final lessonId = cls.classSubjectId.isNotEmpty
+          ? cls.classSubjectId
+          : '${cls.className}|${cls.subject}'.replaceAll(' ', '-');
       final existing = await _localDatabase.getLocalRecord(
         tenantId: membership.schoolId,
         entityType: registerEntityType,
-        entityId: lesson.id,
+        entityId: lessonId,
       );
+      final realStudents = await _roster.studentsIn(cls.className);
+      final canonicalEntries = [
+        for (var i = 0; i < realStudents.length; i++)
+          TeacherAttendanceStudentEntry(
+            id: i + 1,
+            code: realStudents[i].name,
+            studentId: realStudents[i].id,
+            status: TeacherAttendanceStatus.present,
+            note: '',
+          ),
+      ];
       if (existing == null) {
-        final register = TeacherAttendanceRegister(
-          lesson: lesson,
-          entries: teacherAttendanceInitialStudents,
+        final fresh = TeacherAttendanceRegister(
+          lesson: TeacherAttendanceLesson(
+            id: lessonId,
+            className: cls.className,
+            subject: cls.subject,
+            time: cls.time,
+            room: cls.room,
+            topic: '',
+            classSubjectId: cls.classSubjectId,
+            termId: cls.currentTermId,
+          ),
+          entries: canonicalEntries,
           submissionState: TeacherAttendanceSubmissionState.draft,
         );
         await _localDatabase.upsertLocalRecord(
           tenantId: membership.schoolId,
           entityType: registerEntityType,
-          entityId: lesson.id,
-          payload: register.toLocalJson(),
+          entityId: lessonId,
+          payload: fresh.toLocalJson(),
+          isDirty: false,
         );
-        registers.add(register);
+        registers.add(fresh);
       } else {
-        registers.add(TeacherAttendanceRegister.fromJson(existing.payload).copyWith(pendingSync: existing.isDirty));
+        var register = TeacherAttendanceRegister.fromJson(existing.payload).copyWith(pendingSync: existing.isDirty);
+        if (register.submissionState == TeacherAttendanceSubmissionState.draft) {
+          register = _reconcileDraftRoster(register, canonicalEntries);
+        }
+        registers.add(register);
       }
     }
+    registers.sort(_registerOrder);
     return TeacherAttendanceSnapshot(
       registers: registers,
       permissions: permissionsFor(membership),
-      dateLabel: teacherAttendanceDateLabel,
+      dateLabel: _weekLabel(DateTime.now()),
       canonical: false,
     );
   }

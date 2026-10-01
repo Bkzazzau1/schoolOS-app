@@ -6,8 +6,6 @@ enum TeacherProfileTab {
   attendance,
   salary,
   payslips,
-  deductions,
-  loans,
   payments,
   documents,
   timeline,
@@ -23,8 +21,6 @@ extension TeacherProfileTabLabel on TeacherProfileTab {
         TeacherProfileTab.attendance => 'Attendance & Leave',
         TeacherProfileTab.salary => 'Salary',
         TeacherProfileTab.payslips => 'Payslips',
-        TeacherProfileTab.deductions => 'Deductions',
-        TeacherProfileTab.loans => 'Loans & Advances',
         TeacherProfileTab.payments => 'Payment History',
         TeacherProfileTab.documents => 'Documents',
         TeacherProfileTab.timeline => 'Timeline',
@@ -32,62 +28,37 @@ extension TeacherProfileTabLabel on TeacherProfileTab {
       };
 }
 
+/// A real payroll period this teacher was actually included in, read from the
+/// school's own [PayrollBatch] records. A prepared batch's line only ever
+/// keeps the net figure (see payroll_batch_repository.dart's `prepare()`) -
+/// no real gross/deductions/allowance breakdown survives anywhere in the app,
+/// so none is invented here. `status` never claims "Paid": the real payroll
+/// workflow stops at "disbursement instructed" because that is the last state
+/// backed by real evidence.
 class TeacherPayslip {
   const TeacherPayslip({
-    required this.month,
+    required this.period,
     required this.reference,
-    required this.basic,
-    required this.housing,
-    required this.transport,
-    required this.responsibility,
-    required this.pension,
-    required this.tax,
-    required this.loan,
-    required this.other,
+    required this.net,
     required this.status,
   });
 
-  final String month;
+  final String period;
   final String reference;
-  final int basic;
-  final int housing;
-  final int transport;
-  final int responsibility;
-  final int pension;
-  final int tax;
-  final int loan;
-  final int other;
+  final int net;
   final String status;
 
-  int get gross => basic + housing + transport + responsibility;
-  int get deductions => pension + tax + loan + other;
-  int get net => gross - deductions;
-
   Map<String, dynamic> toJson() => {
-        'month': month,
+        'period': period,
         'reference': reference,
-        'basic': basic,
-        'housing': housing,
-        'transport': transport,
-        'responsibility': responsibility,
-        'pension': pension,
-        'tax': tax,
-        'loan': loan,
-        'other': other,
+        'net': net,
         'status': status,
       };
 
   factory TeacherPayslip.fromJson(Map<String, dynamic> json) => TeacherPayslip(
-        month: json['month'] as String,
+        period: json['period'] as String,
         reference: json['reference'] as String,
-        basic: json['basic'] as int,
-        housing: json['housing'] as int,
-        transport: json['transport'] as int,
-        responsibility: json['responsibility'] as int,
-        pension: json['pension'] as int,
-        tax: json['tax'] as int,
-        loan: json['loan'] as int,
-        other: json['other'] as int,
+        net: json['net'] as int,
         status: json['status'] as String,
       );
 }
@@ -152,111 +123,108 @@ class TeacherProfileContact {
       );
 }
 
+/// Attendance/leave day counts for the current term, read from the real
+/// [StaffAttendanceRecord] the Administrator's Staff Attendance desk already
+/// keeps for this teacher's own staffId - honestly all zero when no record
+/// exists yet, never a fabricated percentage.
+class TeacherAttendanceSummary {
+  const TeacherAttendanceSummary({
+    this.presentPercent = 0,
+    this.lateArrivals = 0,
+    this.approvedLeaveDays = 0,
+    this.unapprovedAbsence = 0,
+  });
+
+  final int presentPercent;
+  final int lateArrivals;
+  final int approvedLeaveDays;
+  final int unapprovedAbsence;
+}
+
 class TeacherProfileSnapshotData {
   const TeacherProfileSnapshotData({
+    required this.hasLinkedStaffRecord,
     required this.displayName,
     required this.staffId,
-    required this.payrollId,
     required this.department,
     required this.jobTitle,
     required this.employmentType,
-    required this.employmentStatus,
     required this.hireDate,
-    required this.qualification,
     required this.campus,
     required this.bank,
     required this.account,
-    required this.pensionId,
-    required this.taxId,
     required this.contact,
+    required this.qualifications,
+    required this.teachingLoad,
+    required this.documents,
+    required this.attendance,
     required this.payslips,
+    required this.profileCompleteness,
+    required this.timeline,
   });
+
+  /// False until this teacher's membership has really been linked to a staff
+  /// record (see StaffProfile.linkedMembershipId) - every identity/payroll/HR
+  /// field below is honestly blank/zero until then, never a placeholder person.
+  final bool hasLinkedStaffRecord;
 
   final String displayName;
   final String staffId;
-  final String payrollId;
   final String department;
   final String jobTitle;
   final String employmentType;
-  final String employmentStatus;
   final String hireDate;
-  final String qualification;
   final String campus;
   final String bank;
   final String account;
-  final String pensionId;
-  final String taxId;
   final TeacherProfileContact contact;
+
+  /// Each row: (title, detail, category) - built from the real
+  /// StaffProfile.academics and .credentials records.
+  final List<(String, String, String)> qualifications;
+
+  /// Each row: (class · subject, periods/week · room, scope) - built from the
+  /// real TeacherClassesRepository assignment list.
+  final List<(String, String, String)> teachingLoad;
+
+  /// Each row: (document name, status, where it's kept) - built from the real
+  /// StaffProfile.documents records.
+  final List<(String, String, String)> documents;
+
+  final TeacherAttendanceSummary attendance;
   final List<TeacherPayslip> payslips;
 
-  int get grossMonthly => payslips.first.gross;
-  int get monthlyDeductions => payslips.first.deductions;
-  int get netMonthly => payslips.first.net;
-  int get annualGross => grossMonthly * 12;
+  /// Real percentage of this teacher's required staff documents marked
+  /// verified - 0 when there are none, never a fixed placeholder.
+  final int profileCompleteness;
+
+  /// Each row: (date, title, detail) - the only real staff-record events this
+  /// app can derive (payroll periods that actually reached disbursement).
+  final List<(String, String, String)> timeline;
+
+  int get netMonthly => payslips.isEmpty ? 0 : payslips.first.net;
+  int get annualNet => netMonthly * 12;
 
   TeacherProfileSnapshotData copyWith({TeacherProfileContact? contact}) =>
       TeacherProfileSnapshotData(
+        hasLinkedStaffRecord: hasLinkedStaffRecord,
         displayName: displayName,
         staffId: staffId,
-        payrollId: payrollId,
         department: department,
         jobTitle: jobTitle,
         employmentType: employmentType,
-        employmentStatus: employmentStatus,
         hireDate: hireDate,
-        qualification: qualification,
         campus: campus,
         bank: bank,
         account: account,
-        pensionId: pensionId,
-        taxId: taxId,
         contact: contact ?? this.contact,
+        qualifications: qualifications,
+        teachingLoad: teachingLoad,
+        documents: documents,
+        attendance: attendance,
         payslips: payslips,
-      );
-
-  Map<String, dynamic> toJson() => {
-        'displayName': displayName,
-        'staffId': staffId,
-        'payrollId': payrollId,
-        'department': department,
-        'jobTitle': jobTitle,
-        'employmentType': employmentType,
-        'employmentStatus': employmentStatus,
-        'hireDate': hireDate,
-        'qualification': qualification,
-        'campus': campus,
-        'bank': bank,
-        'account': account,
-        'pensionId': pensionId,
-        'taxId': taxId,
-        'contact': contact.toJson(),
-        'payslips': payslips.map((item) => item.toJson()).toList(),
-      };
-
-  factory TeacherProfileSnapshotData.fromJson(Map<String, dynamic> json) =>
-      TeacherProfileSnapshotData(
-        displayName: json['displayName'] as String,
-        staffId: json['staffId'] as String,
-        payrollId: json['payrollId'] as String,
-        department: json['department'] as String,
-        jobTitle: json['jobTitle'] as String,
-        employmentType: json['employmentType'] as String,
-        employmentStatus: json['employmentStatus'] as String,
-        hireDate: json['hireDate'] as String,
-        qualification: json['qualification'] as String,
-        campus: json['campus'] as String,
-        bank: json['bank'] as String,
-        account: json['account'] as String,
-        pensionId: json['pensionId'] as String,
-        taxId: json['taxId'] as String,
-        contact: TeacherProfileContact.fromJson(
-          Map<String, dynamic>.from(json['contact'] as Map),
-        ),
-        payslips: (json['payslips'] as List)
-            .map((item) => TeacherPayslip.fromJson(
-                  Map<String, dynamic>.from(item as Map),
-                ))
-            .toList(growable: false),
+        profileCompleteness: profileCompleteness,
+        timeline: timeline,
       );
 }
 
@@ -281,8 +249,8 @@ class TeacherProfilePermissions {
 }
 
 const teacherProfilePayrollBoundary =
-    'Salary, bank, loan and deduction information belongs to the staff member and specifically authorized HR, payroll, finance or leadership roles.';
+    'Salary, bank and deduction information belongs to the staff member and specifically authorized HR, payroll, finance or leadership roles.';
 const teacherProfileAuthorityBoundary =
-    'Staff ID, payroll ID, employment status, contract, teaching load, approved leave and payroll records are authoritative school records and cannot be changed by teacher self-service.';
+    'Staff ID, employment status, contract, teaching load, approved leave and payroll records are authoritative school records and cannot be changed by teacher self-service.';
 const teacherProfileSecurityBoundary =
-    'Password, MFA and session changes require the authenticated account-security service. Offline UI must never claim those actions succeeded.';
+    'Password, multi-factor authentication and session management are not implemented in this app yet. Offline UI must never claim those actions succeeded.';

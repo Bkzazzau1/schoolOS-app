@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_assignment_models.dart';
-import 'teacher_assignment_demo_data.dart';
 import 'teacher_roster.dart';
 
 const teacherAssignmentEntityType = 'academic_assignment';
@@ -487,24 +486,23 @@ class TeacherAssignmentRepository {
   }
 
   Future<TeacherAssignmentSnapshot> _loadDemo(SchoolMembership membership) async {
-    await _seedDemoIfNeeded(membership);
+    final options = await _canonicalOptions(membership);
     final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _assignmentType,
     );
     final assignments = records
         .map((record) => TeacherAssignment.fromJson(record.payload))
-        .toList(growable: false);
-    final draft = assignments.firstWhere(
-      (item) => item.id == teacherAssignmentDraft.id,
-      orElse: () => teacherAssignmentDraft,
-    );
-    final library = assignments.where((item) => item.id != draft.id).toList(growable: false)
+        .toList(growable: false)
       ..sort((a, b) => a.id.compareTo(b.id));
+    final existingDraft = assignments.where((item) => item.state == TeacherAssignmentState.draft).firstOrNull;
+    final draft = existingDraft ?? _emptyDraft(options);
+    final library = assignments.where((item) => item.id != draft.id).toList(growable: false);
     return TeacherAssignmentSnapshot(
       assignments: library,
       draft: draft,
       permissions: permissionsFor(membership),
+      options: options,
     );
   }
 
@@ -599,22 +597,6 @@ class TeacherAssignmentRepository {
       operation: SyncOperation.create,
       payload: event.toJson(),
     );
-  }
-
-  Future<void> _seedDemoIfNeeded(SchoolMembership membership) async {
-    final records = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _assignmentType,
-    );
-    if (records.isNotEmpty) return;
-    for (final assignment in [...teacherAssignments, teacherAssignmentDraft]) {
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: _assignmentType,
-        entityId: assignment.id,
-        payload: assignment.toJson(),
-      );
-    }
   }
 
   int _assignmentOrder(TeacherAssignment a, TeacherAssignment b) {

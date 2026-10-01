@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_timetable_models.dart';
-import 'teacher_timetable_demo_data.dart';
 
 class TeacherTimetableSnapshot {
   const TeacherTimetableSnapshot({
@@ -61,29 +60,13 @@ class TeacherTimetableRepository {
         canConfirmServerSync: false,
       );
 
+  /// The weekly lesson grid is always computed from the same real published
+  /// `teacher_timetable_schedule` record ([_canonicalWeek]) regardless of [LocalDatabase.blockDemoSeeds] -
+  /// no fabricated lesson list or fixed term/week label is ever substituted. A teacher with no real
+  /// schedule published yet honestly sees an empty week.
   Future<TeacherTimetableSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
     final intents = await _loadIntents(membership);
-    if (!LocalDatabase.blockDemoSeeds) {
-      await _seedDemoIfNeeded(membership);
-      final records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: lessonEntityType,
-      );
-      final lessons = records
-          .map((record) => TeacherTimetableLesson.fromJson(record.payload))
-          .toList(growable: false);
-      return TeacherTimetableSnapshot(
-        lessons: lessons,
-        intents: intents,
-        permissions: permissionsFor(membership),
-        notices: teacherTimetableNotices,
-        days: teacherTimetableDays,
-        termLabel: teacherTimetableTermLabel,
-        weekLabel: teacherTimetableWeekLabel,
-        canonical: false,
-      );
-    }
 
     final record = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
@@ -127,7 +110,7 @@ class TeacherTimetableRepository {
       days: days,
       termLabel: term.isEmpty ? 'CURRENT TERM' : term.toUpperCase(),
       weekLabel: _weekLabel(weekStart),
-      canonical: true,
+      canonical: LocalDatabase.blockDemoSeeds,
     );
   }
 
@@ -356,22 +339,6 @@ class TeacherTimetableRepository {
         'Lesson issue queued for review. The scheduled timetable entry remains unchanged.',
     };
     return TeacherTimetableActionResult(success: true, message: message);
-  }
-
-  Future<void> _seedDemoIfNeeded(SchoolMembership membership) async {
-    final existing = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: lessonEntityType,
-    );
-    if (existing.isNotEmpty) return;
-    for (final lesson in teacherTimetableLessons) {
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: lessonEntityType,
-        entityId: lesson.id,
-        payload: lesson.toJson(),
-      );
-    }
   }
 
   List<Map<String, Object?>> _mapList(Object? raw) => [

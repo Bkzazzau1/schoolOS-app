@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/teacher_timetable_demo_data.dart'
+import '../data/teacher_timetable_policy_copy.dart'
     show teacherTimetableAuthorityBoundary;
 import '../data/teacher_timetable_repository.dart';
 import '../domain/teacher_timetable_models.dart';

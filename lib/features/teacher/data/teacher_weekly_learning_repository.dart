@@ -4,7 +4,6 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/teacher_weekly_learning_models.dart';
 import 'teacher_roster.dart';
-import 'teacher_weekly_learning_demo_data.dart';
 
 class TeacherWeeklyLearningSnapshot {
   const TeacherWeeklyLearningSnapshot({
@@ -387,23 +386,38 @@ class TeacherWeeklyLearningRepository {
   Future<TeacherWeeklyLearningSnapshot> _loadDemo(
     SchoolMembership membership,
   ) async {
-    await _seedDemoIfNeeded(membership);
+    final options = await _canonicalOptions(membership);
     final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _updateType,
     );
+    final updates = records
+        .map((record) => TeacherWeeklyLearningUpdate.fromJson(record.payload))
+        .toList(growable: false)
+      ..sort(_updateOrder);
     final events = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _eventType,
     );
-    final update = TeacherWeeklyLearningUpdate.fromJson(records.first.payload);
+    final placeholder = updates.isNotEmpty
+        ? updates.first
+        : const TeacherWeeklyLearningUpdate(
+            id: '',
+            className: '',
+            week: '',
+            subjects: [],
+            note: '',
+            state: TeacherWeeklyPublicationState.draft,
+            currentTeacherAuthorized: false,
+          );
     final parsedEvents = events
         .map((record) => TeacherWeeklyLearningEvent.fromJson(record.payload))
         .toList(growable: false)
       ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
     return TeacherWeeklyLearningSnapshot(
-      update: update,
-      updates: [update],
+      update: placeholder,
+      updates: updates,
+      options: options,
       events: parsedEvents,
       permissions: permissionsFor(membership),
       canonical: false,
@@ -536,20 +550,6 @@ class TeacherWeeklyLearningRepository {
       entityId: event.id,
       operation: SyncOperation.create,
       payload: event.toJson(),
-    );
-  }
-
-  Future<void> _seedDemoIfNeeded(SchoolMembership membership) async {
-    final records = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _updateType,
-    );
-    if (records.isNotEmpty) return;
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _updateType,
-      entityId: teacherWeeklyInitialUpdate.id,
-      payload: teacherWeeklyInitialUpdate.toJson(),
     );
   }
 

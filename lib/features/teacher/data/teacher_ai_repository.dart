@@ -72,7 +72,6 @@ class TeacherAiRepository {
 
   Future<TeacherAiSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
     final contextOptions = await _contextOptions(membership);
     final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
@@ -139,21 +138,5 @@ class TeacherAiRepository {
       response: teacherAiResponseFor(context: context, prompt: trimmed),
       historyItem: item,
     );
-  }
-
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    final existing = await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _historyType,
-    );
-    if (existing.isNotEmpty) return;
-    for (final item in teacherAiInitialHistory) {
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: _historyType,
-        entityId: item.id,
-        payload: item.toJson(),
-      );
-    }
   }
 }
