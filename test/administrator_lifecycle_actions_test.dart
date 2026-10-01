@@ -12,6 +12,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 const admin = SchoolMembership(id: 'm-admin', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.administrator);
 const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -21,21 +22,49 @@ void main() {
   late SchoolSessionController session;
   late AdministratorLifecycleRepository lifecycle;
   late AdministratorStudentsRepository students;
+  late AdministratorLifecycleRecord promotionRecord;
+  late AdministratorLifecycleRecord transferRecord;
 
   Future<void> setUpSchool([SchoolMembership who = admin]) async {
     db = LocalDatabase(cipher: PayloadCipher(secureStorage: MemorySecureStorage()), databasePath: ':memory:');
     await db.initialize();
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([admin, teacher]);
-    await session.selectSchool(who);
+    await session.selectSchool(admin);
     lifecycle = AdministratorLifecycleRepository(localDatabase: db, schoolSession: session);
     students = AdministratorStudentsRepository(localDatabase: db, schoolSession: session);
+
+    for (final s in const [
+      (id: 'STU-003', name: 'Yusuf Bello', className: 'JSS 2B', guardian: 'Alhaji Musa Bello'),
+      (id: 'STU-005', name: 'Abdullahi Umar', className: 'SS1A', guardian: 'Mr. Umar Abdullahi'),
+      (id: 'STU-006', name: 'Ruth John', className: 'SS1A', guardian: 'Mr. Daniel John'),
+      (id: 'PRI-006', name: 'Ahmad Musa', className: 'Primary 6', guardian: 'Mrs. Grace Musa'),
+    ]) {
+      await seedRealStudent(db, tenantId: admin.schoolId, id: s.id, name: s.name, className: s.className, guardian: s.guardian);
+    }
+
+    // Three real pending requests, the same shape the old fabricated seed used to fake: a promotion, a
+    // transfer out, and a class change - created in this order so the class change (Abdullahi Umar) is
+    // the third row, matching what the widget test below taps.
+    Future<AdministratorStudentRecord> find(String id) async =>
+        (await students.load()).students.firstWhere((s) => s.id == id);
+    promotionRecord = (await lifecycle.request(
+      student: await find('PRI-006'), workflow: 'Promotion', toClass: 'JSS 1',
+    )).record!;
+    transferRecord = (await lifecycle.request(
+      student: await find('STU-003'), workflow: 'Transfer out',
+    )).record!;
+    await lifecycle.request(
+      student: await find('STU-005'), workflow: 'Class change', toClass: 'SS1B',
+    );
+
+    await session.selectSchool(who);
   }
 
   Future<AdministratorStudentRecord> student(String id) async =>
       (await students.load()).students.firstWhere((s) => s.id == id);
 
-  Future<AdministratorLifecycleRecord> record(String id) async =>
+  Future<AdministratorLifecycleRecord> recordById(String id) async =>
       (await lifecycle.load()).records.firstWhere((r) => r.id == id);
 
   tearDown(() => db.close());
@@ -43,7 +72,7 @@ void main() {
   test('the demo school has a real register, and every lifecycle record refers to a student who exists', () async {
     await setUpSchool();
     final register = (await students.load()).students;
-    expect(register.length, greaterThan(15));
+    expect(register.length, 4);
     for (final r in (await lifecycle.load()).records.where((r) => !r.isAlumni)) {
       expect(register.any((s) => s.id == r.student), isTrue, reason: '${r.studentName} (${r.student})');
     }
@@ -78,7 +107,7 @@ void main() {
 
   test('a promotion is an academic decision: it cannot be processed without who approved it', () async {
     await setUpSchool();
-    final promotion = await record('PRI-006');
+    final promotion = promotionRecord;
     expect(promotion.isPromotion, isTrue);
     final refused = await lifecycle.complete(promotion);
     expect(refused.success, isFalse);
@@ -88,12 +117,12 @@ void main() {
     final done = await lifecycle.complete(promotion, approvedBy: 'Mr. Ibrahim Danladi (Principal)');
     expect(done.success, isTrue, reason: done.message);
     expect((await student('PRI-006')).className, 'JSS 1');
-    expect((await record('PRI-006')).approvedBy, contains('Danladi'));
+    expect((await recordById(promotion.id)).approvedBy, contains('Danladi'));
   });
 
   test('a transfer out needs the records pack, shows as pending meanwhile, then takes the student off the active register', () async {
     await setUpSchool();
-    final transfer = await record('STU-003');
+    final transfer = transferRecord;
     expect((await student('STU-003')).status, AdministratorStudentStatus.transferPending);
 
     final early = await lifecycle.complete(transfer);
@@ -110,11 +139,11 @@ void main() {
 
   test('cancelling a transfer puts the student back to active and keeps the record with its reason', () async {
     await setUpSchool();
-    final transfer = await record('STU-003');
+    final transfer = transferRecord;
     final cancelled = await lifecycle.cancel(transfer, 'Family is staying');
     expect(cancelled.success, isTrue);
     expect((await student('STU-003')).status, AdministratorStudentStatus.active);
-    final kept = await record('STU-003');
+    final kept = await recordById(transfer.id);
     expect(kept.status, AdministratorLifecycleStatus.cancelled);
     expect(kept.note, 'Family is staying');
     expect((await lifecycle.cancel(kept, '')).message, contains('not pending'));
@@ -129,7 +158,7 @@ void main() {
     await lifecycle.complete(second, approvedBy: 'Principal');
     expect((await student('STU-006')).className, 'SS2A');
     final done = (await lifecycle.load()).records.where((r) => r.student == 'STU-006' && r.status == AdministratorLifecycleStatus.completed);
-    expect(done.length, greaterThanOrEqualTo(3), reason: 'the demo history plus these two');
+    expect(done.length, 2, reason: 'both moves stay on record');
   });
 
   test('only an administrator may change a student\'s class or status', () async {

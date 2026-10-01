@@ -19,13 +19,50 @@ void main() {
   late SchoolSessionController session;
   late AdministratorRecordsRepository records;
 
+  late String missingRecordId;
+  late String verifiedRecordId;
+  const draftRecordId = 'REC-FIX-DRAFT';
+
   Future<void> setUpSchool([SchoolMembership who = admin]) async {
     db = LocalDatabase(cipher: PayloadCipher(secureStorage: MemorySecureStorage()), databasePath: ':memory:');
     await db.initialize();
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([admin, teacher]);
-    await session.selectSchool(who);
+    await session.selectSchool(admin);
     records = AdministratorRecordsRepository(localDatabase: db, schoolSession: session);
+
+    // Real documents in every reachable status, for students, families and staff - the same shape the
+    // old fabricated seed used to fake.
+    missingRecordId = (await records.add(owner: 'Ahmed Yusuf', document: 'Birth certificate', kind: 'Student')).record!.id;
+
+    final toVerify = (await records.add(owner: 'Zainab Yusuf', document: 'Birth certificate', kind: 'Student')).record!;
+    final received = (await records.act(toVerify, 'Mark received')).record!;
+    verifiedRecordId = (await records.act(received, 'Verify')).record!.id;
+
+    final pendingFamily = (await records.add(owner: 'Mrs. Amina Yusuf family', document: 'Guardian ID', kind: 'Family')).record!;
+    await records.act(pendingFamily, 'Mark received');
+
+    final staffDoc = (await records.add(owner: 'Mrs. Grace Musa', document: 'Staff qualification', kind: 'Staff')).record!;
+    final staffReceived = (await records.act(staffDoc, 'Mark received')).record!;
+    await records.act(staffReceived, 'Verify');
+
+    // Draft has no real reachable write path in this repository (every real action moves a document
+    // between missing/pending/verified); it stays a direct fixture, matching the model's own initial-state.
+    await db.upsertLocalRecord(
+      tenantId: admin.schoolId,
+      entityType: AdministratorRecordsRepository.entityType,
+      entityId: draftRecordId,
+      payload: const AdministratorDocumentRecord(
+        id: draftRecordId,
+        document: 'Transfer letter',
+        recordOwner: 'Maimuna Bello',
+        status: AdministratorRecordStatus.draft,
+        received: '—',
+        visibility: 'Restricted',
+      ).toJson(),
+    );
+
+    await session.selectSchool(who);
   }
 
   Future<AdministratorDocumentRecord> byId(String id) async => (await records.load()).records.firstWhere((r) => r.id == id);
@@ -35,7 +72,7 @@ void main() {
   test('the demo school has documents in every state, for students, families and staff', () async {
     await setUpSchool();
     final all = (await records.load()).records;
-    expect(all.length, greaterThan(12));
+    expect(all.length, 5);
     for (final status in AdministratorRecordStatus.values) {
       expect(all.any((r) => r.status == status), isTrue, reason: status.label);
     }
@@ -44,7 +81,7 @@ void main() {
 
   test('a missing document is received, then verified, and each step is kept in its history', () async {
     await setUpSchool();
-    final missing = await byId('REC-DEMO-01');
+    final missing = await byId(missingRecordId);
     expect(missing.status, AdministratorRecordStatus.missing);
 
     final received = await records.act(missing, 'Mark received');
@@ -54,16 +91,16 @@ void main() {
 
     final verified = await records.act(received.record!, 'Verify');
     expect(verified.success, isTrue);
-    final stored = await byId('REC-DEMO-01');
+    final stored = await byId(missingRecordId);
     expect(stored.status, AdministratorRecordStatus.verified);
     expect(stored.verifiedBy, admin.id);
-    expect(stored.history.map((h) => h['action']), ['Mark received', 'Verify']);
+    expect(stored.history.map((h) => h['action']), ['Added', 'Mark received', 'Verify']);
     expect(db.pendingCount(tenantId: admin.schoolId), greaterThan(0));
   });
 
   test('only the steps that make sense for the state are allowed, and sending back or reopening needs a reason', () async {
     await setUpSchool();
-    final verified = await byId('REC-DEMO-02');
+    final verified = await byId(verifiedRecordId);
     expect((await records.act(verified, 'Verify')).success, isFalse);
     expect((await records.act(verified, 'Mark received')).success, isFalse);
     expect((await records.act(verified, 'Reopen')).message, contains('Say why'));
@@ -76,12 +113,12 @@ void main() {
     final sentBack = await records.act(reopened.record!, 'Send back', note: 'Asked the family for a clearer copy');
     expect(sentBack.record!.status, AdministratorRecordStatus.missing);
     expect(sentBack.record!.received, '—');
-    expect(sentBack.record!.history.length, 2, reason: 'nothing is removed from the history');
+    expect(sentBack.record!.history.length, 5, reason: 'nothing is removed from the history');
   });
 
   test('a draft letter is issued', () async {
     await setUpSchool();
-    final draft = await byId('REC-DEMO-07');
+    final draft = await byId(draftRecordId);
     final issued = await records.act(draft, 'Issue');
     expect(issued.record!.status, AdministratorRecordStatus.verified);
   });

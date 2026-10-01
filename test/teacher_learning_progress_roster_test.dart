@@ -9,6 +9,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 // Has JSS 2A, JSS 2B and SS1A assigned in TeacherRoster's demo data.
 const mathsTeacher = SchoolMembership(id: 'membership-teacher-003', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -28,6 +29,7 @@ void main() {
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([mathsTeacher, newTeacher]);
     await session.selectSchool(who);
+    await seedClassicRoster(db, tenantId: who.schoolId);
     roster = TeacherRoster(
       database: db,
       session: session,

@@ -21,6 +21,7 @@ import 'package:schoolos_app/features/principal/data/principal_communication_rep
 import 'package:schoolos_app/features/principal/domain/principal_communication_models.dart';
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 const principal = SchoolMembership(
   id: 'p',
@@ -38,6 +39,7 @@ void main() {
       databasePath: ':memory:',
     );
     await db!.initialize();
+    await seedRealStudent(db!, tenantId: 's', id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', guardian: 'Alhaji Abdullahi Musa');
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([member]);
     await session.selectSchool(member);
@@ -220,6 +222,7 @@ void main() {
         concessions: ConcessionRepository(localDatabase: db!, schoolSession: session),
       ),
     );
+    await children.replaceLinkedChildren(childIds: const ['STU-001']);
     final parentMessages = ParentMessagesRepository(localDatabase: db!, schoolSession: session, children: children);
     final snapshot = await parentMessages.load();
     final maryamThread = snapshot.threadById('channel-STU-001')!;
@@ -461,7 +464,8 @@ void main() {
             concessions: ConcessionRepository(localDatabase: db!, schoolSession: session),
           ),
         );
-        final parentMessages = ParentMessagesRepository(localDatabase: db!, schoolSession: session, children: children);
+        await children.replaceLinkedChildren(childIds: const ['STU-001']);
+    final parentMessages = ParentMessagesRepository(localDatabase: db!, schoolSession: session, children: children);
         final snapshot = await parentMessages.load();
         final maryamThread = snapshot.threadById('channel-STU-001')!;
         expect(maryamThread.messages.single.body, 'Please see me about attendance.');
@@ -492,7 +496,8 @@ void main() {
           concessions: ConcessionRepository(localDatabase: db!, schoolSession: session),
         ),
       );
-      final parentMessages = ParentMessagesRepository(localDatabase: db!, schoolSession: session, children: children);
+      await children.replaceLinkedChildren(childIds: const ['STU-001']);
+    final parentMessages = ParentMessagesRepository(localDatabase: db!, schoolSession: session, children: children);
       await parentMessages.queueReply(threadId: 'channel-STU-001', body: 'When is the next PTA meeting?');
 
       await session.selectSchool(principal);

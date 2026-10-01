@@ -12,6 +12,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 const parent = SchoolMembership(id: 'm-parent', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.parent);
 const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -27,7 +28,13 @@ void main() {
     db = database;
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([parent, teacher]);
-    await session.selectSchool(who);
+    await session.selectSchool(parent);
+    for (final s in const [
+      (id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', guardian: 'Alhaji Abdullahi Musa'),
+      (id: 'PRI-003', name: 'Hafsa Abdullahi', className: 'Primary 3', guardian: 'Alhaji Abdullahi Sani'),
+    ]) {
+      await seedRealStudent(database, tenantId: parent.schoolId, id: s.id, name: s.name, className: s.className, guardian: s.guardian);
+    }
     final students = AdministratorStudentsRepository(localDatabase: database, schoolSession: session);
     final children = ParentChildrenRepository(
       localDatabase: database,
@@ -41,6 +48,8 @@ void main() {
         concessions: ConcessionRepository(localDatabase: database, schoolSession: session),
       ),
     );
+    await children.replaceLinkedChildren(childIds: const ['STU-001', 'PRI-003']);
+    await session.selectSchool(who);
     attendance = ParentAttendanceRepository(
       localDatabase: database,
       schoolSession: session,

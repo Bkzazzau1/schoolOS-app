@@ -11,6 +11,8 @@ import 'package:schoolos_app/features/transferverify/domain/bad_debt_classificat
 import 'package:schoolos_app/features/transferverify/presentation/bad_debt_classification_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+import 'core/real_student_fixtures.dart';
+
 class _Database implements LocalDatabase {
   final records = <String, LocalRecord>{};
   @override
@@ -56,6 +58,7 @@ void main() {
     await session.setMemberships([owner]);
     await session.selectSchool(owner);
     addTearDown(session.dispose);
+    await seedRealStudent(database, tenantId: owner.schoolId, id: 'STU-TEST-001', name: 'A Student', className: 'JSS 1', guardian: 'A Guardian');
     final repository = BadDebtClassificationRepository(localDatabase: database, schoolSession: session);
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: BadDebtClassificationPage(repository: repository, membership: owner))));
     await tester.pumpAndSettle();

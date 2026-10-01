@@ -15,6 +15,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 // Has JSS 2A, JSS 2B and SS1A assigned in TeacherRoster's demo data.
 const mathsTeacher = SchoolMembership(id: 'membership-teacher-003', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -40,6 +41,7 @@ void main() {
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([mathsTeacher, newTeacher, parent]);
     await session.selectSchool(who);
+    await seedRealStudent(db, tenantId: who.schoolId, id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', guardian: 'Alhaji Abdullahi Musa');
     final students = AdministratorStudentsRepository(localDatabase: db, schoolSession: session);
     roster = TeacherRoster(database: db, session: session, students: students);
     messages = TeacherMessagesRepository(localDatabase: db, schoolSession: session, roster: roster);
@@ -56,6 +58,9 @@ void main() {
       ),
     );
     parentMessages = ParentMessagesRepository(localDatabase: db, schoolSession: session, children: children);
+    await session.selectSchool(parent);
+    await children.replaceLinkedChildren(childIds: const ['STU-001']);
+    await session.selectSchool(who);
   }
 
   tearDown(() => db.close());

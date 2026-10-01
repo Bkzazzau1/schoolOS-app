@@ -29,10 +29,55 @@ void main() {
     await db.initialize();
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([admin, teacher]);
-    await session.selectSchool(who);
+    await session.selectSchool(admin);
     admissions = AdministratorAdmissionsRepository(localDatabase: db, schoolSession: session);
     registration = AdministratorRegistrationRepository(localDatabase: db, schoolSession: session);
     students = AdministratorStudentsRepository(localDatabase: db, schoolSession: session);
+
+    // Build the same three real applicants, at the same three real stages, the old fabricated
+    // seed used to fake - via the repository's own real workflow, so these tests exercise the
+    // actual stage-transition rules rather than a frozen snapshot.
+    await admissions.addApplicant(
+      name: 'Aisha Sani',
+      section: 'Primary',
+      className: 'Primary 2',
+      guardian: 'Alhaji Sani Ibrahim',
+      phone: '0803 100 2401',
+    );
+    await admissions.markDocumentReceived('BGA-ADM-26001', 'Birth certificate');
+    await admissions.markDocumentReceived('BGA-ADM-26001', 'Guardian ID');
+
+    await admissions.addApplicant(
+      name: 'Zainab Aliyu',
+      section: 'Nursery',
+      className: 'Nursery 2',
+      guardian: 'Alhaji Aliyu Sani',
+      phone: '0812 334 0192',
+    );
+    for (final document in AdministratorAdmissionsRepository.documents) {
+      await admissions.markDocumentReceived('BGA-ADM-26002', document);
+    }
+    await admissions.scheduleScreening('BGA-ADM-26002');
+    await admissions.issueOffer('BGA-ADM-26002');
+
+    await admissions.addApplicant(
+      name: 'Fatima Musa',
+      section: 'Secondary',
+      className: 'JSS 2',
+      guardian: 'Alhaji Musa Bello',
+      phone: '0805 292 4118',
+    );
+    for (final document in AdministratorAdmissionsRepository.documents) {
+      await admissions.markDocumentReceived('BGA-ADM-26003', document);
+    }
+    await admissions.scheduleScreening('BGA-ADM-26003');
+    await admissions.issueOffer('BGA-ADM-26003');
+    await admissions.acceptOffer('BGA-ADM-26003');
+    final fatima = (await admissions.load()).applicants.firstWhere((a) => a.name == 'Fatima Musa');
+    final fatimaSnapshot = await registration.load(sourceApplicant: fatima);
+    await registration.completeRegistration(fatimaSnapshot.record);
+
+    await session.selectSchool(who);
   }
 
   Future<AdmissionApplicant> applicant(String name) async =>
@@ -91,7 +136,7 @@ void main() {
     );
     expect(added.success, isTrue, reason: added.message);
     final sadiq = await applicant('Sadiq Lawal');
-    expect(sadiq.reference, 'BGA-ADM-26095');
+    expect(sadiq.reference, 'BGA-ADM-26004');
     expect(sadiq.stage, AdmissionStage.newApplication);
     expect(AdministratorAdmissionsRepository.pendingDocuments(sadiq).length, 3);
     expect(sadiq.submitted, '21 Sep');

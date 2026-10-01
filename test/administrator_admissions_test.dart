@@ -1,12 +1,66 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/administrator/data/administrator_admissions_demo_data.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_admissions_policy_copy.dart';
 import 'package:schoolos_app/features/administrator/domain/administrator_admissions_models.dart';
 
+const _fixtureApplicants = <AdmissionApplicant>[
+  AdmissionApplicant(
+    reference: 'BGA-ADM-26094',
+    name: 'Aisha Sani',
+    section: 'Primary',
+    className: 'Primary 2',
+    guardian: 'Alhaji Sani Ibrahim',
+    phone: '0803 100 2401',
+    stage: AdmissionStage.documents,
+    submitted: '13 Sep',
+    previousSchoolReport: AdmissionDocumentStatus.pending,
+  ),
+  AdmissionApplicant(
+    reference: 'BGA-ADM-26093',
+    name: 'Muhammad Kabir',
+    section: 'Secondary',
+    className: 'JSS 1',
+    guardian: 'Hajiya Amina Kabir',
+    phone: '0806 221 1480',
+    stage: AdmissionStage.screening,
+    submitted: '13 Sep',
+  ),
+  AdmissionApplicant(
+    reference: 'BGA-ADM-26091',
+    name: 'Zainab Aliyu',
+    section: 'Nursery',
+    className: 'Nursery 2',
+    guardian: 'Alhaji Aliyu Sani',
+    phone: '0812 334 0192',
+    stage: AdmissionStage.offer,
+    submitted: '12 Sep',
+  ),
+  AdmissionApplicant(
+    reference: 'BGA-ADM-26088',
+    name: 'Umar Faruq',
+    section: 'Primary',
+    className: 'Primary 4',
+    guardian: 'Hajiya Maryam Umar',
+    phone: '0703 518 9941',
+    stage: AdmissionStage.accepted,
+    submitted: '11 Sep',
+  ),
+  AdmissionApplicant(
+    reference: 'BGA-ADM-26082',
+    name: 'Fatima Musa',
+    section: 'Secondary',
+    className: 'JSS 2',
+    guardian: 'Alhaji Musa Bello',
+    phone: '0805 292 4118',
+    stage: AdmissionStage.registered,
+    submitted: '09 Sep',
+  ),
+];
+
 void main() {
-  test('website admissions seed preserves five exact sample applicants', () {
-    expect(administratorAdmissionsWebsiteSeed, hasLength(5));
+  test('applicant fixture carries five distinct sample applicants', () {
+    expect(_fixtureApplicants, hasLength(5));
     expect(
-      administratorAdmissionsWebsiteSeed.map((item) => item.reference),
+      _fixtureApplicants.map((item) => item.reference),
       [
         'BGA-ADM-26094',
         'BGA-ADM-26093',
@@ -16,7 +70,7 @@ void main() {
       ],
     );
     expect(
-      administratorAdmissionsWebsiteSeed.map((item) => item.name),
+      _fixtureApplicants.map((item) => item.name),
       ['Aisha Sani', 'Muhammad Kabir', 'Zainab Aliyu', 'Umar Faruq', 'Fatima Musa'],
     );
   });
@@ -29,7 +83,7 @@ void main() {
   });
 
   test('Aisha preserves the website document-review state', () {
-    final aisha = administratorAdmissionsWebsiteSeed.first;
+    final aisha = _fixtureApplicants.first;
     expect(aisha.section, 'Primary');
     expect(aisha.className, 'Primary 2');
     expect(aisha.guardian, 'Alhaji Sani Ibrahim');
@@ -44,23 +98,23 @@ void main() {
 
   test('stage filtering follows the selected stage exactly', () {
     expect(
-      administratorAdmissionsWebsiteSeed
+      _fixtureApplicants
           .where((item) => item.matchesStage(AdmissionStage.offer)),
       hasLength(1),
     );
     expect(
-      administratorAdmissionsWebsiteSeed
+      _fixtureApplicants
           .where((item) => item.matchesStage(AdmissionStage.newApplication)),
       isEmpty,
     );
     expect(
-      administratorAdmissionsWebsiteSeed.where((item) => item.matchesStage(null)),
+      _fixtureApplicants.where((item) => item.matchesStage(null)),
       hasLength(5),
     );
   });
 
   test('serialization preserves applicant and document state', () {
-    final original = administratorAdmissionsWebsiteSeed.first.copyWith(
+    final original = _fixtureApplicants.first.copyWith(
       documentRequestQueued: true,
     );
     final restored = AdmissionApplicant.fromJson(original.toJson());
@@ -72,7 +126,7 @@ void main() {
   });
 
   test('pipeline updates do not silently create a student identity', () {
-    final applicant = administratorAdmissionsWebsiteSeed[1];
+    final applicant = _fixtureApplicants[1];
     final screening = applicant.copyWith(stage: AdmissionStage.screening);
     final offer = screening.copyWith(stage: AdmissionStage.offer);
 

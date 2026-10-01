@@ -15,6 +15,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 // The demo teacher already used by teacher_students_roster_test.dart: really assigned to JSS 2A
 // (Mathematics) and JSS 2B (Mathematics) via teacher_roster.dart's own demo assignment record.
@@ -38,6 +39,9 @@ void main() {
     await session.setMemberships([teacher, newTeacher, parent]);
     await session.selectSchool(teacher);
 
+    await seedRealStudent(db, tenantId: teacher.schoolId, id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', guardian: 'Alhaji Abdullahi Musa');
+    await seedRealStudent(db, tenantId: teacher.schoolId, id: 'STU-002', name: 'Ibrahim Sani', className: 'JSS 2A', guardian: 'Alhaji Sani Ibrahim');
+
     final students = AdministratorStudentsRepository(localDatabase: db, schoolSession: session);
     roster = TeacherRoster(database: db, session: session, students: students);
     familyMessages = TeacherFamilyMessagesRepository(localDatabase: db, schoolSession: session, roster: roster);
@@ -55,6 +59,10 @@ void main() {
       ),
     );
     parentMessages = ParentMessagesRepository(localDatabase: db, schoolSession: session, children: children);
+
+    await session.selectSchool(parent);
+    await children.replaceLinkedChildren(childIds: const ['STU-001']);
+    await session.selectSchool(teacher);
   }
 
   tearDown(() => db.close());

@@ -13,6 +13,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 const admin = SchoolMembership(id: 'm-admin', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.administrator);
 const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -29,13 +30,69 @@ void main() {
     await db.initialize();
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([admin, teacher]);
-    await session.selectSchool(who);
+    await session.selectSchool(admin);
     attendance = AdministratorAttendanceRepository(localDatabase: db, schoolSession: session);
     students = AdministratorStudentsRepository(localDatabase: db, schoolSession: session);
+    for (final s in const [
+      (id: 'STU-FIX-001', name: 'Maryam Abdullahi', className: 'JSS 2A', guardian: 'Alhaji Abdullahi Musa'),
+      (id: 'STU-FIX-002', name: 'Ibrahim Sani', className: 'JSS 2A', guardian: 'Alhaji Sani Ibrahim'),
+      (id: 'STU-FIX-003', name: 'Yusuf Bello', className: 'JSS 2B', guardian: 'Alhaji Musa Bello'),
+      (id: 'PRI-FIX-003', name: 'Hafsa Abdullahi', className: 'Primary 3', guardian: 'Alhaji Abdullahi Sani'),
+    ]) {
+      await seedRealStudent(db, tenantId: admin.schoolId, id: s.id, name: s.name, className: s.className, guardian: s.guardian);
+    }
     expected = [
       for (final s in (await students.load()).students)
         if (s.status != AdministratorStudentStatus.transferredOut) s,
     ];
+
+    // Build a real school day: two real check-ins (one on time, one late), two students genuinely not yet
+    // checked in, one scan the device could not match, and three real pending correction requests - the same
+    // shape the old fabricated seed used to invent for every school on first load.
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    await attendance.checkIn(expected[0], now: today.add(const Duration(hours: 7, minutes: 30)));
+    await attendance.checkIn(expected[1], now: today.add(const Duration(hours: 8, minutes: 10)));
+
+    final unknownScan = AdministratorAttendanceEvent(
+      time: '08:02',
+      student: 'Unknown credential',
+      className: '—',
+      device: 'Main Gate Face Terminal',
+      method: 'Face',
+      status: AdministratorAttendanceEventStatus.unknownScan,
+      parentState: 'Not sent',
+      date: schoolDay(now),
+    );
+    await db.upsertLocalRecord(
+      tenantId: admin.schoolId,
+      entityType: AdministratorAttendanceRepository.eventEntityType,
+      entityId: unknownScan.entityId,
+      payload: unknownScan.toJson(),
+    );
+
+    const corrections = [
+      ('ATT-081', 2, 'Absent → Present', 'Teacher submitted correction'),
+      ('ATT-082', 1, 'Late → Present', 'Arrival log attached'),
+      ('ATT-083', 3, 'Present → Excused', 'Leadership review required'),
+    ];
+    for (final (id, studentIndex, change, evidence) in corrections) {
+      final student = expected[studentIndex];
+      await db.upsertLocalRecord(
+        tenantId: admin.schoolId,
+        entityType: AdministratorAttendanceRepository.correctionEntityType,
+        entityId: id,
+        payload: AdministratorAttendanceCorrection(
+          id: id,
+          student: student.name,
+          className: student.className,
+          requestedChange: change,
+          evidence: evidence,
+        ).toJson(),
+      );
+    }
+
+    await session.selectSchool(who);
   }
 
   Future<AttendanceDesk> desk() async {
@@ -45,20 +102,21 @@ void main() {
 
   tearDown(() => db.close());
 
-  test('the demo school has a morning of scans: most students in, a few late, some absent, one scan to identify', () async {
+  test('a school day shows the real check-ins, the real unmatched scan and the real pending corrections entered for it', () async {
     await setUpSchool();
     final d = await desk();
     expect(d.expected, expected.length);
-    expect(d.present, greaterThan(d.expected ~/ 2));
+    expect(d.present, 2, reason: 'expected[0] checked in on time and expected[1] checked in late both count as present');
+    expect(d.late, 1, reason: 'expected[1] checked in after 08:00');
     expect(d.present + d.absent + d.excused, d.expected);
-    expect(d.absent, greaterThan(0));
+    expect(d.absent, expected.length - 2, reason: 'everyone else on the register has not been checked in yet');
     expect(d.unknownScans, 1);
     expect(d.pendingCorrections, 3);
     expect(d.sections.map((s) => s.name), containsAll(['Primary', 'Secondary']));
     expect(d.sections.fold<int>(0, (n, s) => n + s.expected), d.expected);
 
     final again = await desk();
-    expect(again.present, d.present, reason: 'the same day gives the same scans');
+    expect(again.present, d.present, reason: 'loading the same day twice reports the same real records');
   });
 
   test('a student the gate missed is checked in by hand, on time or late, and only once', () async {

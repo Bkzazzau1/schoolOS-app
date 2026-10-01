@@ -10,6 +10,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 const staffMember = SchoolMembership(
   id: 'membership-staff-001',
@@ -64,6 +65,7 @@ void main() {
   });
 
   testWidgets('switching to Students shows the real school directory', (tester) async {
+    await seedRealStudent(db, tenantId: staffMember.schoolId, id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', guardian: 'Alhaji Abdullahi Musa');
     await tester.pumpWidget(
       MaterialApp(
         home: StaffWorkspacePage(

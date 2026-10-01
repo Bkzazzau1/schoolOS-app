@@ -1,22 +1,52 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/administrator/data/administrator_notices_demo_data.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_notices_policy_copy.dart';
 import 'package:schoolos_app/features/administrator/domain/administrator_notices_models.dart';
 
-void main() {
-  test('website notices seed preserves three exact recent records', () {
-    expect(administratorNoticesWebsiteSeed, hasLength(3));
+const _fixtureNotices = <AdministratorNotice>[
+  AdministratorNotice(
+    id: 'NOTICE-001',
+    title: 'Term fee reminder',
+    audience: AdministratorNoticeAudience.parents,
+    type: AdministratorNoticeType.feeReminder,
+    message: '',
+    status: AdministratorNoticeStatus.scheduled,
+    createdLabel: 'Fixture',
+  ),
+  AdministratorNotice(
+    id: 'NOTICE-002',
+    title: 'Primary reading week',
+    audience: AdministratorNoticeAudience.primary,
+    type: AdministratorNoticeType.generalAdministration,
+    message: '',
+    status: AdministratorNoticeStatus.published,
+    createdLabel: 'Fixture',
+  ),
+  AdministratorNotice(
+    id: 'NOTICE-003',
+    title: 'Staff document update',
+    audience: AdministratorNoticeAudience.staff,
+    type: AdministratorNoticeType.documentRequest,
+    message: '',
+    status: AdministratorNoticeStatus.draft,
+    createdLabel: 'Fixture',
+  ),
+];
 
-    final fee = administratorNoticesWebsiteSeed[0];
+void main() {
+  test('notice fixture carries three recent records', () {
+    expect(_fixtureNotices, hasLength(3));
+
+    final fee = _fixtureNotices[0];
     expect(fee.title, 'Term fee reminder');
     expect(fee.audience, AdministratorNoticeAudience.parents);
     expect(fee.status, AdministratorNoticeStatus.scheduled);
 
-    final reading = administratorNoticesWebsiteSeed[1];
+    final reading = _fixtureNotices[1];
     expect(reading.title, 'Primary reading week');
     expect(reading.audience, AdministratorNoticeAudience.primary);
     expect(reading.status, AdministratorNoticeStatus.published);
 
-    final staff = administratorNoticesWebsiteSeed[2];
+    final staff = _fixtureNotices[2];
     expect(staff.title, 'Staff document update');
     expect(staff.audience, AdministratorNoticeAudience.staff);
     expect(staff.status, AdministratorNoticeStatus.draft);
@@ -78,9 +108,9 @@ void main() {
     expect(administratorNoticesAuthorityBoundary, contains('audit trail'));
   });
 
-  test('seed status mix preserves scheduled published and draft', () {
-    expect(administratorNoticesWebsiteSeed.where((n) => n.isScheduled), hasLength(1));
-    expect(administratorNoticesWebsiteSeed.where((n) => n.isPublished), hasLength(1));
-    expect(administratorNoticesWebsiteSeed.where((n) => n.isDraft), hasLength(1));
+  test('status mix preserves scheduled published and draft', () {
+    expect(_fixtureNotices.where((n) => n.isScheduled), hasLength(1));
+    expect(_fixtureNotices.where((n) => n.isPublished), hasLength(1));
+    expect(_fixtureNotices.where((n) => n.isDraft), hasLength(1));
   });
 }

@@ -6,6 +6,7 @@ import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 import 'package:schoolos_app/features/principal/data/principal_incidents_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_incidents_models.dart';
 import 'package:schoolos_app/features/principal/presentation/principal_incidents_page.dart';
@@ -29,6 +30,7 @@ void main() {
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([member]);
     await session.selectSchool(member);
+    await seedRealStudent(db!, tenantId: 's', id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', guardian: 'Alhaji Abdullahi Musa');
     repo = PrincipalIncidentsRepository(
       localDatabase: db!,
       schoolSession: session,

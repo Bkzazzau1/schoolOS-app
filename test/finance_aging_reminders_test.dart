@@ -15,6 +15,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 const finance = SchoolMembership(id: 'm-fin', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.accountant);
 const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -29,6 +30,8 @@ void main() {
     await database.initialize();
     final session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([finance, teacher]);
+    await session.selectSchool(finance);
+    await seedClassicRoster(database, tenantId: finance.schoolId);
     await session.selectSchool(who);
     ledger = FinanceLedgerRepository(
       database: database,

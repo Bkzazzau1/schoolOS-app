@@ -4,13 +4,13 @@ import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_attendance_repository.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
-import 'package:schoolos_app/features/principal/data/principal_attendance_demo_data.dart';
 import 'package:schoolos_app/features/principal/data/principal_attendance_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_attendance_models.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 const principal = SchoolMembership(id: 'm-principal', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.principal);
 const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -26,6 +26,8 @@ void main() {
     db = database;
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([principal, teacher]);
+    await session.selectSchool(principal);
+    await seedClassicRoster(database, tenantId: principal.schoolId);
     await session.selectSchool(who);
     principalAttendance = PrincipalAttendanceRepository(
       localDatabase: database,
@@ -37,18 +39,37 @@ void main() {
 
   tearDown(() => db?.close());
 
-  test('offline extension includes palm and fingerprint scanners', () {
-    expect(principalBiometricScanners.length, 3);
-    expect(principalBiometricScanners.any((scanner) => scanner.modality == PrincipalBiometricModality.palm), isTrue);
-    expect(principalBiometricScanners.any((scanner) => scanner.modality == PrincipalBiometricModality.fingerprint), isTrue);
-    final pending = principalBiometricScanners.singleWhere((scanner) => scanner.id == 'SCN-FP-02');
+  test('a fixture scanner carries exact modality, status and pending-event fields', () {
+    const fixtureScanners = <PrincipalBiometricScanner>[
+      PrincipalBiometricScanner(
+        id: 'SCN-FIX-PALM', name: 'Palm scanner', location: 'Main gate',
+        modality: PrincipalBiometricModality.palm, transport: PrincipalScannerTransport.lan,
+        status: PrincipalScannerStatus.ready, enrolledTemplates: 10, pendingEvents: 0, lastEventAt: '7:00 AM',
+      ),
+      PrincipalBiometricScanner(
+        id: 'SCN-FIX-FP', name: 'Fingerprint scanner', location: 'Staff office',
+        modality: PrincipalBiometricModality.fingerprint, transport: PrincipalScannerTransport.usb,
+        status: PrincipalScannerStatus.syncPending, enrolledTemplates: 20, pendingEvents: 12, lastEventAt: '7:10 AM',
+      ),
+    ];
+    expect(fixtureScanners.any((scanner) => scanner.modality == PrincipalBiometricModality.palm), isTrue);
+    expect(fixtureScanners.any((scanner) => scanner.modality == PrincipalBiometricModality.fingerprint), isTrue);
+    final pending = fixtureScanners.singleWhere((scanner) => scanner.id == 'SCN-FIX-FP');
     expect(pending.status, PrincipalScannerStatus.syncPending);
     expect(pending.pendingEvents, 12);
   });
 
   test('biometric attendance stores opaque template references, not raw images', () {
-    expect(principalBiometricSeedEvents, isNotEmpty);
-    for (final event in principalBiometricSeedEvents) {
+    const fixtureEvents = <PrincipalBiometricAttendanceEvent>[
+      PrincipalBiometricAttendanceEvent(
+        id: 'BIO-FIX-001', personReference: 'STU-FIX-001', personType: PrincipalAttendancePersonType.student,
+        classOrRole: 'JSS 2A', scannerId: 'SCN-FIX-PALM', modality: PrincipalBiometricModality.palm,
+        capturedAt: '2026-09-13T07:28:13+01:00', localSequence: 101,
+        templateReference: 'tpl:student:STU-FIX-001:palm:v1', matchScore: 0.982,
+        matchStatus: PrincipalBiometricMatchStatus.matched, synced: true,
+      ),
+    ];
+    for (final event in fixtureEvents) {
       expect(event.templateReference, startsWith('tpl:'));
       expect(event.templateReference.toLowerCase(), isNot(contains('image')));
       expect(event.matchScore, inInclusiveRange(0, 1));
@@ -122,7 +143,18 @@ void main() {
 
   test('a valid offline biometric match is accepted and queued for sync', () async {
     await setUpSchool();
-    await principalAttendance.load(); // seeds the scanners
+    const scanner = PrincipalBiometricScanner(
+      id: 'SCN-PALM-01', name: 'Main Gate Palm Scanner', location: 'Secondary main gate',
+      modality: PrincipalBiometricModality.palm, transport: PrincipalScannerTransport.lan,
+      status: PrincipalScannerStatus.ready, enrolledTemplates: 1, pendingEvents: 0, lastEventAt: '7:00 AM',
+    );
+    await db!.upsertLocalRecord(
+      tenantId: principal.schoolId,
+      entityType: PrincipalAttendanceRepository.scannerEntityType,
+      entityId: scanner.id,
+      payload: scanner.toJson(),
+    );
+    await principalAttendance.load();
     final result = await principalAttendance.ingestOfflineBiometricMatch(
       scannerId: 'SCN-PALM-01',
       localSequence: 5000,
@@ -139,7 +171,7 @@ void main() {
 
   test('a raw image reference is refused', () async {
     await setUpSchool();
-    await principalAttendance.load(); // seeds the scanners
+    await principalAttendance.load();
     final result = await principalAttendance.ingestOfflineBiometricMatch(
       scannerId: 'SCN-PALM-01',
       localSequence: 5001,

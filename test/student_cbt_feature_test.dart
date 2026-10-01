@@ -11,6 +11,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_student_fixtures.dart';
 
 // Has JSS 2A and JSS 2B assigned (both Mathematics) in TeacherRoster's demo data.
 const mathsTeacher = SchoolMembership(id: 'membership-teacher-003', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -32,6 +33,7 @@ void main() {
     await session.setMemberships([mathsTeacher, student, accountant]);
     await session.selectSchool(student);
     now = DateTime(2026, 9, 22, 9);
+    await seedClassicRoster(database, tenantId: student.schoolId);
     final students = AdministratorStudentsRepository(localDatabase: database, schoolSession: session);
     studentCbt = StudentCbtRepository(localDatabase: database, schoolSession: session, students: students, now: () => now);
     final roster = TeacherRoster(database: database, session: session, students: students);

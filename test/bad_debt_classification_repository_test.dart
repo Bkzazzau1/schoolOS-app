@@ -8,6 +8,8 @@ import 'package:schoolos_app/features/transferverify/data/bad_debt_classificatio
 import 'package:schoolos_app/features/transferverify/domain/bad_debt_classification_models.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+import 'core/real_student_fixtures.dart';
+
 class _Database implements LocalDatabase {
   final records = <String, LocalRecord>{};
   final mutations = <Map<Symbol, dynamic>>[];
@@ -56,6 +58,7 @@ void main() {
     session = SchoolSessionController(store: SchoolSessionStore());
     await session.setMemberships([owner, finance, otherSchoolOwner]);
     await session.selectSchool(owner);
+    await seedRealStudent(database, tenantId: owner.schoolId, id: 'STU-TEST-001', name: 'A Student', className: 'JSS 1', guardian: 'A Guardian');
     repository = BadDebtClassificationRepository(localDatabase: database, schoolSession: session);
   });
   tearDown(() => session.dispose());

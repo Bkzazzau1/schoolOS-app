@@ -20,6 +20,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
 import 'core/media_api_test.dart' show assetJson;
+import 'core/real_student_fixtures.dart';
 
 const principal = SchoolMembership(id: 'm-principal', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.principal);
 const otherSchoolPrincipal = SchoolMembership(id: 'm-principal-2', schoolId: 'school-2', schoolName: 'Riverside', role: SchoolRole.principal);
@@ -57,6 +58,7 @@ void main() {
   /// The smallest real case, seeded directly into the local database - there is no "create a case" flow in the
   /// app yet (only notes and status changes), so every case a Principal ever sees today started this way.
   Future<void> seedCase({String tenant = 'school-1'}) async {
+    await seedRealStudent(db, tenantId: tenant, id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', guardian: 'Alhaji Abdullahi Musa');
     const item = PrincipalIncident(
       id: _caseId,
       title: 'Corridor incident',
