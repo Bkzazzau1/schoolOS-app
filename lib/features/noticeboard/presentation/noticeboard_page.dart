@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/noticeboard_demo_data.dart';
+import '../data/noticeboard_policy_copy.dart';
 import '../data/noticeboard_repository.dart';
 import '../domain/noticeboard_models.dart';
 
@@ -137,7 +137,8 @@ class _NoticeboardPageState extends State<NoticeboardPage> {
   }
 
   void _deliveryReport(NoticeboardNotice notice) {
-    final percent = notice.totalRecipients == 0 ? 0 : (notice.readRate * 100).round();
+    final hasRealTracking = notice.totalRecipients > 0;
+    final percent = hasRealTracking ? (notice.readRate * 100).round() : 0;
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -150,7 +151,11 @@ class _NoticeboardPageState extends State<NoticeboardPage> {
             children: [
               Text(notice.title, style: const TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 12),
-              Text('${notice.readCount}/${notice.totalRecipients} recipients have read this notice ($percent%).'),
+              Text(
+                hasRealTracking
+                    ? '${notice.readCount}/${notice.totalRecipients} recipients have read this notice ($percent%).'
+                    : 'Read tracking is not available yet for this notice.',
+              ),
               const SizedBox(height: 8),
               Text('Audience: ${notice.audience.label}'),
               Text('Priority: ${notice.priority.label}'),
@@ -219,7 +224,16 @@ class _NoticeboardPageState extends State<NoticeboardPage> {
           _filters(),
           const SizedBox(height: 16),
           if (_visible.isEmpty)
-            const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('No notices match these filters.')))
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  snapshot.notices.isEmpty
+                      ? 'No official notices yet. Publish the first one above.'
+                      : 'No notices match these filters.',
+                ),
+              ),
+            )
           else
             for (final notice in _visible) ...[
               _NoticeCard(
@@ -334,8 +348,6 @@ class _Stats extends StatelessWidget {
       ('Active notices','${notices.length}','Across current audiences'),
       ('Pinned','${notices.where((n) => n.pinned).length}','High-visibility notices'),
       ('Need acknowledgement','${notices.where((n) => n.acknowledgementRequired).length}','Critical read confirmation'),
-      ('Average read rate','$noticeboardAverageReadRate%','Sample delivery figures'),
-      ('Scheduled','$noticeboardScheduledCount','Future publication queue'),
     ];
     return Wrap(spacing: 10, runSpacing: 10, children: [
       for (final stat in stats) SizedBox(
@@ -372,7 +384,7 @@ class _NoticeCard extends StatelessWidget {
         const SizedBox(height: 6),
         Text(notice.body, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5)),
         const SizedBox(height: 10),
-        Wrap(spacing: 14, runSpacing: 6, children: [Text('Published ${notice.publishedLabel}', style: theme.textTheme.bodySmall), Text('Expires ${notice.expiresLabel}', style: theme.textTheme.bodySmall), Text('${notice.readCount}/${notice.totalRecipients} read', style: theme.textTheme.bodySmall)]),
+        Wrap(spacing: 14, runSpacing: 6, children: [Text('Published ${notice.publishedLabel}', style: theme.textTheme.bodySmall), Text('Expires ${notice.expiresLabel}', style: theme.textTheme.bodySmall), Text(notice.totalRecipients > 0 ? '${notice.readCount}/${notice.totalRecipients} read' : 'Read tracking not available yet', style: theme.textTheme.bodySmall)]),
         const SizedBox(height: 10),
         Wrap(spacing: 8, children: [
           OutlinedButton(onPressed: permissions.canPin ? onPin : null, child: Text(notice.pinned ? 'Unpin' : 'Pin')),

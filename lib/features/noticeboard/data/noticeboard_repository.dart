@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/noticeboard_models.dart';
-import 'noticeboard_demo_data.dart';
 
 class NoticeboardSnapshot {
   const NoticeboardSnapshot({required this.notices, required this.permissions});
@@ -47,18 +46,7 @@ class NoticeboardRepository {
 
   Future<NoticeboardSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _entityType);
-    if (records.isEmpty) {
-      for (final notice in noticeboardSeedNotices) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: notice.id,
-          payload: notice.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _entityType);
-    }
+    final records = await _localDatabase.getLocalRecords(tenantId: membership.schoolId, entityType: _entityType);
     final notices = records.map((r) => NoticeboardNotice.fromJson(r.payload)).toList();
     return NoticeboardSnapshot(notices: filterNotices(notices: notices), permissions: permissionsFor(membership));
   }
@@ -88,8 +76,10 @@ class NoticeboardRepository {
       publishedLabel: 'Just now · offline',
       expiresLabel: 'Not set',
       acknowledgementRequired: acknowledgementRequired,
+      // Nothing in this app tracks who has really read a notice yet, so there is no real recipient
+      // count to report - 0 is honest; a made-up audience size is not.
       readCount: 0,
-      totalRecipients: audience == NoticeAudience.wholeSchool ? 1084 : 120,
+      totalRecipients: 0,
       pinned: priority == NoticePriority.emergency,
       createdAt: now,
     );
