@@ -3472,3 +3472,35 @@ pre-existing failures as before this work, by name.
 This closes Tier 1 of the cluster: noticeboard, houses, assembly, meals, activities and events are all genuinely
 real. Awards, boarding, lost_found, service, visitors and teaching_models remain, followed by excursions (coupled
 to Administrator's academic-term data) and transport (its own larger, multi-file pass) as separate decisions.
+
+## Awards & Recognition stops fabricating its headline metrics
+
+First of Tier 2. `AwardRepository` already had a real `addDraft()`, and its `awardStats(awards)` function already
+*took* the real awards list as a parameter - but only used it for one of five stats ("Public showcase"); the
+other four (`awardsTermRecognitionCount = 37`, `awardsTeacherCount = 6`, `awardsStudentRecognitionCount = 21`,
+`awardsTeamHouseCount = 7`) were fixed constants the function never touched, bearing no relationship to whatever
+`awards` it was actually called with. `permissionsFor` also only ever granted `canCreateDrafts` to the
+proprietor, but the real `AWARDS = Spec("award_recognition", manage=LEADERS, contribute={"teacher"}, ...)` (in
+`apps/schoollife/specs/programmes.py`) authorizes `LEADERS` (`{proprietor, principal}` - notably *not*
+administrator, unlike every `MANAGERS`-gated Spec fixed so far in this cluster) plus a contributing teacher.
+
+**Design.** `permissionsFor` now checks `LEADERS ∪ {teacher}`, matching the real Spec exactly - including that
+administrator is deliberately excluded here, unlike Houses/Assembly/Meals/Activities/Events. `awardStats` became
+fully computed: total recognitions, teacher/student/team-house-club counts by `recipientType`, and public
+showcase count, all real. One thing deliberately left alone: the composer dialog already says "New native
+recognitions are saved as Internal only. Public or parent-facing visibility requires a separate authorized review
+workflow" - an honest, already-correct label for a real gap (there is no publish-to-public-showcase action
+anywhere in the app, matching the backend's `guarded_values={("visibility", "publicShowcase"): LEADERS}`), so no
+new capability was built here; building a review/publish workflow would be new functionality, not a fabrication
+fix. `award_demo_data.dart` is renamed `award_policy_copy.dart`, keeping `awardRecognitionCategories`,
+`awardVisibilityDestinations`, `earlyYearsRecognitionGuardrail` and `recognitionRankingBoundary` as static
+reference copy.
+
+**Verification.** `flutter analyze` clean. `test/awards_feature_test.dart`: the seed-preservation and fixed-KPI
+tests were removed; filtering and serialization rewritten against inline fixtures; a new test confirms
+`awardStats([])` is honestly all zeros. New `test/award_repository_test.dart` (9 tests - a fresh school's
+`load()` is genuinely empty; `permissionsFor` matches the real Spec exactly, including that administrator -
+unlike every other Spec in this cluster - cannot create a draft here; `addDraft()` lets a teacher really add a
+draft that always starts `internalOnly` and refuses a role outside leaders/contribute or a blank
+title/recipient). All 14 Awards tests pass; full app suite back to the same 83 pre-existing failures as before
+this work, by name.
