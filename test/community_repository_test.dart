@@ -205,4 +205,58 @@ void main() {
       expect(result.success, isFalse);
     });
   });
+
+  group('load', () {
+    test('a fresh school sees a genuinely empty feed, never fabricated posts', () async {
+      await actAs(SchoolRole.teacher);
+      final snapshot = await repository.load();
+      expect(snapshot.posts, isEmpty);
+      expect(snapshot.postsThisWeek, 0);
+      expect(snapshot.commentsThisWeek, 0);
+      expect(snapshot.publicShowcaseCount, 0);
+    });
+  });
+
+  group('CommunitySnapshot real stats', () {
+    test('postsThisWeek and publicShowcaseCount only ever count what was really posted', () async {
+      await actAs(SchoolRole.proprietor);
+      await repository.publish(
+        authorName: 'The Owner',
+        title: 'Recent public post',
+        body: 'Shared today.',
+        audience: CommunityAudience.wholeSchool,
+        visibility: CommunityVisibility.publicShowcase,
+      );
+      // A real delay, not a fake clock: publish() ids itself off DateTime.now(), so two posts made back to
+      // back need real time to pass between them to get distinct ids, the same as two real people posting
+      // a moment apart would.
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      await repository.publish(
+        authorName: 'The Owner',
+        title: 'Recent private post',
+        body: 'Shared today too.',
+        audience: CommunityAudience.wholeSchool,
+        visibility: CommunityVisibility.schoolOnly,
+      );
+      final snapshot = await repository.load();
+      expect(snapshot.postsThisWeek, 2);
+      expect(snapshot.publicShowcaseCount, 1);
+    });
+
+    test('commentsThisWeek counts real comments across every real post', () async {
+      await actAs(SchoolRole.teacher);
+      await repository.publish(
+        authorName: 'A Teacher',
+        title: 'A post',
+        body: 'Body',
+        audience: CommunityAudience.wholeSchool,
+        visibility: CommunityVisibility.schoolOnly,
+      );
+      final postId = (await repository.load()).posts.single.id;
+      await repository.comment(postId: postId, text: 'A real comment.');
+      await repository.comment(postId: postId, text: 'Another real comment.');
+      final snapshot = await repository.load();
+      expect(snapshot.commentsThisWeek, 2);
+    });
+  });
 }

@@ -13,6 +13,7 @@ import 'package:schoolos_app/core/media/presentation/media_attachments_panel.dar
 import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/community/data/community_repository.dart';
+import 'package:schoolos_app/features/community/domain/community_models.dart';
 import 'package:schoolos_app/features/community/presentation/community_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
@@ -25,8 +26,9 @@ const otherSchoolModerator = SchoolMembership(id: 'm-owner-2', schoolId: 'school
 const writer = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
 const student = SchoolMembership(id: 'm-student', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.student);
 
-/// "Reception A nature walk highlights" - the demo school's own seeded POST-001, real enough to attach a photo to.
-const _postId = 'POST-001';
+/// A real post, created fresh in [setUpSchool] below rather than relying on any fabricated seed data -
+/// `_postId` is only known once that real post has actually been published.
+late String _postId;
 
 void main() {
   late LocalDatabase db;
@@ -41,8 +43,19 @@ void main() {
     tempRoot = Directory.systemTemp.createTempSync('community_media_test_');
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([moderator, otherSchoolModerator, writer, student]);
-    await session.selectSchool(who);
+    // Published as the moderator regardless of who the test is really acting as below, purely so there is
+    // one real post every test can attach media to - any membership at this school can see it afterward.
+    await session.selectSchool(moderator);
     repository = CommunityRepository(localDatabase: db, schoolSession: session);
+    await repository.publish(
+      authorName: 'Mrs Headmistress',
+      title: 'Reception A nature walk highlights',
+      body: 'The children explored leaves, shapes and sounds around the school garden today.',
+      audience: CommunityAudience.wholeSchool,
+      visibility: CommunityVisibility.schoolOnly,
+    );
+    _postId = (await repository.load()).posts.single.id;
+    await session.selectSchool(who);
     queue = null;
   }
 
@@ -62,11 +75,15 @@ void main() {
     }
   }
 
-  Future<void> pump(WidgetTester tester, {MediaApi? api, SchoolMembership who = moderator}) async {
+  // [apiBuilder] runs after setUpSchool(), not before - a caller whose fake server needs to know the real
+  // _postId (only assigned inside setUpSchool()) must build it lazily, not pass an already-built MediaApi
+  // that would have captured the previous test's stale _postId instead.
+  Future<void> pump(WidgetTester tester, {MediaApi Function()? apiBuilder, SchoolMembership who = moderator}) async {
     tester.view.physicalSize = const Size(1600, 3200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.runAsync(() => setUpSchool(who));
+    final api = apiBuilder?.call();
 
     Widget home = CommunityPage(schoolName: 'BrightGate', repository: repository, onBack: () {}, onCommunityChanged: () {});
     if (api != null) {
@@ -79,9 +96,9 @@ void main() {
   }
 
   /// Every post's own attachments panel uses the same category-based "add" key (options are keyed by category,
-  /// not by owner - see media_attachments_panel.dart), and every seeded post renders its own panel on the one
-  /// scrolling feed at once, so a bare find.byKey would be ambiguous. Scoping to one post's own Container (keyed
-  /// `post-<id>`) finds exactly the one control that post's own card renders.
+  /// not by owner - see media_attachments_panel.dart), so a bare find.byKey would be ambiguous if more than one
+  /// post were ever on the feed at once. Scoping to one post's own Container (keyed `post-<id>`) finds exactly
+  /// the one control that post's own card renders.
   Finder postCard(String id) => find.byKey(ValueKey('post-$id'));
   Finder within(String id, Key key) => find.descendant(of: postCard(id), matching: find.byKey(key));
 
@@ -98,7 +115,7 @@ void main() {
   }
 
   /// [assetsByPost] maps a post id to the assets that post's own attachments panel should list; any post not
-  /// named there (every other seeded post also renders its own panel on the same feed) sees an empty list.
+  /// named there sees an empty list.
   FakeServer serverWithAssets(Map<String, List<Map<String, Object?>>> assetsByPost) => FakeServer((r) async {
         if (r.method == 'GET' && r.url.path.contains('/download/')) {
           final id = r.url.pathSegments[r.url.pathSegments.indexOf('assets') + 1];
@@ -123,14 +140,14 @@ void main() {
     });
 
     testWidgets('with a school server and nothing attached yet, it says so honestly', (tester) async {
-      await pump(tester, api: MediaApi(api: apiFor(serverWithAssets(const {}))));
+      await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets(const {}))));
       expect(within(_postId, const ValueKey('attachments-empty')), findsOneWidget);
       expect(within(_postId, const ValueKey('add-community_attachment')), findsOneWidget);
     });
   });
 
   testWidgets('an existing photo the server already has is shown as available', (tester) async {
-    await pump(tester, api: MediaApi(api: apiFor(serverWithAssets({
+    await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets({
       _postId: [assetJson(id: 'a1', status: 'available')],
     }))));
     expect(within(_postId, const ValueKey('asset-a1')), findsOneWidget);
@@ -285,7 +302,7 @@ void main() {
         }
         return jsonResponse({'assets': retired ? <Object?>[] : [assetJson(id: 'a1')]});
       });
-      await pump(tester, api: MediaApi(api: apiFor(server)), who: moderator);
+      await pump(tester, apiBuilder: () => MediaApi(api: apiFor(server)), who: moderator);
       expect(within(_postId, const ValueKey('retire-a1')), findsOneWidget);
       await tester.tap(within(_postId, const ValueKey('retire-a1')));
       await tester.pumpAndSettle();
@@ -297,7 +314,7 @@ void main() {
 
     testWidgets('a writer who did not upload it, and is not a moderator, has no remove control at all', (tester) async {
       // assetJson's own default uploadedByMembershipId belongs to neither membership below.
-      await pump(tester, api: MediaApi(api: apiFor(serverWithAssets({
+      await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets({
         _postId: [assetJson(id: 'a1')],
       }))), who: writer);
       expect(within(_postId, const ValueKey('asset-a1')), findsOneWidget);
@@ -306,12 +323,12 @@ void main() {
   });
 
   testWidgets('a student cannot post, so there is no attach control on any post either', (tester) async {
-    await pump(tester, api: MediaApi(api: apiFor(serverWithAssets(const {}))), who: student);
+    await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets(const {}))), who: student);
     expect(within(_postId, const ValueKey('add-community_attachment')), findsNothing);
   });
 
   testWidgets('a teacher, an ordinary writer, can still attach a photo to any visible post', (tester) async {
-    await pump(tester, api: MediaApi(api: apiFor(serverWithAssets(const {}))), who: writer);
+    await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets(const {}))), who: writer);
     expect(within(_postId, const ValueKey('add-community_attachment')), findsOneWidget);
   });
 

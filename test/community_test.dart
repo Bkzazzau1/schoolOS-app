@@ -1,27 +1,31 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/community/data/community_demo_data.dart';
+import 'package:schoolos_app/features/community/data/community_policy_copy.dart';
 import 'package:schoolos_app/features/community/domain/community_models.dart';
 
+CommunityPost _post({
+  CommunityAudience audience = CommunityAudience.primary,
+  CommunityVisibility visibility = CommunityVisibility.publicShowcase,
+  List<CommunityComment> comments = const [],
+}) {
+  return CommunityPost(
+    id: 'POST-TEST',
+    author: 'Mrs Headmistress',
+    role: 'Headmistress · Primary',
+    audience: audience,
+    visibility: visibility,
+    title: 'Primary reading week discussion',
+    body: 'What books are your children enjoying this week?',
+    createdAt: DateTime.utc(2026, 9, 18, 12, 20),
+    timeLabel: 'Yesterday · 1:20 PM',
+    reactions: 61,
+    comments: comments,
+    mediaLabel: 'Event photos · 12 items',
+  );
+}
+
 void main() {
-  test('Community seed data matches the website feed', () {
-    expect(communitySeedPosts, hasLength(4));
-    expect(communitySeedPosts.first.id, 'POST-001');
-    expect(communitySeedPosts.first.title, 'Reception A nature walk highlights');
-    expect(communitySeedPosts[1].visibility, CommunityVisibility.publicShowcase);
-    expect(communitySeedPosts[2].audience, CommunityAudience.primary);
-    expect(communitySeedPosts[3].audience, CommunityAudience.jss2A);
-  });
-
-  test('Community KPI values match the website prototype', () {
-    expect(communityMembers, 1084);
-    expect(communityPostsThisWeek, 46);
-    expect(communityCommentsThisWeek, 183);
-    expect(communityPublicShowcaseCount, 7);
-    expect(communityReportsAwaitingReview, 2);
-  });
-
   test('Community post filtering searches content and audience', () {
-    final post = communitySeedPosts[2];
+    final post = _post();
     expect(post.matches('reading', null), isTrue);
     expect(post.matches('guardian', null), isFalse);
     expect(post.matches('', CommunityAudience.primary), isTrue);
@@ -29,7 +33,13 @@ void main() {
   });
 
   test('Community post serialization preserves moderation-relevant fields', () {
-    final original = communitySeedPosts[1];
+    final comment = CommunityComment(
+      id: 'POST-TEST-C1',
+      author: 'Mr Principal',
+      text: 'Well done to all four houses for excellent sportsmanship.',
+      createdAt: DateTime.utc(2026, 9, 18, 15, 30),
+    );
+    final original = _post(comments: [comment]);
     final restored = CommunityPost.fromJson(original.toJson());
 
     expect(restored.id, original.id);
