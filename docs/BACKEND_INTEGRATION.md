@@ -2754,3 +2754,59 @@ defaults refuse rather than pretend to send, the default provider is the honest 
 `use_sms_provider`/`use_email_provider` override only for the duration of their own block); `apps.administration`
 together (17/17); full backend suite unaffected (this module is not called from anywhere yet, so there was
 nothing else for it to affect).
+
+## The Principal Communication Hub's reply-thread inbox becomes real (last of the four named gaps)
+
+The fourth and last named gap. Scoped, as asked, to staff/leadership threads only - a manager replying into one
+specific real guardian's own `parent_message` thread from this same inbox stays out of this pass.
+
+**What was actually wrong.** `threads` was always `const []` in production, so two things were true at once:
+the inbox was honestly empty (nothing fabricated reached the screen), but `_ThreadCard` still unconditionally
+rendered two hardcoded fake `_MessageBubble`s ("School · 9:54 AM", "We are following up regarding the recent
+school matter...") for whatever thread *did* get selected. That fabrication was dormant only because `threads`
+never actually produced a thread to select - it would have sprung to life the moment a real one appeared, which
+this pass now does.
+
+**Design.** The inbox now reads the exact same real `teacher_leadership_message` threads
+(`apps/schoollife/messaging/teacher_channels.py: TeacherLeadershipMessageHandler`) that Teacher Messages' own
+leadership channel already writes into - the reply surface that pass deliberately deferred here rather than
+duplicating. `PrincipalCommunicationRepository._leadershipThreads` groups every real message by `threadId` and
+only lists a thread that has at least one real message in it: "an inbox shows what was really sent," the same
+shape every other real messaging screen in this app already uses, not a proactive "every teacher" roster the way
+Transport Control's driver panel is (every teacher is a potential sender here, not a fleet this office actively
+manages). `_teacherNamesByMembershipId` cross-references the real staff directory and real staff profiles the
+exact way `TransportRepository.loadDriverAssignments` already does for real driver names, so a thread shows the
+real teacher's real name rather than a bare membership id. `queueReply` now genuinely writes into the real
+thread (`{id, threadId, body}` wire payload; `authorRole`/`authorMembershipId`/`createdAt` always server-stamped,
+never trusted from the app) instead of the unregistered, read-only `principal_outgoing_communication` log it used
+before, and a new `markThreadSeen` records this Principal's own real receipt, reusing the generic
+`teacher_channel_receipts.dart` helper Teacher Messages' own channels already share. `PrincipalCommunicationThread`
+gained a `messages` field to carry this real history; `_ThreadCard`'s fabricated bubbles were deleted and replaced
+with a real loop over it, with an honest "No messages yet." empty state, and the now-dead `queuedReplies` plumbing
+(which read from a path `queueReply` no longer writes to at all) was removed rather than left behind unused.
+
+**A real bug found and fixed while writing the refusal test.** `queueReply` validated a thread id by checking
+only that it *started with* `leadership-thread-`, not that it named a thread that actually existed - so a forged
+id like `leadership-thread-ghost` passed that check and queued a message into thin air. Every sibling repository
+that routes a reply by thread id (`TeacherMessagesRepository.queueMessage`, `TeacherFamilyMessagesRepository`,
+driver/transport) already validates against the real, already-loaded list of threads a caller is actually part
+of; this one didn't, because the inbox had no real threads to check against until this same pass built them.
+Fixed by validating the id against `_leadershipThreads(membership)` itself, so only a thread with at least one
+real message in it can be replied to.
+
+**Verification.** App: `dart analyze` clean; `test/principal_communication_feature_test.dart` extended with a new
+`school leadership reply-thread inbox` group (6 new tests: an inbox with no real leadership messages stays
+honestly empty, a real teacher's leadership message really reaches the Principal's own inbox, the Principal's own
+reply really reaches the real teacher's own Teacher Messages thread, a real teacher message makes the thread
+unread for the Principal until marked seen, a thread shows the real teacher's real name from the real staff
+directory, and a non-principal cannot reply while a reply to an unknown thread is refused - the test that caught
+the prefix-only validation bug above). Full file: 21/21 (15 pre-existing unaffected, 6 new). Full app suite: the
+same 83 pre-existing failures as before this work, by name. No backend change was needed - this pass only wired
+the app to entities `apps/schoollife/messaging/teacher_channels.py` already shipped.
+
+This completes every item the user named: real read-receipt/unread tracking across Parent Messages, Teacher
+Family Messages, Driver Messages and Transport Control; Teacher Messages' staff/leadership channels; the
+pluggable SMS/email delivery architecture; and now the Communication Hub's own reply-thread inbox. What remains
+honestly unbuilt, by design, stays labelled rather than faked: a manager replying into an individual guardian's
+own thread from this same screen, real SMS/email/WhatsApp delivery to a resolved audience, and follow-ups (still
+`const []`, already labelled "Not available yet").
