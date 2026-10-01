@@ -34,6 +34,31 @@ class AssemblySession {
   final String participation;
   final String note;
 
+  AssemblySession copyWith({
+    String? title,
+    AssemblySessionType? type,
+    String? audience,
+    String? day,
+    String? time,
+    String? venue,
+    String? lead,
+    String? participation,
+    String? note,
+  }) {
+    return AssemblySession(
+      id: id,
+      title: title ?? this.title,
+      type: type ?? this.type,
+      audience: audience ?? this.audience,
+      day: day ?? this.day,
+      time: time ?? this.time,
+      venue: venue ?? this.venue,
+      lead: lead ?? this.lead,
+      participation: participation ?? this.participation,
+      note: note ?? this.note,
+    );
+  }
+
   bool matches(String query, AssemblySessionType? typeFilter) {
     final normalized = query.trim().toLowerCase();
     final haystack = '$title $audience $lead'.toLowerCase();
@@ -78,7 +103,8 @@ class AssemblyStat {
 }
 
 class AssemblyPermissions {
-  const AssemblyPermissions({required this.canConfigureSchoolWide});
+  const AssemblyPermissions({required this.canCreate, required this.canManageAll});
 
-  final bool canConfigureSchoolWide;
+  final bool canCreate;
+  final bool canManageAll;
 }

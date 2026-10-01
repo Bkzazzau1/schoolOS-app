@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/assembly_demo_data.dart';
+import '../data/assembly_policy_copy.dart';
 import '../data/assembly_repository.dart';
 import '../domain/assembly_models.dart';
 
@@ -26,6 +26,7 @@ class _AssemblyPageState extends State<AssemblyPage> {
   AssemblySessionType? _typeFilter;
   bool _loading = true;
   String? _error;
+  String _message = '';
 
   @override
   void initState() {
@@ -58,6 +59,139 @@ class _AssemblyPageState extends State<AssemblyPage> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _addSession() async {
+    final result = await _sessionDialog(title: 'Add assembly session');
+    if (result == null) return;
+    final outcome = await widget.repository.create(
+      title: result.title,
+      type: result.type,
+      audience: result.audience,
+      day: result.day,
+      time: result.time,
+      venue: result.venue,
+      lead: result.lead,
+      participation: result.participation,
+      note: result.note,
+    );
+    if (outcome.success) await _load();
+    if (!mounted) return;
+    setState(() => _message = outcome.message);
+  }
+
+  Future<void> _editSession(AssemblySession session) async {
+    final result = await _sessionDialog(title: 'Edit ${session.title}', initial: session);
+    if (result == null) return;
+    final outcome = await widget.repository.edit(
+      id: session.id,
+      title: result.title,
+      type: result.type,
+      audience: result.audience,
+      day: result.day,
+      time: result.time,
+      venue: result.venue,
+      lead: result.lead,
+      participation: result.participation,
+      note: result.note,
+    );
+    if (outcome.success) await _load();
+    if (!mounted) return;
+    setState(() => _message = outcome.message);
+  }
+
+  Future<
+      ({
+        String title,
+        AssemblySessionType type,
+        String audience,
+        String day,
+        String time,
+        String venue,
+        String lead,
+        String participation,
+        String note,
+      })?> _sessionDialog({required String title, AssemblySession? initial}) async {
+    final titleController = TextEditingController(text: initial?.title ?? '');
+    final audienceController = TextEditingController(text: initial?.audience ?? '');
+    final dayController = TextEditingController(text: initial?.day ?? '');
+    final timeController = TextEditingController(text: initial?.time ?? '');
+    final venueController = TextEditingController(text: initial?.venue ?? '');
+    final leadController = TextEditingController(text: initial?.lead ?? '');
+    final participationController = TextEditingController(text: initial?.participation ?? '');
+    final noteController = TextEditingController(text: initial?.note ?? '');
+    var type = initial?.type ?? AssemblySessionType.generalAssembly;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Session title')),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<AssemblySessionType>(
+                    initialValue: type,
+                    decoration: const InputDecoration(labelText: 'Type'),
+                    items: [for (final t in AssemblySessionType.values) DropdownMenuItem(value: t, child: Text(t.label))],
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => type = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(controller: audienceController, decoration: const InputDecoration(labelText: 'Audience')),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: TextField(controller: dayController, decoration: const InputDecoration(labelText: 'Day'))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: timeController, decoration: const InputDecoration(labelText: 'Time'))),
+                  ]),
+                  const SizedBox(height: 12),
+                  TextField(controller: venueController, decoration: const InputDecoration(labelText: 'Venue')),
+                  const SizedBox(height: 12),
+                  TextField(controller: leadController, decoration: const InputDecoration(labelText: 'Lead')),
+                  const SizedBox(height: 12),
+                  TextField(controller: participationController, decoration: const InputDecoration(labelText: 'Participation')),
+                  const SizedBox(height: 12),
+                  TextField(controller: noteController, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Note')),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+
+    final values = (
+      title: titleController.text,
+      type: type,
+      audience: audienceController.text,
+      day: dayController.text,
+      time: timeController.text,
+      venue: venueController.text,
+      lead: leadController.text,
+      participation: participationController.text,
+      note: noteController.text,
+    );
+    titleController.dispose();
+    audienceController.dispose();
+    dayController.dispose();
+    timeController.dispose();
+    venueController.dispose();
+    leadController.dispose();
+    participationController.dispose();
+    noteController.dispose();
+    if (confirmed != true) return null;
+    return values;
   }
 
   List<AssemblySession> get _visibleSessions {
@@ -135,6 +269,8 @@ class _AssemblyPageState extends State<AssemblyPage> {
                     ],
                   ),
                 ),
+                if (snapshot.permissions.canCreate)
+                  FilledButton.icon(onPressed: _addSession, icon: const Icon(Icons.add_rounded), label: const Text('Add session')),
               ],
             ),
             const SizedBox(height: 14),
@@ -142,6 +278,10 @@ class _AssemblyPageState extends State<AssemblyPage> {
               'Plan whole-school and section assemblies, civic programmes, wellbeing gatherings and optional faith/religious activities without assuming every school follows the same model.',
               style: theme.textTheme.bodyMedium,
             ),
+            if (_message.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(_message, style: theme.textTheme.bodySmall),
+            ],
             const SizedBox(height: 20),
             Wrap(
               spacing: 12,
@@ -158,6 +298,9 @@ class _AssemblyPageState extends State<AssemblyPage> {
             if (compact) ...[
               _SessionList(
                 sessions: _visibleSessions,
+                hasAnySessions: snapshot.sessions.isNotEmpty,
+                canManageAll: snapshot.permissions.canManageAll,
+                onEdit: _editSession,
                 searchController: _searchController,
                 typeFilter: _typeFilter,
                 onQueryChanged: (_) => setState(() {}),
@@ -172,6 +315,9 @@ class _AssemblyPageState extends State<AssemblyPage> {
                     flex: 7,
                     child: _SessionList(
                       sessions: _visibleSessions,
+                      hasAnySessions: snapshot.sessions.isNotEmpty,
+                      canManageAll: snapshot.permissions.canManageAll,
+                      onEdit: _editSession,
                       searchController: _searchController,
                       typeFilter: _typeFilter,
                       onQueryChanged: (_) => setState(() {}),
@@ -228,6 +374,9 @@ class _StatCard extends StatelessWidget {
 class _SessionList extends StatelessWidget {
   const _SessionList({
     required this.sessions,
+    required this.hasAnySessions,
+    required this.canManageAll,
+    required this.onEdit,
     required this.searchController,
     required this.typeFilter,
     required this.onQueryChanged,
@@ -235,6 +384,9 @@ class _SessionList extends StatelessWidget {
   });
 
   final List<AssemblySession> sessions;
+  final bool hasAnySessions;
+  final bool canManageAll;
+  final ValueChanged<AssemblySession> onEdit;
   final TextEditingController searchController;
   final AssemblySessionType? typeFilter;
   final ValueChanged<String> onQueryChanged;
@@ -314,13 +466,22 @@ class _SessionList extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             if (sessions.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 30),
-                child: Center(child: Text('No sessions match these filters.')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                child: Center(
+                  child: Text(
+                    hasAnySessions
+                        ? 'No sessions match these filters.'
+                        : 'No assembly sessions yet. Add the first one above.',
+                  ),
+                ),
               )
             else
               for (final session in sessions) ...[
-                _SessionCard(session: session),
+                _SessionCard(
+                  session: session,
+                  onEdit: canManageAll ? () => onEdit(session) : null,
+                ),
                 const SizedBox(height: 10),
               ],
           ],
@@ -331,9 +492,10 @@ class _SessionList extends StatelessWidget {
 }
 
 class _SessionCard extends StatelessWidget {
-  const _SessionCard({required this.session});
+  const _SessionCard({required this.session, this.onEdit});
 
   final AssemblySession session;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -393,6 +555,8 @@ class _SessionCard extends StatelessWidget {
               ],
             ),
           ),
+          if (onEdit != null)
+            IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 20), tooltip: 'Edit session'),
         ],
       ),
     );
