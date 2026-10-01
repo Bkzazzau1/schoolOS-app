@@ -3504,3 +3504,41 @@ unlike every other Spec in this cluster - cannot create a draft here; `addDraft(
 draft that always starts `internalOnly` and refuses a role outside leaders/contribute or a blank
 title/recipient). All 14 Awards tests pass; full app suite back to the same 83 pre-existing failures as before
 this work, by name.
+
+## Boarding & Hostel gets a real create/edit flow, with two different real permission sets
+
+Second of Tier 2, and like Houses/Assembly, `BoardingRepository` had no create method at all - only
+`load()` and `toggleHandoverReview()` - so removing its seeded three dorms would have left the screen
+permanently unable to add a real one. The real Spec (`BOARDING = Spec("boarding_dorm", manage=MANAGERS,
+read=STAFF_SIDE, id_field=None, required=("name",), guarded={"handoverReviewed": LEADERS}, ...)` in
+`apps/schoollife/specs/campus.py`) carries two genuinely different permission sets in one record: `MANAGERS`
+(proprietor, principal, administrator) may manage the dorm record itself, but the *guarded* `handoverReviewed`
+field can only be changed by the narrower `LEADERS` (proprietor, principal - administrator excluded) -
+`permissionsFor` previously granted the single `canReviewHandover` flag to the proprietor alone, conflating both
+concerns into one role. `read=STAFF_SIDE` (not the usual `EVERYONE`) is already satisfied by navigation alone:
+`BoardingPage` is only reachable from the Proprietor and Staff workspaces, confirmed by searching every other
+role's workspace file for a route to it - nothing needed changing there.
+
+**Design.** `BoardingPermissions` now carries two real flags: `canManageAll` (`MANAGERS`, gating a new
+`create()`/`edit()` pair mirroring Houses' shape) and `canReviewHandover` (`LEADERS`, unchanged in scope but now
+correctly excluding administrator). A new dorm starts at `occupied: 0, onCampus: 0, approvedLeave: 0,
+maintenance: 0, handoverReviewed: false` - honest zeros, not an invented headcount; `edit()` lets a manager adjust
+every number by hand, since nothing in the app tracks a real student-to-dorm assignment that could compute them
+automatically (the same reasoning Houses' points and Meals' servings already established). The entity id stays
+derived from the dorm's name (`id_field=None` on the real Spec - the id isn't a payload field at all), so renaming
+a dorm is deliberately not supported by `copyWith` - it would really be creating a new record, not changing an
+existing one. `boardingStats()` was already fully computed from a real `dorms` argument (no fixed constants to
+remove) - only the seed itself was fabricated, plus one misleading label ("Sample residents" on dorm occupancy,
+now "Across all real dorms"). The "disabled-state preview" toggle is left exactly as it was: an honestly-labeled
+("Preview only. Your school settings have not changed.") local UI demonstration of what the screen looks like
+with boarding off, never data about this school, so it was never a fabrication issue. `boarding_demo_data.dart` is
+renamed `boarding_policy_copy.dart`.
+
+**Verification.** `flutter analyze` clean. `test/boarding_test.dart`: the seed-preservation test was removed;
+occupancy totals, search, serialization and stats tests rewritten against inline fixtures; a new `copyWith` test
+confirms the dorm's name identity never changes. New `test/boarding_repository_test.dart` (10 tests - a fresh
+school's `load()` is genuinely empty; `permissionsFor` matches both real role sets exactly, including that
+administrator can manage dorms but not review a handover; `create()` adds a real dorm at honest zeros, refuses a
+non-manager, and refuses a duplicate name; `edit()` really updates hand-maintained totals; `toggleHandoverReview()`
+refuses administrator and allows a real leader). All 15 Boarding tests pass; full app suite back to the same 83
+pre-existing failures as before this work, by name.
