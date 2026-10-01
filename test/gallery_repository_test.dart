@@ -95,15 +95,38 @@ void main() {
   });
 
   group('load', () {
-    test('offers real academic terms and classes alongside the seeded albums', () async {
+    test('a fresh school sees a genuinely empty gallery, never fabricated albums', () async {
       await actAs(SchoolRole.proprietor);
       final snapshot = await repository.load();
-      expect(snapshot.items, isNotEmpty);
+      expect(snapshot.items, isEmpty);
+      // The real academic structure is still offered even with no albums yet - a school needs it
+      // to create the first one.
       expect(snapshot.availableTerms, isNotEmpty);
       expect(snapshot.availableClasses, isNotEmpty);
-      expect(snapshot.items.every((item) => item.hasCanonicalTerm), isTrue);
-      // The Robotics Showcase album is literally "the album in the excursion".
-      final robotics = snapshot.items.firstWhere((item) => item.id == 'GAL-003');
+    });
+
+    test('a real created album is always tied to a real term, not free text', () async {
+      await actAs(SchoolRole.proprietor);
+      final snapshot = await repository.load();
+      final term = snapshot.availableTerms.first;
+      final session_ = snapshot.availableSessions.firstWhere((s) => s.id == term.sessionId);
+      await repository.createAlbum(
+        title: 'Robotics Showcase',
+        album: 'Coding & Robotics',
+        owner: 'ICT Department',
+        date: '18 Sep 2026',
+        count: 19,
+        visibility: GalleryVisibility.internal,
+        consent: '',
+        note: '',
+        term: term,
+        session: session_,
+        excursionId: 'TRIP-004',
+        excursionTitle: 'Robotics Inter-School Showcase',
+      );
+      // The album is literally "the album in the excursion".
+      final robotics = (await repository.load()).items.single;
+      expect(robotics.hasCanonicalTerm, isTrue);
       expect(robotics.excursionId, 'TRIP-004');
     });
   });

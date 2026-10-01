@@ -25,8 +25,9 @@ const otherSchoolManager = SchoolMembership(id: 'm-owner-2', schoolId: 'school-2
 const teacherContributor = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
 const parent = SchoolMembership(id: 'm-parent', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.parent);
 
-/// "Science Discovery Trip" - the demo school's own seeded TRIP-001, real enough to attach evidence to.
-const _tripId = 'TRIP-001';
+/// A real trip, created fresh in [setUpSchool] below rather than relying on any fabricated seed
+/// data - `_tripId` is only known once that real trip has actually been created.
+late String _tripId;
 
 void main() {
   late LocalDatabase db;
@@ -41,8 +42,27 @@ void main() {
     tempRoot = Directory.systemTemp.createTempSync('excursion_media_test_');
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([manager, otherSchoolManager, teacherContributor, parent]);
-    await session.selectSchool(who);
+    // Created as the manager regardless of who the test is really acting as below, purely so
+    // there is one real trip every test can attach evidence to.
+    await session.selectSchool(manager);
     repository = ExcursionRepository(localDatabase: db, schoolSession: session);
+    final snapshot = await repository.load();
+    final term = snapshot.availableTerms.first;
+    final academicSession = snapshot.availableSessions.firstWhere((s) => s.id == term.sessionId);
+    await repository.createTrip(
+      title: 'Science Discovery Trip',
+      date: '26 Sep 2026',
+      destination: 'Kaduna Science Centre',
+      coordinator: 'Science Department',
+      students: 86,
+      transport: '2 school buses',
+      emergency: 'Manifest + emergency contacts pending final review',
+      note: 'Science learning visit with supervised groups and guardian approval.',
+      term: term,
+      session: academicSession,
+    );
+    _tripId = (await repository.load()).trips.single.id;
+    await session.selectSchool(who);
     queue = null;
   }
 
@@ -62,11 +82,15 @@ void main() {
     }
   }
 
-  Future<void> pump(WidgetTester tester, {MediaApi? api, SchoolMembership who = manager}) async {
+  // [apiBuilder] runs after setUpSchool(), not before - a caller whose fake server needs to know
+  // the real _tripId (only assigned inside setUpSchool()) must build it lazily, not pass an
+  // already-built MediaApi that would have captured the previous test's stale _tripId instead.
+  Future<void> pump(WidgetTester tester, {MediaApi Function()? apiBuilder, SchoolMembership who = manager}) async {
     tester.view.physicalSize = const Size(1600, 3200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.runAsync(() => setUpSchool(who));
+    final api = apiBuilder?.call();
 
     Widget home = ExcursionsPage(schoolName: 'BrightGate', repository: repository, onBack: () {});
     if (api != null) {
@@ -79,9 +103,9 @@ void main() {
   }
 
   /// Every trip's own attachments panel uses the same category-based "add" key (options are keyed by category,
-  /// not by owner - see media_attachments_panel.dart), and every seeded trip renders its own panel on the one
-  /// scrolling register at once, so a bare find.byKey would be ambiguous. Scoping to one trip's own Container
-  /// (keyed `trip-<id>`) finds exactly the one control that trip's own card renders.
+  /// not by owner - see media_attachments_panel.dart), so a bare find.byKey would be ambiguous if more than one
+  /// trip were ever on the register at once. Scoping to one trip's own Container (keyed `trip-<id>`) finds
+  /// exactly the one control that trip's own card renders.
   Finder tripCard(String id) => find.byKey(ValueKey('trip-$id'));
   Finder within(String id, Key key) => find.descendant(of: tripCard(id), matching: find.byKey(key));
 
@@ -98,7 +122,7 @@ void main() {
   }
 
   /// [assetsByTrip] maps a trip id to the assets that trip's own attachments panel should list; any trip not
-  /// named there (every other seeded trip also renders its own panel on the same register) sees an empty list.
+  /// named there sees an empty list.
   FakeServer serverWithAssets(Map<String, List<Map<String, Object?>>> assetsByTrip) => FakeServer((r) async {
         if (r.method == 'GET' && r.url.path.contains('/download/')) {
           final id = r.url.pathSegments[r.url.pathSegments.indexOf('assets') + 1];
@@ -123,14 +147,14 @@ void main() {
     });
 
     testWidgets('with a school server and nothing attached yet, it says so honestly', (tester) async {
-      await pump(tester, api: MediaApi(api: apiFor(serverWithAssets(const {}))));
+      await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets(const {}))));
       expect(within(_tripId, const ValueKey('attachments-empty')), findsOneWidget);
       expect(within(_tripId, const ValueKey('add-excursion_evidence')), findsOneWidget);
     });
   });
 
   testWidgets('existing evidence the server already has is shown as available', (tester) async {
-    await pump(tester, api: MediaApi(api: apiFor(serverWithAssets({
+    await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets({
       _tripId: [assetJson(id: 'a1', status: 'available')],
     }))));
     expect(within(_tripId, const ValueKey('asset-a1')), findsOneWidget);
@@ -283,7 +307,7 @@ void main() {
         }
         return jsonResponse({'assets': retired ? <Object?>[] : [assetJson(id: 'a1')]});
       });
-      await pump(tester, api: MediaApi(api: apiFor(server)), who: manager);
+      await pump(tester, apiBuilder: () => MediaApi(api: apiFor(server)), who: manager);
       expect(within(_tripId, const ValueKey('retire-a1')), findsOneWidget);
       await tester.tap(within(_tripId, const ValueKey('retire-a1')));
       await tester.pumpAndSettle();
@@ -295,7 +319,7 @@ void main() {
 
     testWidgets('a contributor who did not upload it, and is not a manager, has no remove control at all', (tester) async {
       // assetJson's own default uploadedByMembershipId belongs to neither membership below.
-      await pump(tester, api: MediaApi(api: apiFor(serverWithAssets({
+      await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets({
         _tripId: [assetJson(id: 'a1')],
       }))), who: teacherContributor);
       expect(within(_tripId, const ValueKey('asset-a1')), findsOneWidget);
@@ -304,12 +328,12 @@ void main() {
   });
 
   testWidgets('a parent cannot create or edit a trip, so there is no attach control on any trip either', (tester) async {
-    await pump(tester, api: MediaApi(api: apiFor(serverWithAssets(const {}))), who: parent);
+    await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets(const {}))), who: parent);
     expect(within(_tripId, const ValueKey('add-excursion_evidence')), findsNothing);
   });
 
   testWidgets('a teacher, an ordinary contributor, can still attach evidence to any visible trip', (tester) async {
-    await pump(tester, api: MediaApi(api: apiFor(serverWithAssets(const {}))), who: teacherContributor);
+    await pump(tester, apiBuilder: () => MediaApi(api: apiFor(serverWithAssets(const {}))), who: teacherContributor);
     expect(within(_tripId, const ValueKey('add-excursion_evidence')), findsOneWidget);
   });
 

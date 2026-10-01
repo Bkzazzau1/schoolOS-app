@@ -11,6 +11,7 @@ import 'package:schoolos_app/features/events/domain/event_models.dart';
 import 'package:schoolos_app/features/excursions/data/excursion_repository.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_ledger_repository.dart';
 import 'package:schoolos_app/features/gallery/data/gallery_repository.dart';
+import 'package:schoolos_app/features/gallery/domain/gallery_models.dart';
 import 'package:schoolos_app/features/meals/data/meal_repository.dart';
 import 'package:schoolos_app/features/meals/domain/meal_models.dart';
 import 'package:schoolos_app/features/parent/data/parent_children_repository.dart';
@@ -188,10 +189,44 @@ void main() {
 
   test('excursions and albums reach a family only through the child\'s own real class', () async {
     await setUpFamily();
-    final snapshot = await schoolLife.load();
+    await session.selectSchool(proprietor);
+    final excursions = ExcursionRepository(localDatabase: db!, schoolSession: session);
+    final gallery = GalleryRepository(localDatabase: db!, schoolSession: session);
+    final excursionSnapshot = await excursions.load();
+    final term = excursionSnapshot.availableTerms.first;
+    final excursionSession = excursionSnapshot.availableSessions.firstWhere((s) => s.id == term.sessionId);
+    // Maryam is really seeded in JSS 2A, so a real trip and a real album tied to that same class
+    // should reach her.
+    final academicClass = excursionSnapshot.availableClasses.firstWhere((c) => c.name == 'JSS 2A');
+    await excursions.createTrip(
+      title: 'Science Discovery Trip',
+      date: '26 Sep 2026',
+      destination: 'Kaduna Science Centre',
+      coordinator: 'Science Department',
+      students: 86,
+      transport: '2 school buses',
+      emergency: 'Ready',
+      note: '',
+      term: term,
+      session: excursionSession,
+      academicClass: academicClass,
+    );
+    await gallery.createAlbum(
+      title: 'Science Discovery Trip Album',
+      album: 'Science Discovery Trip',
+      owner: 'Science Department',
+      date: '27 Sep 2026',
+      count: 22,
+      visibility: GalleryVisibility.parents,
+      consent: 'Checked',
+      note: '',
+      term: term,
+      session: excursionSession,
+      academicClass: academicClass,
+    );
+    await session.selectSchool(parent);
 
-    // Maryam is really seeded in JSS 2A, and the Science Discovery Trip and its
-    // album are really linked to that same class - so she sees both.
+    final snapshot = await schoolLife.load();
     expect(snapshot.excursions.map((e) => e.title), contains('Science Discovery Trip'));
     final trip = snapshot.excursions.firstWhere((e) => e.title == 'Science Discovery Trip');
     expect(trip.childName, 'Maryam Abdullahi');
@@ -200,21 +235,49 @@ void main() {
     expect(album.childName, 'Maryam Abdullahi');
 
     // Hafsa is really seeded in Primary 3, which has no real trip or album
-    // linked to it yet, so neither list ever names her - not even the trips
-    // whose free-text label merely sounds close, like "Primary 6".
+    // linked to it, so neither list ever names her.
     expect(snapshot.excursions.where((e) => e.childName == 'Hafsa Abdullahi'), isEmpty);
     expect(snapshot.albums.where((a) => a.childName == 'Hafsa Abdullahi'), isEmpty);
   });
 
   test('a trip or album with no single-class link never reaches a family here', () async {
     await setUpFamily();
-    final snapshot = await schoolLife.load();
+    await session.selectSchool(proprietor);
+    final excursions = ExcursionRepository(localDatabase: db!, schoolSession: session);
+    final gallery = GalleryRepository(localDatabase: db!, schoolSession: session);
+    final excursionSnapshot = await excursions.load();
+    final term = excursionSnapshot.availableTerms.first;
+    final excursionSession = excursionSnapshot.availableSessions.firstWhere((s) => s.id == term.sessionId);
+    // A club trip/album - real and parent-visible in general, but tied to no single real class.
+    await excursions.createTrip(
+      title: 'Robotics Inter-School Showcase',
+      date: '15 Oct 2026',
+      destination: 'Innovation Hub',
+      coordinator: 'Mr. Samuel Ter',
+      students: 18,
+      transport: 'School minibus',
+      emergency: 'Ready',
+      note: '',
+      term: term,
+      session: excursionSession,
+    );
+    await gallery.createAlbum(
+      title: 'Inter-House Sports Highlights',
+      album: 'Sports Day',
+      owner: 'Sports Committee',
+      date: '20 Sep 2026',
+      count: 48,
+      visibility: GalleryVisibility.parents,
+      consent: 'Checked',
+      note: '',
+      term: term,
+      session: excursionSession,
+    );
+    await session.selectSchool(parent);
 
-    // The Robotics club trip/album and the whole-school Sports Day album are
-    // real and parent-visible in general, but none names one specific class,
-    // so School Life - which only ever shows "your child's own class" - never
-    // lists them, even though nothing here claims a family can't see them
-    // anywhere at all.
+    final snapshot = await schoolLife.load();
+    // School Life only ever shows "your child's own class", so a trip/album with no single-class
+    // link never appears here, even though nothing here claims a family can't see it anywhere at all.
     expect(snapshot.excursions.map((e) => e.title), isNot(contains('Robotics Inter-School Showcase')));
     expect(snapshot.albums.map((a) => a.title), isNot(contains('Inter-House Sports Highlights')));
   });

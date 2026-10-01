@@ -6,6 +6,7 @@ import 'package:schoolos_app/core/media/media_upload_queue.dart';
 import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/gallery/data/gallery_repository.dart';
+import 'package:schoolos_app/features/gallery/domain/gallery_models.dart';
 import 'package:schoolos_app/features/gallery/presentation/gallery_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
@@ -28,6 +29,23 @@ void main() {
     await session.selectSchool(teacher);
     repository = GalleryRepository(localDatabase: db, schoolSession: session);
     queue = null;
+    // A real album, so these tests have something real to open - without this, the gallery is
+    // honestly empty and none of the "open-album-" assertions below would find anything.
+    final snapshot = await repository.load();
+    final term = snapshot.availableTerms.first;
+    final academicSession = snapshot.availableSessions.firstWhere((s) => s.id == term.sessionId);
+    await repository.createAlbum(
+      title: 'Robotics Showcase',
+      album: 'Coding & Robotics',
+      owner: 'ICT Department',
+      date: '18 Sep 2026',
+      count: 19,
+      visibility: GalleryVisibility.internal,
+      consent: '',
+      note: '',
+      term: term,
+      session: academicSession,
+    );
   });
 
   tearDown(() {

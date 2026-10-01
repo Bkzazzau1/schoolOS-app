@@ -95,15 +95,36 @@ void main() {
   });
 
   group('load', () {
-    test('offers real academic terms and classes alongside the seeded trips', () async {
+    test('a fresh school sees a genuinely empty trip register, never fabricated trips', () async {
       await actAs(SchoolRole.proprietor);
       final snapshot = await repository.load();
-      expect(snapshot.trips, isNotEmpty);
+      expect(snapshot.trips, isEmpty);
+      // The real academic structure is still offered even with no trips yet - a school needs it
+      // to create the first one.
       expect(snapshot.availableTerms, isNotEmpty);
       expect(snapshot.availableClasses, isNotEmpty);
       expect(snapshot.availableSessions, isNotEmpty);
-      // Every seeded trip is tied to a real term, not a free-text label.
-      expect(snapshot.trips.every((trip) => trip.hasCanonicalTerm), isTrue);
+    });
+
+    test('a real created trip is always tied to a real term, not a free-text label', () async {
+      await actAs(SchoolRole.proprietor);
+      final snapshot = await repository.load();
+      final term = snapshot.availableTerms.first;
+      final session_ = snapshot.availableSessions.firstWhere((s) => s.id == term.sessionId);
+      await repository.createTrip(
+        title: 'Science Discovery Trip',
+        date: '26 Sep 2026',
+        destination: 'Science Centre',
+        coordinator: 'Science Department',
+        students: 10,
+        transport: '1 bus',
+        emergency: 'Ready',
+        note: '',
+        term: term,
+        session: session_,
+      );
+      final trip = (await repository.load()).trips.single;
+      expect(trip.hasCanonicalTerm, isTrue);
     });
   });
 
@@ -189,6 +210,21 @@ void main() {
   group('toggleReadinessReview', () {
     test('a principal can toggle readiness but an administrator cannot', () async {
       await actAs(SchoolRole.proprietor);
+      final snapshot = await repository.load();
+      final term = snapshot.availableTerms.first;
+      final session_ = snapshot.availableSessions.firstWhere((s) => s.id == term.sessionId);
+      await repository.createTrip(
+        title: 'Science Discovery Trip',
+        date: '26 Sep 2026',
+        destination: 'Science Centre',
+        coordinator: 'Science Department',
+        students: 10,
+        transport: '1 bus',
+        emergency: 'Ready',
+        note: '',
+        term: term,
+        session: session_,
+      );
       final tripId = (await repository.load()).trips.first.id;
 
       await actAs(SchoolRole.administrator);
