@@ -3396,3 +3396,37 @@ the fix was to the test: it now explicitly sets a real meal for today's weekday 
 asserting the family sees it, and a new, separate test confirms the honest "Not recorded yet" default on a fresh
 school with nothing configured. Full app suite back to the same 83 pre-existing failures as before this work, by
 name.
+
+## Activities, Clubs & Sports stops fabricating its directory and its own KPI grid
+
+Fifth of the 14-directory cluster. Like Meals, `ActivityRepository` already had real write paths -
+`addActivity()` and `updateAttendance()` - so this was a seed-removal-and-cleanup fix, not a Houses-style
+from-scratch build. The real Spec (`ACTIVITIES = Spec("school_activity", manage=MANAGERS,
+contribute={"teacher"}, required=("name",))` in `apps/schoollife/specs/programmes.py`) carries the same
+manage/contribute shape Assembly's `ASSEMBLY` Spec does, but `permissionsFor` only ever exposed a single
+`canManageAll` flag gating both creation and attendance-taking at proprietor only - collapsing two different real
+permissions into one and ignoring `contribute` entirely, so a teacher could never add a programme even though the
+real backend would let them. `activity_demo_data.dart`'s `activityStats` was a flat, fully disconnected
+`Map<String, String>` - "Active programmes": "18" bore no relationship to the six seeded activities at all (not
+even internally consistent with its own fabricated data), and "Upcoming sessions": "6" had no real source
+anywhere in the app.
+
+**Design.** `ActivityPermissions` gained a real `canCreate` (manage ∪ contribute), separate from `canManageAll`
+(manage only, gating `updateAttendance()` - kept manager-only for the same reason as Assembly's edit action: no
+per-record ownership is tracked client-side, so "a contributor may only change their own" stays a backend-only
+guarantee). The "Add activity" button now checks `canCreate` instead of `canManageAll`, so a teacher really can
+add a programme, matching the backend exactly. `activityStats` became a function computing from real `activities`
+- active programme count, total participation entries, and distinct programme types in use - dropping "Upcoming
+sessions" outright (no real schedule-of-future-sessions concept exists) and keeping "Dedicated workflows: 2" as
+the one genuinely static entry (a fact about the app's structure - Houses and Excursions are separate workflows -
+not data about this school). `activity_demo_data.dart` is renamed `activity_policy_copy.dart`, keeping
+`activityTimetable` and `activityParticipationRule` as static reference copy.
+
+**Verification.** `flutter analyze` clean. `test/activities_test.dart`: the seed-preservation and fixed-KPI tests
+were removed; filtering and serialization tests rewritten against inline fixtures; a new test confirms
+`activityStats([])` is honestly all zeros. New `test/activity_repository_test.dart` (9 tests - a fresh school's
+`load()` is genuinely empty; `permissionsFor` matches the real Spec exactly, including that a teacher can create
+but not manage-all or take attendance; `addActivity()` lets a teacher really add a programme starting at honest
+zero members/attendance and refuses a role outside manage/contribute or a blank name/coordinator;
+`updateAttendance()` lets a manager really record attendance and refuses a teacher or an out-of-range value). All
+14 Activities tests pass; full app suite back to the same 83 pre-existing failures as before this work, by name.
