@@ -2,9 +2,8 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
-import '../../administrator/data/administrator_students_demo_data.dart';
+import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_students_models.dart';
-import '../../driver/data/driver_morning_run_demo_data.dart';
 import '../../driver/domain/driver_afternoon_run_models.dart';
 import '../../driver/domain/driver_morning_run_models.dart';
 import '../domain/transport_models.dart';
@@ -21,6 +20,10 @@ class TransportRiderAssignmentRepository {
         _routeManagement = TransportRouteManagementRepository(
           localDatabase: localDatabase,
           schoolSession: schoolSession,
+        ),
+        _studentDirectory = AdministratorStudentsRepository(
+          localDatabase: localDatabase,
+          schoolSession: schoolSession,
         );
 
   static const entityType = 'transport_rider_assignment';
@@ -34,6 +37,7 @@ class TransportRiderAssignmentRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final TransportRouteManagementRepository _routeManagement;
+  final AdministratorStudentsRepository _studentDirectory;
 
   bool _canView(SchoolRole role) => const {
         SchoolRole.proprietor,
@@ -53,14 +57,12 @@ class TransportRiderAssignmentRepository {
         'Student transport assignments require a school management membership.',
       );
     }
-    await _ensureInitialAssignments(member.schoolId);
-
     final assignments = await _loadAssignments(member.schoolId);
     final byStudent = <String, TransportRiderAssignment>{
       for (final assignment in assignments) assignment.studentId: assignment,
     };
 
-    final directory = await _loadStudentDirectory(member.schoolId);
+    final directory = await _loadStudentDirectory();
     final students = <String, ({String name, String className})>{};
     for (final student in directory) {
       students[student.id] = (name: student.name, className: student.className);
@@ -104,13 +106,12 @@ class TransportRiderAssignmentRepository {
 
   /// A single real student's current transport assignment, if any — safe for a guardian to read for
   /// their own linked child, without the school-management viewer restriction [load] enforces for the
-  /// full roster (a parent's own membership role is never in [_canView]). Ensures the same real
-  /// initial seed [load] does, so a parent is never shown "unassigned" merely because no manager has
-  /// opened the Transport screen yet in this session. It is the caller's responsibility to only ever
-  /// look up a student it has already verified is really linked to the active guardian.
+  /// full roster (a parent's own membership role is never in [_canView]). Honestly returns `null`
+  /// until a manager has really assigned this student with [assignStudent]. It is the caller's
+  /// responsibility to only ever look up a student it has already verified is really linked to the
+  /// active guardian.
   Future<TransportRiderAssignment?> assignmentForStudent(String studentId) async {
     final member = _schoolSession.requireActiveMembership();
-    await _ensureInitialAssignments(member.schoolId);
     final record = await _localDatabase.getLocalRecord(
       tenantId: member.schoolId,
       entityType: entityType,
@@ -129,7 +130,6 @@ class TransportRiderAssignmentRepository {
       throw ArgumentError('Route id is required to load transport riders.');
     }
     await _requireRouteReadScope(member, normalizedRouteId);
-    await _ensureInitialAssignments(member.schoolId);
     final assignments = await _loadAssignments(member.schoolId);
     final result = assignments
         .where(
@@ -159,8 +159,6 @@ class TransportRiderAssignmentRepository {
         message: 'Choose a student, route and transport stop.',
       );
     }
-    await _ensureInitialAssignments(manager.schoolId);
-
     final candidate = await _studentCandidate(manager.schoolId, cleanStudentId);
     if (candidate == null) {
       return const TransportActionResult(
@@ -304,34 +302,6 @@ class TransportRiderAssignmentRepository {
     );
   }
 
-  Future<void> _ensureInitialAssignments(String tenantId) async {
-    final existing = await _localDatabase.getLocalRecords(
-      tenantId: tenantId,
-      entityType: entityType,
-    );
-    if (existing.isNotEmpty) return;
-
-    for (final stop in defaultBus02MorningStops()) {
-      for (final rider in stop.riders) {
-        final assignment = TransportRiderAssignment(
-          studentId: rider.studentId,
-          studentName: rider.name,
-          className: rider.className,
-          routeId: 'BUS-02',
-          stopId: stop.id,
-          active: true,
-        );
-        await _localDatabase.upsertLocalRecord(
-          tenantId: tenantId,
-          entityType: entityType,
-          entityId: rider.studentId,
-          payload: assignment.toJson(),
-          isDirty: false,
-        );
-      }
-    }
-  }
-
   Future<List<TransportRiderAssignment>> _loadAssignments(String tenantId) async {
     final records = await _localDatabase.getLocalRecords(
       tenantId: tenantId,
@@ -343,39 +313,19 @@ class TransportRiderAssignmentRepository {
     ];
   }
 
-  Future<List<AdministratorStudentRecord>> _loadStudentDirectory(
-    String tenantId,
-  ) async {
-    var records = await _localDatabase.getLocalRecords(
-      tenantId: tenantId,
-      entityType: studentDirectoryEntityType,
-    );
-    if (records.isEmpty) {
-      for (final student in administratorStudentsWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: tenantId,
-          entityType: studentDirectoryEntityType,
-          entityId: student.id,
-          payload: student.toJson(),
-          isDirty: false,
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: tenantId,
-        entityType: studentDirectoryEntityType,
-      );
-    }
-    return [
-      for (final record in records)
-        AdministratorStudentRecord.fromJson(record.payload),
-    ];
+  /// Reads the real student directory via [AdministratorStudentsRepository], the one owner of
+  /// `administrator_student_directory` - this never seeds that entity type itself, so Transport and
+  /// Administrator can never disagree about which students are real.
+  Future<List<AdministratorStudentRecord>> _loadStudentDirectory() async {
+    final snapshot = await _studentDirectory.load();
+    return snapshot.students;
   }
 
   Future<({String name, String className})?> _studentCandidate(
     String tenantId,
     String studentId,
   ) async {
-    final directory = await _loadStudentDirectory(tenantId);
+    final directory = await _loadStudentDirectory();
     for (final student in directory) {
       if (student.id == studentId) {
         return (name: student.name, className: student.className);

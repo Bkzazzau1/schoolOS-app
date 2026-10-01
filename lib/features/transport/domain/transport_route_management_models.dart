@@ -139,11 +139,20 @@ class TransportRouteManagementEntry {
 class TransportRouteManagementSnapshot {
   const TransportRouteManagementSnapshot({
     required this.routes,
-    required this.canManage,
+    required this.canManageRoutes,
+    required this.canManageStops,
   });
 
   final List<TransportRouteManagementEntry> routes;
-  final bool canManage;
+
+  /// Create/edit the route record itself (name, vehicle, assistant, note) - mirrors
+  /// apps.schoollife.specs.campus.TRANSPORT's manage=MANAGERS (proprietor, principal,
+  /// administrator).
+  final bool canManageRoutes;
+
+  /// Create/edit a route's stop plan - mirrors apps.transport.route_plan's own, narrower
+  /// MANAGERS (proprietor, administrator - principal excluded).
+  final bool canManageStops;
 
   int get configuredRoutes =>
       routes.where((entry) => entry.activeStopCount > 0).length;

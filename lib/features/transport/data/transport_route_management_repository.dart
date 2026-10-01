@@ -8,8 +8,6 @@ import '../../driver/domain/driver_morning_run_models.dart';
 import '../domain/transport_models.dart';
 import '../domain/transport_rider_assignment_models.dart';
 import '../domain/transport_route_management_models.dart';
-import 'transport_demo_data.dart';
-import 'transport_route_plan_demo_data.dart';
 
 class TransportRouteManagementRepository {
   TransportRouteManagementRepository({
@@ -39,7 +37,17 @@ class TransportRouteManagementRepository {
         SchoolRole.principal,
       }.contains(role);
 
-  bool _canManage(SchoolRole role) => const {
+  /// The route record itself (name, vehicle, assistant, note) is owned by
+  /// apps.schoollife.specs.campus.TRANSPORT, whose manage=MANAGERS includes principal.
+  bool _canManageRoutes(SchoolRole role) => const {
+        SchoolRole.proprietor,
+        SchoolRole.principal,
+        SchoolRole.administrator,
+      }.contains(role);
+
+  /// A route's stop plan is owned by apps.transport.route_plan.RoutePlanHandler, whose own
+  /// MANAGERS is narrower - principal is deliberately excluded here, unlike route records.
+  bool _canManageStops(SchoolRole role) => const {
         SchoolRole.proprietor,
         SchoolRole.administrator,
       }.contains(role);
@@ -81,7 +89,8 @@ class TransportRouteManagementRepository {
 
     return TransportRouteManagementSnapshot(
       routes: List.unmodifiable(entries),
-      canManage: _canManage(member.role),
+      canManageRoutes: _canManageRoutes(member.role),
+      canManageStops: _canManageStops(member.role),
     );
   }
 
@@ -90,28 +99,16 @@ class TransportRouteManagementRepository {
     final normalized = routeId.trim();
     if (normalized.isEmpty) throw ArgumentError('Route id is required.');
 
-    var record = await _localDatabase.getLocalRecord(
+    final record = await _localDatabase.getLocalRecord(
       tenantId: member.schoolId,
       entityType: planEntityType,
       entityId: normalized,
     );
     if (record == null) {
-      final seed = seededTransportRoutePlan(normalized) ??
-          TransportRoutePlan(routeId: normalized, stops: const []);
-      await _localDatabase.upsertLocalRecord(
-        tenantId: member.schoolId,
-        entityType: planEntityType,
-        entityId: normalized,
-        payload: seed.toJson(),
-        isDirty: false,
-      );
-      record = await _localDatabase.getLocalRecord(
-        tenantId: member.schoolId,
-        entityType: planEntityType,
-        entityId: normalized,
-      );
+      // Honest empty - never persisted until a real stop is actually added (see addStop(),
+      // which upserts the first real plan record through _savePlan()).
+      return TransportRoutePlan(routeId: normalized, stops: const []);
     }
-    if (record == null) throw StateError('Route stop plan could not be loaded.');
     final plan = TransportRoutePlan.fromJson(record.payload);
     if (plan.routeId != normalized) {
       throw StateError('Route stop plan does not match the requested route.');
@@ -125,7 +122,7 @@ class TransportRouteManagementRepository {
     required String assistant,
     String note = '',
   }) async {
-    final manager = _requireManager();
+    final manager = _requireRouteManager();
     final cleanName = name.trim();
     final cleanVehicle = vehicle.trim();
     final cleanAssistant = assistant.trim();
@@ -192,7 +189,7 @@ class TransportRouteManagementRepository {
     required String assistant,
     required String note,
   }) async {
-    final manager = _requireManager();
+    final manager = _requireRouteManager();
     if (await _routeLockedToday(manager.schoolId, routeId)) {
       return _lockedResult();
     }
@@ -259,7 +256,7 @@ class TransportRouteManagementRepository {
     required String morningTime,
     required String afternoonTime,
   }) async {
-    final manager = _requireManager();
+    final manager = _requireStopManager();
     if (await _routeLockedToday(manager.schoolId, routeId)) {
       return _lockedResult();
     }
@@ -320,7 +317,7 @@ class TransportRouteManagementRepository {
     required String morningTime,
     required String afternoonTime,
   }) async {
-    final manager = _requireManager();
+    final manager = _requireStopManager();
     if (await _routeLockedToday(manager.schoolId, routeId)) {
       return _lockedResult();
     }
@@ -382,7 +379,7 @@ class TransportRouteManagementRepository {
     required String stopId,
     required int direction,
   }) async {
-    final manager = _requireManager();
+    final manager = _requireStopManager();
     if (await _routeLockedToday(manager.schoolId, routeId)) {
       return _lockedResult();
     }
@@ -443,7 +440,7 @@ class TransportRouteManagementRepository {
     required String routeId,
     required String stopId,
   }) async {
-    final manager = _requireManager();
+    final manager = _requireStopManager();
     if (await _routeLockedToday(manager.schoolId, routeId)) {
       return _lockedResult();
     }
@@ -504,36 +501,31 @@ class TransportRouteManagementRepository {
     );
   }
 
-  SchoolMembership _requireManager() {
+  SchoolMembership _requireRouteManager() {
     final member = _schoolSession.requireActiveMembership();
-    if (!_canManage(member.role)) {
+    if (!_canManageRoutes(member.role)) {
       throw StateError(
-        'Only the Proprietor or Administrator can change transport routes and stops.',
+        'Only the Proprietor, Principal or Administrator can change transport routes.',
+      );
+    }
+    return member;
+  }
+
+  SchoolMembership _requireStopManager() {
+    final member = _schoolSession.requireActiveMembership();
+    if (!_canManageStops(member.role)) {
+      throw StateError(
+        'Only the Proprietor or Administrator can change transport route stops.',
       );
     }
     return member;
   }
 
   Future<List<SchoolTransportRoute>> _loadRoutes(String tenantId) async {
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: tenantId,
       entityType: routeEntityType,
     );
-    if (records.isEmpty) {
-      for (final route in transportWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: tenantId,
-          entityType: routeEntityType,
-          entityId: route.id,
-          payload: route.toJson(),
-          isDirty: false,
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: tenantId,
-        entityType: routeEntityType,
-      );
-    }
     return records
         .map((record) => SchoolTransportRoute.fromJson(record.payload))
         .toList(growable: false)

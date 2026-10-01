@@ -4,7 +4,6 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_staff_repository.dart';
 import '../../administrator/domain/administrator_staff_models.dart';
-import '../../driver/data/driver_dashboard_demo_data.dart';
 import '../../driver/domain/driver_afternoon_run_models.dart';
 import '../../driver/domain/driver_dashboard_models.dart';
 import '../../driver/domain/driver_morning_run_models.dart';
@@ -13,13 +12,21 @@ import '../../proprietor/domain/owner_staff_profile_models.dart';
 import '../domain/transport_control_models.dart';
 import '../domain/transport_driver_assignment_models.dart';
 import '../domain/transport_models.dart';
-import 'transport_demo_data.dart';
 
 class TransportSnapshot {
-  const TransportSnapshot({required this.routes, required this.permissions});
+  const TransportSnapshot({
+    required this.routes,
+    required this.permissions,
+    required this.morningExceptionsToday,
+  });
 
   final List<SchoolTransportRoute> routes;
   final TransportPermissions permissions;
+
+  /// Real riders a Driver has actually marked as an exception on today's morning run, summed
+  /// across every route (see [DriverMorningRunStop.exceptionCount]) - honestly 0 until a Driver
+  /// records one, never a fixed placeholder.
+  final int morningExceptionsToday;
 }
 
 class TransportActionResult {
@@ -33,8 +40,8 @@ class TransportRepository {
   TransportRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+  }) : _localDatabase = localDatabase,
+       _schoolSession = schoolSession;
 
   static const _entityType = 'school_transport_route';
   static const _assignmentEntityType = 'driver_transport_assignment';
@@ -48,6 +55,11 @@ class TransportRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
+  // Mirrors apps.schoollife.specs.campus.TRANSPORT exactly: manage=MANAGERS (proprietor,
+  // principal, administrator) owns the route record itself, but the guarded "reviewed" field is
+  // narrower - LEADERS only (proprietor, principal - administrator excluded).
+  static const _leaders = {SchoolRole.proprietor, SchoolRole.principal};
+
   TransportPermissions permissionsFor(SchoolMembership membership) {
     final management = const {
       SchoolRole.proprietor,
@@ -55,7 +67,7 @@ class TransportRepository {
       SchoolRole.principal,
     }.contains(membership.role);
     return TransportPermissions(
-      canReviewRoutes: membership.role == SchoolRole.proprietor,
+      canReviewRoutes: _leaders.contains(membership.role),
       canViewOperationsControl: management,
       canManageDriverAssignments: const {
         SchoolRole.proprietor,
@@ -66,33 +78,16 @@ class TransportRepository {
 
   Future<TransportSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
 
-    if (records.isEmpty) {
-      for (final route in transportWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: route.id,
-          payload: route.toJson(),
-          // Explicit for clarity: isDirty already defaults to false, so this
-          // seed write does not enqueue a spurious create/update mutation.
-          isDirty: false,
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
-
-    final routes = records
-        .map((record) => SchoolTransportRoute.fromJson(record.payload))
-        .toList(growable: true)
-      ..sort((a, b) => a.id.compareTo(b.id));
+    final routes =
+        records
+            .map((record) => SchoolTransportRoute.fromJson(record.payload))
+            .toList(growable: true)
+          ..sort((a, b) => a.id.compareTo(b.id));
 
     // The website seed stores a driver label on each route, but once native
     // Transport Control has assignment records those become the authoritative
@@ -111,7 +106,8 @@ class TransportRepository {
           .add(assignment);
     }
     for (var index = 0; index < routes.length; index++) {
-      final active = byRoute[routes[index].id] ?? const <DriverTransportAssignment>[];
+      final active =
+          byRoute[routes[index].id] ?? const <DriverTransportAssignment>[];
       if (active.length == 1) {
         routes[index] = routes[index].copyWith(
           driver: active.single.driverDisplayName,
@@ -121,9 +117,22 @@ class TransportRepository {
       }
     }
 
+    final today = _todayKey();
+    final morningRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _morningRunEntityType,
+    );
+    var morningExceptionsToday = 0;
+    for (final record in morningRecords) {
+      final run = DriverMorningRun.fromJson(record.payload);
+      if (run.serviceDate != today) continue;
+      morningExceptionsToday += run.exceptions;
+    }
+
     return TransportSnapshot(
       routes: List.unmodifiable(routes),
       permissions: permissionsFor(membership),
+      morningExceptionsToday: morningExceptionsToday,
     );
   }
 
@@ -217,9 +226,8 @@ class TransportRepository {
       final routeId = payload['routeId'] as String? ?? '';
       if (routeId.isEmpty) continue;
       final status = (payload['status'] as String? ?? '').toLowerCase();
-      final closed = status == 'cleared' ||
-          status == 'resolved' ||
-          status == 'closed';
+      final closed =
+          status == 'cleared' || status == 'resolved' || status == 'closed';
       if (closed) continue;
       defectCounts[routeId] = (defectCounts[routeId] ?? 0) + 1;
 
@@ -235,17 +243,18 @@ class TransportRepository {
       final morning = morningsByRoute[route.id];
       final afternoon = afternoonsByRoute[route.id];
       final assignment = assignmentsByRoute[route.id];
-      final hasDriverActivity = morning != null ||
+      final hasDriverActivity =
+          morning != null ||
           afternoon != null ||
           (incidentCounts[route.id] ?? 0) > 0 ||
           (defectCounts[route.id] ?? 0) > 0;
       final driverName = assignment?.driverDisplayName.trim().isNotEmpty == true
           ? assignment!.driverDisplayName
           : morning?.driverName.trim().isNotEmpty == true
-              ? morning!.driverName
-              : afternoon?.driverName.trim().isNotEmpty == true
-                  ? afternoon!.driverName
-                  : route.driver;
+          ? morning!.driverName
+          : afternoon?.driverName.trim().isNotEmpty == true
+          ? afternoon!.driverName
+          : route.driver;
 
       activities.add(
         TransportControlRouteActivity(
@@ -253,7 +262,8 @@ class TransportRepository {
           routeName: route.name,
           vehicle: route.vehicle,
           driverName: driverName,
-          driverMembershipId: assignment?.membershipId ??
+          driverMembershipId:
+              assignment?.membershipId ??
               morning?.membershipId ??
               afternoon?.membershipId ??
               '',
@@ -261,7 +271,9 @@ class TransportRepository {
           morningSummary: _morningSummary(route, morning),
           afternoonSummary: _afternoonSummary(route, afternoon),
           expectedRiders:
-              afternoon?.expectedRiders ?? morning?.expectedRiders ?? route.riders,
+              afternoon?.expectedRiders ??
+              morning?.expectedRiders ??
+              route.riders,
           currentlyOnBoard: _currentlyOnBoard(morning, afternoon),
           incidentCount: incidentCounts[route.id] ?? 0,
           urgentIncidentCount: urgentIncidentCounts[route.id] ?? 0,
@@ -288,7 +300,6 @@ class TransportRepository {
     }
 
     final transport = await load();
-    await _ensureDemoAssignmentIfNeeded(viewer);
 
     final assignmentRecords = await _localDatabase.getLocalRecords(
       tenantId: viewer.schoolId,
@@ -303,7 +314,8 @@ class TransportRepository {
         if (assignment.membershipId.trim().isNotEmpty)
           assignment.membershipId: assignment,
     };
-    final activeAssignmentsByRoute = <String, List<DriverTransportAssignment>>{};
+    final activeAssignmentsByRoute =
+        <String, List<DriverTransportAssignment>>{};
     for (final assignment in assignments) {
       if (!assignment.hasRoute) continue;
       activeAssignmentsByRoute
@@ -341,7 +353,8 @@ class TransportRepository {
           : assignmentByMembership[membershipId];
       final assigned = assignment?.hasRoute == true;
       final route = assigned ? routeById[assignment!.routeId] : null;
-      final conflict = assigned &&
+      final conflict =
+          assigned &&
           (activeAssignmentsByRoute[assignment!.routeId]?.length ?? 0) > 1;
 
       drivers.add(
@@ -351,8 +364,8 @@ class TransportRepository {
           name: person?.name.trim().isNotEmpty == true
               ? person!.name
               : profile.onboardingEmail.trim().isNotEmpty
-                  ? profile.onboardingEmail
-                  : 'Approved driver',
+              ? profile.onboardingEmail
+              : 'Approved driver',
           jobTitle: person?.role ?? 'Driver',
           workArea: person?.section ?? '',
           accountLinked: membershipId.isNotEmpty,
@@ -377,7 +390,8 @@ class TransportRepository {
       final assignment = assignmentByMembership[membership.id];
       final assigned = assignment?.hasRoute == true;
       final route = assigned ? routeById[assignment!.routeId] : null;
-      final conflict = assigned &&
+      final conflict =
+          assigned &&
           (activeAssignmentsByRoute[assignment!.routeId]?.length ?? 0) > 1;
       drivers.add(
         TransportDriverRosterEntry(
@@ -408,7 +422,8 @@ class TransportRepository {
       representedMemberships.add(assignment.membershipId);
       final assigned = assignment.hasRoute;
       final route = assigned ? routeById[assignment.routeId] : null;
-      final conflict = assigned &&
+      final conflict =
+          assigned &&
           (activeAssignmentsByRoute[assignment.routeId]?.length ?? 0) > 1;
       drivers.add(
         TransportDriverRosterEntry(
@@ -439,17 +454,21 @@ class TransportRepository {
 
     final routes = <TransportAssignableRoute>[];
     for (final route in transport.routes) {
-      final active = activeAssignmentsByRoute[route.id] ?? const <DriverTransportAssignment>[];
+      final active =
+          activeAssignmentsByRoute[route.id] ??
+          const <DriverTransportAssignment>[];
       routes.add(
         TransportAssignableRoute(
           routeId: route.id,
           routeName: route.name,
           vehicle: route.vehicle,
           available: route.isAvailable,
-          assignedMembershipId:
-              active.length == 1 ? active.single.membershipId : '',
-          assignedDriverName:
-              active.length == 1 ? active.single.driverDisplayName : '',
+          assignedMembershipId: active.length == 1
+              ? active.single.membershipId
+              : '',
+          assignedDriverName: active.length == 1
+              ? active.single.driverDisplayName
+              : '',
           activeAssignmentCount: active.length,
         ),
       );
@@ -487,7 +506,8 @@ class TransportRepository {
     if (driver == null || !driver.canReceiveOperationalAssignment) {
       return const TransportActionResult(
         success: false,
-        message: 'This Driver does not yet have an activated SchoolOS membership.',
+        message:
+            'This Driver does not yet have an activated SchoolOS membership.',
       );
     }
 
@@ -507,14 +527,16 @@ class TransportRepository {
     if (route.hasConflict) {
       return const TransportActionResult(
         success: false,
-        message: 'Resolve the existing duplicate assignment on this route first.',
+        message:
+            'Resolve the existing duplicate assignment on this route first.',
       );
     }
     if (route.alreadyAssigned &&
         route.assignedMembershipId != normalizedMembershipId) {
       return TransportActionResult(
         success: false,
-        message: '${route.routeName} is already assigned to ${route.assignedDriverName}.',
+        message:
+            '${route.routeName} is already assigned to ${route.assignedDriverName}.',
       );
     }
 
@@ -533,10 +555,14 @@ class TransportRepository {
       );
     }
 
-    if (await _driverHasServiceState(manager.schoolId, normalizedMembershipId)) {
+    if (await _driverHasServiceState(
+      manager.schoolId,
+      normalizedMembershipId,
+    )) {
       return const TransportActionResult(
         success: false,
-        message: 'Today’s transport manifest or vehicle check already exists for this Driver. Route assignments are locked for the service day.',
+        message:
+            'Today’s transport manifest or vehicle check already exists for this Driver. Route assignments are locked for the service day.',
       );
     }
     if (await _routeHasServiceState(
@@ -546,7 +572,8 @@ class TransportRepository {
     )) {
       return const TransportActionResult(
         success: false,
-        message: 'This route already has transport preparation or activity today under another Driver.',
+        message:
+            'This route already has transport preparation or activity today under another Driver.',
       );
     }
 
@@ -573,7 +600,9 @@ class TransportRepository {
       membershipId: manager.id,
       entityType: _assignmentEntityType,
       entityId: normalizedMembershipId,
-      operation: currentRecord == null ? SyncOperation.create : SyncOperation.update,
+      operation: currentRecord == null
+          ? SyncOperation.create
+          : SyncOperation.update,
       payload: assignment.toJson(),
       baseVersion: currentRecord?.serverVersion,
     );
@@ -590,7 +619,8 @@ class TransportRepository {
 
     return TransportActionResult(
       success: true,
-      message: '${driver.name} assigned to ${route.routeName}. Saved offline and queued for sync.',
+      message:
+          '${driver.name} assigned to ${route.routeName}. Saved offline and queued for sync.',
     );
   }
 
@@ -621,10 +651,14 @@ class TransportRepository {
         message: 'This Driver has no active route assignment.',
       );
     }
-    if (await _driverHasServiceState(manager.schoolId, normalizedMembershipId)) {
+    if (await _driverHasServiceState(
+      manager.schoolId,
+      normalizedMembershipId,
+    )) {
       return const TransportActionResult(
         success: false,
-        message: 'Today’s transport manifest or vehicle check already exists for this Driver. The assignment is locked for the service day.',
+        message:
+            'Today’s transport manifest or vehicle check already exists for this Driver. The assignment is locked for the service day.',
       );
     }
 
@@ -664,7 +698,8 @@ class TransportRepository {
 
     return TransportActionResult(
       success: true,
-      message: '${current.driverDisplayName} is now unassigned. Saved offline and queued for sync.',
+      message:
+          '${current.driverDisplayName} is now unassigned. Saved offline and queued for sync.',
     );
   }
 
@@ -724,37 +759,6 @@ class TransportRepository {
       );
     }
     return member;
-  }
-
-  Future<void> _ensureDemoAssignmentIfNeeded(SchoolMembership viewer) async {
-    final demoMembership = _schoolSession.memberships.where(
-      (membership) =>
-          membership.schoolId == viewer.schoolId &&
-          membership.id == 'membership-driver-001' &&
-          membership.role == SchoolRole.driver,
-    );
-    if (demoMembership.isEmpty) return;
-
-    final existing = await _localDatabase.getLocalRecord(
-      tenantId: viewer.schoolId,
-      entityType: _assignmentEntityType,
-      entityId: 'membership-driver-001',
-    );
-    if (existing != null) return;
-
-    final seeded = DriverTransportAssignment(
-      membershipId: 'membership-driver-001',
-      routeId: defaultDriverAssignment.routeId,
-      driverDisplayName: defaultDriverAssignment.driverDisplayName,
-      active: true,
-    );
-    await _localDatabase.upsertLocalRecord(
-      tenantId: viewer.schoolId,
-      entityType: _assignmentEntityType,
-      entityId: seeded.membershipId,
-      payload: seeded.toJson(),
-      isDirty: false,
-    );
   }
 
   Future<bool> _driverHasServiceState(
@@ -903,8 +907,7 @@ class TransportRepository {
       return switch (morning.status) {
         DriverMorningRunStatus.inProgress => TransportControlPhase.morningRoute,
         DriverMorningRunStatus.arrivedSchool ||
-        DriverMorningRunStatus.completed =>
-          TransportControlPhase.atSchool,
+        DriverMorningRunStatus.completed => TransportControlPhase.atSchool,
         DriverMorningRunStatus.notStarted => TransportControlPhase.preparing,
       };
     }
@@ -927,10 +930,7 @@ class TransportRepository {
     return 0;
   }
 
-  String _morningSummary(
-    SchoolTransportRoute route,
-    DriverMorningRun? run,
-  ) {
+  String _morningSummary(SchoolTransportRoute route, DriverMorningRun? run) {
     if (run == null) {
       return 'No Driver Portal record today · baseline: ${route.morning}';
     }

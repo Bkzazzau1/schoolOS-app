@@ -5,7 +5,6 @@ import '../../../shared/models/school_membership.dart';
 import '../../driver/domain/driver_vehicle_check_models.dart';
 import '../domain/transport_models.dart';
 import '../domain/transport_vehicle_readiness_models.dart';
-import 'transport_demo_data.dart';
 import 'transport_repository.dart';
 
 class TransportVehicleReadinessRepository {
@@ -399,25 +398,10 @@ class TransportVehicleReadinessRepository {
   }
 
   Future<List<SchoolTransportRoute>> _loadRoutes(String tenantId) async {
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: tenantId,
       entityType: routeEntityType,
     );
-    if (records.isEmpty) {
-      for (final route in transportWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: tenantId,
-          entityType: routeEntityType,
-          entityId: route.id,
-          payload: route.toJson(),
-          isDirty: false,
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: tenantId,
-        entityType: routeEntityType,
-      );
-    }
     return records
         .map((record) => SchoolTransportRoute.fromJson(record.payload))
         .toList(growable: false)

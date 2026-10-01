@@ -184,7 +184,7 @@ class _TransportRouteManagementPanelState
                     ],
                   ),
                 ),
-                if (snapshot.canManage)
+                if (snapshot.canManageRoutes)
                   FilledButton.icon(
                     onPressed: _saving ? null : _createRoute,
                     icon: const Icon(Icons.add_road_rounded),
@@ -218,7 +218,8 @@ class _TransportRouteManagementPanelState
               for (final entry in snapshot.routes) ...[
                 _RoutePlanCard(
                   entry: entry,
-                  canManage: snapshot.canManage,
+                  canManageRoutes: snapshot.canManageRoutes,
+                  canManageStops: snapshot.canManageStops,
                   busy: _saving,
                   onEditRoute: () => _editRoute(entry),
                   onAddStop: () => _addStop(entry),
@@ -412,7 +413,8 @@ class _Metric extends StatelessWidget {
 class _RoutePlanCard extends StatelessWidget {
   const _RoutePlanCard({
     required this.entry,
-    required this.canManage,
+    required this.canManageRoutes,
+    required this.canManageStops,
     required this.busy,
     required this.onEditRoute,
     required this.onAddStop,
@@ -422,7 +424,8 @@ class _RoutePlanCard extends StatelessWidget {
   });
 
   final TransportRouteManagementEntry entry;
-  final bool canManage;
+  final bool canManageRoutes;
+  final bool canManageStops;
   final bool busy;
   final VoidCallback onEditRoute;
   final VoidCallback onAddStop;
@@ -434,7 +437,10 @@ class _RoutePlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final stops = entry.plan.activeStops;
-    final controlsEnabled = canManage && !busy && !entry.lockedForToday;
+    final routeControlsEnabled =
+        canManageRoutes && !busy && !entry.lockedForToday;
+    final stopControlsEnabled =
+        canManageStops && !busy && !entry.lockedForToday;
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -482,22 +488,24 @@ class _RoutePlanCard extends StatelessWidget {
               ),
             ),
           ],
-          if (canManage) ...[
+          if (canManageRoutes || canManageStops) ...[
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                OutlinedButton.icon(
-                  onPressed: controlsEnabled ? onEditRoute : null,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Edit route'),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: controlsEnabled ? onAddStop : null,
-                  icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-                  label: const Text('Add stop'),
-                ),
+                if (canManageRoutes)
+                  OutlinedButton.icon(
+                    onPressed: routeControlsEnabled ? onEditRoute : null,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Edit route'),
+                  ),
+                if (canManageStops)
+                  FilledButton.tonalIcon(
+                    onPressed: stopControlsEnabled ? onAddStop : null,
+                    icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                    label: const Text('Add stop'),
+                  ),
               ],
             ),
           ],
@@ -508,7 +516,7 @@ class _RoutePlanCard extends StatelessWidget {
             for (var index = 0; index < stops.length; index++) ...[
               _StopRow(
                 stop: stops[index],
-                canManage: controlsEnabled,
+                canManage: stopControlsEnabled,
                 canMoveUp: index > 0,
                 canMoveDown: index < stops.length - 1,
                 onEdit: () => onEditStop(stops[index]),

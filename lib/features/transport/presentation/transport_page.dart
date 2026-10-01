@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/transport_demo_data.dart';
+import '../data/transport_policy_copy.dart';
 import '../data/transport_messages_repository.dart';
 import '../data/transport_repository.dart';
 import '../data/transport_route_management_repository.dart';
@@ -135,7 +135,7 @@ class _TransportPageState extends State<TransportPage> {
     }
 
     final snapshot = _snapshot!;
-    final stats = transportStats(snapshot.routes);
+    final stats = transportStats(snapshot.routes, snapshot.morningExceptionsToday);
     final theme = Theme.of(context);
 
     return LayoutBuilder(

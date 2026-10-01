@@ -8,7 +8,6 @@ import '../domain/driver_afternoon_run_models.dart';
 import '../domain/driver_dashboard_models.dart';
 import '../domain/driver_morning_run_models.dart';
 import '../domain/driver_vehicle_check_models.dart';
-import 'driver_dashboard_demo_data.dart';
 
 class DriverDashboardRepository {
   DriverDashboardRepository({
@@ -185,33 +184,11 @@ class DriverDashboardRepository {
   Future<DriverTransportAssignment> _loadAssignment(
     SchoolMembership membership,
   ) async {
-    var record = await _localDatabase.getLocalRecord(
+    final record = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
       entityType: assignmentEntityType,
       entityId: membership.id,
     );
-
-    // Keep the website/demo Driver usable, but never auto-assign a real
-    // Driver account. Real accounts must be assigned by Transport Control.
-    if (record == null && membership.id == 'membership-driver-001') {
-      final seeded = DriverTransportAssignment(
-        membershipId: membership.id,
-        routeId: defaultDriverAssignment.routeId,
-        driverDisplayName: defaultDriverAssignment.driverDisplayName,
-        active: true,
-      );
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: assignmentEntityType,
-        entityId: membership.id,
-        payload: seeded.toJson(),
-      );
-      record = await _localDatabase.getLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: assignmentEntityType,
-        entityId: membership.id,
-      );
-    }
 
     if (record == null) {
       throw StateError(
