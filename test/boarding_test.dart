@@ -1,43 +1,43 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/boarding/data/boarding_demo_data.dart';
+import 'package:schoolos_app/features/boarding/data/boarding_policy_copy.dart';
 import 'package:schoolos_app/features/boarding/domain/boarding_models.dart';
 
+List<BoardingDorm> _dorms() => const [
+      BoardingDorm(
+        name: 'Amina Hall',
+        houseParent: 'Mrs. Grace Daniel',
+        capacity: 48,
+        occupied: 44,
+        onCampus: 42,
+        approvedLeave: 2,
+        maintenance: 0,
+        status: DormStatus.normal,
+        note: 'Girls senior dormitory; evening roll and welfare handover complete.',
+      ),
+      BoardingDorm(
+        name: 'Peace Hall',
+        houseParent: 'Mrs. Ruth Musa',
+        capacity: 36,
+        occupied: 32,
+        onCampus: 31,
+        approvedLeave: 1,
+        maintenance: 2,
+        status: DormStatus.review,
+        note: 'Two maintenance items awaiting facilities follow-up.',
+      ),
+    ];
+
 void main() {
-  test('website boarding seed preserves dorm and occupancy totals', () {
-    expect(boardingWebsiteSeed, hasLength(3));
-
-    final occupied = boardingWebsiteSeed.fold<int>(
-      0,
-      (sum, dorm) => sum + dorm.occupied,
-    );
-    final capacity = boardingWebsiteSeed.fold<int>(
-      0,
-      (sum, dorm) => sum + dorm.capacity,
-    );
-    final onCampus = boardingWebsiteSeed.fold<int>(
-      0,
-      (sum, dorm) => sum + dorm.onCampus,
-    );
-    final leave = boardingWebsiteSeed.fold<int>(
-      0,
-      (sum, dorm) => sum + dorm.approvedLeave,
-    );
-    final maintenance = boardingWebsiteSeed.fold<int>(
-      0,
-      (sum, dorm) => sum + dorm.maintenance,
-    );
-
-    expect(occupied, 125);
-    expect(capacity, 136);
-    expect(onCampus, 120);
-    expect(leave, 5);
-    expect(maintenance, 2);
+  test('dorm totals are computed from the real dorms given', () {
+    final dorms = _dorms();
+    final occupied = dorms.fold<int>(0, (sum, dorm) => sum + dorm.occupied);
+    final capacity = dorms.fold<int>(0, (sum, dorm) => sum + dorm.capacity);
+    expect(occupied, 76);
+    expect(capacity, 84);
   });
 
-  test('Peace Hall carries the website review and maintenance state', () {
-    final peace = boardingWebsiteSeed.singleWhere(
-      (dorm) => dorm.name == 'Peace Hall',
-    );
+  test('Peace Hall carries its own review and maintenance state', () {
+    final peace = _dorms().singleWhere((dorm) => dorm.name == 'Peace Hall');
 
     expect(peace.status, DormStatus.review);
     expect(peace.maintenance, 2);
@@ -47,18 +47,24 @@ void main() {
   });
 
   test('boarding search covers dorm, house parent and status', () {
-    final amina = boardingWebsiteSeed.first;
+    final amina = _dorms().first;
 
     expect(amina.matches('amina'), isTrue);
     expect(amina.matches('grace daniel'), isTrue);
     expect(amina.matches('normal'), isTrue);
-    expect(amina.matches('unity'), isFalse);
+    expect(amina.matches('peace'), isFalse);
+  });
+
+  test('copyWith changes only the fields given, never the identity name', () {
+    final reviewed = _dorms().first.copyWith(handoverReviewed: true, occupied: 45);
+    expect(reviewed.handoverReviewed, isTrue);
+    expect(reviewed.occupied, 45);
+    expect(reviewed.name, 'Amina Hall');
+    expect(reviewed.houseParent, 'Mrs. Grace Daniel');
   });
 
   test('handover review survives serialization without sensitive fields', () {
-    final reviewed = boardingWebsiteSeed.first.copyWith(
-      handoverReviewed: true,
-    );
+    final reviewed = _dorms().first.copyWith(handoverReviewed: true);
     final json = reviewed.toJson();
     final restored = BoardingDorm.fromJson(json);
 
@@ -72,22 +78,21 @@ void main() {
     expect(json.containsKey('studentDiagnosis'), isFalse);
   });
 
-  test('boarding stats preserve enabled and disabled preview semantics', () {
-    final enabled = boardingStats(
-      boardingWebsiteSeed,
-      previewEnabled: true,
-    );
-    final disabled = boardingStats(
-      boardingWebsiteSeed,
-      previewEnabled: false,
-    );
+  test('boarding stats are computed entirely from the real dorms given, never a fixed sample', () {
+    final dorms = _dorms();
+    final enabled = boardingStats(dorms, previewEnabled: true);
+    final disabled = boardingStats(dorms, previewEnabled: false);
 
     expect(enabled.first.value, 'Enabled');
     expect(disabled.first.value, 'Off');
-    expect(enabled[1].value, '125/136');
-    expect(enabled[2].value, '120');
-    expect(enabled[3].value, '5');
+    expect(enabled[1].value, '76/84');
+    expect(enabled[2].value, '73');
+    expect(enabled[3].value, '3');
     expect(enabled[4].value, '2');
+
+    final empty = boardingStats(const [], previewEnabled: true);
+    expect(empty[1].value, '0/0');
+    expect(empty[2].value, '0');
   });
 
   test('boarding boundary keeps configuration preview non-persistent', () {
