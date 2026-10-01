@@ -3572,3 +3572,29 @@ alumni can report while only managers+staff can manage claims; `report()` lets a
 starting honestly unclaimed and refuses alumni or an empty item description; only a manager can start a claim
 review or mark an item returned). All 14 Lost & Found tests pass; full app suite back to the same 83 pre-existing
 failures as before this work, by name.
+
+## Community Service & Volunteering gets a real create/edit flow
+
+Fourth of Tier 2 - same shape as Assembly/Boarding: `manage=MANAGERS, contribute={"teacher"}` with a narrower
+`guarded={"verified": LEADERS}` field (`SERVICE` in `apps/schoollife/specs/programmes.py`), and no create method
+existed at all. `permissionsFor` previously granted the single `canVerifyRecords` flag to the proprietor alone,
+conflating "create a project" with "verify a record" into one check that was also too narrow on both counts.
+
+**Design.** `ServicePermissions` now carries three real flags: `canCreate` (manage ∪ contribute), `canManageAll`
+(manage only, gating a new `edit()`), and `canVerifyRecords` (`LEADERS` only, administrator excluded - the same
+narrowing Boarding's `handoverReviewed` needed). A new project starts at `participants: 0, hours: 0, verified:
+false` - hand-maintained totals a coordinator fills in as the project actually happens, the same reasoning
+Houses/Boarding already established for numbers nothing in the app tracks automatically. `serviceStats()` was
+already fully computed from a real `projects` argument - only the seed itself and two misleading detail labels
+("Representative term activities", "Across sample projects") needed fixing. `service_demo_data.dart` is renamed
+`service_policy_copy.dart`, keeping `servicePrinciples` and `serviceConnectedModules` as static reference copy.
+
+**Verification.** `flutter analyze` clean. `test/service_test.dart`: the seed-preservation test was removed;
+project-detail, search and status tests rewritten against inline fixtures; a `copyWith` test replaces the old
+verification-serialization test, now covering the full field set; a new assertion confirms `serviceStats([])` is
+honestly all zeros. New `test/service_repository_test.dart` (9 tests - a fresh school's `load()` is genuinely
+empty; `permissionsFor` matches all three real role sets exactly, including that administrator can manage
+projects but not verify a record; `create()` lets a teacher really add a project at honest zeros and refuses a
+non-manager/contributor; `edit()` lets a manager really update hand-maintained totals and refuses a teacher;
+`toggleVerification()` refuses administrator and allows a real leader). All 16 Service tests pass; full app suite
+back to the same 83 pre-existing failures as before this work, by name.
