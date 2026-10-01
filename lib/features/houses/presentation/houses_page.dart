@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/house_demo_data.dart';
+import '../data/house_policy_copy.dart';
 import '../data/house_repository.dart';
 import '../domain/house_models.dart';
 
@@ -25,6 +25,7 @@ class _HousesPageState extends State<HousesPage> {
   HouseSnapshot? _snapshot;
   String? _selectedId;
   bool _loading = true;
+  String _message = '';
 
   @override
   void initState() {
@@ -46,6 +47,135 @@ class _HousesPageState extends State<HousesPage> {
       _selectedId ??= snapshot.houses.isEmpty ? null : snapshot.houses.first.id;
       _loading = false;
     });
+  }
+
+  Future<void> _addHouse() async {
+    final name = TextEditingController();
+    final captain = TextEditingController();
+    final coordinator = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add a house'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: name, decoration: const InputDecoration(labelText: 'House name')),
+              const SizedBox(height: 12),
+              TextField(controller: captain, decoration: const InputDecoration(labelText: 'Student captain (optional)')),
+              const SizedBox(height: 12),
+              TextField(controller: coordinator, decoration: const InputDecoration(labelText: 'Staff coordinator (optional)')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Add house')),
+        ],
+      ),
+    );
+    final addName = name.text;
+    final addCaptain = captain.text;
+    final addCoordinator = coordinator.text;
+    name.dispose();
+    captain.dispose();
+    coordinator.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.create(name: addName, captain: addCaptain, coordinator: addCoordinator);
+    if (result.success) await _load();
+    if (!mounted) return;
+    setState(() => _message = result.message);
+  }
+
+  Future<void> _editHouse(SchoolHouse house) async {
+    final name = TextEditingController(text: house.name);
+    final captain = TextEditingController(text: house.captain);
+    final coordinator = TextEditingController(text: house.coordinator);
+    final status = TextEditingController(text: house.status);
+    final members = TextEditingController(text: '${house.members}');
+    final points = TextEditingController(text: '${house.points}');
+    final sports = TextEditingController(text: '${house.sports}');
+    final academics = TextEditingController(text: '${house.academicCompetitions}');
+    final service = TextEditingController(text: '${house.service}');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit ${house.name}'),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: name, decoration: const InputDecoration(labelText: 'House name')),
+                const SizedBox(height: 12),
+                TextField(controller: captain, decoration: const InputDecoration(labelText: 'Student captain')),
+                const SizedBox(height: 12),
+                TextField(controller: coordinator, decoration: const InputDecoration(labelText: 'Staff coordinator')),
+                const SizedBox(height: 12),
+                TextField(controller: status, decoration: const InputDecoration(labelText: 'Status (e.g. Active)')),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: TextField(controller: members, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Members'))),
+                  const SizedBox(width: 10),
+                  Expanded(child: TextField(controller: points, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Points'))),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: TextField(controller: sports, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sports'))),
+                  const SizedBox(width: 10),
+                  Expanded(child: TextField(controller: academics, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Academic'))),
+                  const SizedBox(width: 10),
+                  Expanded(child: TextField(controller: service, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Service'))),
+                ]),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save')),
+        ],
+      ),
+    );
+    final values = (
+      name: name.text,
+      captain: captain.text,
+      coordinator: coordinator.text,
+      status: status.text,
+      members: int.tryParse(members.text) ?? house.members,
+      points: int.tryParse(points.text) ?? house.points,
+      sports: int.tryParse(sports.text) ?? house.sports,
+      academics: int.tryParse(academics.text) ?? house.academicCompetitions,
+      service: int.tryParse(service.text) ?? house.service,
+    );
+    name.dispose();
+    captain.dispose();
+    coordinator.dispose();
+    status.dispose();
+    members.dispose();
+    points.dispose();
+    sports.dispose();
+    academics.dispose();
+    service.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.edit(
+      id: house.id,
+      name: values.name,
+      captain: values.captain,
+      coordinator: values.coordinator,
+      members: values.members,
+      points: values.points,
+      sports: values.sports,
+      academicCompetitions: values.academics,
+      service: values.service,
+      status: values.status,
+    );
+    if (result.success) await _load();
+    if (!mounted) return;
+    setState(() => _message = result.message);
   }
 
   List<SchoolHouse> get _visibleHouses {
@@ -90,7 +220,7 @@ class _HousesPageState extends State<HousesPage> {
                     const SizedBox(height: 16),
                     const _ScopeCard(),
                     const SizedBox(height: 16),
-                    _KpiGrid(compact: compact),
+                    _KpiGrid(houses: _snapshot?.houses ?? const [], compact: compact),
                     const SizedBox(height: 16),
                     if (wide)
                       Row(
@@ -118,6 +248,7 @@ class _HousesPageState extends State<HousesPage> {
 
   Widget _buildStandings() {
     final theme = Theme.of(context);
+    final canManage = _snapshot?.permissions.canManageAll ?? false;
     return Card(
       elevation: 0,
       child: Padding(
@@ -125,12 +256,25 @@ class _HousesPageState extends State<HousesPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('House standings', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text('House standings', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                ),
+                if (canManage)
+                  OutlinedButton.icon(onPressed: _addHouse, icon: const Icon(Icons.add_rounded), label: const Text('Add house')),
+              ],
+            ),
             const SizedBox(height: 4),
             Text(
               houseStandingsDescription,
               style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
+            if (_message.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(_message, style: theme.textTheme.bodySmall),
+            ],
             const SizedBox(height: 16),
             TextField(
               controller: _searchController,
@@ -142,9 +286,15 @@ class _HousesPageState extends State<HousesPage> {
             ),
             const SizedBox(height: 16),
             if (_visibleHouses.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 28),
-                child: Center(child: Text('No houses match this search.')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                child: Center(
+                  child: Text(
+                    (_snapshot?.houses.isEmpty ?? true)
+                        ? 'No houses yet. Add the first one above.'
+                        : 'No houses match this search.',
+                  ),
+                ),
               )
             else
               for (final house in _visibleHouses) ...[
@@ -163,6 +313,7 @@ class _HousesPageState extends State<HousesPage> {
 
   Widget _buildSidebar() {
     final current = _selectedHouse;
+    final canManage = _snapshot?.permissions.canManageAll ?? false;
     return Column(
       children: [
         Card(
@@ -174,13 +325,26 @@ class _HousesPageState extends State<HousesPage> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('SELECTED HOUSE', style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w900)),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text('SELECTED HOUSE', style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w900)),
+                          ),
+                          if (canManage)
+                            IconButton(
+                              onPressed: () => _editHouse(current),
+                              icon: const Icon(Icons.edit_outlined, size: 20),
+                              tooltip: 'Edit house',
+                            ),
+                        ],
+                      ),
                       const SizedBox(height: 6),
                       Text(current.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 14),
-                      _DetailLine('${current.points} points', 'Current-term sample total.'),
-                      _DetailLine(current.captain, 'Student captain'),
-                      _DetailLine(current.coordinator, 'Staff coordinator'),
+                      _DetailLine('${current.points} points', 'Manually maintained by school leadership.'),
+                      _DetailLine(current.captain.isEmpty ? 'Not set' : current.captain, 'Student captain'),
+                      _DetailLine(current.coordinator.isEmpty ? 'Not set' : current.coordinator, 'Staff coordinator'),
                       const SizedBox(height: 10),
                       Text(
                         'Sports ${current.sports} · Academic competitions ${current.academicCompetitions} · Community/service ${current.service}',
@@ -268,17 +432,31 @@ class _ScopeCard extends StatelessWidget {
 }
 
 class _KpiGrid extends StatelessWidget {
-  const _KpiGrid({required this.compact});
+  const _KpiGrid({required this.houses, required this.compact});
 
+  final List<SchoolHouse> houses;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final leading = houses.isEmpty
+        ? null
+        : houses.reduce((current, next) => next.points > current.points ? next : current);
+    final kpis = <HouseKpi>[
+      HouseKpi('Active houses', '${houses.length}', 'Whole-school structure'),
+      HouseKpi('Members', '${houses.fold<int>(0, (total, house) => total + house.members)}', 'Across every real house'),
+      HouseKpi(
+        'Leading house',
+        leading?.name ?? 'None yet',
+        leading == null ? 'Add a house to begin' : '${leading.points} points',
+      ),
+      const HouseKpi('Ranking scope', 'House only', 'No academic rank conversion'),
+    ];
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        for (final kpi in houseKpis)
+        for (final kpi in kpis)
           SizedBox(
             width: compact ? double.infinity : 210,
             child: Card(
@@ -333,7 +511,7 @@ class _HouseRow extends StatelessWidget {
                     Wrap(spacing: 8, runSpacing: 6, children: [Chip(label: Text(house.status)), Chip(label: Text('${house.members} members'))]),
                     Text(house.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
                     const SizedBox(height: 4),
-                    Text('Captain ${house.captain} · Coordinator ${house.coordinator}'),
+                    Text('Captain ${house.captain.isEmpty ? 'Not set' : house.captain} · Coordinator ${house.coordinator.isEmpty ? 'Not set' : house.coordinator}'),
                     const SizedBox(height: 8),
                     Text('Sports ${house.sports} · Academic competitions ${house.academicCompetitions} · Community/service ${house.service}', style: theme.textTheme.bodySmall),
                   ],

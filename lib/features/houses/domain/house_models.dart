@@ -25,6 +25,31 @@ class SchoolHouse {
 
   int get componentTotal => sports + academicCompetitions + service;
 
+  SchoolHouse copyWith({
+    String? name,
+    String? captain,
+    String? coordinator,
+    int? members,
+    int? points,
+    int? sports,
+    int? academicCompetitions,
+    int? service,
+    String? status,
+  }) {
+    return SchoolHouse(
+      id: id,
+      name: name ?? this.name,
+      captain: captain ?? this.captain,
+      coordinator: coordinator ?? this.coordinator,
+      members: members ?? this.members,
+      points: points ?? this.points,
+      sports: sports ?? this.sports,
+      academicCompetitions: academicCompetitions ?? this.academicCompetitions,
+      service: service ?? this.service,
+      status: status ?? this.status,
+    );
+  }
+
   bool matches(String query) {
     final normalized = query.trim().toLowerCase();
     if (normalized.isEmpty) return true;

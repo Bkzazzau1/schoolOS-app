@@ -29,8 +29,7 @@ const administratorStaffWebsiteSeed = <AdministratorStaffRecord>[
     section: 'Primary',
     fileStatus: AdministratorStaffFileStatus.complete,
   ),
-  // Also the Gold House coordinator (see house_demo_data.dart) and the
-  // Staff role's own demo login - see StaffSelfServiceRepository.
+  // Also the Staff role's own demo login - see StaffSelfServiceRepository.
   AdministratorStaffRecord(
     id: 'STAFF-030',
     name: 'Mr. Peter James',
