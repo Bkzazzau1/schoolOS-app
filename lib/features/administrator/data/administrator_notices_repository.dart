@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/administrator_notices_models.dart';
-import 'administrator_notices_demo_data.dart';
 
 class AdministratorNoticesSnapshot {
   const AdministratorNoticesSnapshot({
@@ -45,25 +44,10 @@ class AdministratorNoticesRepository {
 
   Future<AdministratorNoticesSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
-
-    if (records.isEmpty) {
-      for (final notice in administratorNoticesWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: notice.id,
-          payload: notice.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
 
     final notices = records
         .map((record) => AdministratorNotice.fromJson(record.payload))

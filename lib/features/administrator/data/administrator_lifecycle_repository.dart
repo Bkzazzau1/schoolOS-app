@@ -4,8 +4,6 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/administrator_lifecycle_models.dart';
 import '../domain/administrator_students_models.dart';
-import 'administrator_demo_school.dart';
-import 'administrator_lifecycle_demo_data.dart';
 
 class AdministratorLifecycleSnapshot {
   const AdministratorLifecycleSnapshot({
@@ -40,40 +38,15 @@ class AdministratorLifecycleRepository {
 
   Future<AdministratorLifecycleSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
 
-    if (records.isEmpty && !LocalDatabase.blockDemoSeeds) {
-      for (final item in [...administratorLifecycleWebsiteSeed, ...administratorLifecycleDemoExtras]) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: item.id,
-          payload: item.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
-
     final items = records
         .map((record) => AdministratorLifecycleRecord.fromJson(record.payload))
-        .toList();
-
-    final websiteOrder = <String, int>{
-      for (var i = 0; i < administratorLifecycleWebsiteSeed.length; i++)
-        administratorLifecycleWebsiteSeed[i].id: i,
-    };
-    items.sort((a, b) {
-      final aOrder = websiteOrder[a.id] ?? 9999;
-      final bOrder = websiteOrder[b.id] ?? 9999;
-      final order = aOrder.compareTo(bOrder);
-      return order != 0 ? order : a.id.compareTo(b.id);
-    });
+        .toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
 
     return AdministratorLifecycleSnapshot(
       records: items,

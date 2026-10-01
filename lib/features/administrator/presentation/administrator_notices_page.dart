@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/administrator_notices_demo_data.dart';
+import '../data/administrator_notices_policy_copy.dart';
 import '../data/administrator_notices_repository.dart';
 import '../domain/administrator_notices_models.dart';
 

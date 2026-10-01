@@ -8,7 +8,6 @@ import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_attendance_models.dart';
 import '../../administrator/domain/administrator_students_models.dart';
 import '../domain/principal_attendance_models.dart';
-import 'principal_attendance_demo_data.dart';
 
 class PrincipalSubjectAttendanceSummary {
   const PrincipalSubjectAttendanceSummary({
@@ -108,7 +107,8 @@ class PrincipalAttendanceRepository {
         _students = students,
         _attendance = attendance;
 
-  static const _scannerType = 'principal_biometric_scanner';
+  static const scannerEntityType = 'principal_biometric_scanner';
+  static const _scannerType = scannerEntityType;
   static const _eventType = 'principal_biometric_attendance_event';
   static const _subjectAttendanceType = 'teacher_lesson_attendance_register';
 
@@ -260,7 +260,6 @@ class PrincipalAttendanceRepository {
 
   Future<PrincipalAttendanceSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    await _seedIfNeeded(membership);
 
     final classes = await _classAttendance();
     final subjectLessons = await _subjectAttendance(membership);
@@ -426,37 +425,4 @@ class PrincipalAttendanceRepository {
     );
   }
 
-  Future<void> _seedIfNeeded(SchoolMembership membership) async {
-    // Demo evidence must never appear in a backend-connected Principal workspace.
-    if (LocalDatabase.blockDemoSeeds) return;
-
-    if ((await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _scannerType,
-    ))
-        .isEmpty) {
-      for (final row in principalBiometricScanners) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _scannerType,
-          entityId: row.id,
-          payload: row.toJson(),
-        );
-      }
-    }
-    if ((await _localDatabase.getLocalRecords(
-      tenantId: membership.schoolId,
-      entityType: _eventType,
-    ))
-        .isEmpty) {
-      for (final row in principalBiometricSeedEvents) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _eventType,
-          entityId: row.id,
-          payload: row.toJson(),
-        );
-      }
-    }
-  }
 }

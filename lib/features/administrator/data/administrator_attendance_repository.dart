@@ -28,9 +28,9 @@ class AdministratorAttendanceRepository {
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession;
 
-  static const _eventEntityType = 'administrator_attendance_event';
+  static const eventEntityType = 'administrator_attendance_event';
   static const _deviceEntityType = 'administrator_attendance_device';
-  static const _correctionEntityType = 'administrator_attendance_correction';
+  static const correctionEntityType = 'administrator_attendance_correction';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -43,30 +43,16 @@ class AdministratorAttendanceRepository {
     );
   }
 
-  /// Today's attendance. [students] (the active register) let the demo school have a morning of gate scans to show.
+  /// Today's attendance. [students] identifies the active register for callers building a desk summary; this
+  /// repository itself only reports real events, devices and corrections, never invents them.
   Future<AdministratorAttendanceSnapshot> load({List<AdministratorStudentRecord> students = const []}) async {
     final membership = _schoolSession.requireActiveMembership();
     final today = schoolDay(DateTime.now());
 
-    var eventRecords = await _localDatabase.getLocalRecords(
+    final eventRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
-      entityType: _eventEntityType,
+      entityType: eventEntityType,
     );
-    if (!eventRecords.any((r) => r.payload['date'] == today) && students.isNotEmpty) {
-      // The demo school: a morning of scans for today (a school server has real devices instead, and blocks this).
-      for (final item in demoScansFor(students, DateTime.now())) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _eventEntityType,
-          entityId: item.entityId,
-          payload: item.toJson(),
-        );
-      }
-      eventRecords = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _eventEntityType,
-      );
-    }
 
     var deviceRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
@@ -87,26 +73,10 @@ class AdministratorAttendanceRepository {
       );
     }
 
-    var correctionRecords = await _localDatabase.getLocalRecords(
+    final correctionRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
-      entityType: _correctionEntityType,
+      entityType: correctionEntityType,
     );
-    if (correctionRecords.isEmpty && students.isNotEmpty) {
-      // The demo school: a few sample correction requests, drawn from the real register (a school server has
-      // real requests from real teachers instead, and blocks this).
-      for (final item in demoCorrectionsFor(students)) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _correctionEntityType,
-          entityId: item.id,
-          payload: item.toJson(),
-        );
-      }
-      correctionRecords = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _correctionEntityType,
-      );
-    }
 
     final events = eventRecords
         .map((record) => AdministratorAttendanceEvent.fromJson(record.payload))
@@ -298,12 +268,12 @@ class AdministratorAttendanceRepository {
   Future<void> _saveEvent(SchoolMembership membership, AdministratorAttendanceEvent event, {required bool isNew}) async {
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
-      entityType: _eventEntityType,
+      entityType: eventEntityType,
       entityId: event.entityId,
     );
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
-      entityType: _eventEntityType,
+      entityType: eventEntityType,
       entityId: event.entityId,
       payload: event.toJson(),
       serverVersion: existing?.serverVersion,
@@ -312,7 +282,7 @@ class AdministratorAttendanceRepository {
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
-      entityType: _eventEntityType,
+      entityType: eventEntityType,
       entityId: event.entityId,
       operation: isNew && existing == null ? SyncOperation.create : SyncOperation.update,
       payload: event.toJson(),
@@ -323,12 +293,12 @@ class AdministratorAttendanceRepository {
   Future<void> _saveCorrection(SchoolMembership membership, AdministratorAttendanceCorrection correction) async {
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
-      entityType: _correctionEntityType,
+      entityType: correctionEntityType,
       entityId: correction.id,
     );
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
-      entityType: _correctionEntityType,
+      entityType: correctionEntityType,
       entityId: correction.id,
       payload: correction.toJson(),
       serverVersion: existing?.serverVersion,
@@ -337,7 +307,7 @@ class AdministratorAttendanceRepository {
     await _localDatabase.queueMutation(
       tenantId: membership.schoolId,
       membershipId: membership.id,
-      entityType: _correctionEntityType,
+      entityType: correctionEntityType,
       entityId: correction.id,
       operation: existing == null ? SyncOperation.create : SyncOperation.update,
       payload: correction.toJson(),

@@ -86,7 +86,6 @@ class ParentChildrenRepository {
        _ledger = ledger;
 
   static const _linkEntityType = 'parent_family_link';
-  static const _seedChildIds = ['STU-001', 'PRI-003'];
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -105,14 +104,7 @@ class ParentChildrenRepository {
     if (existing != null) {
       return Map<String, Object?>.from(existing.payload);
     }
-    if (LocalDatabase.blockDemoSeeds) return null;
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _linkEntityType,
-      entityId: membership.id,
-      payload: {'childIds': _seedChildIds},
-    );
-    return {'childIds': _seedChildIds};
+    return null;
   }
 
   Future<List<String>> _linkedChildIds(SchoolMembership membership) async {

@@ -6,22 +6,22 @@ const driverMorningRunBoundary =
 const driverMorningOfflineBoundary =
     'Every action is saved on this device first. Queued transport events are operationally visible offline but are not server-confirmed until synchronization succeeds.';
 
-// Only real students from the school's real register (`administratorStudentsWebsiteSeed`) ride this
-// route. Earlier this listed 26 riders across these 7 stops, but only one of them (STU-001) was ever
-// a real student — the other 25 were invented ids/names Administrator never actually registered, the
-// same "fabricated evidence about a person" problem this whole app-wide audit exists to remove, just
-// applied to entire invented people instead of invented facts about a real one. The stop names and
-// times are real-flavored route geography, not a claim about any specific person, so they stay; every
-// stop with no real registered rider honestly stays empty rather than being padded to look busier.
+// Only real students from the school's real register ride this route. Earlier this listed 26 riders
+// across these 7 stops, but only one of them (STU-001) was ever a real student — the other 25 were
+// invented ids/names Administrator never actually registered, the same "fabricated evidence about a
+// person" problem this whole app-wide audit exists to remove, just applied to entire invented people
+// instead of invented facts about a real one. A later pass removed the Administrator website seed
+// that STU-001 itself came from (a fresh school's real register is now built only through Admissions
+// and Registration), so even that one rider is no longer real either. The stop names and times are
+// real-flavored route geography, not a claim about any specific person, so they stay; every stop with
+// no real registered rider honestly stays empty rather than being padded to look busier.
 List<DriverMorningStop> defaultBus02MorningStops() => const [
       DriverMorningStop(
         id: 'BUS-02-STOP-01',
         sequence: 1,
         name: 'Barnawa Market Junction',
         scheduledTime: '06:35',
-        riders: [
-          DriverMorningRider(studentId: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', stopId: 'BUS-02-STOP-01'),
-        ],
+        riders: [],
       ),
       DriverMorningStop(
         id: 'BUS-02-STOP-02',

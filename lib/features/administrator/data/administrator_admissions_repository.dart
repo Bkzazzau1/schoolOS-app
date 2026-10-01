@@ -4,7 +4,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/administrator_admissions_models.dart';
-import 'administrator_admissions_demo_data.dart';
 
 class AdministratorAdmissionsSnapshot {
   const AdministratorAdmissionsSnapshot({
@@ -47,25 +46,10 @@ class AdministratorAdmissionsRepository {
 
   Future<AdministratorAdmissionsSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
-
-    if (records.isEmpty) {
-      for (final applicant in administratorAdmissionsWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: applicant.reference,
-          payload: applicant.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
 
     final applicants = records
         .map((record) => AdmissionApplicant.fromJson(record.payload))
