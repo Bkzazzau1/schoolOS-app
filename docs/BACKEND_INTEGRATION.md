@@ -3598,3 +3598,34 @@ projects but not verify a record; `create()` lets a teacher really add a project
 non-manager/contributor; `edit()` lets a manager really update hand-maintained totals and refuses a teacher;
 `toggleVerification()` refuses administrator and allows a real leader). All 16 Service tests pass; full app suite
 back to the same 83 pre-existing failures as before this work, by name.
+
+## Visitor Management gets a real front-desk logging flow
+
+Fifth of Tier 2 - same no-create-method gap as Boarding/Service, but the guarded field here happens to land on
+the same role set as `manage` itself: `VISITORS = Spec("visitor_record", manage=MANAGERS,
+contribute={"staff"}, read=STAFF_SIDE, guarded={"frontDeskReviewed": MANAGERS}, ...)` (in
+`apps/schoollife/specs/campus.py`) - unlike Boarding/Service, whose guarded fields are the narrower `LEADERS`.
+`permissionsFor` previously granted a single `canReviewRecords` flag to the proprietor alone. `read=STAFF_SIDE` is
+already satisfied by navigation: `VisitorsPage` is only reachable from the Proprietor workspace, confirmed the
+same way Boarding's equivalent restriction was.
+
+**Design.** `VisitorPermissions` gained `canCreate` (manage ∪ contribute - the front desk, i.e. `staff`, may log
+a visitor) and `canManageAll` alongside the existing `canReviewRecords`, all three now correctly scoped to
+`MANAGERS`/`MANAGERS ∪ {staff}` instead of proprietor alone. `canManageAll` and `canReviewRecords` happen to
+check the same role set here (both `MANAGERS`) but are kept as two separate flags anyway, mirroring the real
+Spec's own two distinct concepts rather than collapsing them because they currently coincide - if the guarded set
+ever narrows the way Boarding's or Service's did, no restructuring would be needed. A new visitor record starts
+`departure: '—'` (honestly not yet known) and `frontDeskReviewed: false`. `visitorStats()` was already mostly
+computed from a real `visits` argument; "Unescorted exceptions: 0 (Sample figure)" - the one stat that was
+already honestly flagged as fake - is dropped outright, since nothing in the app tracks whether a visitor was
+ever left unescorted. `visitor_demo_data.dart` is renamed `visitor_policy_copy.dart`.
+
+**Verification.** `flutter analyze` clean. `test/visitors_test.dart`: the seed-preservation test was removed;
+status, search and pickup-boundary tests rewritten against inline fixtures; a `copyWith` test replaces the old
+narrow review-serialization test; a new assertion confirms `visitorStats([])` is honestly all zeros. New
+`test/visitor_repository_test.dart` (9 tests - a fresh school's `load()` is genuinely empty; `permissionsFor`
+matches the real Spec exactly, confirming staff can log a visitor but not manage/review; `create()` lets the
+front desk really log a visitor starting with an honest unset departure and refuses a role outside
+manage/contribute or a blank visitor name; a manager can edit and review a real visit while the front desk can do
+neither). All 13 Visitors tests pass; full app suite back to the same 83 pre-existing failures as before this
+work, by name.
