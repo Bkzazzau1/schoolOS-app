@@ -1,13 +1,5 @@
 import '../domain/administrator_website_models.dart';
 
-const administratorWebsiteSeed = AdministratorWebsiteSettings(
-  heroHeadline: 'A strong beginning. A confident future.',
-  heroSupportingText:
-      'Nursery, Primary and Secondary education in a caring, structured learning environment.',
-  admissionsOpen: true,
-  admissionSession: '2026/2027',
-);
-
 const administratorWebsiteDomain = 'brightgateacademy.ng';
 
 // Real application and published-notice counts are tracked for real on the Admissions and

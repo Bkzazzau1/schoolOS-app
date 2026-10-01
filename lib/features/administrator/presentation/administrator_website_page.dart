@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/administrator_website_demo_data.dart';
+import '../data/administrator_website_policy_copy.dart';
 import '../data/administrator_website_repository.dart';
 import '../domain/administrator_website_models.dart';
 

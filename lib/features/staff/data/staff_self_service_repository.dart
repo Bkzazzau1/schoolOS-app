@@ -114,8 +114,28 @@ class StaffSelfServiceRepository {
   Future<LocalRecord?> _seedDemoSelfIfKnown(SchoolMembership member) async {
     final staffId = _demoSelfLink[member.id];
     if (staffId == null) return null;
-    // Ensures STAFF-030 itself exists in the directory before linking to it.
-    await AdministratorStaffRepository(localDatabase: database, schoolSession: session).load();
+    // Ensures STAFF-030 itself exists in the directory before linking to it - the same real entry a
+    // connected school's own onboarding would have created alongside the login.
+    final existingDirectoryEntry = await database.getLocalRecord(
+      tenantId: member.schoolId,
+      entityType: AdministratorStaffRepository.directoryEntityType,
+      entityId: staffId,
+    );
+    if (existingDirectoryEntry == null) {
+      const directoryEntry = AdministratorStaffRecord(
+        id: 'STAFF-030',
+        name: 'Mr. Peter James',
+        role: 'House coordinator',
+        section: 'Whole school',
+        fileStatus: AdministratorStaffFileStatus.missingDocument,
+      );
+      await database.upsertLocalRecord(
+        tenantId: member.schoolId,
+        entityType: AdministratorStaffRepository.directoryEntityType,
+        entityId: staffId,
+        payload: directoryEntry.toJson(),
+      );
+    }
 
     final existing = await database.getLocalRecord(
       tenantId: member.schoolId,

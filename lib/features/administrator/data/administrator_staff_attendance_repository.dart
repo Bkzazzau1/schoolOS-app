@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/administrator_staff_attendance_models.dart';
-import 'administrator_staff_attendance_demo_data.dart';
 
 class AdministratorStaffAttendanceSnapshot {
   const AdministratorStaffAttendanceSnapshot({
@@ -38,7 +37,8 @@ class AdministratorStaffAttendanceRepository {
   })  : _localDatabase = localDatabase,
         _schoolSession = schoolSession;
 
-  static const _recordEntityType = 'administrator_staff_attendance';
+  static const recordEntityType = 'administrator_staff_attendance';
+  static const _recordEntityType = recordEntityType;
   static const _summaryEntityType = 'payroll_attendance_summary';
   static const _summaryId = 'PAYROLL-ATT-2026-09';
 
@@ -55,35 +55,15 @@ class AdministratorStaffAttendanceRepository {
 
   Future<AdministratorStaffAttendanceSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var storedRecords = await _localDatabase.getLocalRecords(
+    final storedRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _recordEntityType,
     );
 
-    if (storedRecords.isEmpty) {
-      for (final record in administratorStaffAttendanceWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _recordEntityType,
-          entityId: record.id,
-          payload: record.toJson(),
-        );
-      }
-      storedRecords = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _recordEntityType,
-      );
-    }
-
     final records = storedRecords
         .map((item) => StaffAttendanceRecord.fromJson(item.payload))
-        .toList();
-    final order = <String, int>{
-      for (var i = 0; i < administratorStaffAttendanceWebsiteSeed.length; i++)
-        administratorStaffAttendanceWebsiteSeed[i].id: i,
-    };
-    records.sort((a, b) =>
-        (order[a.id] ?? 999).compareTo(order[b.id] ?? 999));
+        .toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
 
     final storedSummary = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
@@ -100,7 +80,7 @@ class AdministratorStaffAttendanceRepository {
 
     return AdministratorStaffAttendanceSnapshot(
       records: records,
-      devices: administratorStaffAttendanceDevices,
+      devices: const [],
       summary: PayrollAttendanceSummary(
         id: summary.id,
         sent: summary.sent,

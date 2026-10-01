@@ -7,7 +7,6 @@ import '../../proprietor/data/owner_staff_profile_repository.dart';
 import '../../proprietor/domain/owner_staff_profile_models.dart';
 import '../domain/administrator_staff_models.dart';
 import '../domain/support_staff_roles.dart';
-import 'administrator_staff_demo_data.dart';
 
 class AdministratorStaffSnapshot {
   const AdministratorStaffSnapshot({
@@ -42,40 +41,15 @@ class AdministratorStaffRepository {
 
   Future<AdministratorStaffSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
 
-    if (records.isEmpty) {
-      for (final item in administratorStaffWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: item.id,
-          payload: item.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
-
     final staff = records
         .map((record) => AdministratorStaffRecord.fromJson(record.payload))
-        .toList();
-
-    final websiteOrder = <String, int>{
-      for (var i = 0; i < administratorStaffWebsiteSeed.length; i++)
-        administratorStaffWebsiteSeed[i].id: i,
-    };
-    staff.sort((a, b) {
-      final aOrder = websiteOrder[a.id] ?? 9999;
-      final bOrder = websiteOrder[b.id] ?? 9999;
-      final order = aOrder.compareTo(bOrder);
-      return order != 0 ? order : a.id.compareTo(b.id);
-    });
+        .toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
 
     return AdministratorStaffSnapshot(
       staff: staff,

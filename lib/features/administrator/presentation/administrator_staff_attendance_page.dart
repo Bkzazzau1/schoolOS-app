@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/administrator_staff_attendance_demo_data.dart';
+import '../data/administrator_staff_attendance_policy_copy.dart';
 import '../data/administrator_staff_attendance_repository.dart';
 import '../domain/administrator_staff_attendance_models.dart';
 
@@ -367,14 +367,16 @@ class _LedgerCard extends StatelessWidget {
     return _Panel(
       title: 'Staff attendance ledger',
       subtitle: 'Current payroll period summary.',
-      child: Column(
-        children: [
-          for (final record in records) ...[
-            _AttendanceRow(record: record),
-            if (record != records.last) const Divider(height: 1),
-          ],
-        ],
-      ),
+      child: records.isEmpty
+          ? const Text('No real staff attendance has been recorded yet.')
+          : Column(
+              children: [
+                for (final record in records) ...[
+                  _AttendanceRow(record: record),
+                  if (record != records.last) const Divider(height: 1),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -433,18 +435,21 @@ class _DevicesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final device in devices) ...[
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(device.name, style: const TextStyle(fontWeight: FontWeight.w900)),
-              subtitle: Text('${device.location}\n${device.method}'),
-              trailing: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 145),
-                child: Text(device.state, textAlign: TextAlign.end),
+          if (devices.isEmpty)
+            const Text('No real attendance hardware is connected yet.')
+          else
+            for (final device in devices) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(device.name, style: const TextStyle(fontWeight: FontWeight.w900)),
+                subtitle: Text('${device.location}\n${device.method}'),
+                trailing: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 145),
+                  child: Text(device.state, textAlign: TextAlign.end),
+                ),
               ),
-            ),
-            if (device != devices.last) const Divider(height: 1),
-          ],
+              if (device != devices.last) const Divider(height: 1),
+            ],
           const SizedBox(height: 12),
           const _BoundaryBox(text: staffAttendanceSyncRule),
         ],

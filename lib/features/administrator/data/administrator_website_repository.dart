@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/administrator_website_models.dart';
-import 'administrator_website_demo_data.dart';
 
 class AdministratorWebsiteSnapshot {
   const AdministratorWebsiteSnapshot({
@@ -44,30 +43,25 @@ class AdministratorWebsiteRepository {
     );
   }
 
+  static const _emptySettings = AdministratorWebsiteSettings(
+    heroHeadline: '',
+    heroSupportingText: '',
+    admissionsOpen: false,
+    admissionSession: '',
+  );
+
   Future<AdministratorWebsiteSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var record = await _localDatabase.getLocalRecord(
+    final record = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
       entityType: _entityType,
       entityId: _entityId,
     );
 
-    if (record == null) {
-      await _localDatabase.upsertLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-        entityId: _entityId,
-        payload: administratorWebsiteSeed.toJson(),
-      );
-      record = await _localDatabase.getLocalRecord(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-        entityId: _entityId,
-      );
-    }
-
     return AdministratorWebsiteSnapshot(
-      settings: AdministratorWebsiteSettings.fromJson(record!.payload),
+      settings: record == null
+          ? _emptySettings
+          : AdministratorWebsiteSettings.fromJson(record.payload),
       permissions: permissionsFor(membership),
     );
   }

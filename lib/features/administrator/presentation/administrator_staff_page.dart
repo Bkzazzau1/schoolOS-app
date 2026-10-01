@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../proprietor/data/staff_proposal_repository.dart';
 import '../../proprietor/presentation/staff_proposals_ui.dart';
-import '../data/administrator_staff_demo_data.dart';
+import '../data/administrator_staff_policy_copy.dart';
 import '../data/administrator_staff_repository.dart';
 import '../domain/administrator_staff_models.dart';
 
