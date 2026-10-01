@@ -9,7 +9,13 @@ import 'package:schoolos_app/features/administrator/domain/administrator_student
 import 'package:schoolos_app/features/finance_office/data/finance_ledger_repository.dart';
 import 'package:schoolos_app/features/parent/data/parent_children_repository.dart';
 import 'package:schoolos_app/features/parent/data/parent_messages_repository.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_staff_repository.dart';
+import 'package:schoolos_app/features/administrator/domain/administrator_staff_models.dart';
 import 'package:schoolos_app/features/proprietor/data/concession_repository.dart';
+import 'package:schoolos_app/features/proprietor/data/owner_staff_profile_repository.dart';
+import 'package:schoolos_app/features/proprietor/domain/owner_staff_profile_models.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_messages_repository.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_roster.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 import 'package:schoolos_app/features/principal/data/principal_communication_repository.dart';
 import 'package:schoolos_app/features/principal/domain/principal_communication_models.dart';
@@ -219,5 +225,109 @@ void main() {
     final maryamThread = snapshot.threadById('channel-STU-001')!;
     expect(maryamThread.messages.single.body, 'PTA meeting Friday.');
     expect(maryamThread.messages.single.authorLabel, 'Principal');
+  });
+
+  group('school leadership reply-thread inbox', () {
+    const teacher = SchoolMembership(id: 'm-teacher', schoolId: 's', schoolName: 'School', role: SchoolRole.teacher);
+    final leadershipThreadId = 'leadership-thread-${teacher.id}';
+
+    Future<TeacherMessagesRepository> setUpTeacher() async {
+      await session.setMemberships([principal, teacher]);
+      final students = AdministratorStudentsRepository(localDatabase: db!, schoolSession: session);
+      final roster = TeacherRoster(database: db!, session: session, students: students);
+      return TeacherMessagesRepository(localDatabase: db!, schoolSession: session, roster: roster);
+    }
+
+    test('an inbox with no real leadership messages stays honestly empty', () async {
+      await setup();
+      expect((await repo.load()).threads, isEmpty);
+    });
+
+    test("a real teacher's leadership message really reaches the Principal's own inbox", () async {
+      await setup();
+      final teacherMessages = await setUpTeacher();
+      await session.selectSchool(teacher);
+      await teacherMessages.queueMessage(threadId: leadershipThreadId, body: 'Requesting guidance on a parent concern.');
+
+      await session.selectSchool(principal);
+      final snapshot = await repo.load();
+      final thread = snapshot.threads.singleWhere((t) => t.id == leadershipThreadId);
+      expect(thread.messages.single.body, 'Requesting guidance on a parent concern.');
+      expect(thread.messages.single.isOutgoing, isFalse, reason: 'from the Principal\'s own side, this was the teacher\'s message');
+    });
+
+    test('the Principal\'s own reply really reaches the real teacher\'s own Teacher Messages thread', () async {
+      await setup();
+      final teacherMessages = await setUpTeacher();
+      await session.selectSchool(teacher);
+      await teacherMessages.queueMessage(threadId: leadershipThreadId, body: 'Requesting guidance on a parent concern.');
+
+      await session.selectSchool(principal);
+      final result = await repo.queueReply(threadId: leadershipThreadId, message: "Let's discuss tomorrow morning.");
+      expect(result.success, isTrue, reason: result.message);
+
+      await session.selectSchool(teacher);
+      final teacherSnapshot = await teacherMessages.load();
+      final teacherThreadMessages = teacherSnapshot.messagesForThread(leadershipThreadId);
+      expect(teacherThreadMessages.last.body, "Let's discuss tomorrow morning.");
+      expect(teacherThreadMessages.last.isOutgoing, isFalse, reason: 'from the teacher\'s own side, this was the Principal\'s message');
+    });
+
+    test('a real teacher message makes the thread unread for the Principal until marked seen', () async {
+      await setup();
+      final teacherMessages = await setUpTeacher();
+      await session.selectSchool(teacher);
+      await teacherMessages.queueMessage(threadId: leadershipThreadId, body: 'Requesting guidance on a parent concern.');
+
+      await session.selectSchool(principal);
+      final before = await repo.load();
+      expect(before.threads.singleWhere((t) => t.id == leadershipThreadId).unread, isTrue);
+      expect(before.unreadCount, 1);
+
+      await repo.markThreadSeen(leadershipThreadId);
+      final after = await repo.load();
+      expect(after.threads.singleWhere((t) => t.id == leadershipThreadId).unread, isFalse);
+    });
+
+    test('a thread shows the real teacher\'s real name from the real staff directory', () async {
+      await setup();
+      final teacherMessages = await setUpTeacher();
+      await session.selectSchool(teacher);
+      await teacherMessages.queueMessage(threadId: leadershipThreadId, body: 'Hello');
+
+      await db!.upsertLocalRecord(
+        tenantId: 's',
+        entityType: AdministratorStaffRepository.directoryEntityType,
+        entityId: 'STAFF-1',
+        payload: const AdministratorStaffRecord(
+          id: 'STAFF-1', name: 'Mrs Amina Bello', role: 'Teacher', section: 'Secondary',
+          fileStatus: AdministratorStaffFileStatus.complete,
+        ).toJson(),
+      );
+      await db!.upsertLocalRecord(
+        tenantId: 's',
+        entityType: OwnerStaffProfileRepository.entityType,
+        entityId: 'STAFF-1',
+        payload: StaffProfile(staffId: 'STAFF-1', systemRole: 'teacher', linkedMembershipId: teacher.id).toJson(),
+      );
+
+      await session.selectSchool(principal);
+      final thread = (await repo.load()).threads.singleWhere((t) => t.id == leadershipThreadId);
+      expect(thread.title, 'Mrs Amina Bello');
+      expect(thread.person, 'Mrs Amina Bello');
+    });
+
+    test('a non-principal cannot reply, and a reply to an unknown thread is refused', () async {
+      await setup();
+      final teacherMessages = await setUpTeacher();
+      await session.selectSchool(teacher);
+      await teacherMessages.queueMessage(threadId: leadershipThreadId, body: 'Hello');
+
+      await session.selectSchool(principal);
+      expect((await repo.queueReply(threadId: 'leadership-thread-ghost', message: 'Hi')).success, isFalse);
+
+      await session.selectSchool(teacher);
+      expect((await repo.queueReply(threadId: leadershipThreadId, message: 'Hi')).success, isFalse);
+    });
   });
 }
