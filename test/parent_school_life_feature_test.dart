@@ -11,6 +11,7 @@ import 'package:schoolos_app/features/excursions/data/excursion_repository.dart'
 import 'package:schoolos_app/features/finance_office/data/finance_ledger_repository.dart';
 import 'package:schoolos_app/features/gallery/data/gallery_repository.dart';
 import 'package:schoolos_app/features/meals/data/meal_repository.dart';
+import 'package:schoolos_app/features/meals/domain/meal_models.dart';
 import 'package:schoolos_app/features/parent/data/parent_children_repository.dart';
 import 'package:schoolos_app/features/parent/data/parent_school_life_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/concession_repository.dart';
@@ -90,20 +91,42 @@ void main() {
     expect(hafsa.serviceCode, 'Not recorded yet');
   });
 
-  test('today\'s meal matches the real whole-school weekly menu, or is honest on a day with no service', () async {
+  test('today\'s meal is honestly "Not recorded yet" until the school really sets one', () async {
     await setUpFamily();
     final snapshot = await schoolLife.load();
-    final meals = await MealRepository(localDatabase: db!, schoolSession: session).load();
+    expect(snapshot.todayMeal, 'Not recorded yet');
+    expect(snapshot.todayMealService, 'Not recorded yet');
+  });
+
+  test('today\'s meal matches the real whole-school weekly menu once the school sets one, or is honest on a day with no service', () async {
+    await setUpFamily();
     final todayName = _weekdayNames[DateTime.now().weekday];
 
     if (todayName == null) {
+      final snapshot = await schoolLife.load();
       expect(snapshot.todayMeal, 'Not recorded yet');
       expect(snapshot.todayMealService, 'Not recorded yet');
-    } else {
-      final today = meals.meals.firstWhere((m) => m.day == todayName);
-      expect(snapshot.todayMeal, '${today.breakfast} · ${today.lunch} · ${today.snack}');
-      expect(snapshot.todayMealService, today.status.label);
+      return;
     }
+
+    await session.selectSchool(proprietor);
+    final result = await MealRepository(localDatabase: db!, schoolSession: session).updateMenuDay(
+      SchoolMealDay(
+        day: todayName,
+        breakfast: 'Pap + akara',
+        lunch: 'Jollof rice + chicken',
+        snack: 'Fruit',
+        servings: 50,
+        status: MealServiceStatus.serving,
+        note: 'Standard menu.',
+      ),
+    );
+    expect(result.success, isTrue, reason: result.message);
+    await session.selectSchool(parent);
+
+    final snapshot = await schoolLife.load();
+    expect(snapshot.todayMeal, 'Pap + akara · Jollof rice + chicken · Fruit');
+    expect(snapshot.todayMealService, 'Serving');
   });
 
   test('no real per-student activity roster or meal-plan source exists yet, so both stay honestly empty', () async {
