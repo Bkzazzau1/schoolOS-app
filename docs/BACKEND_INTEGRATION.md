@@ -3892,8 +3892,65 @@ server-controlled") that never actually assigns anything, so no honest implement
 derivation can satisfy that test's premise; it previously passed only by coincidence against a fixed lesson list
 unrelated to real assignment state.
 
-**Not yet done in Teacher**: `teacher_performance_repository.dart`'s `metrics`/`classPerformance`/`developmentLog`
-are still fabricated constants (only the roster-based class filter is real); `teacher_dashboard_page.dart` has no
-repository at all and renders entirely from static demo data; `teacher_students_page.dart`'s KPI tiles are
-disconnected from the real student list the same page otherwise uses correctly. Administrator's 7-instance and
-Finance Office's 3-instance findings from the second audit are also not yet fixed.
+## Teacher Performance, Dashboard and Students stop fabricating
+
+This closes Teacher: the three screens flagged as "not yet done" above are now real, with every number
+traceable to a repository already fixed or already real elsewhere in this pass.
+
+**Design - Performance.** `TeacherPerformanceRepository` now composes `TeacherAttendanceRepository`,
+`TeacherAssessmentRepository`, `TeacherLessonPlanRepository` and `TeacherSyllabusRepository` directly: attendance
+completion is the real ratio of submitted-vs-total registers; lesson-plan compliance is the real ratio of
+plans past draft; assessment completion is the real average score-entry ratio (`entered/totalStudents`) across
+real assessments for assigned classes; syllabus pace is the real average of `TeacherSyllabusSnapshot.coverageOf`
+per assigned class. The development log reads a linked `StaffProfile.reviews` - the same real leadership-review
+source Profile's own identity lookup already established - instead of three fabricated coaching notes. The
+overall "/100" score is a transparent average of the four real metrics (never an opaque algorithm), its label a
+fixed threshold table, and the "professional focus" card names whichever real metric has the largest real gap to
+its own target rather than inventing a specific class/week recommendation. `TeacherClassPerformance.change` (a
+fabricated trend arrow) is dropped from the model entirely - no historical period-over-period tracking exists
+anywhere in the app to compute a real one from.
+
+**Design - Dashboard.** `teacher_dashboard_page.dart` had no repository at all before this pass - every identity
+field, KPI, class, schedule row, student and task was a fixed constant. The new `TeacherDashboardRepository`
+composes nine real repositories (`TeacherProfileRepository` for identity, `TeacherClassesRepository` +
+`TeacherSyllabusRepository` for classes, `TeacherTimetableRepository` filtered to today for the schedule,
+`TeacherAttendanceRepository`/`TeacherLessonPlanRepository`/`TeacherWeeklyLearningRepository`/`TeacherCbtRepository`
+for the planning stats and action list, `TeacherLearningProgressRepository` for the assigned-student roster, and
+`TeacherPerformanceRepository` for the performance summary card - avoiding a third copy of the same metrics
+already fixed above). Today's schedule shows the lesson's own real `TeacherTimetableLessonStatus` label
+("Scheduled"/"Substitution") rather than a fabricated time-of-day guess ("Completed"/"Next"/"Upcoming"), which
+would have required parsing lesson-time strings of uncertain format against the clock. The "students needing
+attention" panel drops the fabricated "Strong/Watch/At risk" signal entirely - `TeacherLearningProgressRepository`
+had already established, in its own doc comment, that no real per-topic/per-student evidence source exists yet
+to compute one honestly, so Dashboard doesn't invent a parallel one either. The fabricated "Teacher AI Daily
+Brief" paragraph (naming a specific class and a specific invented concern) is removed outright - no real AI
+analysis exists anywhere in the app to back it. A new `TeacherDashboardDataSource` interface keeps the page
+testable via a fake, the same pattern already used by nine other Teacher repositories.
+
+**Design - Students.** `teacher_students_page.dart`'s `_Kpis` widget read a completely disconnected fixed tuple
+list (`teacherStudentKpis`) while the rest of the page, one widget away, already used the real
+`TeacherStudentsSnapshot.students` the repository provides. The KPI strip is now computed directly from that
+real list: real assigned-student count, real class count, and real risk-category counts from each student's own
+`risk` field - which the real repository already defaults honestly to `TeacherStudentRisk.stable` for every
+student (confirmed by reading `teacher_students_repository.dart` directly), since no real per-student risk
+differentiation exists there either. A fabricated AI insight naming a specific real-sounding student
+("Yusuf Bello shows the strongest combined review signal...") is replaced with an honest, generic invitation to
+ask Teacher AI using the teacher's own real evidence. The stray `_selectedId = teacherStudents.first.id` initial
+value (immediately overwritten by the real snapshot on first build, so never actually user-visible) is changed
+to an empty string so the file no longer needs the fabricated seed import at all.
+
+All three `*_demo_data.dart` files renamed to `*_policy_copy.dart`, keeping only genuinely static reference text
+(the nav list, the connected-workflow diagram, governance boundaries).
+
+**Verification.** `flutter analyze` clean across `lib/` and `test/`. New `test/teacher_performance_repository_test.dart`
+(3 tests) and `test/teacher_dashboard_repository_test.dart` (2 tests) exercise the real composed repositories
+end to end against a real in-memory `LocalDatabase` - both pass on the first run, confirming the cross-repository
+composition is correct. `test/teacher_performance_feature_test.dart`, `test/teacher_dashboard_feature_test.dart`
+and `test/teacher_students_feature_test.dart` rewritten against inline fixtures, each gaining an explicit
+honest-empty/zero widget test. Full app suite: 83 failures, identical by name to the 83-failure baseline taken
+immediately before this pass (confirmed by a `git stash` A/B comparison of the complete failing-test-name list) -
+this pass introduced no new failures and fixed none of the pre-existing cluster, a clean net wash.
+
+This closes the Teacher role entirely: every screen audited this session now reflects only what a teacher has
+really been assigned, really recorded, or really been reviewed on. Administrator's 7-instance and Finance
+Office's 3-instance findings from the second audit remain open for a future pass.
