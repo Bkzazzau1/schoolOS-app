@@ -23,6 +23,7 @@ class TransportMessagesRepository {
 
   static const _messageEntityType = 'driver_message';
   static const _threadPrefix = 'driver-thread-';
+  static const _alertEntityType = 'driver_alert';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -76,7 +77,89 @@ class TransportMessagesRepository {
       ));
     }
 
-    return TransportMessagesSnapshot(threads: threads, canReply: permissions.canManageDriverAssignments);
+    final alertRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _alertEntityType,
+    );
+    // Transport Control has no real "read" receipt of its own on an alert (AlertReceiptHandler is
+    // Driver-only, by design - only a Driver ever needs to acknowledge one); `read: true` here
+    // just means "nothing to clear," not a real receipt.
+    final alerts = [
+      for (final record in alertRecords)
+        if (record.payload['id'] != null)
+          DriverOperationalAlert.fromCanonical(
+            payload: Map<String, Object?>.from(record.payload),
+            read: true,
+          ),
+    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return TransportMessagesSnapshot(
+      threads: threads,
+      canReply: permissions.canManageDriverAssignments,
+      alerts: alerts,
+    );
+  }
+
+  /// Sends a real, school-wide operational alert to every real Driver
+  /// (`apps/transport/driver_messages.py: DriverAlertHandler`) - a broadcast, not a thread.
+  Future<void> queueAlert({
+    required String title,
+    required String body,
+    required DriverAlertPriority priority,
+    required String scopeLabel,
+  }) async {
+    final membership = _schoolSession.requireActiveMembership();
+    final permissions = _transport.permissionsFor(membership);
+    if (!permissions.canManageDriverAssignments) {
+      throw StateError('This membership cannot send operational alerts.');
+    }
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+    if (cleanTitle.isEmpty) {
+      throw ArgumentError.value(title, 'title', 'Alert title is required.');
+    }
+    if (cleanBody.isEmpty) {
+      throw ArgumentError.value(body, 'body', 'Alert body is required.');
+    }
+    if (cleanBody.length > 2000) {
+      throw ArgumentError.value(body, 'body', 'Alert body cannot exceed 2000 characters.');
+    }
+
+    final now = DateTime.now().toUtc();
+    final alertId = 'LOCAL-${membership.id}-${now.microsecondsSinceEpoch}';
+    final cleanScopeLabel = scopeLabel.trim().isEmpty ? 'All Routes' : scopeLabel.trim();
+
+    // The wire payload carries only what Transport Control actually contributes; who really sent
+    // it and when are the server's own stamp (see DriverAlertHandler.clean), never taken from the
+    // app.
+    final wirePayload = <String, Object?>{
+      'id': alertId,
+      'title': cleanTitle,
+      'body': cleanBody,
+      'priority': priority.name,
+      'scopeLabel': cleanScopeLabel,
+    };
+    final localPayload = <String, Object?>{
+      ...wirePayload,
+      'createdAt': now.toIso8601String(),
+      'senderMembershipId': membership.id,
+    };
+
+    await _localDatabase.upsertLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _alertEntityType,
+      entityId: alertId,
+      payload: localPayload,
+      isDirty: true,
+    );
+    await _localDatabase.queueMutation(
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      entityType: _alertEntityType,
+      entityId: alertId,
+      operation: SyncOperation.create,
+      payload: wirePayload,
+    );
   }
 
   /// Records Transport Control's own real receipt for a real Driver's thread.

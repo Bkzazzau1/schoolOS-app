@@ -31,6 +31,31 @@ class _TransportMessagesPanelState extends State<TransportMessagesPanel> {
     setState(() => _future = widget.repository.load());
   }
 
+  Future<void> _sendAlert() async {
+    final draft = await showDialog<_AlertDraft>(
+      context: context,
+      builder: (_) => const _AlertComposeDialog(),
+    );
+    if (draft == null) return;
+    try {
+      await widget.repository.queueAlert(
+        title: draft.title,
+        body: draft.body,
+        priority: draft.priority,
+        scopeLabel: draft.scopeLabel,
+      );
+      if (!mounted) return;
+      widget.onChanged?.call();
+      _reload();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alert saved locally and queued. Queued does not mean sent or delivered.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_message(error))));
+    }
+  }
+
   Future<void> _openThread(TransportMessagesSnapshot snapshot, DriverMessageThread thread) async {
     try {
       await widget.repository.markThreadSeen(thread.id);
@@ -128,6 +153,35 @@ class _TransportMessagesPanelState extends State<TransportMessagesPanel> {
                   for (final thread in data.threads) ...[
                     _ThreadTile(thread: thread, onTap: () => _openThread(data, thread)),
                     if (thread != data.threads.last) const Divider(height: 18),
+                  ],
+                const Divider(height: 30),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Operational alerts', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                    ),
+                    FilledButton.icon(
+                      onPressed: data.canReply ? _sendAlert : null,
+                      icon: const Icon(Icons.campaign_outlined, size: 18),
+                      label: const Text('Send alert'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'A real, school-wide notice every real Driver receives.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                ),
+                const SizedBox(height: 14),
+                if (data.alerts.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Center(child: Text('No operational alert has been sent yet.')),
+                  )
+                else
+                  for (final alert in data.alerts) ...[
+                    _AlertTile(alert: alert),
+                    if (alert != data.alerts.last) const Divider(height: 18),
                   ],
               ],
             ),
@@ -294,6 +348,157 @@ class _ConversationDialogState extends State<_ConversationDialog> {
                 },
           icon: const Icon(Icons.send_outlined),
           label: const Text('Queue reply'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AlertTile extends StatelessWidget {
+  const _AlertTile({required this.alert});
+
+  final DriverOperationalAlert alert;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const CircleAvatar(child: Icon(Icons.campaign_outlined)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(alert.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                  Chip(label: Text(alert.priority.label), visualDensity: VisualDensity.compact),
+                ],
+              ),
+              Text('${alert.scopeLabel} · ${alert.timeLabel}', style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 3),
+              Text(
+                alert.body,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AlertDraft {
+  const _AlertDraft({
+    required this.title,
+    required this.body,
+    required this.priority,
+    required this.scopeLabel,
+  });
+
+  final String title;
+  final String body;
+  final DriverAlertPriority priority;
+  final String scopeLabel;
+}
+
+class _AlertComposeDialog extends StatefulWidget {
+  const _AlertComposeDialog();
+
+  @override
+  State<_AlertComposeDialog> createState() => _AlertComposeDialogState();
+}
+
+class _AlertComposeDialogState extends State<_AlertComposeDialog> {
+  final _titleController = TextEditingController();
+  final _bodyController = TextEditingController();
+  final _scopeController = TextEditingController(text: 'All Routes');
+  DriverAlertPriority _priority = DriverAlertPriority.routine;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _bodyController.dispose();
+    _scopeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Send operational alert'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Reaches every real, currently assigned Driver at once.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _titleController,
+              maxLength: 200,
+              decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _bodyController,
+              minLines: 3,
+              maxLines: 5,
+              maxLength: 2000,
+              decoration: const InputDecoration(labelText: 'Details', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<DriverAlertPriority>(
+                    initialValue: _priority,
+                    decoration: const InputDecoration(labelText: 'Priority', border: OutlineInputBorder()),
+                    items: [
+                      for (final item in DriverAlertPriority.values)
+                        DropdownMenuItem(value: item, child: Text(item.label)),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _priority = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _scopeController,
+                    maxLength: 120,
+                    decoration: const InputDecoration(labelText: 'Scope', border: OutlineInputBorder()),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        FilledButton.icon(
+          onPressed: () {
+            final title = _titleController.text.trim();
+            final body = _bodyController.text.trim();
+            if (title.isEmpty || body.isEmpty) return;
+            Navigator.of(context).pop(
+              _AlertDraft(title: title, body: body, priority: _priority, scopeLabel: _scopeController.text),
+            );
+          },
+          icon: const Icon(Icons.send_outlined),
+          label: const Text('Queue alert'),
         ),
       ],
     );

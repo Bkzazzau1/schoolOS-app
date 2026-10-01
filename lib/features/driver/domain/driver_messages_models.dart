@@ -232,6 +232,31 @@ class DriverOperationalAlert {
         'read': read,
       };
 
+  /// Builds the UI view of one real alert row from the server's own canonical shape -
+  /// `{id, title, body, priority, scopeLabel, createdAt, senderMembershipId}`, the payload
+  /// `apps/transport/driver_messages.py: DriverAlertHandler` actually stores and publishes.
+  /// `read` is never stored on the alert itself; it is the viewer's own real receipt, computed
+  /// separately and passed in.
+  factory DriverOperationalAlert.fromCanonical({
+    required Map<String, Object?> payload,
+    required bool read,
+  }) {
+    final createdAt = _date(payload['createdAt'] as String?) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return DriverOperationalAlert(
+      id: payload['id'] as String? ?? '',
+      title: payload['title'] as String? ?? '',
+      body: payload['body'] as String? ?? '',
+      priority: DriverAlertPriority.values.firstWhere(
+        (item) => item.name == payload['priority'],
+        orElse: () => DriverAlertPriority.routine,
+      ),
+      scopeLabel: payload['scopeLabel'] as String? ?? '',
+      timeLabel: _clockLabel(createdAt),
+      createdAt: createdAt,
+      read: read,
+    );
+  }
+
   factory DriverOperationalAlert.fromJson(Map<String, dynamic> json) =>
       DriverOperationalAlert(
         id: json['id'] as String? ?? '',

@@ -3,6 +3,7 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/driver_messages_models.dart';
+import 'driver_alert_receipts.dart';
 import 'driver_dashboard_repository.dart';
 import 'driver_message_receipts.dart';
 
@@ -18,6 +19,7 @@ class DriverMessagesRepository {
         );
 
   static const messageEntityType = 'driver_message';
+  static const alertEntityType = 'driver_alert';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
@@ -25,8 +27,9 @@ class DriverMessagesRepository {
 
   /// The one real channel between this Driver and Transport Control
   /// (`apps/transport/driver_messages.py`) - never a pre-populated conversation. Operational
-  /// alerts (a broadcast, priority-ranked notice) have no real backend yet, so the list stays
-  /// honestly empty rather than fabricated; see docs/BACKEND_INTEGRATION.md.
+  /// alerts are a real, school-wide broadcast from Transport Control
+  /// (`apps/transport/driver_messages.py: DriverAlertHandler`); every real Driver reads the same
+  /// real rows, newest first.
   Future<DriverMessagesSnapshot> load() async {
     final membership = _requireDriver();
     final dashboard = await _dashboardRepository.load();
@@ -63,11 +66,29 @@ class DriverMessagesRepository {
       messages: messages,
     );
 
+    final alertRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: alertEntityType,
+    );
+    final readAlertIds = await loadOwnReadAlertIds(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+    );
+    final alerts = [
+      for (final record in alertRecords)
+        if (record.payload['id'] != null)
+          DriverOperationalAlert.fromCanonical(
+            payload: Map<String, Object?>.from(record.payload),
+            read: readAlertIds.contains(record.payload['id']),
+          ),
+    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
     return DriverMessagesSnapshot(
       routeId: dashboard.assignment.routeId,
       vehicle: dashboard.route.vehicle,
       threads: [thread],
-      alerts: const [],
+      alerts: alerts,
     );
   }
 
@@ -150,10 +171,28 @@ class DriverMessagesRepository {
     );
   }
 
-  /// Operational alerts have no real backend yet (see [load]), so there is never a real one to
-  /// mark read - this stays an honest refusal rather than a receipt for something that isn't real.
+  /// Records this Driver's own real receipt for a real operational alert.
   Future<void> markAlertRead(String alertId) async {
-    throw StateError('Real operational alerts are not available yet.');
+    final membership = _requireDriver();
+    final snapshot = await load();
+    DriverOperationalAlert? alert;
+    for (final item in snapshot.alerts) {
+      if (item.id == alertId) {
+        alert = item;
+        break;
+      }
+    }
+    if (alert == null) {
+      throw StateError('This operational alert is unavailable.');
+    }
+    if (alert.read) return;
+    await queueAlertReadReceipt(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      alertId: alertId,
+      routeId: snapshot.routeId,
+    );
   }
 
   String _threadId(String driverMembershipId) => 'driver-thread-$driverMembershipId';
