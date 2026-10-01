@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/visitor_demo_data.dart';
+import '../data/visitor_policy_copy.dart';
 import '../data/visitor_repository.dart';
 import '../domain/visitor_models.dart';
 
@@ -68,6 +68,201 @@ class _VisitorsPageState extends State<VisitorsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(result.message)),
     );
+    if (result.success) {
+      widget.onVisitorsChanged?.call();
+      await _load();
+    }
+  }
+
+  Future<void> _logVisitor() async {
+    final visitor = TextEditingController();
+    final organization = TextEditingController();
+    final purpose = TextEditingController();
+    final host = TextEditingController();
+    final area = TextEditingController();
+    final arrival = TextEditingController();
+    final pass = TextEditingController();
+    final note = TextEditingController();
+    var status = VisitStatus.expected;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Log a visitor'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: visitor, decoration: const InputDecoration(labelText: 'Visitor name')),
+                  const SizedBox(height: 12),
+                  TextField(controller: organization, decoration: const InputDecoration(labelText: 'Organization')),
+                  const SizedBox(height: 12),
+                  TextField(controller: purpose, decoration: const InputDecoration(labelText: 'Purpose')),
+                  const SizedBox(height: 12),
+                  TextField(controller: host, decoration: const InputDecoration(labelText: 'Host')),
+                  const SizedBox(height: 12),
+                  TextField(controller: area, decoration: const InputDecoration(labelText: 'Permitted area')),
+                  const SizedBox(height: 12),
+                  TextField(controller: arrival, decoration: const InputDecoration(labelText: 'Arrival time')),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<VisitStatus>(
+                    initialValue: status,
+                    decoration: const InputDecoration(labelText: 'Status'),
+                    items: [for (final item in VisitStatus.values) DropdownMenuItem(value: item, child: Text(item.label))],
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => status = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(controller: pass, decoration: const InputDecoration(labelText: 'Pass / badge reference')),
+                  const SizedBox(height: 12),
+                  TextField(controller: note, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Note')),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Log visitor')),
+          ],
+        ),
+      ),
+    );
+    final values = (
+      visitor: visitor.text,
+      organization: organization.text,
+      purpose: purpose.text,
+      host: host.text,
+      area: area.text,
+      arrival: arrival.text,
+      status: status,
+      pass: pass.text,
+      note: note.text,
+    );
+    visitor.dispose();
+    organization.dispose();
+    purpose.dispose();
+    host.dispose();
+    area.dispose();
+    arrival.dispose();
+    pass.dispose();
+    note.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.create(
+      visitor: values.visitor,
+      organization: values.organization,
+      purpose: values.purpose,
+      host: values.host,
+      area: values.area,
+      arrival: values.arrival,
+      status: values.status,
+      pass: values.pass,
+      note: values.note,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) {
+      widget.onVisitorsChanged?.call();
+      await _load();
+    }
+  }
+
+  Future<void> _editVisitor(VisitorRecord visit) async {
+    final organization = TextEditingController(text: visit.organization);
+    final purpose = TextEditingController(text: visit.purpose);
+    final host = TextEditingController(text: visit.host);
+    final area = TextEditingController(text: visit.area);
+    final arrival = TextEditingController(text: visit.arrival);
+    final departure = TextEditingController(text: visit.departure);
+    final pass = TextEditingController(text: visit.pass);
+    final note = TextEditingController(text: visit.note);
+    var status = visit.status;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Edit ${visit.visitor}'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: organization, decoration: const InputDecoration(labelText: 'Organization')),
+                  const SizedBox(height: 12),
+                  TextField(controller: purpose, decoration: const InputDecoration(labelText: 'Purpose')),
+                  const SizedBox(height: 12),
+                  TextField(controller: host, decoration: const InputDecoration(labelText: 'Host')),
+                  const SizedBox(height: 12),
+                  TextField(controller: area, decoration: const InputDecoration(labelText: 'Permitted area')),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: TextField(controller: arrival, decoration: const InputDecoration(labelText: 'Arrival'))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: departure, decoration: const InputDecoration(labelText: 'Departure'))),
+                  ]),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<VisitStatus>(
+                    initialValue: status,
+                    decoration: const InputDecoration(labelText: 'Status'),
+                    items: [for (final item in VisitStatus.values) DropdownMenuItem(value: item, child: Text(item.label))],
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => status = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(controller: pass, decoration: const InputDecoration(labelText: 'Pass / badge reference')),
+                  const SizedBox(height: 12),
+                  TextField(controller: note, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Note')),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    final values = (
+      organization: organization.text,
+      purpose: purpose.text,
+      host: host.text,
+      area: area.text,
+      arrival: arrival.text,
+      departure: departure.text,
+      status: status,
+      pass: pass.text,
+      note: note.text,
+    );
+    organization.dispose();
+    purpose.dispose();
+    host.dispose();
+    area.dispose();
+    arrival.dispose();
+    departure.dispose();
+    pass.dispose();
+    note.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.edit(
+      id: visit.id,
+      organization: values.organization,
+      purpose: values.purpose,
+      host: values.host,
+      area: values.area,
+      arrival: values.arrival,
+      departure: values.departure,
+      status: values.status,
+      pass: values.pass,
+      note: values.note,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
     if (result.success) {
       widget.onVisitorsChanged?.call();
       await _load();
@@ -171,12 +366,15 @@ class _VisitorsPageState extends State<VisitorsPage> {
             if (compact) ...[
               _VisitorRegister(
                 visits: _visibleVisits,
+                hasAnyVisits: snapshot.visits.isNotEmpty,
                 permissions: snapshot.permissions,
                 searchController: _searchController,
                 statusFilter: _statusFilter,
                 onQueryChanged: (_) => setState(() {}),
                 onStatusChanged: (value) => setState(() => _statusFilter = value),
                 onToggleReview: _toggleReview,
+                onAdd: _logVisitor,
+                onEdit: _editVisitor,
               ),
               const SizedBox(height: 16),
               const _AccessSidebar(),
@@ -188,12 +386,15 @@ class _VisitorsPageState extends State<VisitorsPage> {
                     flex: 7,
                     child: _VisitorRegister(
                       visits: _visibleVisits,
+                      hasAnyVisits: snapshot.visits.isNotEmpty,
                       permissions: snapshot.permissions,
                       searchController: _searchController,
                       statusFilter: _statusFilter,
                       onQueryChanged: (_) => setState(() {}),
                       onStatusChanged: (value) => setState(() => _statusFilter = value),
                       onToggleReview: _toggleReview,
+                      onAdd: _logVisitor,
+                      onEdit: _editVisitor,
                     ),
                   ),
                   const SizedBox(width: 18),
@@ -246,21 +447,27 @@ class _StatCard extends StatelessWidget {
 class _VisitorRegister extends StatelessWidget {
   const _VisitorRegister({
     required this.visits,
+    required this.hasAnyVisits,
     required this.permissions,
     required this.searchController,
     required this.statusFilter,
     required this.onQueryChanged,
     required this.onStatusChanged,
     required this.onToggleReview,
+    required this.onAdd,
+    required this.onEdit,
   });
 
   final List<VisitorRecord> visits;
+  final bool hasAnyVisits;
   final VisitorPermissions permissions;
   final TextEditingController searchController;
   final VisitStatus? statusFilter;
   final ValueChanged<String> onQueryChanged;
   final ValueChanged<VisitStatus?> onStatusChanged;
   final ValueChanged<VisitorRecord> onToggleReview;
+  final VoidCallback onAdd;
+  final ValueChanged<VisitorRecord> onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -271,11 +478,20 @@ class _VisitorRegister extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Front-office visitor register',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Front-office visitor register',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (permissions.canCreate)
+                  OutlinedButton.icon(onPressed: onAdd, icon: const Icon(Icons.add_rounded), label: const Text('Log visitor')),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
@@ -336,16 +552,24 @@ class _VisitorRegister extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             if (visits.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 30),
-                child: Center(child: Text('No visitor records match these filters.')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                child: Center(
+                  child: Text(
+                    hasAnyVisits
+                        ? 'No visitor records match these filters.'
+                        : 'No visitors logged yet. Log the first one above.',
+                  ),
+                ),
               )
             else
               for (final visit in visits) ...[
                 _VisitorCard(
                   visit: visit,
                   canReview: permissions.canReviewRecords,
+                  canManageAll: permissions.canManageAll,
                   onToggleReview: () => onToggleReview(visit),
+                  onEdit: () => onEdit(visit),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -360,12 +584,16 @@ class _VisitorCard extends StatelessWidget {
   const _VisitorCard({
     required this.visit,
     required this.canReview,
+    required this.canManageAll,
     required this.onToggleReview,
+    required this.onEdit,
   });
 
   final VisitorRecord visit;
   final bool canReview;
+  final bool canManageAll;
   final VoidCallback onToggleReview;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -411,21 +639,34 @@ class _VisitorCard extends StatelessWidget {
               height: 1.45,
             ),
           ),
-          if (canReview) ...[
+          if (canReview || canManageAll) ...[
             const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: onToggleReview,
-              icon: Icon(
-                visit.frontDeskReviewed
-                    ? Icons.restart_alt_rounded
-                    : Icons.fact_check_outlined,
-                size: 18,
-              ),
-              label: Text(
-                visit.frontDeskReviewed
-                    ? 'Reopen front-desk review'
-                    : 'Mark record reviewed',
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (canReview)
+                  OutlinedButton.icon(
+                    onPressed: onToggleReview,
+                    icon: Icon(
+                      visit.frontDeskReviewed
+                          ? Icons.restart_alt_rounded
+                          : Icons.fact_check_outlined,
+                      size: 18,
+                    ),
+                    label: Text(
+                      visit.frontDeskReviewed
+                          ? 'Reopen front-desk review'
+                          : 'Mark record reviewed',
+                    ),
+                  ),
+                if (canManageAll)
+                  OutlinedButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Edit'),
+                  ),
+              ],
             ),
           ],
         ],

@@ -45,18 +45,30 @@ class VisitorRecord {
     return queryMatches && statusMatches;
   }
 
-  VisitorRecord copyWith({bool? frontDeskReviewed}) => VisitorRecord(
+  VisitorRecord copyWith({
+    String? organization,
+    String? purpose,
+    String? host,
+    String? area,
+    String? arrival,
+    String? departure,
+    VisitStatus? status,
+    String? pass,
+    String? note,
+    bool? frontDeskReviewed,
+  }) =>
+      VisitorRecord(
         id: id,
         visitor: visitor,
-        organization: organization,
-        purpose: purpose,
-        host: host,
-        area: area,
-        arrival: arrival,
-        departure: departure,
-        status: status,
-        pass: pass,
-        note: note,
+        organization: organization ?? this.organization,
+        purpose: purpose ?? this.purpose,
+        host: host ?? this.host,
+        area: area ?? this.area,
+        arrival: arrival ?? this.arrival,
+        departure: departure ?? this.departure,
+        status: status ?? this.status,
+        pass: pass ?? this.pass,
+        note: note ?? this.note,
         frontDeskReviewed: frontDeskReviewed ?? this.frontDeskReviewed,
       );
 
@@ -100,7 +112,13 @@ class VisitorStat {
 }
 
 class VisitorPermissions {
-  const VisitorPermissions({required this.canReviewRecords});
+  const VisitorPermissions({
+    required this.canCreate,
+    required this.canManageAll,
+    required this.canReviewRecords,
+  });
 
+  final bool canCreate;
+  final bool canManageAll;
   final bool canReviewRecords;
 }
