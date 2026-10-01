@@ -3254,3 +3254,37 @@ built their fake server's asset map from `_postId` *before* `setUpSchool()` had 
 previous test's stale id; `pump()`'s `api` parameter became `apiBuilder`, a closure evaluated only after setup
 assigns the real id. All 33 Community tests pass; full app suite back to the same 83 pre-existing failures as
 before this work, by name.
+
+## Noticeboard stops fabricating its own feed, recipient counts and delivery reports
+
+First of a 14-directory cluster the Community fix's own audit surfaced - sized up first, confirming all 14 already
+have real Django backends (no new backend work needed anywhere in the cluster) before starting on any of them.
+Noticeboard (Proprietor-only official-notice publishing, under `lib/features/noticeboard/`) turned out to carry
+more than Community's single kind of fabrication: `load()` seeded four invented notices the same way Community's
+feed did, but `publish()` itself also hardcoded a fabricated recipient count
+(`audience == wholeSchool ? 1084 : 120`) into every real notice at creation, and the stat grid read two more
+fixed constants (`noticeboardAverageReadRate = 82`, labeled "Sample delivery figures", and
+`noticeboardScheduledCount = 3`) - the second of which had no real feature behind it at all; nothing in the app
+ever schedules a notice for future publication.
+
+**Design.** `load()` no longer seeds anything. `publish()` now sets a real notice's `readCount`/`totalRecipients`
+to `0` rather than a guessed audience size - nothing in the app tracks who has actually read a notice (confirmed
+by searching every other role's features for any reference to `noticeboard`: only the Proprietor module touches
+it, and nothing marks a notice read from the recipient side), so `0` is the honest value, not a fabricated one.
+The stat grid dropped "Average read rate" and "Scheduled" entirely rather than inventing a replacement number,
+keeping the three stats that were already real (`Active notices`, `Pinned`, `Need acknowledgement`, all counted
+from real local notices). The per-notice "X/Y read" line and the delivery-report dialog both now check
+`totalRecipients > 0` and show "Read tracking is not available yet for this notice" when it's not - the same
+honest-gap labeling the Proprietor/Administrator audit found already in good standing elsewhere in the app -
+rather than permanently showing "0/0 read (0%)" as if that were a real, checked number. `noticeboard_demo_data.dart`
+is renamed `noticeboard_policy_copy.dart`, keeping only `noticeboardPublishingAuthority`,
+`noticeboardDeliveryChannels` and `noticeboardBoundary` - static guidance text, never fabricated data about a
+particular school. The empty-feed message now distinguishes a genuinely empty noticeboard ("No official notices
+yet. Publish the first one above.") from a filter matching nothing, the same distinction Community's fix made.
+
+**Verification.** `flutter analyze` clean. `test/noticeboard_test.dart`: the seed-data/KPI test was removed; the
+filtering, serialization and audience/priority tests were rewritten against inline fixtures; the publishing-policy
+test kept, now importing the renamed file. New `test/noticeboard_repository_test.dart` (5 tests - a fresh school's
+`load()` is genuinely empty; only the proprietor may publish; a real published notice starts at an honest zero
+recipient count, never a guessed one; pinning and editing a real notice persists and is proprietor-only). All 9
+Noticeboard tests pass; full app suite back to the same 83 pre-existing failures as before this work, by name.
