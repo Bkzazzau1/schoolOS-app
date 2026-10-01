@@ -7,6 +7,7 @@ import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/core/tenancy/school_session_store.dart';
 import 'package:schoolos_app/core/identity/identity_normalizer.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_staff_repository.dart';
+import 'package:schoolos_app/features/administrator/domain/administrator_staff_models.dart';
 import 'package:schoolos_app/features/proprietor/data/staff_identity.dart';
 import 'package:schoolos_app/features/finance_office/domain/finance_payroll_models.dart';
 import 'package:schoolos_app/features/proprietor/data/job_assignment_repository.dart';
@@ -564,6 +565,17 @@ void main() {
 
   test('editing personal details also enforces unique phone and NIN', () async {
     final db = _Database();
+    for (final person in const [
+      AdministratorStaffRecord(id: 'STAFF-A', name: 'Mrs. Amina Yusuf', role: 'Teacher', section: 'Secondary', fileStatus: AdministratorStaffFileStatus.complete),
+      AdministratorStaffRecord(id: 'STAFF-B', name: 'Mr. Ahmad Sani', role: 'Teacher', section: 'Secondary', fileStatus: AdministratorStaffFileStatus.complete),
+    ]) {
+      await db.upsertLocalRecord(
+        tenantId: 'a',
+        entityType: AdministratorStaffRepository.directoryEntityType,
+        entityId: person.id,
+        payload: person.toJson(),
+      );
+    }
     final session = await _session(_owner);
     sessions.add(session);
     final repo = OwnerStaffProfileRepository(database: db, session: session);

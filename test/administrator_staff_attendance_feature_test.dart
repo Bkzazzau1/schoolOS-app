@@ -1,13 +1,63 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/administrator/data/administrator_staff_attendance_demo_data.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_staff_attendance_policy_copy.dart';
 import 'package:schoolos_app/features/administrator/domain/administrator_staff_attendance_models.dart';
 
-void main() {
-  test('website seed preserves four exact staff attendance rows', () {
-    expect(administratorStaffAttendanceWebsiteSeed, hasLength(4));
+const _fixtureRecords = <StaffAttendanceRecord>[
+  StaffAttendanceRecord(
+    id: 'STAFF-FIX-001',
+    name: 'Mrs. Amina Yusuf',
+    role: 'Teacher',
+    section: 'Secondary',
+    expected: 22,
+    present: 21,
+    leave: 1,
+    late: 2,
+    unexplained: 0,
+    status: StaffAttendanceReviewStatus.ready,
+  ),
+  StaffAttendanceRecord(
+    id: 'STAFF-FIX-009',
+    name: 'Mrs. Khadija Musa',
+    role: 'Class Teacher',
+    section: 'Primary',
+    expected: 22,
+    present: 20,
+    leave: 1,
+    late: 1,
+    unexplained: 1,
+    status: StaffAttendanceReviewStatus.review,
+  ),
+  StaffAttendanceRecord(
+    id: 'STAFF-FIX-014',
+    name: 'Mr. Ahmad Sani',
+    role: 'Teacher',
+    section: 'Secondary',
+    expected: 22,
+    present: 22,
+    leave: 0,
+    late: 3,
+    unexplained: 0,
+    status: StaffAttendanceReviewStatus.ready,
+  ),
+  StaffAttendanceRecord(
+    id: 'STAFF-FIX-021',
+    name: 'Mrs. Safiya Ahmad',
+    role: 'Teacher',
+    section: 'Primary',
+    expected: 22,
+    present: 19,
+    leave: 2,
+    late: 0,
+    unexplained: 1,
+    status: StaffAttendanceReviewStatus.review,
+  ),
+];
 
-    final amina = administratorStaffAttendanceWebsiteSeed[0];
-    expect(amina.id, 'STAFF-001');
+void main() {
+  test('a fixture record carries exact expected/present/leave/late/unexplained fields', () {
+    expect(_fixtureRecords, hasLength(4));
+
+    final amina = _fixtureRecords[0];
     expect(amina.name, 'Mrs. Amina Yusuf');
     expect(amina.expected, 22);
     expect(amina.present, 21);
@@ -16,41 +66,29 @@ void main() {
     expect(amina.unexplained, 0);
     expect(amina.status, StaffAttendanceReviewStatus.ready);
 
-    final safiya = administratorStaffAttendanceWebsiteSeed[3];
-    expect(safiya.id, 'STAFF-021');
+    final safiya = _fixtureRecords[3];
     expect(safiya.present, 19);
     expect(safiya.leave, 2);
     expect(safiya.unexplained, 1);
     expect(safiya.status, StaffAttendanceReviewStatus.review);
   });
 
-  test('ledger has two ready and two review records', () {
+  test('a fixture ledger has two ready and two review records', () {
     expect(
-      administratorStaffAttendanceWebsiteSeed
+      _fixtureRecords
           .where((item) => item.status == StaffAttendanceReviewStatus.ready),
       hasLength(2),
     );
     expect(
-      administratorStaffAttendanceWebsiteSeed
+      _fixtureRecords
           .where((item) => item.status == StaffAttendanceReviewStatus.review),
       hasLength(2),
     );
     expect(
-      administratorStaffAttendanceWebsiteSeed
+      _fixtureRecords
           .where((item) => item.unexplained > 0),
       hasLength(2),
     );
-  });
-
-  test('three exact attendance hardware devices are preserved', () {
-    expect(administratorStaffAttendanceDevices, hasLength(3));
-    expect(
-      administratorStaffAttendanceDevices[0].name,
-      'Staff Main Gate Face Terminal',
-    );
-    expect(administratorStaffAttendanceDevices[0].state, 'Online · 63 scans today');
-    expect(administratorStaffAttendanceDevices[1].method, 'NFC / RFID');
-    expect(administratorStaffAttendanceDevices[2].state, 'Syncing · 7 queued');
   });
 
   test('controlled attendance-to-payroll flow has five exact steps', () {
@@ -61,9 +99,9 @@ void main() {
   });
 
   test('attendance serialization preserves payroll review fields', () {
-    final original = administratorStaffAttendanceWebsiteSeed[1];
+    final original = _fixtureRecords[1];
     final restored = StaffAttendanceRecord.fromJson(original.toJson());
-    expect(restored.id, 'STAFF-009');
+    expect(restored.id, 'STAFF-FIX-009');
     expect(restored.expected, 22);
     expect(restored.present, 20);
     expect(restored.leave, 1);
@@ -77,7 +115,7 @@ void main() {
     final summary = PayrollAttendanceSummary(
       id: 'PAYROLL-ATT-2026-09',
       sent: true,
-      records: administratorStaffAttendanceWebsiteSeed,
+      records: _fixtureRecords,
     );
     final restored = PayrollAttendanceSummary.fromJson(summary.toJson());
     expect(restored.sent, isTrue);

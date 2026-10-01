@@ -13,6 +13,7 @@ import 'package:schoolos_app/features/proprietor/presentation/owner_staff_profil
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
+import 'core/real_staff_fixtures.dart';
 
 /// The same shape as owner_staff_profiles_test.dart's own `_Database` - a person's staff record lives in the
 /// repository's own demo data, not the database, so an empty mock is enough - extended with the two
@@ -68,6 +69,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final db = _Database();
+    await seedClassicStaff(db, tenantId: _owner.schoolId);
     final session = await _session(_owner);
     addTearDown(session.dispose);
     final repo = OwnerStaffProfileRepository(database: db, session: session);

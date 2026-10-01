@@ -1,33 +1,61 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/administrator/data/administrator_staff_demo_data.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_staff_policy_copy.dart';
 import 'package:schoolos_app/features/administrator/domain/administrator_staff_models.dart';
 
-void main() {
-  test('website seed preserves four exact staff records', () {
-    expect(administratorStaffWebsiteSeed, hasLength(4));
+const _fixtureStaff = <AdministratorStaffRecord>[
+  AdministratorStaffRecord(
+    id: 'STAFF-FIX-001',
+    name: 'Mrs. Amina Yusuf',
+    role: 'Teacher',
+    section: 'Secondary',
+    fileStatus: AdministratorStaffFileStatus.complete,
+  ),
+  AdministratorStaffRecord(
+    id: 'STAFF-FIX-009',
+    name: 'Mrs. Khadija Musa',
+    role: 'Class Teacher',
+    section: 'Primary',
+    fileStatus: AdministratorStaffFileStatus.complete,
+  ),
+  AdministratorStaffRecord(
+    id: 'STAFF-FIX-014',
+    name: 'Mr. Ahmad Sani',
+    role: 'Teacher',
+    section: 'Secondary',
+    fileStatus: AdministratorStaffFileStatus.missingDocument,
+  ),
+  AdministratorStaffRecord(
+    id: 'STAFF-FIX-021',
+    name: 'Mrs. Safiya Ahmad',
+    role: 'Teacher',
+    section: 'Primary',
+    fileStatus: AdministratorStaffFileStatus.complete,
+  ),
+];
 
-    final first = administratorStaffWebsiteSeed.first;
-    expect(first.id, 'STAFF-001');
+void main() {
+  test('a fixture staff record carries exact name, role, section and file-status fields', () {
+    expect(_fixtureStaff, hasLength(4));
+
+    final first = _fixtureStaff.first;
     expect(first.name, 'Mrs. Amina Yusuf');
     expect(first.role, 'Teacher');
     expect(first.section, 'Secondary');
     expect(first.fileStatus, AdministratorStaffFileStatus.complete);
 
-    final primary = administratorStaffWebsiteSeed[1];
-    expect(primary.id, 'STAFF-009');
+    final primary = _fixtureStaff[1];
     expect(primary.name, 'Mrs. Khadija Musa');
     expect(primary.role, 'Class Teacher');
     expect(primary.section, 'Primary');
   });
 
-  test('directory has three complete files and one missing document', () {
-    expect(administratorCompleteStaffFiles(), 3);
-    expect(administratorStaffFilesNeedingAttention(), 1);
+  test('a fixture directory has three complete files and one missing document', () {
+    expect(_fixtureStaff.where((item) => item.fileStatus == AdministratorStaffFileStatus.complete).length, 3);
+    expect(_fixtureStaff.where((item) => item.needsAttention).length, 1);
 
-    final attention = administratorStaffWebsiteSeed.singleWhere(
+    final attention = _fixtureStaff.singleWhere(
       (item) => item.needsAttention,
     );
-    expect(attention.id, 'STAFF-014');
     expect(attention.name, 'Mr. Ahmad Sani');
     expect(attention.fileStatus, AdministratorStaffFileStatus.missingDocument);
   });
@@ -43,9 +71,9 @@ void main() {
   });
 
   test('staff record serialization preserves directory fields', () {
-    final original = administratorStaffWebsiteSeed[2];
+    final original = _fixtureStaff[2];
     final restored = AdministratorStaffRecord.fromJson(original.toJson());
-    expect(restored.id, 'STAFF-014');
+    expect(restored.id, 'STAFF-FIX-014');
     expect(restored.name, 'Mr. Ahmad Sani');
     expect(restored.role, 'Teacher');
     expect(restored.section, 'Secondary');

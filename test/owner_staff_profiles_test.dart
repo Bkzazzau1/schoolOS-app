@@ -5,13 +5,48 @@ import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/sync/sync_mutation.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/core/tenancy/school_session_store.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_staff_attendance_repository.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_staff_repository.dart';
+import 'package:schoolos_app/features/administrator/domain/administrator_staff_attendance_models.dart';
+import 'package:schoolos_app/features/administrator/domain/administrator_staff_models.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_staff_profile_repository.dart';
 import 'package:schoolos_app/features/proprietor/domain/owner_staff_profile_models.dart';
 import 'package:schoolos_app/features/proprietor/presentation/owner_staff_profiles_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 class _Database implements LocalDatabase {
+  _Database() {
+    // A real staff directory, the same real entries AdministratorStaffRepository would show -
+    // every test in this file views or edits a real person's profile through it.
+    for (final person in const [
+      AdministratorStaffRecord(id: 'STAFF-001', name: 'Mrs. Amina Yusuf', role: 'Teacher', section: 'Secondary', fileStatus: AdministratorStaffFileStatus.complete),
+      AdministratorStaffRecord(id: 'STAFF-002', name: 'Mr. Ahmad Sani', role: 'Teacher', section: 'Secondary', fileStatus: AdministratorStaffFileStatus.missingDocument),
+    ]) {
+      records['a/${AdministratorStaffRepository.directoryEntityType}/${person.id}'] = LocalRecord(
+        tenantId: 'a',
+        entityType: AdministratorStaffRepository.directoryEntityType,
+        entityId: person.id,
+        payload: person.toJson(),
+        updatedAt: DateTime.now(),
+        isDirty: false,
+      );
+    }
+    // Real attendance for the same two people, so "view().attendance" is a real record too.
+    for (final record in const [
+      StaffAttendanceRecord(id: 'STAFF-001', name: 'Mrs. Amina Yusuf', role: 'Teacher', section: 'Secondary', expected: 22, present: 21, leave: 1, late: 0, unexplained: 0, status: StaffAttendanceReviewStatus.ready),
+      StaffAttendanceRecord(id: 'STAFF-002', name: 'Mr. Ahmad Sani', role: 'Teacher', section: 'Secondary', expected: 22, present: 22, leave: 0, late: 1, unexplained: 0, status: StaffAttendanceReviewStatus.ready),
+    ]) {
+      records['a/${AdministratorStaffAttendanceRepository.recordEntityType}/${record.id}'] = LocalRecord(
+        tenantId: 'a',
+        entityType: AdministratorStaffAttendanceRepository.recordEntityType,
+        entityId: record.id,
+        payload: record.toJson(),
+        updatedAt: DateTime.now(),
+        isDirty: false,
+      );
+    }
+  }
+
   final records = <String, LocalRecord>{};
   final mutations = <Map<Symbol, dynamic>>[];
   @override

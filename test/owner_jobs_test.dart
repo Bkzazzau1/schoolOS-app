@@ -9,6 +9,8 @@ import 'package:schoolos_app/features/proprietor/data/job_assignment_repository.
 import 'package:schoolos_app/features/proprietor/presentation/owner_jobs_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+import 'core/real_staff_fixtures.dart';
+
 class _Database implements LocalDatabase {
   final records = <String, LocalRecord>{};
   final mutations = <Map<Symbol, dynamic>>[];
@@ -82,6 +84,7 @@ void main() {
   test(
     'registered section head stores exact duties and stable identity on edit',
     () async {
+      await seedClassicStaff(database, tenantId: owner.schoolId);
       final person = (await repository.people()).first;
       final section = (await repository.sections()).first;
       await repository.assign(
@@ -222,6 +225,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    await seedClassicStaff(database, tenantId: owner.schoolId);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

@@ -9,6 +9,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_staff_fixtures.dart';
 
 const principal = SchoolMembership(id: 'm-principal', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.principal);
 const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -24,6 +25,8 @@ void main() {
     db = database;
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([principal, teacher]);
+    await session.selectSchool(principal);
+    await seedClassicStaff(database, tenantId: principal.schoolId);
     await session.selectSchool(who);
     principalTeachers = PrincipalTeachersRepository(
       localDatabase: database,

@@ -9,7 +9,9 @@ import 'package:schoolos_app/features/proprietor/data/owner_payroll_repository.d
 import 'package:schoolos_app/features/proprietor/data/payroll_batch_repository.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_staff_attendance_repository.dart';
-import 'package:schoolos_app/features/administrator/domain/administrator_staff_attendance_models.dart' show StaffAttendanceReviewStatus;
+import 'package:schoolos_app/features/administrator/data/administrator_staff_repository.dart';
+import 'package:schoolos_app/features/administrator/domain/administrator_staff_attendance_models.dart' show StaffAttendanceReviewStatus, StaffAttendanceRecord;
+import 'package:schoolos_app/features/administrator/domain/administrator_staff_models.dart' show AdministratorStaffRecord, AdministratorStaffFileStatus;
 import 'package:schoolos_app/features/finance_office/data/finance_payroll_demo_data.dart';
 import 'package:schoolos_app/features/finance_office/domain/finance_payroll_models.dart';
 import 'package:schoolos_app/features/finance_office/presentation/finance_payroll_page.dart';
@@ -85,6 +87,27 @@ void _seedSalaries(_Database db) {
       isDirty: false,
     );
   }
+
+  // Real attendance for STAFF-001 and STAFF-014 only - STAFF-099 deliberately has none, so it is
+  // honestly held for review rather than defaulted to ready.
+  const attendance = [
+    ('STAFF-001', 'Mrs. Amina Yusuf', StaffAttendanceReviewStatus.ready),
+    ('STAFF-014', 'Mr. Ahmad Sani', StaffAttendanceReviewStatus.ready),
+  ];
+  for (final a in attendance) {
+    final record = StaffAttendanceRecord(
+      id: a.$1, name: a.$2, role: 'Teacher', section: 'Secondary',
+      expected: 22, present: 22, leave: 0, late: 0, unexplained: 0, status: a.$3,
+    );
+    db.records['a/${AdministratorStaffAttendanceRepository.recordEntityType}/${a.$1}'] = LocalRecord(
+      tenantId: 'a',
+      entityType: AdministratorStaffAttendanceRepository.recordEntityType,
+      entityId: a.$1,
+      payload: record.toJson(),
+      updatedAt: DateTime.now(),
+      isDirty: false,
+    );
+  }
 }
 
 void main() {
@@ -92,6 +115,7 @@ void main() {
 
   test('payroll attendance context comes from the real staff attendance register, matched by real id', () async {
     final db = _Database();
+    _seedSalaries(db);
     final session = await _session(_finance);
     addTearDown(session.dispose);
     final attendance = await AdministratorStaffAttendanceRepository(localDatabase: db, schoolSession: session).load();
@@ -378,6 +402,17 @@ void main() {
 
   test('owner salary saves keep history, queue sync and reject bad figures', () async {
     final db = _Database();
+    db.records['a/${AdministratorStaffRepository.directoryEntityType}/STAFF-001'] = LocalRecord(
+      tenantId: 'a',
+      entityType: AdministratorStaffRepository.directoryEntityType,
+      entityId: 'STAFF-001',
+      payload: const AdministratorStaffRecord(
+        id: 'STAFF-001', name: 'Mrs. Amina Yusuf', role: 'Teacher', section: 'Secondary',
+        fileStatus: AdministratorStaffFileStatus.complete,
+      ).toJson(),
+      updatedAt: DateTime.now(),
+      isDirty: false,
+    );
     final session = await _session(_owner);
     addTearDown(session.dispose);
     final repo = OwnerPayrollRepository(database: db, session: session);

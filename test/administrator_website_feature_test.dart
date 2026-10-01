@@ -1,17 +1,23 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/administrator/data/administrator_website_demo_data.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_website_policy_copy.dart';
 import 'package:schoolos_app/features/administrator/domain/administrator_website_models.dart';
 
 void main() {
-  test('website manager seed preserves exact homepage settings', () {
-    expect(administratorWebsiteSeed.heroHeadline,
-        'A strong beginning. A confident future.');
+  test('a fixture homepage settings record carries exact editable fields', () {
+    const fixture = AdministratorWebsiteSettings(
+      heroHeadline: 'A strong beginning. A confident future.',
+      heroSupportingText:
+          'Nursery, Primary and Secondary education in a caring, structured learning environment.',
+      admissionsOpen: true,
+      admissionSession: '2026/2027',
+    );
+    expect(fixture.heroHeadline, 'A strong beginning. A confident future.');
     expect(
-      administratorWebsiteSeed.heroSupportingText,
+      fixture.heroSupportingText,
       'Nursery, Primary and Secondary education in a caring, structured learning environment.',
     );
-    expect(administratorWebsiteSeed.admissionsOpen, isTrue);
-    expect(administratorWebsiteSeed.admissionSession, '2026/2027');
+    expect(fixture.admissionsOpen, isTrue);
+    expect(fixture.admissionSession, '2026/2027');
   });
 
   test('website manager preserves headline KPI values without a disconnected fixed count', () {
