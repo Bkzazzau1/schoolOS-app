@@ -93,6 +93,26 @@ void main() {
       expect(p.allowedAudiences, isNot(contains(CommunityAudience.staffOnly)));
     });
 
+    test('an alumnus can post, but only ever to their own alumni-only audience', () async {
+      await actAs(SchoolRole.alumni);
+      final p = repository.permissionsFor(session.requireActiveMembership());
+      expect(p.canPost, isTrue);
+      expect(p.allowedAudiences, [CommunityAudience.alumniOnly]);
+    });
+
+    test('nobody else is ever offered the alumni-only audience', () async {
+      for (final role in [
+        SchoolRole.proprietor,
+        SchoolRole.teacher,
+        SchoolRole.driver,
+        SchoolRole.parent,
+      ]) {
+        await actAs(role);
+        final p = repository.permissionsFor(session.requireActiveMembership());
+        expect(p.allowedAudiences, isNot(contains(CommunityAudience.alumniOnly)), reason: role.name);
+      }
+    });
+
     test('a student has read-only access', () async {
       await actAs(SchoolRole.student);
       final p = repository.permissionsFor(session.requireActiveMembership());
@@ -131,6 +151,30 @@ void main() {
         title: 'Title',
         body: 'Body',
         audience: CommunityAudience.staffOnly,
+        visibility: CommunityVisibility.schoolOnly,
+      );
+      expect(result.success, isFalse);
+    });
+
+    test('an alumnus can publish to their own alumni-only audience', () async {
+      await actAs(SchoolRole.alumni);
+      final result = await repository.publish(
+        authorName: 'A Real Alumnus',
+        title: 'Reunion planning',
+        body: 'Looking to organise a 2015 set reunion this year.',
+        audience: CommunityAudience.alumniOnly,
+        visibility: CommunityVisibility.schoolOnly,
+      );
+      expect(result.success, isTrue, reason: result.message);
+    });
+
+    test('an alumnus cannot publish to a general, in-school audience', () async {
+      await actAs(SchoolRole.alumni);
+      final result = await repository.publish(
+        authorName: 'A Real Alumnus',
+        title: 'Title',
+        body: 'Body',
+        audience: CommunityAudience.wholeSchool,
         visibility: CommunityVisibility.schoolOnly,
       );
       expect(result.success, isFalse);
