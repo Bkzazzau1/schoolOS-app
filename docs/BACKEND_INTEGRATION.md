@@ -3325,3 +3325,35 @@ matches the real backend's `MANAGERS` set exactly, both who can and who cannot m
 real house at an honest zero and refuses a non-manager or an empty name; `edit()` really updates a house's hand-
 maintained totals and refuses a non-manager). All 13 Houses tests pass; full app suite back to the same 83
 pre-existing failures as before this work, by name.
+
+## Assembly & Faith Activities gets a real create/edit flow, with a real two-tier permission set
+
+Third of the 14-directory cluster. Same shape as Houses - `AssemblyRepository` had no create or edit method, only
+`load()` - but the real backend Spec behind it carries more nuance than Houses' did:
+`ASSEMBLY = Spec("assembly_session", manage=MANAGERS, contribute={"teacher"}, required=("title",))` in
+`apps/schoollife/specs/calendar.py` lets a teacher create a session (and, server-side, change only their own),
+while a manager may create or change any of them - a real two-role write model, not the single manage-only gate
+Houses needed. `assembly_demo_data.dart` turned out to already compute its stats from a real `sessions` argument
+(`assemblyStats(sessions)`) rather than fixed constants - the only fabrication was the five-session seed itself,
+not the stats derived from it.
+
+**Design.** `AssemblyRepository` gained `create(...)` and `edit(...)`, mirroring Houses' shape, with
+`permissionsFor` now exposing `canCreate` (manage ∪ contribute: proprietor, principal, administrator, teacher) and
+`canManageAll` (manage only), replacing a `canConfigureSchoolWide` field that turned out to be checked nowhere in
+the app at all. Per-record "a contributor may only change their own" ownership is deliberately NOT replicated
+client-side - this app has no existing precedent for tracking local record ownership before a sync round-trip
+(Community's own `canPost`/`canModerate` split works the same coarse way), so the Flutter-side `edit()` action is
+manager-only; a teacher's create-only capability still matches the backend exactly, and the backend remains the
+real enforcement point for "only your own" on update, same as it already was for Community. `assembly_demo_data.dart`
+is renamed `assembly_policy_copy.dart`, keeping `assemblyConfigurationPrinciples` and the already-real
+`assemblyStats()` function as-is. The page gained an "Add session" action (create-gated) and a per-session edit
+icon (manage-gated), and the empty state distinguishes no sessions at all from a search/filter matching nothing.
+
+**Verification.** `flutter analyze` clean. `test/assembly_test.dart`: the seed-preservation test was removed;
+stats, filtering, serialization and configuration-principle tests were rewritten against inline fixtures; a new
+`copyWith` test added; a new assertion confirms `assemblyStats([])` returns honest zeros. New
+`test/assembly_repository_test.dart` (9 tests - a fresh school's `load()` is genuinely empty; `permissionsFor`
+matches the real two-tier Spec exactly, including that a teacher can create but not manage-all; `create()` lets a
+teacher really add a session and refuses a role outside manage/contribute or an empty title; `edit()` lets a
+manager really change any session and refuses a teacher, who could create but never manage). All 14 Assembly
+tests pass; full app suite back to the same 83 pre-existing failures as before this work, by name.
