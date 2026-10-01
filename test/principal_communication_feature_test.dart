@@ -77,7 +77,7 @@ void main() {
     'saved announcement reloads with real content and unconfirmed delivery',
     () async {
       await setup();
-      expect((await queue()).success, isTrue);
+      expect((await queue(audience: PrincipalCommunicationAudience.guardians)).success, isTrue);
       final s = await repo.load();
       expect(s.queuedCount, 1);
       expect(s.outgoing.single.message, 'Meeting');
@@ -328,6 +328,217 @@ void main() {
 
       await session.selectSchool(teacher);
       expect((await repo.queueReply(threadId: leadershipThreadId, message: 'Hi')).success, isFalse);
+    });
+  });
+
+  group('staff-audience announcements reach every real Secondary teacher', () {
+    const teacherA = SchoolMembership(id: 'm-teacher-a', schoolId: 's', schoolName: 'School', role: SchoolRole.teacher);
+    const teacherB = SchoolMembership(id: 'm-teacher-b', schoolId: 's', schoolName: 'School', role: SchoolRole.teacher);
+
+    Future<void> registerTeacher(SchoolMembership teacher, String staffId, {String section = 'Secondary'}) async {
+      await db!.upsertLocalRecord(
+        tenantId: 's',
+        entityType: AdministratorStaffRepository.directoryEntityType,
+        entityId: staffId,
+        payload: AdministratorStaffRecord(
+          id: staffId,
+          name: 'Teacher $staffId',
+          role: 'Teacher',
+          section: section,
+          fileStatus: AdministratorStaffFileStatus.complete,
+        ).toJson(),
+      );
+      await db!.upsertLocalRecord(
+        tenantId: 's',
+        entityType: OwnerStaffProfileRepository.entityType,
+        entityId: staffId,
+        payload: StaffProfile(staffId: staffId, systemRole: 'teacher', linkedMembershipId: teacher.id).toJson(),
+      );
+    }
+
+    test('a staff announcement with no linked Secondary teachers is refused', () async {
+      await setup();
+      final result = await repo.queueAnnouncement(
+        audience: PrincipalCommunicationAudience.staff,
+        channel: PrincipalCommunicationChannel.portal,
+        subject: 'Staff notice',
+        message: 'Submit your reports by Friday.',
+      );
+      expect(result.success, isFalse);
+      expect(result.message, contains('No Secondary teachers'));
+    });
+
+    test("a staff announcement really reaches every real Secondary teacher's own leadership thread", () async {
+      await setup();
+      await session.setMemberships([principal, teacherA, teacherB]);
+      await registerTeacher(teacherA, 'STAFF-A');
+      await registerTeacher(teacherB, 'STAFF-B');
+      await session.selectSchool(principal);
+
+      final result = await repo.queueAnnouncement(
+        audience: PrincipalCommunicationAudience.staff,
+        channel: PrincipalCommunicationChannel.portal,
+        subject: 'Staff notice',
+        message: 'Submit your reports by Friday.',
+      );
+      expect(result.success, isTrue, reason: result.message);
+      expect(result.message, contains('Queued for 2 real Secondary teachers'));
+
+      final snapshot = await repo.load();
+      final threadA = snapshot.threads.singleWhere((t) => t.id == 'leadership-thread-${teacherA.id}');
+      final threadB = snapshot.threads.singleWhere((t) => t.id == 'leadership-thread-${teacherB.id}');
+      expect(threadA.messages.single.body, 'Submit your reports by Friday.');
+      expect(threadB.messages.single.body, 'Submit your reports by Friday.');
+    });
+
+    test('a Primary-section teacher is not reached by a Secondary staff announcement', () async {
+      await setup();
+      const primaryTeacher = SchoolMembership(id: 'm-teacher-primary', schoolId: 's', schoolName: 'School', role: SchoolRole.teacher);
+      await session.setMemberships([principal, primaryTeacher]);
+      await registerTeacher(primaryTeacher, 'STAFF-PRI', section: 'Primary');
+      await session.selectSchool(principal);
+
+      final result = await repo.queueAnnouncement(
+        audience: PrincipalCommunicationAudience.staff,
+        channel: PrincipalCommunicationChannel.portal,
+        subject: 'Staff notice',
+        message: 'Submit your reports by Friday.',
+      );
+      expect(
+        result.success,
+        isFalse,
+        reason: 'only a Primary-section teacher is linked, outside this Principal\'s Secondary scope',
+      );
+    });
+  });
+
+  group('individual guardian reply-thread inbox', () {
+    test('every real, active Secondary student on the register is a real lookup option', () async {
+      await setup();
+      final families = await repo.secondaryFamilies();
+      expect(families, isNotEmpty);
+      expect(families.every((s) => s.status == AdministratorStudentStatus.active), isTrue);
+      expect(families.every((s) => sectionOfClass(s.className) == 'Secondary'), isTrue);
+    });
+
+    test('a family with no real messages yet stays honestly empty', () async {
+      await setup();
+      final thread = await repo.familyThread('STU-001');
+      expect(thread, isNotNull);
+      expect(thread!.messages, isEmpty);
+      expect(thread.preview, 'No messages yet');
+      expect(thread.unread, isFalse);
+    });
+
+    test('a forged student id returns no thread', () async {
+      await setup();
+      expect(await repo.familyThread('ghost'), isNull);
+    });
+
+    test(
+      "the Principal can reply into one specific real guardian's own thread, and it really lands there",
+      () async {
+        await setup();
+        final result = await repo.queueFamilyReply(studentId: 'STU-001', message: 'Please see me about attendance.');
+        expect(result.success, isTrue, reason: result.message);
+
+        final thread = await repo.familyThread('STU-001');
+        expect(thread!.messages.single.body, 'Please see me about attendance.');
+        expect(thread.messages.single.isOutgoing, isTrue);
+
+        await session.setMemberships([principal, parent]);
+        await session.selectSchool(parent);
+        final students = AdministratorStudentsRepository(localDatabase: db!, schoolSession: session);
+        final children = ParentChildrenRepository(
+          localDatabase: db!,
+          schoolSession: session,
+          students: students,
+          attendance: AdministratorAttendanceRepository(localDatabase: db!, schoolSession: session),
+          ledger: FinanceLedgerRepository(
+            database: db!,
+            session: session,
+            students: students,
+            concessions: ConcessionRepository(localDatabase: db!, schoolSession: session),
+          ),
+        );
+        final parentMessages = ParentMessagesRepository(localDatabase: db!, schoolSession: session, children: children);
+        final snapshot = await parentMessages.load();
+        final maryamThread = snapshot.threadById('channel-STU-001')!;
+        expect(maryamThread.messages.single.body, 'Please see me about attendance.');
+        expect(maryamThread.messages.single.authorLabel, 'Principal');
+      },
+    );
+
+    test('a reply to a student not really on the Secondary register is refused', () async {
+      await setup();
+      final result = await repo.queueFamilyReply(studentId: 'ghost', message: 'Hi');
+      expect(result.success, isFalse);
+    });
+
+    test('a real guardian message makes the family thread unread until marked seen', () async {
+      await setup();
+      await session.setMemberships([principal, parent]);
+      await session.selectSchool(parent);
+      final students = AdministratorStudentsRepository(localDatabase: db!, schoolSession: session);
+      final children = ParentChildrenRepository(
+        localDatabase: db!,
+        schoolSession: session,
+        students: students,
+        attendance: AdministratorAttendanceRepository(localDatabase: db!, schoolSession: session),
+        ledger: FinanceLedgerRepository(
+          database: db!,
+          session: session,
+          students: students,
+          concessions: ConcessionRepository(localDatabase: db!, schoolSession: session),
+        ),
+      );
+      final parentMessages = ParentMessagesRepository(localDatabase: db!, schoolSession: session, children: children);
+      await parentMessages.queueReply(threadId: 'channel-STU-001', body: 'When is the next PTA meeting?');
+
+      await session.selectSchool(principal);
+      final before = await repo.familyThread('STU-001');
+      expect(before!.unread, isTrue);
+
+      await repo.markFamilyThreadSeen('STU-001');
+      final after = await repo.familyThread('STU-001');
+      expect(after!.unread, isFalse);
+    });
+
+    test('a non-principal cannot reply into a guardian thread', () async {
+      await setup(const SchoolMembership(id: 't', schoolId: 's', schoolName: 'School', role: SchoolRole.teacher));
+      final result = await repo.queueFamilyReply(studentId: 'STU-001', message: 'Hi');
+      expect(result.success, isFalse);
+    });
+  });
+
+  group('real follow-ups', () {
+    const followUpTeacher = SchoolMembership(
+      id: 'm-teacher-followup',
+      schoolId: 's',
+      schoolName: 'School',
+      role: SchoolRole.teacher,
+    );
+    final followUpThreadId = 'leadership-thread-${followUpTeacher.id}';
+
+    test('a follow-up appears for each real unread leadership thread, and clears once replied', () async {
+      await setup();
+      await session.setMemberships([principal, followUpTeacher]);
+      final students = AdministratorStudentsRepository(localDatabase: db!, schoolSession: session);
+      final roster = TeacherRoster(database: db!, session: session, students: students);
+      final teacherMessages = TeacherMessagesRepository(localDatabase: db!, schoolSession: session, roster: roster);
+      await session.selectSchool(followUpTeacher);
+      await teacherMessages.queueMessage(threadId: followUpThreadId, body: 'Need guidance.');
+
+      await session.selectSchool(principal);
+      final before = await repo.load();
+      expect(before.followUps.single.targetKey, followUpThreadId);
+      expect(before.followUps.single.action, 'Reply');
+      expect(before.dueTodayCount, 1);
+
+      final result = await repo.queueReply(threadId: followUpThreadId, message: 'On it.');
+      expect(result.success, isTrue, reason: result.message);
+      final after = await repo.load();
+      expect(after.followUps, isEmpty);
     });
   });
 }

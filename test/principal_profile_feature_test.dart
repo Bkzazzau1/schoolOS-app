@@ -138,7 +138,7 @@ void main() {
   test('a real queued announcement by this Principal appears in real recent activity', () async {
     await setUpSchool();
     final result = await communication.queueAnnouncement(
-      audience: PrincipalCommunicationAudience.staff,
+      audience: PrincipalCommunicationAudience.guardians,
       channel: PrincipalCommunicationChannel.portal,
       subject: 'Staff meeting',
       message: 'Please attend the Friday briefing.',
