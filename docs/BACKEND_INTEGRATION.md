@@ -3288,3 +3288,40 @@ test kept, now importing the renamed file. New `test/noticeboard_repository_test
 `load()` is genuinely empty; only the proprietor may publish; a real published notice starts at an honest zero
 recipient count, never a guessed one; pinning and editing a real notice persists and is proprietor-only). All 9
 Noticeboard tests pass; full app suite back to the same 83 pre-existing failures as before this work, by name.
+
+## Houses & Teams gets a real create/edit flow, not just a fabrication fix
+
+Second of the 14-directory cluster, and the first one the sizing audit's "shallow, one seed call" label understated:
+`HouseRepository` had no create or edit method at all - `load()` was the only method - so simply deleting its
+seeded four houses the way Noticeboard's seed was removed would have left every real school with a permanently
+empty, permanently unusable Houses screen forever, since there was no way to ever add a real house through the
+app. The real Django Spec behind it (`HOUSES = Spec("school_house", manage=MANAGERS, required=("name",))` in
+`apps/schoollife/specs/programmes.py`) already supports create/update by any of `MANAGERS` -
+`{proprietor, principal, administrator}` - same generic CRUD shape as Community/Noticeboard, so building a real
+write path cost nothing on the backend. Along the way, `HousePermissions.canManageAll` was also found checking
+`membership.role == SchoolRole.proprietor` alone, understating who the real backend actually authorizes to manage
+a house.
+
+**Design.** `HouseRepository` gained `create({name, captain, coordinator})` and `edit(...)`, mirroring
+Noticeboard's `publish()`/`edit()`/`_save()` shape exactly; `permissionsFor` now checks against
+`{proprietor, principal, administrator}`, matching `MANAGERS` the same way Community's own permission sets were
+built to mirror `apps.schoollife.community.framework` exactly. A new house starts at `points: 0, members: 0,
+sports: 0, academicCompetitions: 0, service: 0, status: 'Active'` - an honest zero, not an invented ranking.
+Points, members and the three component scores stay hand-maintained by a manager through `edit()` rather than
+computed automatically - nothing in the app records a real sports/quiz/service event yet, so there is no real
+total to compute instead, the same reasoning that kept Noticeboard's read tracking honestly unavailable rather
+than fabricated. The KPI grid (`_KpiGrid`) now computes "Active houses", "Members" and "Leading house" from real
+`snapshot.houses` instead of five fixed constants; "Events this term" was dropped outright since nothing tracks a
+scheduled event at all. `house_demo_data.dart` is renamed `house_policy_copy.dart`, keeping only
+`houseScopeTitle`/`Subtitle`/`Description`, `houseStandingsDescription` and `houseAcademicBoundary` - static
+guidance text. The page gained an "Add house" dialog (name required, captain/coordinator optional) and an "Edit"
+action on the selected house (all fields, manager-only), and the empty-feed message now distinguishes a
+genuinely empty house list ("No houses yet. Add the first one above.") from a search matching nothing.
+
+**Verification.** `flutter analyze` clean. `test/houses_test.dart`: the seed-data/KPI test was removed; component
+totals, search and serialization tests were rewritten against inline fixtures; a new `copyWith` test added. New
+`test/house_repository_test.dart` (9 tests - a fresh school's `load()` is genuinely empty; `permissionsFor`
+matches the real backend's `MANAGERS` set exactly, both who can and who cannot manage houses; `create()` adds a
+real house at an honest zero and refuses a non-manager or an empty name; `edit()` really updates a house's hand-
+maintained totals and refuses a non-manager). All 13 Houses tests pass; full app suite back to the same 83
+pre-existing failures as before this work, by name.
