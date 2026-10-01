@@ -10,11 +10,13 @@ import '../../community/presentation/community_page.dart';
 import '../data/alumni_directory_repository.dart';
 import '../data/alumni_events_repository.dart';
 import '../data/alumni_give_back_repository.dart';
+import '../data/alumni_opportunities_repository.dart';
 import '../data/alumni_profile_repository.dart';
 import '../data/alumni_server_api.dart';
 import 'alumni_directory_page.dart';
 import 'alumni_events_page.dart';
 import 'alumni_give_back_page.dart';
+import 'alumni_opportunities_page.dart';
 import 'alumni_profile_page.dart';
 
 class AlumniNavItem {
@@ -190,11 +192,12 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
               'Alumni mentorship is not available yet.',
           icon: Icons.handshake_outlined,
         ),
-      'opportunities' => _foundationCard(
-          title: 'Jobs & Opportunities',
-          description:
-              'Jobs and opportunities are not available yet.',
-          icon: Icons.work_outline,
+      'opportunities' => AlumniOpportunitiesPage(
+          repository: AlumniOpportunitiesRepository(
+            membership: widget.membership,
+            remote: AlumniServerScope.maybeOf(context),
+          ),
+          membershipId: widget.membership.id,
         ),
       'give-back' => AlumniGiveBackPage(
           repository: AlumniGiveBackRepository(

@@ -5,6 +5,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/alumni_directory_models.dart';
 import '../domain/alumni_event_models.dart';
+import '../domain/alumni_opportunity_models.dart';
 import '../domain/alumni_pledge_models.dart';
 import '../domain/alumni_profile_models.dart';
 
@@ -169,6 +170,10 @@ class AlumniServerApi {
         for (final item in (map['pledges'] as List? ?? const []))
           AlumniPledge.fromJson(Map<String, dynamic>.from(item as Map)),
       ],
+      opportunities: [
+        for (final item in (map['opportunities'] as List? ?? const []))
+          AlumniOpportunity.fromJson(Map<String, dynamic>.from(item as Map)),
+      ],
     );
   }
 
@@ -271,6 +276,56 @@ class AlumniServerApi {
       body: {'note': note.trim()},
     );
     return _profileFromEnvelope(data);
+  }
+
+  /// Every real job/opportunity posting for this school - a real posting board every real alumnus
+  /// browses, not just their own.
+  Future<List<AlumniOpportunity>> loadOpportunities(SchoolMembership membership) async {
+    final data = await _api.get(
+      'alumni/schools/${membership.schoolId}/opportunities/',
+      query: _who(membership),
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return [
+      for (final item in (map['opportunities'] as List? ?? const []))
+        AlumniOpportunity.fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
+  }
+
+  Future<AlumniOpportunity> postOpportunity(
+    SchoolMembership membership, {
+    required String title,
+    required String organisation,
+    required AlumniOpportunityType type,
+    String locationText = '',
+    required String description,
+    String contactInfo = '',
+  }) async {
+    final data = await _api.post(
+      'alumni/schools/${membership.schoolId}/opportunities/',
+      query: _who(membership),
+      body: {
+        'title': title.trim(),
+        'organisation': organisation.trim(),
+        'opportunityType': type.wireValue,
+        'locationText': locationText.trim(),
+        'description': description.trim(),
+        'contactInfo': contactInfo.trim(),
+      },
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniOpportunity.fromJson(Map<String, dynamic>.from(map['opportunity'] as Map));
+  }
+
+  /// Closing follows the same "author or moderator" rule the server enforces - the real poster's
+  /// own membership, or school management.
+  Future<AlumniOpportunity> closeOpportunity(SchoolMembership membership, String opportunityId) async {
+    final data = await _api.post(
+      'alumni/schools/${membership.schoolId}/opportunities/$opportunityId/close/',
+      query: _who(membership),
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniOpportunity.fromJson(Map<String, dynamic>.from(map['opportunity'] as Map));
   }
 
   AlumniProfileRecord _profileFromEnvelope(Object? data) {

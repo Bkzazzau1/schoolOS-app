@@ -1,3 +1,4 @@
+import 'alumni_opportunity_models.dart';
 import 'alumni_pledge_models.dart';
 
 enum AlumniVerificationState { pending, verified, rejected }
@@ -143,6 +144,7 @@ class AlumniManagementSnapshot {
     required this.profiles,
     required this.transitionCandidates,
     this.pledges = const [],
+    this.opportunities = const [],
   });
 
   final List<AlumniProfileRecord> profiles;
@@ -151,6 +153,10 @@ class AlumniManagementSnapshot {
   /// Every real, non-monetary pledge an alumnus of this school has offered - for management
   /// oversight; see `AlumniGiveBackPage` for the alumnus's own self-service view.
   final List<AlumniPledge> pledges;
+
+  /// Every real job/opportunity posting for this school - for management oversight; see
+  /// `AlumniOpportunitiesPage` for the real posting board every alumnus browses.
+  final List<AlumniOpportunity> opportunities;
 
   int get pendingCount => profiles
       .where((profile) =>

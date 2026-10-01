@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/models/school_membership.dart';
 import '../data/alumni_server_api.dart';
 import '../domain/alumni_event_models.dart';
+import '../domain/alumni_opportunity_models.dart';
 import '../domain/alumni_pledge_models.dart';
 import '../domain/alumni_profile_models.dart';
 
@@ -28,6 +29,7 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
   List<AlumniEvent>? _events;
   bool _eventsLoading = true;
   final _pledgeBusy = <String>{};
+  final _opportunityBusy = <String>{};
 
   @override
   void initState() {
@@ -287,6 +289,23 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
     }
   }
 
+  Future<void> _closeOpportunity(AlumniOpportunity opportunity) async {
+    final api = widget.api;
+    if (api == null || !_opportunityBusy.add(opportunity.id)) return;
+    setState(() {});
+    try {
+      await api.closeOpportunity(widget.manager, opportunity.id);
+      if (!mounted) return;
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    } finally {
+      _opportunityBusy.remove(opportunity.id);
+      if (mounted) setState(() {});
+    }
+  }
+
   Future<void> _transitionStudent() async {
     final api = widget.api;
     final candidates = _snapshot?.transitionCandidates ?? const [];
@@ -533,6 +552,30 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
             ),
             const SizedBox(height: 8),
           ],
+        const SizedBox(height: 24),
+        const Text(
+          'Jobs & Opportunities',
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+        ),
+        const SizedBox(height: 10),
+        if (snapshot.opportunities.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(18),
+              child: Text('No alumnus has posted an opportunity yet.'),
+            ),
+          )
+        else
+          for (final opportunity in snapshot.opportunities) ...[
+            _OpportunitySummaryCard(
+              opportunity: opportunity,
+              busy: _opportunityBusy.contains(opportunity.id),
+              onClose: opportunity.status == AlumniOpportunityStatus.open
+                  ? () => _closeOpportunity(opportunity)
+                  : null,
+            ),
+            const SizedBox(height: 8),
+          ],
         const SizedBox(height: 18),
         Row(
           children: [
@@ -575,6 +618,56 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
             const SizedBox(height: 10),
           ],
       ],
+    );
+  }
+}
+
+class _OpportunitySummaryCard extends StatelessWidget {
+  const _OpportunitySummaryCard({required this.opportunity, required this.busy, required this.onClose});
+
+  final AlumniOpportunity opportunity;
+  final bool busy;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(opportunity.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      Text(
+                        '${opportunity.organisation} · ${opportunity.type.label}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      Text('Posted by ${opportunity.postedByName}', style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                Chip(label: Text(opportunity.status.label)),
+              ],
+            ),
+            if (onClose != null) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton(
+                  onPressed: busy ? null : onClose,
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
