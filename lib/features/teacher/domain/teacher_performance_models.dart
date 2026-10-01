@@ -26,6 +26,7 @@ class TeacherPerformanceMetric {
   final String note;
 
   bool get isAtOrAboveTarget => value >= target;
+  int get gapToTarget => target - value;
 
   Map<String, Object?> toJson() => {
         'label': label,
@@ -43,27 +44,24 @@ class TeacherPerformanceMetric {
       );
 }
 
+/// Real-time context for one assigned class - never a historical trend, since no real
+/// period-over-period comparison is tracked anywhere in the app.
 class TeacherClassPerformance {
   const TeacherClassPerformance({
     required this.name,
     required this.average,
-    required this.change,
     required this.attendance,
     required this.syllabusPace,
   });
 
   final String name;
   final int average;
-  final String change;
   final int attendance;
   final int syllabusPace;
-
-  bool get isImproving => change.startsWith('+');
 
   Map<String, Object?> toJson() => {
         'name': name,
         'average': average,
-        'change': change,
         'attendance': attendance,
         'syllabusPace': syllabusPace,
       };
@@ -72,12 +70,13 @@ class TeacherClassPerformance {
       TeacherClassPerformance(
         name: json['name'] as String,
         average: json['average'] as int,
-        change: json['change'] as String,
         attendance: json['attendance'] as int,
         syllabusPace: json['syllabusPace'] as int,
       );
 }
 
+/// A real leadership performance review (StaffProfile.reviews), never an invented
+/// coaching note.
 class TeacherDevelopmentLogItem {
   const TeacherDevelopmentLogItem({
     required this.title,

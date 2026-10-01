@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/teacher_students_demo_data.dart';
+import '../data/teacher_students_policy_copy.dart';
 import '../data/teacher_students_repository.dart';
 import '../domain/teacher_students_models.dart';
 
@@ -26,7 +26,7 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
   String _query = '';
   String _classFilter = 'All classes';
   String _riskFilter = 'All statuses';
-  String _selectedId = teacherStudents.first.id;
+  String _selectedId = '';
   String? _notice;
   bool _noticeSuccess = false;
 
@@ -144,7 +144,7 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
           children: [
             _Header(onNavigate: widget.onNavigate),
             const SizedBox(height: 18),
-            _Kpis(),
+            _Kpis(students: snapshot.students),
             const SizedBox(height: 18),
             _DirectoryPanel(
               snapshot: snapshot,
@@ -173,7 +173,8 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
             const SizedBox(height: 18),
             _InfoCard(
               title: 'Teacher AI student insight',
-              body: teacherStudentAiInsight,
+              body: 'Ask Teacher AI about a specific student or class using your own real evidence - '
+                  'no automatic insight is generated here yet.',
               actionLabel: 'Ask Teacher AI',
               onAction: () => widget.onNavigate('ai'),
             ),
@@ -247,47 +248,65 @@ class _Header extends StatelessWidget {
 }
 
 class _Kpis extends StatelessWidget {
+  const _Kpis({required this.students});
+
+  final List<TeacherStudentSummary> students;
+
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth < 620
-              ? constraints.maxWidth
-              : constraints.maxWidth < 980
-                  ? (constraints.maxWidth - 12) / 2
-                  : (constraints.maxWidth - 36) / 4;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              for (final kpi in teacherStudentKpis)
-                SizedBox(
-                  width: width,
-                  child: Card(
-                    elevation: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(kpi.$1),
-                          const SizedBox(height: 6),
-                          Text(
-                            kpi.$2,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          Text(kpi.$3),
-                        ],
-                      ),
+  Widget build(BuildContext context) {
+    final classCount = students.map((s) => s.className).toSet().length;
+    final strongOrStable = students
+        .where((s) => s.risk == TeacherStudentRisk.strong || s.risk == TeacherStudentRisk.stable)
+        .length;
+    final watch = students.where((s) => s.risk == TeacherStudentRisk.watch).length;
+    final atRisk = students.where((s) => s.risk == TeacherStudentRisk.atRisk).length;
+    final kpis = [
+      ('Assigned students', '${students.length}', 'Across $classCount class${classCount == 1 ? '' : 'es'}'),
+      ('Strong / stable', '$strongOrStable', 'Within expected range'),
+      ('Watch list', '$watch', 'Needs closer monitoring'),
+      ('At risk', '$atRisk', 'Academic or attendance concern'),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth < 620
+            ? constraints.maxWidth
+            : constraints.maxWidth < 980
+                ? (constraints.maxWidth - 12) / 2
+                : (constraints.maxWidth - 36) / 4;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final kpi in kpis)
+              SizedBox(
+                width: width,
+                child: Card(
+                  elevation: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(kpi.$1),
+                        const SizedBox(height: 6),
+                        Text(
+                          kpi.$2,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        Text(kpi.$3),
+                      ],
                     ),
                   ),
                 ),
-            ],
-          );
-        },
-      );
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _DirectoryPanel extends StatelessWidget {

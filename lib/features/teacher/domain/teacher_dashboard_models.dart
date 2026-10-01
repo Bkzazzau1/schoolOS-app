@@ -62,6 +62,11 @@ class TeacherScheduleItem {
   final String time;
   final String className;
   final String topic;
+
+  /// The lesson's own real timetable status label (e.g. "Scheduled",
+  /// "Substitution") - never a time-of-day-relative guess like "Completed"/
+  /// "Next", since lesson time formats aren't reliable enough to compare
+  /// against the clock.
   final String status;
 }
 
@@ -69,38 +74,26 @@ class TeacherStudentReview {
   const TeacherStudentReview({
     required this.name,
     required this.className,
-    required this.average,
-    required this.attendance,
-    required this.signal,
   });
 
   final String name;
   final String className;
-  final int average;
-  final int attendance;
-  final String signal;
 
   bool matches(String query) {
     final normalized = query.trim().toLowerCase();
     if (normalized.isEmpty) return true;
-    return '$name $className $signal'.toLowerCase().contains(normalized);
+    return '$name $className'.toLowerCase().contains(normalized);
   }
 
   Map<String, Object?> toJson() => {
         'name': name,
         'className': className,
-        'average': average,
-        'attendance': attendance,
-        'signal': signal,
       };
 
   factory TeacherStudentReview.fromJson(Map<String, dynamic> json) {
     return TeacherStudentReview(
       name: json['name'] as String,
       className: json['className'] as String,
-      average: json['average'] as int,
-      attendance: json['attendance'] as int,
-      signal: json['signal'] as String,
     );
   }
 }
@@ -117,11 +110,4 @@ class TeacherTask {
   final String meta;
   final String tone;
   final String destination;
-}
-
-class TeacherPerformanceMetric {
-  const TeacherPerformanceMetric({required this.label, required this.value});
-
-  final String label;
-  final int value;
 }

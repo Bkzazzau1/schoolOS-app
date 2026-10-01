@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/teacher_performance_demo_data.dart';
+import '../data/teacher_performance_policy_copy.dart';
 import '../data/teacher_performance_repository.dart';
 import '../domain/teacher_performance_models.dart';
 
@@ -129,7 +129,7 @@ class _TeacherPerformancePageState extends State<TeacherPerformancePage> {
       children: [
         _header(context),
         const SizedBox(height: 16),
-        _overview(context),
+        _overview(context, snapshot),
         const SizedBox(height: 16),
         _metrics(context, snapshot.metrics),
         const SizedBox(height: 16),
@@ -214,9 +214,10 @@ class _TeacherPerformancePageState extends State<TeacherPerformancePage> {
         ],
       );
 
-  Widget _overview(BuildContext context) => LayoutBuilder(
+  Widget _overview(BuildContext context, TeacherPerformanceSnapshot snapshot) => LayoutBuilder(
         builder: (context, constraints) {
           final narrow = constraints.maxWidth < 760;
+          final focusMetric = snapshot.focusMetric;
           final score = Card(
             elevation: 0,
             child: Padding(
@@ -227,7 +228,7 @@ class _TeacherPerformancePageState extends State<TeacherPerformancePage> {
                   Column(
                     children: [
                       Text(
-                        '$teacherPerformanceScore',
+                        '${snapshot.overallScore}',
                         style: Theme.of(context).textTheme.displaySmall?.copyWith(
                               fontWeight: FontWeight.w900,
                             ),
@@ -240,16 +241,20 @@ class _TeacherPerformancePageState extends State<TeacherPerformancePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Chip(label: Text(teacherPerformanceScoreLabel)),
+                        Chip(label: Text(snapshot.scoreLabel)),
                         const SizedBox(height: 8),
                         Text(
-                          teacherPerformanceHeadline,
+                          focusMetric == null
+                              ? 'Every indicator is at or above its target'
+                              : '${focusMetric.label} is ${focusMetric.gapToTarget} points below target',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.w900,
                               ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(teacherPerformanceSummary),
+                        const Text(
+                          'Average of the real indicators below - not a hidden scoring formula.',
+                        ),
                       ],
                     ),
                   ),
@@ -265,11 +270,15 @@ class _TeacherPerformancePageState extends State<TeacherPerformancePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Professional focus', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                  const Text('Suggested next action'),
+                  const Text('The real indicator furthest below its own target.'),
                   const SizedBox(height: 14),
-                  const Text(teacherProfessionalFocusTitle, style: TextStyle(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 6),
-                  const Text(teacherProfessionalFocusCopy),
+                  if (focusMetric == null)
+                    const Text('No real indicator is currently below target.')
+                  else ...[
+                    Text(focusMetric.label, style: const TextStyle(fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 6),
+                    Text('${focusMetric.value}% against a target of ${focusMetric.target}%. ${focusMetric.note}.'),
+                  ],
                   const SizedBox(height: 12),
                   TextButton.icon(
                     onPressed: () => widget.onNavigate('syllabus'),
@@ -358,28 +367,8 @@ class _TeacherPerformancePageState extends State<TeacherPerformancePage> {
               const SizedBox(height: 14),
               if (classes.isEmpty) const Text('No assigned classes yet.'),
               for (final item in classes) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.name, style: const TextStyle(fontWeight: FontWeight.w900)),
-                          Text('Class avg ${item.average}% · Attendance ${item.attendance}% · Syllabus ${item.syllabusPace}%'),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      item.change,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: item.isImproving
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ],
-                ),
+                Text(item.name, style: const TextStyle(fontWeight: FontWeight.w900)),
+                Text('Class avg ${item.average}% · Attendance ${item.attendance}% · Syllabus ${item.syllabusPace}%'),
                 if (item != classes.last) const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1)),
               ],
             ],

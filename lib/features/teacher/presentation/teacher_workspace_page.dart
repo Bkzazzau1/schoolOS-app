@@ -28,7 +28,8 @@ import '../data/teacher_attendance_repository.dart';
 import '../data/teacher_cbt_repository.dart';
 import '../data/teacher_class_teacher_repository.dart';
 import '../data/teacher_classes_repository.dart';
-import '../data/teacher_dashboard_demo_data.dart' show teacherNavigation;
+import '../data/teacher_dashboard_policy_copy.dart' show teacherNavigation;
+import '../data/teacher_dashboard_repository.dart';
 import '../data/teacher_family_messages_repository.dart';
 import '../data/teacher_learning_progress_repository.dart';
 import '../data/teacher_lesson_plan_repository.dart';
@@ -105,6 +106,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
   late final TeacherAiRepository _teacherAi;
   late final TeacherPerformanceRepository _performance;
   late final TeacherProfileRepository _profile;
+  late final TeacherDashboardRepository _dashboard;
 
   TeacherNavItem get _activeItem => _navigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -136,6 +138,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
     _teacherAi = TeacherAiRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _performance = TeacherPerformanceRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _profile = TeacherProfileRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
+    _dashboard = TeacherDashboardRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, roster: _roster);
     _refreshPendingCount();
     _loadIdentity();
   }
@@ -213,7 +216,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
   }
 
   Widget _content() => switch (_activeKey) {
-        'dashboard' => TeacherDashboardPage(schoolName: widget.membership.schoolName, onNavigate: _select),
+        'dashboard' => TeacherDashboardPage(schoolName: widget.membership.schoolName, repository: _dashboard, onNavigate: _select),
         'timetable' => TeacherTimetablePage(repository: _timetable, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'classes' => TeacherClassesPage(schoolName: widget.membership.schoolName, repository: _classes, onNavigate: _select),
         'attendance' => TeacherAttendancePage(repository: _attendance, onNavigate: _select, onMutationQueued: _refreshPendingCount),
@@ -248,7 +251,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
             onBack: () => _select('dashboard'),
             onCommunityChanged: _refreshPendingCount,
           ),
-        _ => TeacherDashboardPage(schoolName: widget.membership.schoolName, onNavigate: _select),
+        _ => TeacherDashboardPage(schoolName: widget.membership.schoolName, repository: _dashboard, onNavigate: _select),
       };
 
   @override
