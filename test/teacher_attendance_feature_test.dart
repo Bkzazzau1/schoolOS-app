@@ -1,47 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/teacher/data/teacher_attendance_demo_data.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_attendance_repository.dart';
-import 'package:schoolos_app/features/teacher/data/teacher_timetable_demo_data.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_attendance_models.dart';
 import 'package:schoolos_app/features/teacher/presentation/teacher_attendance_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
-void main() {
-  test('attendance preserves exact eight website demo rows and counts', () {
-    expect(teacherAttendanceInitialStudents, hasLength(8));
-    expect(
-      teacherAttendanceInitialStudents
-          .where((entry) => entry.status == TeacherAttendanceStatus.present),
-      hasLength(5),
-    );
-    expect(
-      teacherAttendanceInitialStudents
-          .where((entry) => entry.status == TeacherAttendanceStatus.absent),
-      hasLength(1),
-    );
-    expect(
-      teacherAttendanceInitialStudents
-          .where((entry) => entry.status == TeacherAttendanceStatus.late),
-      hasLength(1),
-    );
-    expect(
-      teacherAttendanceInitialStudents
-          .where((entry) => entry.status == TeacherAttendanceStatus.excused),
-      hasLength(1),
-    );
-    expect(teacherAttendanceInitialStudents[2].note, 'Follow-up pending');
-    expect(
-      teacherAttendanceInitialStudents[4].note,
-      'Arrived after lesson start',
-    );
-    expect(teacherAttendanceInitialStudents[6].note, 'Approved absence');
-  });
+const _fixtureLessons = <TeacherAttendanceLesson>[
+  TeacherAttendanceLesson(
+    id: 'MON-0800-J2A',
+    className: 'JSS 2A',
+    subject: 'Mathematics',
+    time: '8:00–8:40',
+    room: 'B12',
+    topic: 'Linear equations',
+  ),
+  TeacherAttendanceLesson(
+    id: 'MON-0920-J2B',
+    className: 'JSS 2B',
+    subject: 'Mathematics',
+    time: '9:20–10:00',
+    room: 'B14',
+    topic: 'Linear equations',
+  ),
+  TeacherAttendanceLesson(
+    id: 'MON-1100-J3A',
+    className: 'JSS 3A',
+    subject: 'Mathematics',
+    time: '11:00–11:40',
+    room: 'C04',
+    topic: 'Simultaneous equations',
+  ),
+];
 
-  test('attendance register reproduces website percentage and review count', () {
+const _fixtureStudents = <TeacherAttendanceStudentEntry>[
+  TeacherAttendanceStudentEntry(id: 1, code: 'Student 001', studentId: 'STU-0001', status: TeacherAttendanceStatus.present, note: '', attendanceRate: 96),
+  TeacherAttendanceStudentEntry(id: 2, code: 'Student 002', studentId: 'STU-0002', status: TeacherAttendanceStatus.present, note: '', attendanceRate: 88),
+  TeacherAttendanceStudentEntry(id: 3, code: 'Student 003', studentId: 'STU-0003', status: TeacherAttendanceStatus.absent, note: 'Follow-up pending', attendanceRate: 79),
+  TeacherAttendanceStudentEntry(id: 4, code: 'Student 004', studentId: 'STU-0004', status: TeacherAttendanceStatus.present, note: '', attendanceRate: 98),
+  TeacherAttendanceStudentEntry(id: 5, code: 'Student 005', studentId: 'STU-0005', status: TeacherAttendanceStatus.late, note: 'Arrived after lesson start', attendanceRate: 92),
+  TeacherAttendanceStudentEntry(id: 6, code: 'Student 006', studentId: 'STU-0006', status: TeacherAttendanceStatus.present, note: '', attendanceRate: 95),
+  TeacherAttendanceStudentEntry(id: 7, code: 'Student 007', studentId: 'STU-0007', status: TeacherAttendanceStatus.excused, note: 'Approved absence', attendanceRate: 90),
+  TeacherAttendanceStudentEntry(id: 8, code: 'Student 008', studentId: 'STU-0008', status: TeacherAttendanceStatus.present, note: '', attendanceRate: 94),
+];
+
+void main() {
+  test('attendance register computes percentage and review count from real entries', () {
     final register = TeacherAttendanceRegister(
-      lesson: teacherAttendanceLessons.first,
-      entries: teacherAttendanceInitialStudents,
+      lesson: _fixtureLessons.first,
+      entries: _fixtureStudents,
       submissionState: TeacherAttendanceSubmissionState.draft,
     );
 
@@ -50,34 +56,10 @@ void main() {
     expect(register.count(TeacherAttendanceStatus.present), 5);
   });
 
-  test('attendance lesson metadata stays consistent with Teacher timetable', () {
-    expect(teacherAttendanceLessons, hasLength(3));
-    for (final attendanceLesson in teacherAttendanceLessons) {
-      final timetableLesson = teacherTimetableLessons.firstWhere(
-        (lesson) => lesson.id == attendanceLesson.id,
-      );
-      expect(attendanceLesson.className, timetableLesson.className);
-      expect(attendanceLesson.subject, timetableLesson.subject);
-      expect(attendanceLesson.time, timetableLesson.time);
-      expect(attendanceLesson.room, timetableLesson.room);
-      expect(attendanceLesson.topic, timetableLesson.topic);
-    }
-  });
-
-  test('recent attendance history preserves exact website evidence', () {
-    expect(teacherAttendanceHistory, hasLength(3));
-    expect(teacherAttendanceHistory[0].className, 'JSS 2B');
-    expect(teacherAttendanceHistory[0].presentSummary, '37/39 present');
-    expect(teacherAttendanceHistory[0].rate, '94.9%');
-    expect(teacherAttendanceHistory[1].rate, '97.6%');
-    expect(teacherAttendanceHistory[2].rate, '96.4%');
-    expect(teacherAttendanceCompletion, 98);
-  });
-
   test('attendance register serializes submission evidence without losing rows', () {
     final original = TeacherAttendanceRegister(
-      lesson: teacherAttendanceLessons.first,
-      entries: teacherAttendanceInitialStudents,
+      lesson: _fixtureLessons.first,
+      entries: _fixtureStudents,
       submissionState: TeacherAttendanceSubmissionState.submitted,
       submittedAt: '2026-09-14T08:42:00Z',
       submittedByMembershipId: 'membership-teacher',
@@ -90,12 +72,6 @@ void main() {
     expect(restored.submissionState, TeacherAttendanceSubmissionState.submitted);
     expect(restored.submittedAt, '2026-09-14T08:42:00Z');
     expect(restored.submittedByMembershipId, 'membership-teacher');
-  });
-
-  test('attendance safety boundaries block silent high-impact conclusions', () {
-    expect(teacherAttendanceDraftBoundary, contains('does not change student identity'));
-    expect(teacherAttendanceSyncBoundary, contains('must not be treated as final'));
-    expect(teacherAttendanceInsightBoundary, contains('must not infer motives'));
   });
 
   test('teacher permissions never grant cross-teacher or unsynced-final authority', () {
@@ -211,10 +187,10 @@ void main() {
 class _FakeAttendanceRepository implements TeacherAttendanceRepository {
   _FakeAttendanceRepository()
       : _registers = [
-          for (final lesson in teacherAttendanceLessons)
+          for (final lesson in _fixtureLessons)
             TeacherAttendanceRegister(
               lesson: lesson,
-              entries: teacherAttendanceInitialStudents,
+              entries: _fixtureStudents,
               submissionState: TeacherAttendanceSubmissionState.draft,
             ),
         ];

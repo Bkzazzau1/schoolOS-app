@@ -1,37 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/teacher/data/teacher_weekly_learning_demo_data.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_weekly_learning_policy_copy.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_weekly_learning_repository.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_weekly_learning_models.dart';
 import 'package:schoolos_app/features/teacher/presentation/teacher_weekly_learning_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+const _fixtureSubjects = <TeacherWeeklySubjectUpdate>[
+  TeacherWeeklySubjectUpdate(
+    subject: 'Mathematics',
+    planned: 'Linear equations and guided practice',
+    covered: 'Linear equations completed with worked examples and short class assessment',
+    next: 'Simultaneous equations',
+    evidence: 'Classwork 82% · Assignment 79%',
+    support: 'Fractions remain the main practice area for a small group',
+    linkedPlanId: 'LP-206',
+  ),
+  TeacherWeeklySubjectUpdate(
+    subject: 'English',
+    planned: 'Narrative writing and comprehension',
+    covered: 'Narrative writing and comprehension completed',
+    next: 'Formal letter writing',
+    evidence: 'Writing task completed · comprehension check 84%',
+    support: 'Sentence structure practice continues',
+  ),
+  TeacherWeeklySubjectUpdate(
+    subject: 'Basic Science',
+    planned: 'Human digestive system',
+    covered: 'Digestive system introduced and labelled diagram completed',
+    next: 'Nutrition and balanced diet',
+    evidence: 'Class diagram + 10-question check',
+    support: 'Key vocabulary needs reinforcement for some learners',
+  ),
+];
+
+const _fixtureNote =
+    'The class completed the major planned topics this week. Mathematics practice will continue before the next topic begins.';
+
+const _fixtureUpdate = TeacherWeeklyLearningUpdate(
+  id: 'WLU-JSS2A-W6-2026T1',
+  className: 'JSS 2A',
+  week: 'Week 6',
+  subjects: _fixtureSubjects,
+  note: _fixtureNote,
+  state: TeacherWeeklyPublicationState.draft,
+);
+
 void main() {
-  test('Weekly Learning preserves exact website subject seed', () {
-    expect(teacherWeeklySubjects, hasLength(3));
-    expect(teacherWeeklySubjects[0].subject, 'Mathematics');
-    expect(teacherWeeklySubjects[0].planned, 'Linear equations and guided practice');
+  test('weekly subject fixture carries real-shaped evidence fields', () {
+    expect(_fixtureSubjects, hasLength(3));
+    expect(_fixtureSubjects[0].subject, 'Mathematics');
+    expect(_fixtureSubjects[0].planned, 'Linear equations and guided practice');
     expect(
-      teacherWeeklySubjects[0].covered,
+      _fixtureSubjects[0].covered,
       'Linear equations completed with worked examples and short class assessment',
     );
-    expect(teacherWeeklySubjects[0].evidence, 'Classwork 82% · Assignment 79%');
-    expect(teacherWeeklySubjects[0].support, contains('Fractions'));
-    expect(teacherWeeklySubjects[0].linkedPlanId, 'LP-206');
-    expect(teacherWeeklySubjects[1].subject, 'English');
-    expect(teacherWeeklySubjects[1].next, 'Formal letter writing');
-    expect(teacherWeeklySubjects[2].subject, 'Basic Science');
-    expect(teacherWeeklySubjects[2].next, 'Nutrition and balanced diet');
+    expect(_fixtureSubjects[0].evidence, 'Classwork 82% · Assignment 79%');
+    expect(_fixtureSubjects[0].support, contains('Fractions'));
+    expect(_fixtureSubjects[0].linkedPlanId, 'LP-206');
+    expect(_fixtureSubjects[1].subject, 'English');
+    expect(_fixtureSubjects[1].next, 'Formal letter writing');
+    expect(_fixtureSubjects[2].subject, 'Basic Science');
+    expect(_fixtureSubjects[2].next, 'Nutrition and balanced diet');
   });
 
-  test('initial Weekly Learning snapshot matches website class week and readiness', () {
-    expect(teacherWeeklyInitialUpdate.className, 'JSS 2A');
-    expect(teacherWeeklyInitialUpdate.week, 'Week 6');
-    expect(teacherWeeklyInitialUpdate.state, TeacherWeeklyPublicationState.draft);
-    expect(teacherWeeklyInitialUpdate.completionPercent, 100);
-    expect(teacherWeeklyInitialNote, contains('major planned topics'));
-    expect(teacherWeeklyInitialNote, contains('Mathematics practice'));
-    expect(teacherWeeklyTermLabel, '2026/2027 Term 1');
+  test('weekly update fixture reports its own completion and draft readiness', () {
+    expect(_fixtureUpdate.className, 'JSS 2A');
+    expect(_fixtureUpdate.week, 'Week 6');
+    expect(_fixtureUpdate.state, TeacherWeeklyPublicationState.draft);
+    expect(_fixtureUpdate.completionPercent, 100);
+    expect(_fixtureNote, contains('major planned topics'));
+    expect(_fixtureNote, contains('Mathematics practice'));
   });
 
   test('weekly workflow preserves exact four-step website intent', () {
@@ -44,13 +83,13 @@ void main() {
 
   test('weekly update serializes without losing parent-ready evidence', () {
     final restored = TeacherWeeklyLearningUpdate.fromJson(
-      teacherWeeklyInitialUpdate.toJson(),
+      _fixtureUpdate.toJson(),
     );
-    expect(restored.id, teacherWeeklyInitialUpdate.id);
+    expect(restored.id, _fixtureUpdate.id);
     expect(restored.subjects, hasLength(3));
     expect(restored.subjects.first.linkedPlanId, 'LP-206');
     expect(restored.subjects.last.evidence, 'Class diagram + 10-question check');
-    expect(restored.note, teacherWeeklyInitialNote);
+    expect(restored.note, _fixtureNote);
     expect(restored.version, 1);
   });
 
@@ -66,7 +105,7 @@ void main() {
   });
 
   test('publication state distinguishes queued from actually published', () {
-    final queued = teacherWeeklyInitialUpdate.copyWith(
+    final queued = _fixtureUpdate.copyWith(
       state: TeacherWeeklyPublicationState.queuedForPublication,
       queuedAt: '2026-09-18T15:00:00Z',
       version: 2,
@@ -216,7 +255,7 @@ void main() {
 }
 
 class _FakeWeeklyLearningRepository implements TeacherWeeklyLearningRepository {
-  TeacherWeeklyLearningUpdate update = teacherWeeklyInitialUpdate;
+  TeacherWeeklyLearningUpdate update = _fixtureUpdate;
   final List<TeacherWeeklyLearningEvent> events = [];
 
   @override

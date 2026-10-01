@@ -1,58 +1,112 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/teacher/data/teacher_profile_demo_data.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_profile_repository.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_profile_models.dart';
 import 'package:schoolos_app/features/teacher/presentation/teacher_profile_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+const _contact = TeacherProfileContact(
+  phone: '+234 800 000 0000',
+  email: 'amina.yusuf@example.edu',
+  address: 'Kaduna, Kaduna State',
+  nextOfKin: 'Alhaji Yusuf Ibrahim',
+  emergencyPhone: '+234 800 000 0101',
+);
+
+final _fixture = TeacherProfileSnapshotData(
+  hasLinkedStaffRecord: true,
+  displayName: 'Amina Yusuf',
+  staffId: 'TCH-2048',
+  department: 'Mathematics',
+  jobTitle: 'Mathematics Teacher',
+  employmentType: 'Full-time',
+  hireDate: '2022-01-15',
+  campus: 'Kaduna Campus',
+  bank: 'Test Bank',
+  account: '******6789',
+  contact: _contact,
+  qualifications: const [
+    ('B.Ed · Mathematics', 'Ahmadu Bello University · 2018', 'First Class'),
+    ('TRCN registration', 'Teachers Registration Council of Nigeria', 'Verified'),
+  ],
+  teachingLoad: const [
+    ('JSS 2A · Mathematics', '7 periods/week · Room B12', 'Term 2 2026'),
+    ('JSS 2B · Mathematics', '7 periods/week · Room B14', 'Term 2 2026'),
+  ],
+  documents: const [
+    ('Appointment letter', 'Verified', 'HR-001'),
+  ],
+  attendance: const TeacherAttendanceSummary(
+    presentPercent: 96,
+    lateArrivals: 2,
+    approvedLeaveDays: 3,
+    unapprovedAbsence: 0,
+  ),
+  payslips: const [
+    TeacherPayslip(period: '2026-08', reference: 'PAY/TCH-2048/2026-08', net: 194000, status: 'Disbursement instructed'),
+    TeacherPayslip(period: '2026-07', reference: 'PAY/TCH-2048/2026-07', net: 197000, status: 'Disbursement instructed'),
+  ],
+  profileCompleteness: 100,
+  timeline: const [
+    ('2026-08', 'Payroll disbursement instructed', 'PAY/TCH-2048/2026-08'),
+    ('2022-01-15', 'Employment started', 'Joined as a staff member.'),
+  ],
+);
+
+const _unlinked = TeacherProfileSnapshotData(
+  hasLinkedStaffRecord: false,
+  displayName: 'Teacher',
+  staffId: '',
+  department: '',
+  jobTitle: '',
+  employmentType: '',
+  hireDate: '',
+  campus: '',
+  bank: '',
+  account: '',
+  contact: TeacherProfileContact(phone: '', email: '', address: '', nextOfKin: '', emergencyPhone: ''),
+  qualifications: [],
+  teachingLoad: [],
+  documents: [],
+  attendance: TeacherAttendanceSummary(),
+  payslips: [],
+  profileCompleteness: 0,
+  timeline: [],
+);
+
 void main() {
-  test('Profile preserves exact website identity payroll and tab contract', () {
-    expect(TeacherProfileTab.values, hasLength(13));
-    expect(teacherProfile.displayName, 'Mrs. Amina Yusuf');
-    expect(teacherProfile.staffId, 'TCH-2048');
-    expect(teacherProfile.payrollId, 'PAY-BGA-2048');
-    expect(teacherProfile.department, 'Mathematics');
-    expect(teacherProfile.jobTitle, 'Mathematics Teacher');
-    expect(teacherProfile.employmentType, 'Full-time · Permanent');
-    expect(teacherProfile.payslips, hasLength(3));
-    expect(teacherProfile.payslips.first.reference, 'PAY/TCH-2048/2026-08');
-    expect(teacherProfile.grossMonthly, 250000);
-    expect(teacherProfile.monthlyDeductions, 56000);
-    expect(teacherProfile.netMonthly, 194000);
-    expect(teacherProfile.annualGross, 3000000);
+  test('eleven real tabs remain after dropping the fabricated Deductions/Loans tabs', () {
+    expect(TeacherProfileTab.values, hasLength(11));
+    expect(TeacherProfileTab.values.map((t) => t.name), isNot(contains('deductions')));
+    expect(TeacherProfileTab.values.map((t) => t.name), isNot(contains('loans')));
   });
 
-  test('Profile preserves exact website supporting records', () {
-    expect(teacherProfileQualifications, hasLength(4));
-    expect(teacherProfileTeachingLoad, hasLength(4));
-    expect(teacherProfileLeaveHistory, hasLength(2));
-    expect(teacherProfileAllowances, hasLength(4));
-    expect(teacherProfileDeductions, hasLength(4));
-    expect(teacherProfileLoanHistory, hasLength(3));
-    expect(teacherProfileDocuments, hasLength(4));
-    expect(teacherProfileTimeline, hasLength(4));
-    expect(teacherProfileSecurityRows, hasLength(3));
-    expect(teacherProfileLoanBalance, 75000);
-    expect(teacherProfileLoanMonthlyRepayment, 25000);
-    expect(teacherProfileAttendance.attendance, 96);
-    expect(teacherProfileCompleteness, 96);
+  test('net pay is the only real payroll figure - no gross/deductions survive a prepared batch', () {
+    expect(_fixture.payslips, hasLength(2));
+    expect(_fixture.netMonthly, 194000);
+    expect(_fixture.annualNet, 194000 * 12);
   });
 
-  test('payslip arithmetic remains exact for all three website months', () {
-    expect(teacherProfile.payslips[0].net, 194000);
-    expect(teacherProfile.payslips[1].net, 197000);
-    expect(teacherProfile.payslips[2].net, 197000);
-    expect(teacherProfile.payslips[0].gross, 250000);
-    expect(teacherProfile.payslips[0].deductions, 56000);
+  test('an unlinked teacher is honestly blank, never a placeholder person', () {
+    expect(_unlinked.hasLinkedStaffRecord, isFalse);
+    expect(_unlinked.displayName, 'Teacher');
+    expect(_unlinked.staffId, isEmpty);
+    expect(_unlinked.payslips, isEmpty);
+    expect(_unlinked.netMonthly, 0);
+    expect(_unlinked.profileCompleteness, 0);
   });
 
-  test('Profile serialization preserves confidential payroll and contact evidence', () {
-    final restored = TeacherProfileSnapshotData.fromJson(teacherProfile.toJson());
-    expect(restored.staffId, teacherProfile.staffId);
-    expect(restored.account, '0123456789');
-    expect(restored.contact.email, 'amina.yusuf@example.edu');
-    expect(restored.payslips[2].month, 'June 2026');
+  test('TeacherPayslip round-trips without inventing an itemized breakdown', () {
+    final restored = TeacherPayslip.fromJson(_fixture.payslips.first.toJson());
+    expect(restored.period, '2026-08');
+    expect(restored.net, 194000);
+    expect(restored.status, 'Disbursement instructed');
+  });
+
+  test('TeacherProfileContact round-trips', () {
+    final restored = TeacherProfileContact.fromJson(_contact.toJson());
+    expect(restored.email, 'amina.yusuf@example.edu');
+    expect(restored.phone, '+234 800 000 0000');
   });
 
   test('teacher self-service permissions never grant employment or payroll authority', () {
@@ -80,13 +134,13 @@ void main() {
     expect(fake.permissionsFor(parent).canViewOwnProfile, isFalse);
   });
 
-  test('Profile boundaries protect payroll authority and security truth', () {
+  test('profile boundaries protect payroll authority and security truth', () {
     expect(teacherProfilePayrollBoundary, contains('authorized HR'));
     expect(teacherProfileAuthorityBoundary, contains('cannot be changed'));
     expect(teacherProfileSecurityBoundary, contains('must never claim'));
   });
 
-  testWidgets('Profile renders website overview and confidential payroll context', (tester) async {
+  testWidgets('Profile renders the real identity and net-pay figure', (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -104,15 +158,34 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Teacher Profile'), findsOneWidget);
-    expect(find.text('Mrs. Amina Yusuf'), findsOneWidget);
-    expect(find.text('TCH-2048 · PAY-BGA-2048'), findsOneWidget);
+    expect(find.text('Amina Yusuf'), findsOneWidget);
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
-    // The tab body's own copy of the net-salary figure is further down the page than the huge test
-    // viewport's render cache extent covers, so scroll to it rather than asserting on an unmounted widget.
     await tester.scrollUntilVisible(find.text('₦194,000').first, 400);
     await tester.pumpAndSettle();
     expect(find.text('₦194,000'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a teacher not yet linked to a staff record sees an honest empty profile', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TeacherProfilePage(
+            repository: _FakeProfileRepository(profile: _unlinked),
+            onNavigate: (_) {},
+            onMutationQueued: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Teacher'), findsWidgets);
+    expect(find.text('Not yet linked to a staff record'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -146,8 +219,6 @@ void main() {
     expect(fake.contact.version, 1);
     expect(fake.contact.pendingSync, isTrue);
     expect(queued, 1);
-    expect(teacherProfile.staffId, 'TCH-2048');
-    expect(teacherProfile.netMonthly, 194000);
     expect(tester.takeException(), isNull);
   });
 
@@ -210,7 +281,12 @@ void main() {
 }
 
 class _FakeProfileRepository implements TeacherProfileDataSource {
-  TeacherProfileContact contact = teacherProfile.contact;
+  _FakeProfileRepository({TeacherProfileSnapshotData? profile})
+      : _profile = profile ?? _fixture,
+        contact = (profile ?? _fixture).contact;
+
+  final TeacherProfileSnapshotData _profile;
+  TeacherProfileContact contact;
 
   @override
   TeacherProfilePermissions permissionsFor(SchoolMembership membership) {
@@ -228,7 +304,7 @@ class _FakeProfileRepository implements TeacherProfileDataSource {
 
   @override
   Future<TeacherProfileSnapshot> load() async => TeacherProfileSnapshot(
-        profile: teacherProfile.copyWith(contact: contact),
+        profile: _profile.copyWith(contact: contact),
         permissions: permissionsFor(
           const SchoolMembership(
             id: 'teacher-1',

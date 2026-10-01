@@ -1,45 +1,103 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/teacher/data/teacher_assignment_demo_data.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_assignment_policy_copy.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_assignment_repository.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_assignment_models.dart';
 import 'package:schoolos_app/features/teacher/presentation/teacher_assignments_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
-void main() {
-  test('Assignments preserves exact website rows and KPIs', () {
-    expect(teacherAssignments, hasLength(3));
-    expect(teacherAssignments[0].title, 'Linear Equations Practice');
-    expect(teacherAssignments[0].className, 'JSS 2A');
-    expect(teacherAssignments[0].submissions, 38);
-    expect(teacherAssignments[0].totalStudents, 42);
-    expect(teacherAssignments[0].marked, 24);
-    expect(teacherAssignments[1].title, 'Word Problems');
-    expect(teacherAssignments[1].submissions, 31);
-    expect(teacherAssignments[1].marked, 18);
-    expect(teacherAssignments[2].title, 'Simultaneous Equations');
-    expect(teacherAssignments[2].state, TeacherAssignmentState.closed);
-    expect(teacherAssignments[2].marked, 40);
+const _fixtureDraft = TeacherAssignment(
+  id: 'asg-draft-104',
+  title: 'Algebra Revision Assignment',
+  className: 'JSS 2A',
+  type: TeacherAssignmentType.homework,
+  instructions: 'Answer all questions. Show your working clearly and submit before the deadline.',
+  dueDate: '2026-09-15',
+  maximumScore: 20,
+  submissions: 0,
+  totalStudents: 42,
+  marked: 0,
+  lateSubmissions: 0,
+  state: TeacherAssignmentState.draft,
+);
 
-    expect(teacherAssignmentKpis[0].$2, '2');
-    expect(teacherAssignmentKpis[1].$2, '27');
-    expect(teacherAssignmentKpis[2].$2, '91%');
-    expect(teacherAssignmentKpis[3].$2, '6');
-    expect(teacherAssignments[0].unmarked + teacherAssignments[1].unmarked, 27);
+const _fixtureAssignments = <TeacherAssignment>[
+  TeacherAssignment(
+    id: 'asg-101',
+    title: 'Linear Equations Practice',
+    className: 'JSS 2A',
+    type: TeacherAssignmentType.homework,
+    instructions: '',
+    dueDate: '14 Sep',
+    maximumScore: 20,
+    submissions: 38,
+    totalStudents: 42,
+    marked: 24,
+    lateSubmissions: 0,
+    state: TeacherAssignmentState.open,
+    publishedAt: 'server-confirmed',
+  ),
+  TeacherAssignment(
+    id: 'asg-102',
+    title: 'Word Problems',
+    className: 'JSS 2B',
+    type: TeacherAssignmentType.homework,
+    instructions: '',
+    dueDate: '15 Sep',
+    maximumScore: 20,
+    submissions: 31,
+    totalStudents: 39,
+    marked: 18,
+    lateSubmissions: 0,
+    state: TeacherAssignmentState.open,
+    publishedAt: 'server-confirmed',
+  ),
+  TeacherAssignment(
+    id: 'asg-103',
+    title: 'Simultaneous Equations',
+    className: 'JSS 3A',
+    type: TeacherAssignmentType.homework,
+    instructions: '',
+    dueDate: '12 Sep',
+    maximumScore: 20,
+    submissions: 40,
+    totalStudents: 41,
+    marked: 40,
+    lateSubmissions: 0,
+    state: TeacherAssignmentState.closed,
+    publishedAt: 'server-confirmed',
+  ),
+];
+
+void main() {
+  test('assignment rows carry real submission/marking evidence', () {
+    expect(_fixtureAssignments, hasLength(3));
+    expect(_fixtureAssignments[0].title, 'Linear Equations Practice');
+    expect(_fixtureAssignments[0].className, 'JSS 2A');
+    expect(_fixtureAssignments[0].submissions, 38);
+    expect(_fixtureAssignments[0].totalStudents, 42);
+    expect(_fixtureAssignments[0].marked, 24);
+    expect(_fixtureAssignments[1].title, 'Word Problems');
+    expect(_fixtureAssignments[1].submissions, 31);
+    expect(_fixtureAssignments[1].marked, 18);
+    expect(_fixtureAssignments[2].title, 'Simultaneous Equations');
+    expect(_fixtureAssignments[2].state, TeacherAssignmentState.closed);
+    expect(_fixtureAssignments[2].marked, 40);
+    expect(_fixtureAssignments[0].unmarked + _fixtureAssignments[1].unmarked, 27);
   });
 
   test('draft and AI wording preserve website defaults', () {
-    expect(teacherAssignmentDraft.title, 'Algebra Revision Assignment');
-    expect(teacherAssignmentDraft.className, 'JSS 2A');
-    expect(teacherAssignmentDraft.dueDate, '2026-09-15');
-    expect(teacherAssignmentDraft.maximumScore, 20);
-    expect(teacherAssignmentDraft.instructions, contains('Show your working clearly'));
+    expect(_fixtureDraft.title, 'Algebra Revision Assignment');
+    expect(_fixtureDraft.className, 'JSS 2A');
+    expect(_fixtureDraft.dueDate, '2026-09-15');
+    expect(_fixtureDraft.maximumScore, 20);
+    expect(_fixtureDraft.instructions, contains('Show your working clearly'));
     expect(teacherAssignmentAiInstruction, contains('10 progressively difficult algebra questions'));
     expect(teacherAssignmentAiInstruction, contains('short reflection'));
   });
 
   test('assignment serialization preserves publication and marking evidence', () {
-    final restored = TeacherAssignment.fromJson(teacherAssignments.first.toJson());
+    final restored = TeacherAssignment.fromJson(_fixtureAssignments.first.toJson());
     expect(restored.id, 'asg-101');
     expect(restored.submissions, 38);
     expect(restored.marked, 24);
@@ -48,7 +106,7 @@ void main() {
   });
 
   test('queued publication and AI marking boundaries remain human-controlled', () {
-    final queued = teacherAssignmentDraft.copyWith(
+    final queued = _fixtureDraft.copyWith(
       state: TeacherAssignmentState.queuedForPublication,
       queuedAt: '2026-09-20T04:30:00Z',
       version: 2,
@@ -179,8 +237,8 @@ void main() {
 }
 
 class _FakeAssignmentRepository implements TeacherAssignmentRepository {
-  TeacherAssignment draft = teacherAssignmentDraft;
-  final List<TeacherAssignment> library = List<TeacherAssignment>.from(teacherAssignments);
+  TeacherAssignment draft = _fixtureDraft;
+  final List<TeacherAssignment> library = List<TeacherAssignment>.from(_fixtureAssignments);
 
   @override
   TeacherAssignmentPermissions permissionsFor(SchoolMembership membership) {

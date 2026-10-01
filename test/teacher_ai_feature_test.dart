@@ -1,12 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:schoolos_app/core/database/local_database.dart';
+import 'package:schoolos_app/core/security/payload_cipher.dart';
+import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_ai_demo_data.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_ai_repository.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_roster.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_ai_models.dart';
 import 'package:schoolos_app/features/teacher/presentation/teacher_ai_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+import 'core/backend_test_support.dart';
+import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+
+const _teacher = SchoolMembership(
+  id: 'membership-teacher-1',
+  schoolId: 'school-1',
+  schoolName: 'BrightGate',
+  role: SchoolRole.teacher,
+);
+
 void main() {
+  test('a fresh teacher sees a genuinely empty prompt history, never a fabricated seed', () async {
+    final db = LocalDatabase(cipher: PayloadCipher(secureStorage: MemorySecureStorage()), databasePath: ':memory:');
+    await db.initialize();
+    final session = SchoolSessionController(store: FakeSessionStore());
+    await session.setMemberships([_teacher]);
+    await session.selectSchool(_teacher);
+    final roster = TeacherRoster(
+      database: db,
+      session: session,
+      students: AdministratorStudentsRepository(localDatabase: db, schoolSession: session),
+    );
+    final repository = TeacherAiRepository(localDatabase: db, schoolSession: session, roster: roster);
+
+    final snapshot = await repository.load();
+    expect(snapshot.history, isEmpty);
+
+    db.close();
+  });
+
   test('Teacher AI preserves exact website prompt suggestions and contexts', () {
     expect(teacherAiPromptSuggestions, hasLength(4));
     expect(
