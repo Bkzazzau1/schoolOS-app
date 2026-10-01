@@ -74,11 +74,12 @@ class CommunityRepository {
   }
 
   /// Mirrors apps.schoollife.community.common/framework exactly:
-  /// WRITERS = everyone except students, MODERATORS = the owner, principal
-  /// and administrator, and only the owner or principal may put a post on
-  /// the public showcase. Staff-only posting is further limited to the
-  /// staff side (never driver or parent) in [_allowedAudiences], the same
-  /// restriction apps.schoollife.community.posts.PostHandler enforces.
+  /// WRITERS = everyone except students (plus alumni, their own real reader/writer added
+  /// locally in that module), MODERATORS = the owner, principal and administrator, and only
+  /// the owner or principal may put a post on the public showcase. Staff-only posting is
+  /// further limited to the staff side (never driver or parent), and alumni-only posting to
+  /// alumni, in [_allowedAudiences] - the same restriction apps.schoollife.community.posts.
+  /// PostHandler enforces.
   static const _staffSide = {
     SchoolRole.proprietor,
     SchoolRole.principal,
@@ -89,7 +90,7 @@ class CommunityRepository {
   };
   static const _managers = {SchoolRole.proprietor, SchoolRole.principal, SchoolRole.administrator};
   static const _leaders = {SchoolRole.proprietor, SchoolRole.principal};
-  static const _writers = {..._staffSide, SchoolRole.driver, SchoolRole.parent};
+  static const _writers = {..._staffSide, SchoolRole.driver, SchoolRole.parent, SchoolRole.alumni};
 
   CommunityPermissions permissionsFor(SchoolMembership membership) {
     if (!_writers.contains(membership.role)) {
@@ -108,9 +109,18 @@ class CommunityRepository {
     );
   }
 
+  /// Alumni get exactly their own real corner - `alumniOnly` - never general in-school audiences
+  /// meant for a currently enrolled section or staff; everyone else gets every audience except
+  /// that one, the same way `staffOnly` is already excluded for non-staff.
   List<CommunityAudience> _allowedAudiences(SchoolMembership membership) {
-    if (_staffSide.contains(membership.role)) return CommunityAudience.values;
-    return [for (final audience in CommunityAudience.values) if (audience != CommunityAudience.staffOnly) audience];
+    if (membership.role == SchoolRole.alumni) return const [CommunityAudience.alumniOnly];
+    if (_staffSide.contains(membership.role)) {
+      return [for (final audience in CommunityAudience.values) if (audience != CommunityAudience.alumniOnly) audience];
+    }
+    return [
+      for (final audience in CommunityAudience.values)
+        if (audience != CommunityAudience.staffOnly && audience != CommunityAudience.alumniOnly) audience,
+    ];
   }
 
   Future<CommunityActionResult> publish({

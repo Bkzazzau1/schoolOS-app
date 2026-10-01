@@ -5,8 +5,12 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_scope.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/presentation/community_page.dart';
+import '../data/alumni_directory_repository.dart';
 import '../data/alumni_profile_repository.dart';
 import '../data/alumni_server_api.dart';
+import 'alumni_directory_page.dart';
 import 'alumni_profile_page.dart';
 
 class AlumniNavItem {
@@ -155,17 +159,20 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
             remote: AlumniServerScope.maybeOf(context),
           ),
         ),
-      'directory' => _foundationCard(
-          title: 'Alumni Directory',
-          description:
-              'The alumni directory is not available yet.',
-          icon: Icons.groups_outlined,
+      'directory' => AlumniDirectoryPage(
+          repository: AlumniDirectoryRepository(
+            membership: widget.membership,
+            remote: AlumniServerScope.maybeOf(context),
+          ),
         ),
-      'community' => _foundationCard(
-          title: 'Community',
-          description:
-              'Alumni community is not available yet.',
-          icon: Icons.forum_outlined,
+      'community' => CommunityPage(
+          schoolName: widget.membership.schoolName,
+          repository: CommunityRepository(
+            localDatabase: widget.localDatabase,
+            schoolSession: widget.schoolSession,
+          ),
+          onBack: () => setState(() => _activeKey = 'dashboard'),
+          onCommunityChanged: () {},
         ),
       'events' => _foundationCard(
           title: 'Events & Reunions',

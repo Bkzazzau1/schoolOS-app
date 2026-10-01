@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../domain/alumni_directory_models.dart';
 import '../domain/alumni_profile_models.dart';
 
 class AlumniServerApi {
@@ -62,6 +63,28 @@ class AlumniServerApi {
       },
     );
     return _profileFromEnvelope(data);
+  }
+
+  /// Every real, verified, directory-visible alumnus of this school - a deliberately narrow,
+  /// public-facing subset of their profile (see `AlumniDirectoryEntrySerializer`).
+  Future<List<AlumniDirectoryEntry>> loadDirectory(
+    SchoolMembership membership, {
+    String query = '',
+    int? graduationYear,
+  }) async {
+    final data = await _api.get(
+      'alumni/schools/${membership.schoolId}/directory/',
+      query: {
+        ..._who(membership),
+        if (query.trim().isNotEmpty) 'q': query.trim(),
+        if (graduationYear != null) 'graduationYear': '$graduationYear',
+      },
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return [
+      for (final item in (map['entries'] as List? ?? const []))
+        AlumniDirectoryEntry.fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
   }
 
   Future<AlumniManagementSnapshot> loadManagement(

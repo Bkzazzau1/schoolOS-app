@@ -6,6 +6,7 @@ enum CommunityAudience {
   staffOnly,
   parentsOnly,
   jss2A,
+  alumniOnly,
 }
 
 extension CommunityAudienceLabel on CommunityAudience {
@@ -17,6 +18,7 @@ extension CommunityAudienceLabel on CommunityAudience {
         CommunityAudience.staffOnly => 'Staff only',
         CommunityAudience.parentsOnly => 'Parents only',
         CommunityAudience.jss2A => 'JSS 2A',
+        CommunityAudience.alumniOnly => 'Alumni only',
       };
 }
 
