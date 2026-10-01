@@ -3663,3 +3663,46 @@ This closes Tier 2: awards, boarding, lost_found, service, visitors and teaching
 alongside Tier 1's noticeboard, houses, assembly, meals, activities and events. All 12 of the "Community-sized"
 directories from the original 14-directory cluster are done. Excursions (coupled to Administrator's academic-term
 data) and transport (its own larger, multi-file pass) remain as separate decisions.
+
+## Excursions & Trips - and Gallery alongside it - stop fabricating their registers
+
+Excursions turned out to already be the most mature directory in the whole cluster: `ExcursionRepository` already
+had a real `createTrip()` wired to real academic terms/sessions/classes via `AdministratorAcademicsRepository`,
+and `permissionsFor` already matched the real `EXCURSIONS = Spec("school_excursion", manage=MANAGERS,
+contribute={"teacher"}, required=("title", "date", "termId"), guarded={"readinessReviewed": LEADERS}, ...)` (in
+`apps/schoollife/specs/calendar.py`) exactly - `canManage`, `canContribute` and `canReviewReadiness` were already
+three correctly-scoped flags, not one. The only real fabrication left was `load()`'s seed itself, plus one
+disconnected stat ("Transport plans: 4", fixed regardless of trip count) and a dead top-level getter
+(`excursionConsentOutstanding`, computed straight from the seed, never called from the app).
+
+Fixing Excursions' own shared regression test surfaced that **Gallery** - `lib/features/gallery/`, not part of the
+original 14-directory cluster - has the exact same shape: a real `createAlbum()` already wired to real academic
+data, `permissionsFor` already matching `GALLERY = Spec("gallery_media_album", manage=MANAGERS,
+contribute={"teacher","staff"}, required=("title","termId"), guarded_values={("visibility","publicShowcase"):
+LEADERS}, ...)` exactly, and the only fabrication being its own `load()` seed. The two are tightly coupled - one
+shared test in `parent_school_life_feature_test.dart` exercises "a trip and its real album, both tied to the same
+real class" - so fixing them together, rather than leaving that test half-fabricated, was the more honest outcome.
+
+**Design.** Both repositories' `load()` no longer seed anything. Both `*Stats()` functions were already almost
+entirely computed from real data; Excursions' one disconnected constant is dropped, and Gallery needed no stat
+changes at all - its five stats were already fully computed. Both demo-data files are renamed to
+`*_policy_copy.dart`, keeping only genuinely static guidance text (`excursionDepartureChecks`/
+`excursionPrivacyRule`, `gallerySafetyRules`/`galleryProductionBoundary`).
+
+**Verification.** `flutter analyze` clean. `test/excursions_test.dart` and `test/gallery_test.dart`: seed-dependent
+tests rewritten against inline fixtures; each confirms its stats function is honestly all zeros on an empty list.
+`test/excursion_repository_test.dart` and `test/gallery_repository_test.dart`: each had one `load()` test
+asserting `isNotEmpty` "alongside the seeded trips/albums" - both rewritten to assert a genuinely empty fresh
+school (while confirming the real academic structure is still offered so a school can create its first record),
+plus a new test confirming a *really created* record carries a real term link; `excursion_repository_test.dart`'s
+`toggleReadinessReview` test, which pulled `.trips.first` assuming a seeded trip always existed, now creates one
+first. `test/excursion_media_test.dart` and `test/gallery_media_integration_test.dart` no longer depend on a
+seeded `TRIP-001`/pre-existing album: both now create a real record in setup and capture its real id;
+`excursion_media_test.dart`'s `pump()` needed the same `api` → `apiBuilder` lazy-evaluation fix Community's media
+test needed, for the same reason (a fake server built from `_tripId` before `setUpSchool()` assigns it binds to
+the previous test's stale id). `parent_school_life_feature_test.dart`'s one shared test was rewritten to create a
+real trip and a real album (tied to Maryam's real JSS 2A class) instead of relying on either fabricated seed, and
+a second test confirms a club trip/album with no single-class link still never reaches a family here. All 48
+Excursions and Gallery tests pass (28 and 20 respectively, across their model, repository and media-integration
+files), plus `parent_school_life_feature_test.dart`'s own full 11; full app suite back to the same 83
+pre-existing failures as before this work, by name.
