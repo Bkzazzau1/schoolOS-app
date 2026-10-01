@@ -1,34 +1,78 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/service/data/service_demo_data.dart';
+import 'package:schoolos_app/features/service/data/service_policy_copy.dart';
 import 'package:schoolos_app/features/service/domain/service_models.dart';
 
+List<ServiceProject> _projects() => const [
+      ServiceProject(
+        id: 'SV-TEST-001',
+        title: 'School Environment Clean-Up',
+        type: 'Service',
+        audience: 'JSS 2 + JSS 3',
+        coordinator: 'Environmental Club',
+        date: '19 Sep 2026',
+        participants: 74,
+        hours: 148,
+        status: ServiceProjectStatus.planned,
+        beneficiary: 'School community',
+        note: 'Supervised campus clean-up and waste-sorting activity.',
+      ),
+      ServiceProject(
+        id: 'SV-TEST-002',
+        title: 'Primary Reading Buddies',
+        type: 'Peer support',
+        audience: 'Primary 5–6',
+        coordinator: 'Primary Literacy Team',
+        date: 'Weekly',
+        participants: 28,
+        hours: 84,
+        status: ServiceProjectStatus.active,
+        beneficiary: 'Primary 1–2 readers',
+        note: 'Older pupils support younger readers in supervised short sessions.',
+      ),
+      ServiceProject(
+        id: 'SV-TEST-003',
+        title: 'Community Food Drive',
+        type: 'Community support',
+        audience: 'Whole school families',
+        coordinator: 'School Community Committee',
+        date: '25 Sep 2026',
+        participants: 112,
+        hours: 0,
+        status: ServiceProjectStatus.active,
+        beneficiary: 'Local community partners',
+        note: 'Voluntary donation campaign coordinated with approved community organizations.',
+      ),
+      ServiceProject(
+        id: 'SV-TEST-004',
+        title: 'Tree Planting Day',
+        type: 'Environment',
+        audience: 'Secondary + clubs',
+        coordinator: 'Science Department',
+        date: '5 Sep 2026',
+        participants: 46,
+        hours: 138,
+        status: ServiceProjectStatus.completed,
+        beneficiary: 'School environment',
+        note: 'Students and staff planted and labelled trees around the campus.',
+        verified: true,
+      ),
+    ];
+
 void main() {
-  test('website service seed preserves project and KPI totals', () {
-    expect(serviceWebsiteSeed, hasLength(4));
+  test('service stats are computed entirely from the real projects given, never a fixed sample', () {
+    final stats = serviceStats(_projects());
+    expect(stats[0].value, '4');
+    expect(stats[1].value, '260');
+    expect(stats[2].value, '370');
+    expect(stats[3].value, '2');
+    expect(stats[4].value, '1');
 
-    final participants = serviceWebsiteSeed.fold<int>(
-      0,
-      (sum, project) => sum + project.participants,
-    );
-    final hours = serviceWebsiteSeed.fold<int>(
-      0,
-      (sum, project) => sum + project.hours,
-    );
-    final active = serviceWebsiteSeed
-        .where((project) => project.status == ServiceProjectStatus.active)
-        .length;
-    final verified = serviceWebsiteSeed.where((project) => project.verified).length;
-
-    expect(participants, 260);
-    expect(hours, 370);
-    expect(active, 2);
-    expect(verified, 1);
+    final empty = serviceStats(const []);
+    expect(empty.every((s) => s.value == '0'), isTrue);
   });
 
   test('Tree Planting Day is initially completed and verified', () {
-    final project = serviceWebsiteSeed.singleWhere(
-      (project) => project.id == 'SV-004',
-    );
+    final project = _projects().singleWhere((project) => project.id == 'SV-TEST-004');
 
     expect(project.title, 'Tree Planting Day');
     expect(project.status, ServiceProjectStatus.completed);
@@ -37,9 +81,7 @@ void main() {
   });
 
   test('Community Food Drive is contribution based with zero hours', () {
-    final project = serviceWebsiteSeed.singleWhere(
-      (project) => project.id == 'SV-003',
-    );
+    final project = _projects().singleWhere((project) => project.id == 'SV-TEST-003');
 
     expect(project.isContributionBased, isTrue);
     expect(project.hours, 0);
@@ -47,7 +89,7 @@ void main() {
   });
 
   test('service search covers title audience and coordinator', () {
-    final project = serviceWebsiteSeed[1];
+    final project = _projects()[1];
 
     expect(project.matches('reading buddies'), isTrue);
     expect(project.matches('primary 5'), isTrue);
@@ -55,13 +97,14 @@ void main() {
     expect(project.matches('environmental club'), isFalse);
   });
 
-  test('verification survives serialization', () {
-    final updated = serviceWebsiteSeed.first.copyWith(verified: true);
+  test('copyWith only changes the fields given', () {
+    final updated = _projects().first.copyWith(verified: true, hours: 200);
     final json = updated.toJson();
     final restored = ServiceProject.fromJson(json);
 
     expect(restored.verified, isTrue);
-    expect(restored.id, 'SV-001');
+    expect(restored.hours, 200);
+    expect(restored.id, 'SV-TEST-001');
     expect(restored.status, ServiceProjectStatus.planned);
   });
 
