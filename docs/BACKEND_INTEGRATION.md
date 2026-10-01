@@ -3210,3 +3210,47 @@ failures as before this work, by name.
 This closes out the Alumni role: all six workspace sections - Directory, Community, Events & Reunions, Give Back,
 Jobs & Opportunities, and Mentorship - are now genuinely real, backed by real models, real endpoints, and real
 Flutter repositories/pages, each with its own test coverage.
+
+## The shared Community module stops fabricating its own feed
+
+Not the Alumni workspace's own Community section above - this is `lib/features/community/`, the "Community" tab
+every role shares (administrator, alumni, driver, finance office, parent, principal, proprietor, staff, student,
+teacher). A full-codebase audit for remaining fabricated content, run after Alumni closed out, found it as the
+single most visible gap left: `CommunityRepository.load()` unconditionally seeded four invented posts from
+invented people ("Mrs. Mary Daniel", "Sports Committee", ...) into local storage the first time any school's feed
+was empty, and the sidebar's stat grid read five flat constants (`communityMembers = 1084`, `communityPostsThisWeek
+= 46`, ...) instead of anything the school had actually done. None of this could ever reach a real school's
+backend - `LocalDatabase.upsertLocalRecord`'s own `blockDemoSeeds` guard (set once `ApiConfig.enabled` is true)
+already silently drops exactly this kind of seed call - but in demo mode it was the first thing every role saw,
+and `docs/BACKEND_INTEGRATION.md` itself overstated the module's status, describing it as running "on a real
+backend" without mentioning it still fabricated its entire starting feed.
+
+**Design.** `load()` no longer seeds anything; an empty local `community_post` table now returns a genuinely
+empty `CommunitySnapshot.posts`, the same honest-empty standard every other repository fixed this session already
+follows. `CommunitySnapshot` gained three computed getters - `postsThisWeek`, `commentsThisWeek`,
+`publicShowcaseCount` - each counting real `posts`/`comments` by `createdAt`/`visibility`, replacing the fixed
+constants the stat grid used to read. "Community members" was dropped from the stat grid entirely rather than
+replaced with a guess: `CommunityRepository` only ever sees this device's own memberships
+(`SchoolSessionController.memberships`), never a real count of everyone at the school, so there was no honest
+number available to show. `community_demo_data.dart` - renamed `community_policy_copy.dart` since all that
+remained was static guidance text, never data about a particular school - kept `communityParticipationRules`,
+`communityModerationRules` (with the invented "2 reports awaiting review" heading corrected to a plain
+"Reports awaiting review", since the real count already has its own live stat card) and
+`communityNoticeboardBoundary`. `_EmptyFeed` now distinguishes a genuinely empty feed ("No Community posts yet.
+Be the first to share something.") from a filter matching nothing, where it previously showed the filtered
+message either way.
+
+**Verification.** `flutter analyze` clean. `test/community_test.dart`: the two tests asserting the fabricated
+seed data and KPI constants were removed outright (nothing real backs either anymore); the post
+filtering/serialization tests were rewritten against an inline fixture instead of seed data; the policy-copy
+tests kept, now importing the renamed file. `test/community_repository_test.dart` gained new coverage: a fresh
+school's `load()` returns a genuinely empty feed with every computed stat at zero; `postsThisWeek`/
+`publicShowcaseCount` only count posts really published (caught a test-writing mistake of its own along the way -
+a teacher cannot publish to the public showcase, only a proprietor/principal can, so the fixture was switched to
+`SchoolRole.proprietor`); `commentsThisWeek` counts real comments across a real post. `test/community_media_test.dart`
+no longer depends on a seeded `POST-001`: `setUpSchool()` now really publishes one post and captures its real id,
+which also surfaced a second real bug the old seeded-post tests could never have caught - two of its widget tests
+built their fake server's asset map from `_postId` *before* `setUpSchool()` had assigned it, binding to the
+previous test's stale id; `pump()`'s `api` parameter became `apiBuilder`, a closure evaluated only after setup
+assigns the real id. All 33 Community tests pass; full app suite back to the same 83 pre-existing failures as
+before this work, by name.
