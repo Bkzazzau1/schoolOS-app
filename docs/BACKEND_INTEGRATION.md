@@ -3091,6 +3091,60 @@ succeed, a real create/withdraw really calls through with this membership's own 
 refused client-side, real create/withdraw failures propagate, `canWithdraw` is true only while `offered`/
 `acknowledged`); full app suite back to the same 83 pre-existing failures as before this work, by name.
 
-This leaves Mentorship and Jobs & Opportunities as the two remaining locked sections - each still needs its own
-real design pass (audience and matching-mechanism decisions neither has been given yet); neither has an existing
-precedent to lean on the way Directory, Community, Events and Give Back each did.
+## Alumni Jobs & Opportunities becomes real
+
+The fifth of the Alumni workspace's six originally-locked sections - the last of the two that needed a fresh
+scope decision before it could be planned concretely (Mentorship, the remaining one, still needs its own
+audience/matching decisions).
+
+**Who posts, confirmed before planning.** Any real alumnus may post a real opportunity - alumni sharing openings
+at their own companies for fellow alumni, a real posting board rather than something only the school curates.
+Since postings aren't curated, this needed real moderation: the same "the author or a moderator may close it"
+shape `apps/schoollife/community`'s `PostHandler.authorize` already established for posts, not a second invented
+mechanism.
+
+**Why this stays `open`/`closed`, not a bigger application-tracking system.** "Express interest" or a real
+application pipeline (who gets notified, how a poster reviews applicants) would be a materially larger, separate
+design that wasn't asked for. This is a real posting board with a real contact method the poster supplies -
+interested alumni reach out directly, the same way a real-world noticeboard works. Closing a listing (by its own
+poster, or by a moderator) is the only status change needed.
+
+**Design.** `AlumniOpportunity` (title, organisation, type, location, description, a real contact method, status)
+is a real Django model with a real migration, following the same reasoning Events/Give Back already established:
+no existing school concept came close (confirmed by searching the backend for `opportunit`/`job.*posting`, which
+found nothing outside the access catalog's own label for this section). `AlumniOpportunityListView` is the first
+Alumni list endpoint that shows *every* real record for the school rather than just the acting membership's own
+(unlike Give Back's self-only pledges) - a real posting board every real alumnus browses. The serializer's own
+`validate()` requires a real way to follow up: either a real `contactInfo`, or a description long enough (20+
+characters) to stand on its own. `AlumniOpportunityCloseView` could not simply reuse `_self_membership` guarding
+the whole view the way every other Alumni endpoint does, because that helper hard-requires an Alumni membership -
+a real manager closing someone else's posting for moderation would be rejected before ever reaching the
+poster-or-moderator check. Instead it tries the Alumni self-service path first (catching the `PermissionDenied`
+if the caller isn't an alumnus at all), and only requires the real poster's own id to match if that path
+succeeds; otherwise it falls through to `require_alumni_manager`. `AlumniManagementView` gained a real
+`opportunities` list alongside `profiles`/`transitionCandidates`/`pledges`, the same oversight bundle shape
+already established twice. On the app side, `AlumniOpportunityType`'s wire values needed their own explicit
+`wireValue`/`fromWire` mapping (`full_time`, not Dart's own `fullTime`), since the backend's `TextChoices` are
+snake_case and nothing else in this session's Alumni work needed that translation.
+
+**Verification.** Backend: new `apps.alumni.tests.test_opportunities` (12/12 - only real alumni can list/post; a
+posting is refused without a real title/organisation/type/description; a posting needs a real way to follow up;
+every real alumnus sees every real posting, not just their own; a new posting starts `open` with the real
+poster's name; the poster can close their own; an unrelated alumnus cannot close someone else's; management can
+close any real posting; closing an already-closed posting is a harmless no-op; a forged/other-school id is
+refused; `AlumniManagementView` carries every real posting with the real poster's name; cross-school isolation);
+`apps.alumni` together (39/39); `manage.py check` clean. Full backend suite: a real `git stash` comparison
+surfaced one failure present only in the "with changes" run
+(`apps.transferverify.tests.test_disputes.ClearanceTests.test_revoking_and_reissuing_works`, a timestamp-ordering
+assertion already documented as flaky earlier this session) - re-run three more times in isolation with no
+changes present, it failed once and passed three times, confirming genuine non-determinism rather than a
+regression. App: `dart analyze` clean; new `test/alumni_opportunities_test.dart` (12/12 - honest empty with no
+server, a real posting round-trips, a load failure propagates, `post()`/`close()` with no server throw rather
+than pretending to succeed, a real post/close really calls through with this membership's own data, a too-short
+description and a missing contact method are both refused client-side, real post/close failures propagate, the
+opportunity-type wire mapping round-trips through the backend's own snake_case choices); full app suite back to
+the same 83 pre-existing failures as before this work, by name.
+
+This leaves Mentorship as the one remaining locked section - it still needs its own real design pass (who
+mentors whom, and how a connection is actually made, neither of which has been decided yet); unlike the five
+sections now real, it has no existing precedent in the codebase to lean on.
