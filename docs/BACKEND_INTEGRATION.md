@@ -3706,3 +3706,109 @@ a second test confirms a club trip/album with no single-class link still never r
 Excursions and Gallery tests pass (28 and 20 respectively, across their model, repository and media-integration
 files), plus `parent_school_life_feature_test.dart`'s own full 11; full app suite back to the same 83
 pre-existing failures as before this work, by name.
+
+## Transport stops fabricating routes, drivers and stats - and the two real Transport MANAGERS get untangled
+
+Transport is the last and largest piece of the fabrication-cleanup pass, and the only one spanning two real
+backend permission domains at once. `school_transport_route` itself is owned by
+`apps.schoollife.specs.campus.TRANSPORT` (`Spec("school_transport_route", manage=MANAGERS,
+guarded={"reviewed": LEADERS}, ...)`), whose `MANAGERS` (`apps/schoollife/framework.py`) is `{proprietor,
+principal, administrator}`. Every *other* transport entity - driver assignments, the stop plan, vehicle
+clearances, incidents, defects - is owned by `apps/transport`'s own, separate `EntityHandler` registry
+(`apps/transport/handlers.py`), whose own `MANAGERS` (`apps/transport/constants.py`) is the narrower `{proprietor,
+administrator}` - principal is deliberately excluded. Every Flutter repository in this directory had collapsed
+both into one `canManage`/`_canManage` flag, silently granting the narrower domain's powers to principal
+wherever the two were conflated.
+
+**Design - permissions.** `TransportRepository.permissionsFor` now has three correctly-scoped flags:
+`canViewOperationsControl` (the broad `MANAGERS` with principal, matching the route record), `canReviewRoutes`
+(`LEADERS` only - proprietor/principal, administrator excluded, mirroring the route's own `guarded` field exactly
+instead of granting it to the proprietor alone as before), and `canManageDriverAssignments` (the narrow
+`apps.transport.constants.MANAGERS` - principal excluded). `TransportRouteManagementRepository` and its
+`TransportRouteManagementSnapshot` split their one `canManage` into `canManageRoutes` (the route record itself -
+name, vehicle, assistant, note - broad `MANAGERS`, principal included) and `canManageStops` (the stop plan -
+narrow `MANAGERS`, principal excluded); `_requireManager()` is split into `_requireRouteManager()` and
+`_requireStopManager()` accordingly, and `createRoute()`/`updateRoute()` use the former while
+`addStop()`/`updateStop()`/`moveStop()`/`deactivateStop()` use the latter. `TransportVehicleReadinessRepository`'s
+own `_canManage` already matched the narrow `apps.transport.constants.MANAGERS` exactly - no fix needed there.
+
+**Design - seeding.** Four independent copies of the same fabricated website seed existed: `TransportRepository`
+and `TransportRouteManagementRepository` each seeded `school_transport_route` from `transportWebsiteSeed` (four
+routes, two - BUS-01/BUS-03 - with fully invented driver/assistant names and an invented "25/26 checked, one
+absent" morning narrative), `TransportRouteManagementRepository` separately seeded a fabricated stop plan from
+`transportRoutePlanSeed`, and `TransportVehicleReadinessRepository` carried a third independent copy of the route
+seed. All four `load()`/`_loadRoutes()` methods now just read real records; `loadPlanForRoute()` returns an
+honestly empty `TransportRoutePlan` until `addStop()` is really called.
+`transport_route_plan_demo_data.dart` is deleted outright (both its exports were fully unused once the seed-and-
+persist-on-read logic was removed from `loadPlanForRoute()`).
+
+`TransportRiderAssignmentRepository` had two of its own seeding bugs. `_ensureInitialAssignments()` auto-wrote one
+`TransportRiderAssignment` per rider from `defaultBus02MorningStops()` onto route `BUS-02` the first time `load()`,
+`assignmentForStudent()`, `loadAssignmentsForRoute()` or `assignStudent()` ran - removed outright; every rider
+assignment is now honestly absent until a manager really calls `assignStudent()`. Separately,
+`_loadStudentDirectory()` independently re-seeded `administrator_student_directory` from
+`administratorStudentsWebsiteSeed` whenever it found that entity type empty - duplicating, not reusing,
+`AdministratorStudentsRepository`'s own seeding of the exact same entity type (already correctly gated behind
+`LocalDatabase.blockDemoSeeds` there). Rather than deleting Transport's access to a student directory,
+`TransportRiderAssignmentRepository` now holds a real `AdministratorStudentsRepository` and calls its `load()` -
+the one real owner of that entity type - instead of re-seeding it a second time; this also means Transport now
+sees real server-confirmed registrations alongside the demo roster, which its own duplicate seed never did.
+
+The same shortcut existed on the Driver side: `DriverDashboardRepository._loadAssignment()` auto-assigned the
+exact membership id `membership-driver-001` onto `BUS-02` the first time any Driver screen loaded, via
+`defaultDriverAssignment` in `driver_dashboard_demo_data.dart`. Removed outright, for the same reason as the
+rider-assignment seed - a real Driver account must be assigned by Transport Control
+(`TransportRepository.assignDriver()`), never auto-assigned by a magic id check. `driver_dashboard_demo_data.dart`
+is renamed `driver_dashboard_policy_copy.dart`, keeping only the genuinely static `driverPrivacyBoundary`/
+`driverSafetyBoundary` boundary text; `defaultDriverAssignment` is dropped entirely.
+
+**Design - stats.** `transportStats()` carried three fabrication bugs of its own, all now fixed and moved into
+`transport_policy_copy.dart` (renamed from `transport_demo_data.dart`, which also keeps `transportSafetyRules`/
+`transportParentExperience`/`transportGpsBoundary` as static policy copy). "Morning exceptions" was a fixed `'1'`
+regardless of any real data - it is now a real `TransportSnapshot.morningExceptionsToday` count, computed in
+`TransportRepository.load()` by summing `DriverMorningRun.exceptions` across every real morning run recorded for
+today (a run from a prior day never counts, mirroring the same "only today counts for a one-day log" reasoning
+`loadControlOverview()` already used for morning/afternoon runs). Two detail labels assumed the old four-route
+seed's exact shape regardless of real data - "Plus 1 backup vehicle" assumed exactly one spare vehicle always
+exists, "1 under maintenance" assumed exactly one route is always under maintenance - both are now derived
+honestly from the real route list (`spareVehicles`/`underMaintenance`), reading "No spare vehicles"/"None under
+maintenance" when that is honestly true.
+
+**Design - presentation.** `transport_route_management_panel.dart` consumed the old single `canManage` at every
+call site: the top-level "New route" button now gates on `canManageRoutes` (the two are provably equivalent here,
+since `canManageStops` is always a subset of `canManageRoutes` for every real role, so there is no reachable case
+of stop-only permission). `_RoutePlanCard` now takes both `canManageRoutes` and `canManageStops` separately - a
+principal sees and can use "Edit route" but never "Add stop", and the per-stop action menu
+(edit/move/remove) is gated on `canManageStops` alone via a `stopControlsEnabled` flag kept separate from
+`routeControlsEnabled`.
+
+**Verification.** `flutter analyze` clean across `lib/` and `test/`. New `test/transport_repository_test.dart` (6
+tests - a fresh school's `load()` is genuinely empty with honest zero stats; all three `permissionsFor` flags
+match their real role sets exactly; `morningExceptionsToday` is a real count from today's runs and never counts a
+prior day's run). New `test/transport_route_management_repository_test.dart` (8 tests - a fresh school's `load()`
+is genuinely empty; `canManageRoutes`/`canManageStops` match their real, different role sets, including that a
+principal can create a route but is refused by `addStop`; `loadPlanForRoute` is honestly empty until a stop is
+really added; `createRoute`/`addStop`/`updateRoute` really work for their real managers). `test/transport_test.dart`
+rewritten against inline route fixtures (6 tests - search/status filtering, availability, review-state
+serialization, `transportStats` honestly all zeros on an empty list and exactly reflects real routes plus a real
+exception count, the static policy text). `test/driver_dashboard_feature_test.dart` rewritten to build the whole
+real chain before asserting - a real route, two real stops, a real driver assignment record, and one real
+`assignStudent()` call - replacing its old dependency on both removed auto-seeds (4 tests, including the "other
+stop stays honestly empty" assertion now covered by a genuinely second, unassigned stop).
+`test/driver_messages_feature_test.dart` now writes a real route and a real assignment record directly in setup
+instead of relying on `DriverDashboardRepository.load()`'s removed auto-assignment (all 14 tests unaffected
+otherwise). `test/transport_control_overview_open_defect_incident_test.dart` and
+`test/transport_vehicle_readiness_held_clearance_test.dart` both now call `TransportRouteManagementRepository
+.createRoute()` in `setUp` to get a real `BUS-01` (deterministically the first route id a fresh school gets)
+before exercising defect/incident aggregation and vehicle-clearance holds (3 and 1 tests respectively).
+`test/parent_school_life_feature_test.dart`'s transport test now creates a real route, stop and `assignStudent()`
+call before asserting Maryam shows "Active"/the real route id, with a new second test confirming every child is
+honestly "Not assigned" until that real assignment happens (whole file's 12 tests pass).
+`test/transport_messages_feature_test.dart` (14 tests) and `test/transport_incident_defect_control_test.dart` (1
+test) needed no changes - already seed-independent. Full app suite: 83 failures, identical by name to the
+pre-existing baseline (confirmed by a real `git stash` A/B comparison of the complete failing-test-name list, not
+just a bare count), run three times across this pass with no drift.
+
+This closes the fabrication-cleanup initiative: Community plus all 14 originally-identified directories, plus the
+Gallery fix discovered alongside Excursions, plus Transport - every directory audited this pass now reflects only
+what a school has really created, with permissions matching the real backend exactly.
