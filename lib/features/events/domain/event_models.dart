@@ -82,7 +82,7 @@ class SchoolEvent {
 }
 
 class EventPermissions {
-  const EventPermissions({required this.canManageAll});
+  const EventPermissions({required this.canCreate});
 
-  final bool canManageAll;
+  final bool canCreate;
 }

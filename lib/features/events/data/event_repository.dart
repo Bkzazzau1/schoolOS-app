@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/event_models.dart';
-import 'event_demo_data.dart';
 
 class EventSnapshot {
   const EventSnapshot({
@@ -31,37 +30,26 @@ class EventRepository {
 
   static const _entityType = 'school_event';
 
+  // Mirrors apps.schoollife.specs.calendar.EVENTS exactly: manage=MANAGERS, contribute={"teacher"} -
+  // a teacher may add an event, a manager may add or change any of them.
+  static const _managers = {SchoolRole.proprietor, SchoolRole.principal, SchoolRole.administrator};
+  static const _contributors = {SchoolRole.teacher};
+
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
   EventPermissions permissionsFor(SchoolMembership membership) {
-    if (membership.role == SchoolRole.proprietor) {
-      return const EventPermissions(canManageAll: true);
-    }
-    return const EventPermissions(canManageAll: false);
+    return EventPermissions(
+      canCreate: _managers.contains(membership.role) || _contributors.contains(membership.role),
+    );
   }
 
   Future<EventSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
-
-    if (records.isEmpty) {
-      for (final event in eventWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: event.id,
-          payload: event.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
 
     final events = records
         .map((record) => SchoolEvent.fromJson(record.payload))
@@ -86,7 +74,7 @@ class EventRepository {
     required String note,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
-    if (!permissionsFor(membership).canManageAll) {
+    if (!permissionsFor(membership).canCreate) {
       return const EventActionResult(
         success: false,
         message: 'This membership cannot create school-wide events.',

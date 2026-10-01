@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/event_demo_data.dart';
+import '../data/event_policy_copy.dart';
 import '../data/event_repository.dart';
 import '../domain/event_models.dart';
 
@@ -60,7 +60,7 @@ class _EventsPageState extends State<EventsPage> {
 
   Future<void> _addEvent() async {
     final snapshot = _snapshot;
-    if (snapshot == null || !snapshot.permissions.canManageAll) return;
+    if (snapshot == null || !snapshot.permissions.canCreate) return;
 
     final title = TextEditingController();
     final audience = TextEditingController(text: 'Whole school');
@@ -164,7 +164,6 @@ class _EventsPageState extends State<EventsPage> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     final snapshot = _snapshot!;
-    final upcoming = snapshot.events.where((event) => event.isUpcoming).length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -183,7 +182,7 @@ class _EventsPageState extends State<EventsPage> {
                     const SizedBox(height: 16),
                     const _ScopeCard(),
                     const SizedBox(height: 16),
-                    _StatGrid(upcoming: upcoming, compact: compact),
+                    _StatGrid(events: snapshot.events, compact: compact),
                     const SizedBox(height: 16),
                     if (wide)
                       Row(
@@ -230,7 +229,7 @@ class _EventsPageState extends State<EventsPage> {
                     ],
                   ),
                 ),
-                if (snapshot.permissions.canManageAll)
+                if (snapshot.permissions.canCreate)
                   FilledButton.icon(onPressed: _addEvent, icon: const Icon(Icons.add_rounded), label: const Text('Add event')),
               ],
             ),
@@ -268,7 +267,16 @@ class _EventsPageState extends State<EventsPage> {
             ],
             const SizedBox(height: 14),
             if (_visibleEvents.isEmpty)
-              const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('No events match the current filters.')))
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Text(
+                    snapshot.events.isEmpty
+                        ? 'No events yet. Add the first one above.'
+                        : 'No events match the current filters.',
+                  ),
+                ),
+              )
             else
               for (final event in _visibleEvents) ...[
                 _EventCard(event: event),
@@ -317,20 +325,14 @@ class _ScopeCard extends StatelessWidget {
 }
 
 class _StatGrid extends StatelessWidget {
-  const _StatGrid({required this.upcoming, required this.compact});
-  final int upcoming;
+  const _StatGrid({required this.events, required this.compact});
+  final List<SchoolEvent> events;
   final bool compact;
   @override
   Widget build(BuildContext context) {
-    final items = [
-      ('Upcoming events', '$upcoming', 'Across current calendar'),
-      ('This month', '$eventThisMonthCount', 'September 2026'),
-      ('Parent-facing', '$eventParentFacingCount', 'Conference, sports, family morning'),
-      ('Registration open', '$eventRegistrationOpenCount', 'Inter-House Sports Day'),
-      ('Calendar conflicts', '$eventCalendarConflicts', 'Current indicator'),
-    ];
+    final items = [for (final stat in eventStats(events)) (stat.label, stat.value, stat.detail)];
     return LayoutBuilder(builder: (context, constraints) {
-      final columns = compact ? 1 : (constraints.maxWidth >= 1050 ? 5 : 3);
+      final columns = compact ? 1 : 3;
       final children = <Widget>[];
       for (var start = 0; start < items.length; start += columns) {
         final end = (start + columns).clamp(0, items.length);
