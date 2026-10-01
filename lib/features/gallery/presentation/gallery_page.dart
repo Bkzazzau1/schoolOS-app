@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/media/media_api.dart';
 import '../../administrator/domain/administrator_academics_models.dart';
-import '../data/gallery_demo_data.dart';
+import '../data/gallery_policy_copy.dart';
 import '../data/gallery_repository.dart';
 import '../domain/gallery_models.dart';
 import 'gallery_album_media_page.dart';
@@ -291,7 +291,11 @@ class _GalleryPageState extends State<GalleryPage> {
                   color: theme.colorScheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Text('No media albums match the current search and visibility filter.'),
+                child: Text(
+                  (_snapshot?.items.isEmpty ?? true)
+                      ? 'No media albums yet. Add the first one above.'
+                      : 'No media albums match the current search and visibility filter.',
+                ),
               )
             else
               for (final item in items) ...[

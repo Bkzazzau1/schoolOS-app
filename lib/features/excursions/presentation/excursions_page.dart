@@ -4,7 +4,7 @@ import '../../../core/media/media_api.dart';
 import '../../../core/media/presentation/media_attachments_panel.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/domain/administrator_academics_models.dart';
-import '../data/excursion_demo_data.dart';
+import '../data/excursion_policy_copy.dart';
 import '../data/excursion_repository.dart';
 import '../domain/excursion_models.dart';
 
@@ -209,6 +209,7 @@ class _ExcursionsPageState extends State<ExcursionsPage> {
             if (compact) ...[
               _TripRegister(
                 trips: _visibleTrips,
+                hasAnyTrips: snapshot.trips.isNotEmpty,
                 permissions: snapshot.permissions,
                 membership: widget.repository.activeMembership,
                 searchController: _searchController,
@@ -227,6 +228,7 @@ class _ExcursionsPageState extends State<ExcursionsPage> {
                     flex: 7,
                     child: _TripRegister(
                       trips: _visibleTrips,
+                      hasAnyTrips: snapshot.trips.isNotEmpty,
                       permissions: snapshot.permissions,
                       membership: widget.repository.activeMembership,
                       searchController: _searchController,
@@ -286,6 +288,7 @@ class _StatCard extends StatelessWidget {
 class _TripRegister extends StatelessWidget {
   const _TripRegister({
     required this.trips,
+    required this.hasAnyTrips,
     required this.permissions,
     required this.membership,
     required this.searchController,
@@ -296,6 +299,7 @@ class _TripRegister extends StatelessWidget {
   });
 
   final List<SchoolTrip> trips;
+  final bool hasAnyTrips;
   final ExcursionPermissions permissions;
   final SchoolMembership membership;
   final TextEditingController searchController;
@@ -378,9 +382,15 @@ class _TripRegister extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             if (trips.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 30),
-                child: Center(child: Text('No trips match these filters.')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                child: Center(
+                  child: Text(
+                    hasAnyTrips
+                        ? 'No trips match these filters.'
+                        : 'No trips yet. Add the first one above.',
+                  ),
+                ),
               )
             else
               for (final trip in trips) ...[

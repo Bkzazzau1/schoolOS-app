@@ -5,7 +5,6 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_academics_repository.dart';
 import '../../administrator/domain/administrator_academics_models.dart';
 import '../domain/excursion_models.dart';
-import 'excursion_demo_data.dart';
 
 class ExcursionSnapshot {
   const ExcursionSnapshot({
@@ -74,25 +73,10 @@ class ExcursionRepository {
 
   Future<ExcursionSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
-
-    if (records.isEmpty) {
-      for (final trip in excursionWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: trip.id,
-          payload: trip.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
 
     final trips = records
         .map((record) => SchoolTrip.fromJson(record.payload))

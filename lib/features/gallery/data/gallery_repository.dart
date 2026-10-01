@@ -5,7 +5,6 @@ import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_academics_repository.dart';
 import '../../administrator/domain/administrator_academics_models.dart';
 import '../domain/gallery_models.dart';
-import 'gallery_demo_data.dart';
 
 class GallerySnapshot {
   const GallerySnapshot({
@@ -74,25 +73,10 @@ class GalleryRepository {
 
   Future<GallerySnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
-
-    if (records.isEmpty) {
-      for (final item in galleryWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: item.id,
-          payload: item.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
 
     final items = records
         .map((record) => GalleryMediaItem.fromJson(record.payload))
