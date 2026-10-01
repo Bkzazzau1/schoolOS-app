@@ -3357,3 +3357,42 @@ matches the real two-tier Spec exactly, including that a teacher can create but 
 teacher really add a session and refuses a role outside manage/contribute or an empty title; `edit()` lets a
 manager really change any session and refuses a teacher, who could create but never manage). All 14 Assembly
 tests pass; full app suite back to the same 83 pre-existing failures as before this work, by name.
+
+## Meals & Cafeteria gets a real weekly menu, as five honest day-slots
+
+Fourth of the 14-directory cluster, and unlike Houses/Assembly it already had a real write path -
+`MealRepository.updateMenuDay()` - so the fix was closer to Noticeboard's shape: remove the seed, fix what the
+seed's absence exposed. Two things the seed had been masking: `permissionsFor` checked `role == proprietor` alone
+when the real `MEALS = Spec("school_meal_day", manage=MANAGERS, id_field="day", required=("day",))` in
+`apps/schoollife/specs/campus.py` authorizes the full `MANAGERS` set; and `_selectedMeal`'s
+`meals.firstWhere(..., orElse: () => meals.first)` would throw on a genuinely empty week, since `.first` has
+nothing to return - the seed had made that path unreachable in practice.
+
+**Design.** Since `school_meal_day` is id-keyed by `day` (one record per weekday, never an open-ended list),
+there was no need for a Houses-style `create()` - `updateMenuDay()` already upserts whichever weekday it's given.
+Instead the page now always shows all five real weekdays as slots (`mealWeekdays`, a fact about the calendar, not
+data about a school) via a new `SchoolMealDay.unset(day)` placeholder and an `isSet` getter (true exactly when a
+real saved day's required breakfast/lunch/snack are filled in) - editing an unset slot and saving calls the same
+`updateMenuDay()`, creating that day's first real record. `permissionsFor` now matches `MANAGERS` exactly, the
+same fix Houses and Noticeboard needed. `mealStats()` already took real `meals`/`selected` arguments rather than
+fixed constants - only `mealWebsiteSeed` itself and two stat values were fabricated: "Meal locations" (2) and
+"special meal flags" (7) had no real source anywhere in the app, so they now say "Not available yet", the same
+honest pattern the existing "Meal payments: Later" stat already used right next to them. `meal_demo_data.dart` is
+renamed `meal_policy_copy.dart`, keeping `mealPrivacyRule` and the new `mealWeekdays` constant. The stale "This is
+a sample service week, not a live calendar" description is replaced, and unset days show "This school has not set
+a menu for `<day>` yet" instead of blank breakfast/lunch/snack lines.
+
+**Verification.** `flutter analyze` clean. `test/meals_test.dart`: the seed-preservation and KPI-constant tests
+were removed; search and serialization tests rewritten against inline fixtures; new tests cover `mealWeekdays`,
+`SchoolMealDay.unset`'s honest emptiness, and that the two no-source stats say "Not available yet". New
+`test/meal_repository_test.dart` (9 tests - a fresh school's `load()` is genuinely empty; `permissionsFor` matches
+`MANAGERS` exactly; `updateMenuDay()` really sets a never-before-configured day and refuses a non-manager or a
+missing breakfast/lunch/snack; setting one day never fabricates the other four). All 16 Meals tests pass. The full
+app suite caught one genuine regression the seed had been hiding: `parent_school_life_feature_test.dart`'s
+"today's meal" test called `meals.meals.firstWhere((m) => m.day == todayName)` with no `orElse`, assuming a
+matching day always existed - true only because of the seed it was never written to depend on. The production
+code it exercises (`ParentSchoolLifeRepository`) already handled a missing day correctly ("Not recorded yet"), so
+the fix was to the test: it now explicitly sets a real meal for today's weekday via `updateMenuDay()` before
+asserting the family sees it, and a new, separate test confirms the honest "Not recorded yet" default on a fresh
+school with nothing configured. Full app suite back to the same 83 pre-existing failures as before this work, by
+name.
