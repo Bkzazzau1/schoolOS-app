@@ -2880,3 +2880,49 @@ This closes every gap named for the Communication Hub. What remains honestly unb
 SMS/email/WhatsApp delivery to a resolved audience, which needs a real vendor and a real phone/email contact
 resolution step neither of which exist in this environment, consistent with the architecture-only scope already
 chosen for SMS/email elsewhere in this plan.
+
+## Driver operational alerts become real (closing out the Driver role)
+
+The last labelled gap on the Driver role: Driver Messages had already become a real, two-way channel with
+Transport Control earlier in this plan, but its own "Alerts" tab - a broadcast, priority-ranked operational
+notice - had no real backend at all. `DriverMessagesRepository.load()` always returned `alerts: const []`, and
+`markAlertRead` always threw "Real operational alerts are not available yet." The UI itself was already fully
+built and already handled the honest empty state correctly; only the data behind it was missing.
+
+**Design.** A new real entity, `driver_alert` (`apps/transport/driver_messages.py: DriverAlertHandler`) - a
+school-wide broadcast from Transport Control (`MANAGERS`: proprietor or administrator) to every real Driver, not
+a per-driver thread: entity id `LOCAL-<sender membershipId>-<epoch>`, create-only, the same append-only shape
+every other channel in this module already uses. `scopeLabel` ("All Routes", "Route 7 only") is the sender's own
+free-text description, informational only - no per-route targeting was built, since every real Driver in a
+school is a plausible recipient of an operational notice and inventing a second access-control layer around
+`scopeLabel` wasn't asked for. The existing `AlertReceiptHandler` (a Driver's own "I read this" receipt) already
+existed but had nothing real to validate an `alertId` against; it now rejects a receipt for an alert that doesn't
+really exist, the same rigor every other receipt handler in this app already has.
+
+**App.** `DriverOperationalAlert` gains a `fromCanonical` factory - the same shape `TeacherMessage.fromCanonical`
+and `ParentMessageItem.fromCanonical` already established - reused by both `DriverMessagesRepository` (a Driver's
+own view, `read` computed from their own real `driver_alert_receipt` rows) and the new
+`TransportMessagesRepository.queueAlert`/alert list on Transport Control's own side (`read: true` always there,
+since `AlertReceiptHandler` is deliberately Driver-only - Transport Control has no real receipt of its own to
+compute from, and showing a permanently-stuck "unread" badge with no way to clear it would have been worse than
+not showing one). `TransportMessagesPanel` gained a second section, "Operational alerts," with a "Send alert"
+compose dialog (title, body, priority, scope) next to the existing per-Driver conversation list it already had.
+
+**Verification.** Backend: new `apps.transport.tests.test_incidents_messages: DriverAlertTests` (7/7 - Transport
+Control sends and every real Driver (plus a second, unrelated Driver) really sees it, an unrelated role and a
+Driver itself are refused, priority must be one of the real three, an unrecognised sender id is refused, it is
+never changed or removed once sent); `DriverReceiptTests` extended (a real alert read receipt now requires a
+real alert and is rejected for a forged one, and the receipt's own `alertId` must match between its id and its
+payload); `apps.transport` together (90/90); `django check` clean. App: `dart analyze` clean;
+`test/driver_messages_feature_test.dart`'s stale "alerts have no real backend yet" test replaced with a real
+`operational alerts` group (6/6 - honestly empty by default, a real alert is read not fabricated, marking it read
+queues a real receipt and persists, an unknown alert id is refused, marking an already-read alert again is a
+no-op, newest-first ordering); `test/transport_messages_feature_test.dart` extended with its own `operational
+alerts` group (5/5 - nothing sent yet, a real send really reaches a real Driver end to end, a read-only Principal
+cannot send one, blank/overlong input is refused, an empty scope label defaults to "All Routes"). Full app and
+backend suites: no new failure introduced by this change (confirmed by name against each suite's own,
+already-documented run-to-run flakiness).
+
+This completes the Driver role: Driver Messages (real, two-way, with read receipts) and now Driver Alerts (real,
+broadcast, with read receipts) are both genuinely connected to Transport Control, with nothing left on this
+screen still labelled "not available yet."
