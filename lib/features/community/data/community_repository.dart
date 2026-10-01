@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/community_models.dart';
-import 'community_demo_data.dart';
 
 class CommunitySnapshot {
   const CommunitySnapshot({
@@ -15,6 +14,20 @@ class CommunitySnapshot {
   final List<CommunityPost> posts;
   final int localReportsAwaitingReview;
   final CommunityPermissions permissions;
+
+  /// Real counts derived from [posts] itself - never a fixed number, since there is no real source for
+  /// "how many posts were made this week" other than the posts a school has actually made.
+  int get postsThisWeek => posts.where((post) => post.createdAt.isAfter(_weekAgo)).length;
+
+  int get commentsThisWeek => posts.fold(
+        0,
+        (sum, post) => sum + post.comments.where((comment) => comment.createdAt.isAfter(_weekAgo)).length,
+      );
+
+  int get publicShowcaseCount =>
+      posts.where((post) => post.visibility == CommunityVisibility.publicShowcase).length;
+
+  static DateTime get _weekAgo => DateTime.now().toUtc().subtract(const Duration(days: 7));
 }
 
 class CommunityActionResult {
@@ -43,18 +56,10 @@ class CommunityRepository {
 
   Future<CommunitySnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var postRecords = await _localDatabase.getLocalRecords(
+    final postRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _postEntity,
     );
-
-    if (postRecords.isEmpty) {
-      await _seed(membership.schoolId);
-      postRecords = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _postEntity,
-      );
-    }
 
     final posts = postRecords
         .map((record) => CommunityPost.fromJson(record.payload))
@@ -307,16 +312,5 @@ class CommunityRepository {
       throw StateError('Community post $postId is not available offline.');
     }
     return CommunityPost.fromJson(record.payload);
-  }
-
-  Future<void> _seed(String tenantId) async {
-    for (final post in communitySeedPosts) {
-      await _localDatabase.upsertLocalRecord(
-        tenantId: tenantId,
-        entityType: _postEntity,
-        entityId: post.id,
-        payload: post.toJson(),
-      );
-    }
   }
 }

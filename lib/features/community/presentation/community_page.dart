@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/media/media_api.dart';
 import '../../../core/media/presentation/media_attachments_panel.dart';
 import '../../../shared/models/school_membership.dart';
-import '../data/community_demo_data.dart';
+import '../data/community_policy_copy.dart';
 import '../data/community_repository.dart';
 import '../domain/community_models.dart';
 
@@ -183,7 +183,7 @@ class _CommunityPageState extends State<CommunityPage> {
                     const _ScopeCard(),
                     const SizedBox(height: 16),
                     _StatGrid(
-                      localReports: snapshot.localReportsAwaitingReview,
+                      snapshot: snapshot,
                       compact: compact,
                     ),
                     const SizedBox(height: 16),
@@ -262,7 +262,7 @@ class _CommunityPageState extends State<CommunityPage> {
             ),
             const SizedBox(height: 16),
             if (_visiblePosts.isEmpty)
-              const _EmptyFeed()
+              _EmptyFeed(noPostsAtAll: snapshot.posts.isEmpty)
             else
               for (final post in _visiblePosts) ...[
                 _CommunityPostCard(
@@ -379,21 +379,21 @@ class _ScopeCard extends StatelessWidget {
 }
 
 class _StatGrid extends StatelessWidget {
-  const _StatGrid({required this.localReports, required this.compact});
+  const _StatGrid({required this.snapshot, required this.compact});
 
-  final int localReports;
+  final CommunitySnapshot snapshot;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final localReports = snapshot.localReportsAwaitingReview;
     final stats = [
-      ('Community members', '$communityMembers', 'Staff, guardians and eligible students'),
-      ('Posts this week', '$communityPostsThisWeek', 'Across all school audiences'),
-      ('Comments', '$communityCommentsThisWeek', 'Moderated discussion'),
-      ('Public showcase', '$communityPublicShowcaseCount', 'Approved school-facing posts'),
+      ('Posts this week', '${snapshot.postsThisWeek}', 'Across all school audiences'),
+      ('Comments this week', '${snapshot.commentsThisWeek}', 'Moderated discussion'),
+      ('Public showcase', '${snapshot.publicShowcaseCount}', 'Approved school-facing posts'),
       (
         'Reports awaiting review',
-        '${communityReportsAwaitingReview + localReports}',
+        '$localReports',
         localReports == 0 ? 'Community moderation queue' : '$localReports saved offline on this device',
       ),
     ];
@@ -953,7 +953,9 @@ class _PolicyCard extends StatelessWidget {
 }
 
 class _EmptyFeed extends StatelessWidget {
-  const _EmptyFeed();
+  const _EmptyFeed({required this.noPostsAtAll});
+
+  final bool noPostsAtAll;
 
   @override
   Widget build(BuildContext context) {
@@ -961,11 +963,15 @@ class _EmptyFeed extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(28),
       alignment: Alignment.center,
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.forum_outlined, size: 34),
-          SizedBox(height: 8),
-          Text('No Community posts match this filter.'),
+          const Icon(Icons.forum_outlined, size: 34),
+          const SizedBox(height: 8),
+          Text(
+            noPostsAtAll
+                ? 'No Community posts yet. Be the first to share something.'
+                : 'No Community posts match this filter.',
+          ),
         ],
       ),
     );
