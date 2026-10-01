@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/alumni_directory_models.dart';
+import '../domain/alumni_event_models.dart';
 import '../domain/alumni_profile_models.dart';
 
 class AlumniServerApi {
@@ -85,6 +86,61 @@ class AlumniServerApi {
       for (final item in (map['entries'] as List? ?? const []))
         AlumniDirectoryEntry.fromJson(Map<String, dynamic>.from(item as Map)),
     ];
+  }
+
+  /// Every real reunion/event this school has created for its Alumni, with this alumnus's own
+  /// real RSVP state and the event's real attending count.
+  Future<List<AlumniEvent>> loadEvents(SchoolMembership membership) async {
+    final data = await _api.get(
+      'alumni/schools/${membership.schoolId}/events/',
+      query: _who(membership),
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return [
+      for (final item in (map['events'] as List? ?? const []))
+        AlumniEvent.fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
+  }
+
+  /// Records this alumnus's own real RSVP - an updatable current answer, not an append-only
+  /// receipt, since a person may genuinely change their mind about attending.
+  Future<AlumniEvent> rsvp(
+    SchoolMembership membership,
+    String eventId, {
+    required bool attending,
+  }) async {
+    final data = await _api.post(
+      'alumni/schools/${membership.schoolId}/events/$eventId/rsvp/',
+      query: _who(membership),
+      body: {'attending': attending},
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniEvent.fromJson(Map<String, dynamic>.from(map['event'] as Map));
+  }
+
+  /// School management creates a real reunion/event - alumni browse and RSVP, they do not
+  /// propose their own.
+  Future<AlumniEvent> createEvent(
+    SchoolMembership manager, {
+    required String title,
+    required String date,
+    String timeText = '',
+    String venue = '',
+    String note = '',
+  }) async {
+    final data = await _api.post(
+      'alumni/schools/${manager.schoolId}/events/',
+      query: _who(manager),
+      body: {
+        'title': title.trim(),
+        'date': date.trim(),
+        'timeText': timeText.trim(),
+        'venue': venue.trim(),
+        'note': note.trim(),
+      },
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniEvent.fromJson(Map<String, dynamic>.from(map['event'] as Map));
   }
 
   Future<AlumniManagementSnapshot> loadManagement(

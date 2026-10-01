@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/models/school_membership.dart';
 import '../data/alumni_server_api.dart';
+import '../domain/alumni_event_models.dart';
 import '../domain/alumni_profile_models.dart';
 
 class AlumniManagementPage extends StatefulWidget {
@@ -23,11 +24,14 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
   bool _loading = true;
   String? _error;
   String _status = 'all';
+  List<AlumniEvent>? _events;
+  bool _eventsLoading = true;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadEvents();
   }
 
   Future<void> _load() async {
@@ -60,6 +64,119 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
         _loading = false;
         _error = '$error';
       });
+    }
+  }
+
+  Future<void> _loadEvents() async {
+    final api = widget.api;
+    if (api == null) {
+      setState(() {
+        _eventsLoading = false;
+        _events = null;
+      });
+      return;
+    }
+    setState(() => _eventsLoading = true);
+    try {
+      final events = await api.loadEvents(widget.manager);
+      if (!mounted) return;
+      setState(() {
+        _events = events;
+        _eventsLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _eventsLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    }
+  }
+
+  Future<void> _addEvent() async {
+    final api = widget.api;
+    if (api == null) return;
+
+    final title = TextEditingController();
+    final date = TextEditingController();
+    final time = TextEditingController();
+    final venue = TextEditingController();
+    final note = TextEditingController();
+
+    final submit = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Schedule a reunion or event'),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: date,
+                  decoration: const InputDecoration(labelText: 'Date (YYYY-MM-DD)'),
+                ),
+                const SizedBox(height: 12),
+                TextField(controller: time, decoration: const InputDecoration(labelText: 'Time (optional)')),
+                const SizedBox(height: 12),
+                TextField(controller: venue, decoration: const InputDecoration(labelText: 'Venue (optional)')),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: note,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: 'Note (optional)'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              if (title.text.trim().isEmpty || date.text.trim().isEmpty) return;
+              Navigator.of(dialogContext).pop(true);
+            },
+            child: const Text('Schedule'),
+          ),
+        ],
+      ),
+    );
+
+    if (submit != true) {
+      title.dispose();
+      date.dispose();
+      time.dispose();
+      venue.dispose();
+      note.dispose();
+      return;
+    }
+
+    try {
+      await api.createEvent(
+        widget.manager,
+        title: title.text,
+        date: date.text,
+        timeText: time.text,
+        venue: venue.text,
+        note: note.text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${title.text.trim()} scheduled.')),
+      );
+      await _loadEvents();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    } finally {
+      title.dispose();
+      date.dispose();
+      time.dispose();
+      venue.dispose();
+      note.dispose();
     }
   }
 
@@ -340,6 +457,40 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Reunions & Events',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: _addEvent,
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Add event'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_eventsLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if ((_events ?? const []).isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(18),
+              child: Text('No reunion or event has been scheduled yet.'),
+            ),
+          )
+        else
+          for (final event in _events!) ...[
+            _EventSummaryCard(event: event),
+            const SizedBox(height: 8),
+          ],
         const SizedBox(height: 18),
         Row(
           children: [
@@ -382,6 +533,41 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
             const SizedBox(height: 10),
           ],
       ],
+    );
+  }
+}
+
+class _EventSummaryCard extends StatelessWidget {
+  const _EventSummaryCard({required this.event});
+
+  final AlumniEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(event.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    event.timeText.isEmpty ? event.date : '${event.date} · ${event.timeText}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (event.venue.trim().isNotEmpty)
+                    Text(event.venue, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ),
+            Chip(label: Text('${event.attendingCount} attending')),
+          ],
+        ),
+      ),
     );
   }
 }
