@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../teacher/domain/teacher_messages_models.dart' show TeacherMessageDeliveryState;
 import '../data/principal_communication_demo_data.dart';
 import '../data/principal_communication_repository.dart';
 import '../domain/principal_communication_models.dart';
@@ -34,6 +35,7 @@ class _PrincipalCommunicationPageState
       PrincipalCommunicationAudience.staff;
   PrincipalCommunicationChannel _channel = PrincipalCommunicationChannel.portal;
   bool _saving = false;
+  final _markingSeen = <String>{};
 
   @override
   void initState() {
@@ -61,10 +63,20 @@ class _PrincipalCommunicationPageState
           _activeThreadId = snapshot.threads.first.id;
         }
       });
+      if (_activeThreadId.isNotEmpty) _markSeen(_activeThreadId);
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = '$error');
     }
+  }
+
+  void _markSeen(String threadId) {
+    if (!_markingSeen.add(threadId)) return;
+    widget.repository.markThreadSeen(threadId).then((_) {
+      if (mounted) setState(() {});
+    }).catchError((_) {
+      // Opening the conversation remains possible even if a read receipt cannot be queued.
+    });
   }
 
   List<PrincipalCommunicationThread> _filteredThreads(
@@ -176,13 +188,6 @@ class _PrincipalCommunicationPageState
         ? null
         : _activeThread(snapshot);
     final filteredThreads = _filteredThreads(snapshot);
-    final queuedReplies = snapshot.outgoing
-        .where(
-          (item) =>
-              item.kind == PrincipalOutgoingKind.reply &&
-              item.threadId == activeThread?.id,
-        )
-        .toList(growable: false);
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -201,6 +206,7 @@ class _PrincipalCommunicationPageState
               onSelected: (id) {
                 _replyController.clear();
                 setState(() => _activeThreadId = id);
+                _markSeen(id);
               },
             );
             final thread = activeThread == null
@@ -214,7 +220,6 @@ class _PrincipalCommunicationPageState
                   )
                 : _ThreadCard(
                     thread: activeThread,
-                    queuedReplies: queuedReplies,
                     controller: _replyController,
                     saving: _saving,
                     canSend: snapshot.permissions.canQueueMessages,
@@ -523,7 +528,6 @@ class _InboxCard extends StatelessWidget {
 class _ThreadCard extends StatelessWidget {
   const _ThreadCard({
     required this.thread,
-    required this.queuedReplies,
     required this.controller,
     required this.saving,
     required this.canSend,
@@ -532,7 +536,6 @@ class _ThreadCard extends StatelessWidget {
   });
 
   final PrincipalCommunicationThread thread;
-  final List<PrincipalOutgoingCommunication> queuedReplies;
   final TextEditingController controller;
   final bool saving;
   final bool canSend;
@@ -576,28 +579,22 @@ class _ThreadCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _MessageBubble(
-            label: 'School · 9:54 AM',
-            message:
-                'We are following up regarding the recent school matter. We would like to coordinate the next step with you.',
-            outgoing: true,
-          ),
-          const SizedBox(height: 8),
-          _MessageBubble(
-            label: '${thread.person} · ${thread.time}',
-            message: thread.preview,
-            outgoing: false,
-          ),
-          for (final item in queuedReplies) ...[
-            const SizedBox(height: 8),
-            _MessageBubble(
-              label: 'Principal · queued offline',
-              message: item.message,
-              outgoing: true,
-              queued: true,
-            ),
-          ],
-          const SizedBox(height: 14),
+          if (thread.messages.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('No messages yet.'),
+            )
+          else
+            for (final message in thread.messages) ...[
+              _MessageBubble(
+                label: '${message.isOutgoing ? "You" : thread.person} · ${message.timeLabel}',
+                message: message.body,
+                outgoing: message.isOutgoing,
+                queued: message.deliveryState == TeacherMessageDeliveryState.queued,
+              ),
+              const SizedBox(height: 8),
+            ],
+          const SizedBox(height: 6),
           TextField(
             controller: controller,
             minLines: 3,

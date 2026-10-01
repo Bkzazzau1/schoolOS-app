@@ -1,3 +1,5 @@
+import '../../teacher/domain/teacher_messages_models.dart' show TeacherMessage;
+
 enum PrincipalCommunicationPriority { normal, important, urgent }
 
 extension PrincipalCommunicationPriorityLabel on PrincipalCommunicationPriority {
@@ -51,6 +53,7 @@ class PrincipalCommunicationThread {
     required this.unread,
     required this.priority,
     required this.preview,
+    this.messages = const [],
   });
 
   final String id;
@@ -62,6 +65,12 @@ class PrincipalCommunicationThread {
   final PrincipalCommunicationPriority priority;
   final String preview;
 
+  /// The real message history for this thread - `apps/schoollife/messaging/teacher_channels.py:
+  /// TeacherLeadershipMessageHandler`'s own canonical payload, read through the same
+  /// `TeacherMessage.fromCanonical` shape `TeacherMessagesRepository` already uses from the
+  /// teacher's own side of this exact channel.
+  final List<TeacherMessage> messages;
+
   Map<String, Object?> toJson() => {
         'id': id,
         'title': title,
@@ -71,6 +80,7 @@ class PrincipalCommunicationThread {
         'unread': unread,
         'priority': priority.name,
         'preview': preview,
+        'messages': messages.map((item) => item.toJson()).toList(),
       };
 
   factory PrincipalCommunicationThread.fromJson(Map<String, Object?> json) => PrincipalCommunicationThread(
@@ -82,6 +92,12 @@ class PrincipalCommunicationThread {
         unread: json['unread']! as bool,
         priority: PrincipalCommunicationPriority.values.byName(json['priority']! as String),
         preview: json['preview']! as String,
+        messages: json['messages'] is List
+            ? [
+                for (final item in json['messages']! as List)
+                  if (item is Map) TeacherMessage.fromJson(Map<String, dynamic>.from(item))
+              ]
+            : const [],
       );
 }
 
