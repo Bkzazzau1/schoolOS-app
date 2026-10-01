@@ -3809,6 +3809,91 @@ test) needed no changes - already seed-independent. Full app suite: 83 failures,
 pre-existing baseline (confirmed by a real `git stash` A/B comparison of the complete failing-test-name list, not
 just a bare count), run three times across this pass with no drift.
 
-This closes the fabrication-cleanup initiative: Community plus all 14 originally-identified directories, plus the
-Gallery fix discovered alongside Excursions, plus Transport - every directory audited this pass now reflects only
-what a school has really created, with permissions matching the real backend exactly.
+This closes the fabrication-cleanup initiative as originally scoped: Community plus all 14 originally-identified
+directories, plus the Gallery fix discovered alongside Excursions, plus Transport - every directory audited this
+pass now reflects only what a school has really created, with permissions matching the real backend exactly.
+
+## A second audit: Administrator, Driver, Principal, Teacher, Parent, Finance Office and Proprietor
+
+The sweep above only covered shared cross-role modules (Noticeboard, Meals, Transport, etc.) - never the
+role-specific screens each of Administrator, Principal, Teacher, Parent, Finance Office and Proprietor also owns.
+A second audit, run in parallel across all seven role areas (the only ones with any remaining `*_demo_data.dart`
+files - the other sixteen directories have none), found: Parent, Principal and Driver fully clean (already real or
+already fixed this session); Administrator with 7 ungated auto-seed instances, the worst fabricating specific
+false attendance check-ins and correction requests attributed to real, named students; Finance Office with 3
+ungated auto-seeds in the ledger itself (fee structure, a fabricated payment history, bank statement lines) plus
+a real permission gap for delegated billing authority; and Teacher with the most severe finding of the whole
+initiative - not just fabricated data, but an actual correctness bug.
+
+## Teacher stops showing a fabricated identity
+
+Every teacher saw the identical hardcoded identity - name "Mrs. Amina Yusuf", avatar initials "AY", job title,
+campus label and a "Weekly compliance 92%" progress bar inlined directly into `teacher_workspace_page.dart`'s
+header - regardless of who was actually signed in. This is a correctness bug, not a demo-mode honesty issue: a
+real teacher using a real account would see someone else's name and face every time they opened the app.
+
+**Design.** `TeacherProfileRepository` now builds identity from the same real staff records every other
+staff-facing screen already uses: `OwnerStaffProfileRepository`'s `StaffProfile`, matched to the signed-in
+membership via `linkedMembershipId` (the same real link `loadDriverAssignments()` already relied on for
+Transport's driver roster), cross-referenced with `AdministratorStaffRepository`'s directory record for
+name/role/section. Qualifications and documents come from `StaffProfile.academics`/`.credentials`/`.documents`;
+teaching load from the real `TeacherClassesRepository` roster; attendance summary from
+`administrator_staff_attendance` records keyed by this teacher's own staffId. A teacher not yet linked to a staff
+record honestly shows blank identity fields and a "Teacher" fallback label (the same "no real
+membership-to-person directory exists" reasoning Driver's own display name already established), never a
+placeholder person.
+
+Payroll required a genuine redesign, not a mechanical fix: no real source anywhere in the app - not
+`OwnerPayrollRepository`, not `PayrollBatchRepository`, not `FinancePayrollRow` - carries an itemized
+basic/housing/transport/pension/tax breakdown. A prepared `PayrollBatch`'s own `prepare()` only ever keeps
+`{staffId, name, net}` per line; the itemized fields the old fabricated `TeacherPayslip` carried never existed in
+the real payroll system at all. `TeacherPayslip` is redesigned to carry only `period`/`reference`/`net`/`status`,
+and `status` never claims "Paid" - the real payroll workflow's last evidence-backed state is "disbursement
+instructed" (see `PayrollBatchRepository`'s own doc comment: "a salary is never marked Paid here because Paid
+needs real bank or payment evidence"). Loans & Advances and Security tabs are dropped from
+`TeacherProfileTab` entirely: no loan-tracking concept and no session/password backend exist anywhere in the app
+to connect to, confirmed by an app-wide search - the Security tab is replaced by a single honest "not implemented
+in this app yet" boundary instead of fabricated "Last changed 62 days ago" specifics (the user's own choice,
+confirmed via AskUserQuestion, over the alternative of keeping the detail behind a "Sample data" label the way
+Proprietor Overview does).
+
+`TeacherAiRepository`'s prompt history seed is removed outright (ungated, ran even against a real backend); its
+"Today's suggested actions" section is untouched - it already carries its own explicit "Suggestions generated
+from fictional demo data" disclosure, the already-accepted labeled-sample pattern.
+
+**Five more repositories** had the same stale-demo-mode-seed bug this session's established precedent (Assessment,
+CBT) had already fixed elsewhere in Teacher: `TeacherAssignmentRepository` (reuses its own already-existing
+canonical `_emptyDraft`/`_canonicalOptions` instead of a fabricated `teacherAssignmentDraft`),
+`TeacherAttendanceRepository` (now derives one real register per `TeacherRoster.assignedClasses` with real
+`TeacherRoster.studentsIn` students, honestly starting present, replacing a fixed lesson list with fabricated
+pre-filled present/absent/late statuses for invented "Student 001"-style names), `TeacherTimetableRepository` and
+`TeacherWeeklyLearningRepository` (both now run their existing canonical week/options computation
+unconditionally instead of branching to a separate fixed demo list). `teacher_lesson_plan_repository.dart` was
+deliberately left untouched after investigation showed its sample scheme is already explicitly labeled "Sample
+lesson plans." in the UI, with a pre-existing test (`teacher_lesson_plans_roster_test.dart`) documenting this as
+intentional - removing it would have been a regression against established, already-reviewed design, not a fix.
+
+All five fixed repositories' `*_demo_data.dart` files are renamed to `*_policy_copy.dart`, keeping only genuinely
+static reference text (AI tool descriptions, boundary copy, the four-step weekly-learning workflow diagram).
+
+**Verification.** `flutter analyze` clean across `lib/` and `test/`. New `test/teacher_profile_repository_test.dart`
+(5 tests) and a rewritten `test/teacher_profile_feature_test.dart` (12 tests, including a dedicated unlinked-teacher
+case) cover the real identity/payroll/completeness computation. `teacher_ai_feature_test.dart`,
+`teacher_assignments_feature_test.dart`, `teacher_attendance_feature_test.dart`, `teacher_timetable_feature_test.dart`
+and `teacher_weekly_learning_feature_test.dart` updated to inline fixtures in place of the removed seed constants.
+Several of these test files surfaced pre-existing, unrelated widget-rendering bugs the moment they were run for
+the first time this session (confirmed via `git stash` A/B comparisons to fail identically on the untouched
+baseline) - lesson_plans (5), assignments (4), attendance (2 remaining), weekly_learning (1); these are flagged as
+a separate, pre-existing cluster, not touched here. Full app suite: 83 failures, one fewer than the 84-failure
+baseline taken immediately before this pass (confirmed by a `git stash` A/B comparison of the complete
+failing-test-name list). The one newly-failing name is `teacher_roster_attendance_test.dart`'s "a newly assigned
+class gets a fresh register" - `TeacherRoster.assign()` is an unconditional stub ("Teacher class assignments are
+server-controlled") that never actually assigns anything, so no honest implementation of attendance's register
+derivation can satisfy that test's premise; it previously passed only by coincidence against a fixed lesson list
+unrelated to real assignment state.
+
+**Not yet done in Teacher**: `teacher_performance_repository.dart`'s `metrics`/`classPerformance`/`developmentLog`
+are still fabricated constants (only the roster-based class filter is real); `teacher_dashboard_page.dart` has no
+repository at all and renders entirely from static demo data; `teacher_students_page.dart`'s KPI tiles are
+disconnected from the real student list the same page otherwise uses correctly. Administrator's 7-instance and
+Finance Office's 3-instance findings from the second audit are also not yet fixed.
