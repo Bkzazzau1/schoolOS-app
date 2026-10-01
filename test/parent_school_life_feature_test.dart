@@ -7,6 +7,7 @@ import 'package:schoolos_app/features/administrator/data/administrator_students_
 import 'package:schoolos_app/features/awards/data/award_repository.dart';
 import 'package:schoolos_app/features/awards/domain/award_models.dart';
 import 'package:schoolos_app/features/events/data/event_repository.dart';
+import 'package:schoolos_app/features/events/domain/event_models.dart';
 import 'package:schoolos_app/features/excursions/data/excursion_repository.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_ledger_repository.dart';
 import 'package:schoolos_app/features/gallery/data/gallery_repository.dart';
@@ -69,14 +70,38 @@ void main() {
 
   test('events are the real, upcoming, school-wide events, never a disconnected fixed list', () async {
     await setUpFamily();
-    final snapshot = await schoolLife.load();
     await session.selectSchool(proprietor);
-    final realEvents = await EventRepository(localDatabase: db!, schoolSession: session).load();
+    final events = EventRepository(localDatabase: db!, schoolSession: session);
+    await events.addEvent(
+      title: 'Inter-House Sports Day',
+      type: SchoolEventType.sports,
+      audience: 'Whole school',
+      date: '24 Sep 2026',
+      time: '8:00 AM',
+      venue: 'Main field',
+      owner: 'Sports Committee',
+      status: SchoolEventStatus.registrationOpen,
+      note: '',
+    );
+    await events.addEvent(
+      title: 'Last Term Sports Day',
+      type: SchoolEventType.sports,
+      audience: 'Whole school',
+      date: '1 Jan 2026',
+      time: '8:00 AM',
+      venue: 'Main field',
+      owner: 'Sports Committee',
+      status: SchoolEventStatus.completed,
+      note: '',
+    );
     await session.selectSchool(parent);
 
+    final snapshot = await schoolLife.load();
+    final realEvents = await events.load();
     final realUpcomingTitles = realEvents.events.where((e) => e.isUpcoming).map((e) => e.title).toSet();
     expect(snapshot.events.map((e) => e.title).toSet(), realUpcomingTitles);
-    expect(snapshot.events, isNotEmpty, reason: 'the seeded demo school always has real upcoming events');
+    expect(snapshot.events.map((e) => e.title), contains('Inter-House Sports Day'));
+    expect(snapshot.events.map((e) => e.title), isNot(contains('Last Term Sports Day')), reason: 'completed events are not upcoming');
   });
 
   test('transport reflects the real per-student assignment: only the really-seeded rider shows active', () async {
