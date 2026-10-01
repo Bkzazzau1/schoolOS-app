@@ -48,11 +48,96 @@ void main() {
     expect(snapshot.routeId, isNotEmpty, reason: "still scoped to the Driver's real route");
   });
 
-  test('operational alerts have no real backend yet and honestly stay empty', () async {
-    await setUpDriver();
-    final snapshot = await messages.load();
-    expect(snapshot.alerts, isEmpty);
-    expect(messages.markAlertRead('anything'), throwsStateError);
+  group('operational alerts', () {
+    Map<String, Object?> alertPayload(String id, {String priority = 'important', String createdAt = ''}) => {
+          'id': id,
+          'title': 'Road closure',
+          'body': 'Market Road closed; use the bypass.',
+          'priority': priority,
+          'scopeLabel': 'All Routes',
+          'createdAt': createdAt.isEmpty ? DateTime.now().toUtc().toIso8601String() : createdAt,
+          'senderMembershipId': 'm-admin',
+        };
+
+    test('a fresh Driver has no fabricated alerts', () async {
+      await setUpDriver();
+      final snapshot = await messages.load();
+      expect(snapshot.alerts, isEmpty);
+    });
+
+    test('a real alert from Transport Control is read, never fabricated', () async {
+      await setUpDriver();
+      // The exact canonical shape a real sync pull would write for a real alert.
+      await db!.upsertLocalRecord(
+        tenantId: driver.schoolId,
+        entityType: 'driver_alert',
+        entityId: 'ALERT-1',
+        payload: alertPayload('ALERT-1'),
+        isDirty: false,
+      );
+      final snapshot = await messages.load();
+      final alert = snapshot.alerts.single;
+      expect(alert.title, 'Road closure');
+      expect(alert.priority, DriverAlertPriority.important);
+      expect(alert.read, isFalse);
+      expect(snapshot.unreadAlerts, 1);
+    });
+
+    test('marking a real alert read queues a real receipt and persists', () async {
+      await setUpDriver();
+      await db!.upsertLocalRecord(
+        tenantId: driver.schoolId,
+        entityType: 'driver_alert',
+        entityId: 'ALERT-1',
+        payload: alertPayload('ALERT-1'),
+        isDirty: false,
+      );
+      await messages.markAlertRead('ALERT-1');
+      final after = await messages.load();
+      expect(after.alerts.single.read, isTrue);
+      expect(after.unreadAlerts, 0);
+      expect(db!.pendingCount(tenantId: driver.schoolId), greaterThan(0), reason: 'a real receipt was queued');
+    });
+
+    test('marking an unknown alert id is refused', () async {
+      await setUpDriver();
+      expect(messages.markAlertRead('ghost'), throwsStateError);
+    });
+
+    test('marking an already-read alert again is a harmless no-op', () async {
+      await setUpDriver();
+      await db!.upsertLocalRecord(
+        tenantId: driver.schoolId,
+        entityType: 'driver_alert',
+        entityId: 'ALERT-1',
+        payload: alertPayload('ALERT-1'),
+        isDirty: false,
+      );
+      await messages.markAlertRead('ALERT-1');
+      final pendingAfterFirst = db!.pendingCount(tenantId: driver.schoolId);
+      await messages.markAlertRead('ALERT-1');
+      expect(db!.pendingCount(tenantId: driver.schoolId), pendingAfterFirst);
+    });
+
+    test('alerts show newest first', () async {
+      await setUpDriver();
+      await db!.upsertLocalRecord(
+        tenantId: driver.schoolId,
+        entityType: 'driver_alert',
+        entityId: 'OLD',
+        payload: alertPayload('OLD', createdAt: '2026-01-01T00:00:00Z'),
+        isDirty: false,
+      );
+      await db!.upsertLocalRecord(
+        tenantId: driver.schoolId,
+        entityType: 'driver_alert',
+        entityId: 'NEW',
+        payload: alertPayload('NEW', createdAt: '2026-02-01T00:00:00Z'),
+        isDirty: false,
+      );
+      final snapshot = await messages.load();
+      expect(snapshot.alerts.map((a) => a.id).toList(), ['NEW', 'OLD']);
+    });
   });
 
   test('a queued message is real and persists across a reload', () async {

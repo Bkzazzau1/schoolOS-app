@@ -3,6 +3,7 @@ import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/driver/data/driver_messages_repository.dart';
+import 'package:schoolos_app/features/driver/domain/driver_messages_models.dart';
 import 'package:schoolos_app/features/transport/data/transport_messages_repository.dart';
 import 'package:schoolos_app/features/transport/data/transport_repository.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
@@ -153,6 +154,66 @@ void main() {
       await session.selectSchool(driver);
       final driverView = await driverMessages.load();
       expect(driverView.threads.single.unread, isTrue, reason: 'the Driver never marked Transport Control\'s new reply seen');
+    });
+  });
+
+  group('operational alerts', () {
+    test('no alert has been sent yet', () async {
+      await setUpSchool();
+      final snapshot = await transportMessages.load();
+      expect(snapshot.alerts, isEmpty);
+    });
+
+    test('Transport Control can send a real alert and every real Driver receives it', () async {
+      await setUpSchool();
+      await transportMessages.queueAlert(
+        title: 'Road closure',
+        body: 'Market Road closed; use the bypass.',
+        priority: DriverAlertPriority.urgent,
+        scopeLabel: 'All Routes',
+      );
+      final fromControlSide = await transportMessages.load();
+      expect(fromControlSide.alerts.single.title, 'Road closure');
+      expect(fromControlSide.alerts.single.priority, DriverAlertPriority.urgent);
+
+      await session.selectSchool(driver);
+      final fromDriverSide = await driverMessages.load();
+      expect(fromDriverSide.alerts.single.title, 'Road closure');
+      expect(fromDriverSide.alerts.single.read, isFalse);
+    });
+
+    test('a read-only Principal cannot send an alert', () async {
+      await setUpSchool();
+      await session.selectSchool(principal);
+      expect(
+        transportMessages.queueAlert(
+          title: 'Road closure', body: 'Market Road closed.', priority: DriverAlertPriority.routine, scopeLabel: '',
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('an empty title, empty body, or overlong body is rejected', () async {
+      await setUpSchool();
+      expect(
+        () => transportMessages.queueAlert(title: '  ', body: 'y', priority: DriverAlertPriority.routine, scopeLabel: ''),
+        throwsArgumentError,
+      );
+      expect(
+        () => transportMessages.queueAlert(title: 'x', body: '  ', priority: DriverAlertPriority.routine, scopeLabel: ''),
+        throwsArgumentError,
+      );
+      expect(
+        () => transportMessages.queueAlert(title: 'x', body: 'y' * 2001, priority: DriverAlertPriority.routine, scopeLabel: ''),
+        throwsArgumentError,
+      );
+    });
+
+    test('an empty scope label defaults to "All Routes"', () async {
+      await setUpSchool();
+      await transportMessages.queueAlert(title: 'x', body: 'y', priority: DriverAlertPriority.routine, scopeLabel: '   ');
+      final snapshot = await transportMessages.load();
+      expect(snapshot.alerts.single.scopeLabel, 'All Routes');
     });
   });
 }
