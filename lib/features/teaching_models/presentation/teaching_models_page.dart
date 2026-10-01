@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/teaching_model_demo_data.dart';
+import '../data/teaching_model_policy_copy.dart';
 import '../data/teaching_model_repository.dart';
 import '../domain/teaching_model_models.dart';
 
@@ -69,6 +69,84 @@ class _TeachingModelsPageState extends State<TeachingModelsPage> {
       SnackBar(content: Text(result.message)),
     );
     if (result.success && configuration.model != model) {
+      widget.onTeachingModelsChanged?.call();
+      await _load();
+    }
+  }
+
+  Future<void> _addConfiguration() async {
+    final section = TextEditingController(text: _section ?? '');
+    final className = TextEditingController();
+    final leadTeacher = TextEditingController();
+    final specialistCoverage = TextEditingController();
+    final note = TextEditingController();
+    var model = TeachingModelType.classTeacher;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add a class configuration'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: section, decoration: const InputDecoration(labelText: 'Section (e.g. Primary)')),
+                  const SizedBox(height: 12),
+                  TextField(controller: className, decoration: const InputDecoration(labelText: 'Class name')),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<TeachingModelType>(
+                    initialValue: model,
+                    decoration: const InputDecoration(labelText: 'Teaching model'),
+                    items: [for (final item in TeachingModelType.values) DropdownMenuItem(value: item, child: Text(item.label))],
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => model = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(controller: leadTeacher, decoration: const InputDecoration(labelText: 'Lead / tutor')),
+                  const SizedBox(height: 12),
+                  TextField(controller: specialistCoverage, decoration: const InputDecoration(labelText: 'Specialist coverage')),
+                  const SizedBox(height: 12),
+                  TextField(controller: note, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Note')),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Add')),
+          ],
+        ),
+      ),
+    );
+    final values = (
+      section: section.text,
+      className: className.text,
+      model: model,
+      leadTeacher: leadTeacher.text,
+      specialistCoverage: specialistCoverage.text,
+      note: note.text,
+    );
+    section.dispose();
+    className.dispose();
+    leadTeacher.dispose();
+    specialistCoverage.dispose();
+    note.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.create(
+      section: values.section,
+      className: values.className,
+      model: values.model,
+      leadTeacher: values.leadTeacher,
+      specialistCoverage: values.specialistCoverage,
+      note: values.note,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) {
       widget.onTeachingModelsChanged?.call();
       await _load();
     }
@@ -171,6 +249,7 @@ class _TeachingModelsPageState extends State<TeachingModelsPage> {
             if (compact) ...[
               _StructureCard(
                 rows: _visibleRows,
+                hasAnyRows: snapshot.configurations.isNotEmpty,
                 permissions: snapshot.permissions,
                 section: _section,
                 selectedModel: _selectedModel,
@@ -179,6 +258,7 @@ class _TeachingModelsPageState extends State<TeachingModelsPage> {
                 onModelInfoChanged: (value) =>
                     setState(() => _selectedModel = value),
                 onRowModelChanged: _updateModel,
+                onAdd: _addConfiguration,
               ),
               const SizedBox(height: 16),
               const _TeachingSidebar(),
@@ -190,6 +270,7 @@ class _TeachingModelsPageState extends State<TeachingModelsPage> {
                     flex: 7,
                     child: _StructureCard(
                       rows: _visibleRows,
+                      hasAnyRows: snapshot.configurations.isNotEmpty,
                       permissions: snapshot.permissions,
                       section: _section,
                       selectedModel: _selectedModel,
@@ -199,6 +280,7 @@ class _TeachingModelsPageState extends State<TeachingModelsPage> {
                       onModelInfoChanged: (value) =>
                           setState(() => _selectedModel = value),
                       onRowModelChanged: _updateModel,
+                      onAdd: _addConfiguration,
                     ),
                   ),
                   const SizedBox(width: 18),
@@ -251,6 +333,7 @@ class _StatCard extends StatelessWidget {
 class _StructureCard extends StatelessWidget {
   const _StructureCard({
     required this.rows,
+    required this.hasAnyRows,
     required this.permissions,
     required this.section,
     required this.selectedModel,
@@ -258,9 +341,11 @@ class _StructureCard extends StatelessWidget {
     required this.onSectionChanged,
     required this.onModelInfoChanged,
     required this.onRowModelChanged,
+    required this.onAdd,
   });
 
   final List<TeachingClassConfig> rows;
+  final bool hasAnyRows;
   final TeachingModelPermissions permissions;
   final String? section;
   final TeachingModelType selectedModel;
@@ -268,6 +353,7 @@ class _StructureCard extends StatelessWidget {
   final ValueChanged<String?> onSectionChanged;
   final ValueChanged<TeachingModelType> onModelInfoChanged;
   final void Function(TeachingClassConfig, TeachingModelType) onRowModelChanged;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -278,11 +364,20 @@ class _StructureCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Teaching structure',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Teaching structure',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (permissions.canConfigureAllSections)
+                  OutlinedButton.icon(onPressed: onAdd, icon: const Icon(Icons.add_rounded), label: const Text('Add class')),
+              ],
             ),
             const SizedBox(height: 4),
             const Text(
@@ -354,9 +449,15 @@ class _StructureCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (rows.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 28),
-                child: Center(child: Text('No classes match this section.')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                child: Center(
+                  child: Text(
+                    hasAnyRows
+                        ? 'No classes match this section.'
+                        : 'No class configurations yet. Add the first one above.',
+                  ),
+                ),
               )
             else
               for (final row in rows) ...[

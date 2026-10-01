@@ -26,14 +26,20 @@ class TeachingClassConfig {
   final String specialistCoverage;
   final String note;
 
-  TeachingClassConfig copyWith({TeachingModelType? model}) => TeachingClassConfig(
+  TeachingClassConfig copyWith({
+    TeachingModelType? model,
+    String? leadTeacher,
+    String? specialistCoverage,
+    String? note,
+  }) =>
+      TeachingClassConfig(
         id: id,
         section: section,
         className: className,
         model: model ?? this.model,
-        leadTeacher: leadTeacher,
-        specialistCoverage: specialistCoverage,
-        note: note,
+        leadTeacher: leadTeacher ?? this.leadTeacher,
+        specialistCoverage: specialistCoverage ?? this.specialistCoverage,
+        note: note ?? this.note,
       );
 
   Map<String, Object?> toJson() => {
