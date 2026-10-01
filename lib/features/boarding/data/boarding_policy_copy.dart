@@ -1,41 +1,7 @@
 import '../domain/boarding_models.dart';
 
-const boardingWebsiteSeed = <BoardingDorm>[
-  BoardingDorm(
-    name: 'Amina Hall',
-    houseParent: 'Mrs. Grace Daniel',
-    capacity: 48,
-    occupied: 44,
-    onCampus: 42,
-    approvedLeave: 2,
-    maintenance: 0,
-    status: DormStatus.normal,
-    note: 'Girls senior dormitory; evening roll and welfare handover complete.',
-  ),
-  BoardingDorm(
-    name: 'Unity Hall',
-    houseParent: 'Mr. Samuel Peter',
-    capacity: 52,
-    occupied: 49,
-    onCampus: 47,
-    approvedLeave: 2,
-    maintenance: 0,
-    status: DormStatus.normal,
-    note: 'Boys senior dormitory; normal operations.',
-  ),
-  BoardingDorm(
-    name: 'Peace Hall',
-    houseParent: 'Mrs. Ruth Musa',
-    capacity: 36,
-    occupied: 32,
-    onCampus: 31,
-    approvedLeave: 1,
-    maintenance: 2,
-    status: DormStatus.review,
-    note: 'Two maintenance items awaiting facilities follow-up.',
-  ),
-];
-
+/// Static guidance copy for Boarding & Hostel - not data about this school, so it never needs a
+/// real backend source. Real activity (dorms) lives in [BoardingRepository] instead.
 const boardingBoundaryRules = <String, String>{
   'Welfare, not surveillance':
       'Use roll checks, duty handover and approved leave—not intrusive monitoring.',
@@ -48,6 +14,8 @@ const boardingBoundaryRules = <String, String>{
 const boardingDisabledPreviewNote =
     'Preview only. Your school settings have not changed.';
 
+/// Computed entirely from [dorms] - the real, locally-held dormitories a school has actually
+/// created, never fixed sample counts.
 List<BoardingStat> boardingStats(
   List<BoardingDorm> dorms, {
   required bool previewEnabled,
@@ -66,7 +34,7 @@ List<BoardingStat> boardingStats(
       previewEnabled ? 'Enabled' : 'Off',
       'Preview only',
     ),
-    BoardingStat('Dorm occupancy', '$occupied/$capacity', 'Sample residents'),
+    BoardingStat('Dorm occupancy', '$occupied/$capacity', 'Across all real dorms'),
     BoardingStat('On campus', '$onCampus', 'Derived from dorm records'),
     BoardingStat(
       'Approved leave',

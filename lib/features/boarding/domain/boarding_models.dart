@@ -41,16 +41,27 @@ class BoardingDorm {
         .contains(normalized);
   }
 
-  BoardingDorm copyWith({bool? handoverReviewed}) => BoardingDorm(
+  BoardingDorm copyWith({
+    String? houseParent,
+    int? capacity,
+    int? occupied,
+    int? onCampus,
+    int? approvedLeave,
+    int? maintenance,
+    DormStatus? status,
+    String? note,
+    bool? handoverReviewed,
+  }) =>
+      BoardingDorm(
         name: name,
-        houseParent: houseParent,
-        capacity: capacity,
-        occupied: occupied,
-        onCampus: onCampus,
-        approvedLeave: approvedLeave,
-        maintenance: maintenance,
-        status: status,
-        note: note,
+        houseParent: houseParent ?? this.houseParent,
+        capacity: capacity ?? this.capacity,
+        occupied: occupied ?? this.occupied,
+        onCampus: onCampus ?? this.onCampus,
+        approvedLeave: approvedLeave ?? this.approvedLeave,
+        maintenance: maintenance ?? this.maintenance,
+        status: status ?? this.status,
+        note: note ?? this.note,
         handoverReviewed: handoverReviewed ?? this.handoverReviewed,
       );
 
@@ -90,7 +101,8 @@ class BoardingStat {
 }
 
 class BoardingPermissions {
-  const BoardingPermissions({required this.canReviewHandover});
+  const BoardingPermissions({required this.canManageAll, required this.canReviewHandover});
 
+  final bool canManageAll;
   final bool canReviewHandover;
 }

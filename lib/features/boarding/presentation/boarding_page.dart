@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/boarding_demo_data.dart';
+import '../data/boarding_policy_copy.dart';
 import '../data/boarding_repository.dart';
 import '../domain/boarding_models.dart';
 
@@ -68,6 +68,167 @@ class _BoardingPageState extends State<BoardingPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(result.message)),
     );
+    if (result.success) {
+      widget.onBoardingChanged?.call();
+      await _load();
+    }
+  }
+
+  Future<void> _addDorm() async {
+    final name = TextEditingController();
+    final houseParent = TextEditingController();
+    final capacity = TextEditingController(text: '0');
+    final note = TextEditingController();
+    var status = DormStatus.normal;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add dormitory'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: name, decoration: const InputDecoration(labelText: 'Dormitory name')),
+                  const SizedBox(height: 12),
+                  TextField(controller: houseParent, decoration: const InputDecoration(labelText: 'House parent')),
+                  const SizedBox(height: 12),
+                  TextField(controller: capacity, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Capacity')),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<DormStatus>(
+                    initialValue: status,
+                    decoration: const InputDecoration(labelText: 'Status'),
+                    items: [for (final item in DormStatus.values) DropdownMenuItem(value: item, child: Text(item.label))],
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => status = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(controller: note, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Note')),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Add dormitory')),
+          ],
+        ),
+      ),
+    );
+    final values = (name: name.text, houseParent: houseParent.text, capacity: int.tryParse(capacity.text) ?? 0, status: status, note: note.text);
+    name.dispose();
+    houseParent.dispose();
+    capacity.dispose();
+    note.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.create(
+      name: values.name,
+      houseParent: values.houseParent,
+      capacity: values.capacity,
+      status: values.status,
+      note: values.note,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) {
+      widget.onBoardingChanged?.call();
+      await _load();
+    }
+  }
+
+  Future<void> _editDorm(BoardingDorm dorm) async {
+    final houseParent = TextEditingController(text: dorm.houseParent);
+    final capacity = TextEditingController(text: '${dorm.capacity}');
+    final occupied = TextEditingController(text: '${dorm.occupied}');
+    final onCampus = TextEditingController(text: '${dorm.onCampus}');
+    final approvedLeave = TextEditingController(text: '${dorm.approvedLeave}');
+    final maintenance = TextEditingController(text: '${dorm.maintenance}');
+    final note = TextEditingController(text: dorm.note);
+    var status = dorm.status;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Edit ${dorm.name}'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: houseParent, decoration: const InputDecoration(labelText: 'House parent')),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: TextField(controller: capacity, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Capacity'))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: occupied, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Occupied'))),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: TextField(controller: onCampus, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'On campus'))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: approvedLeave, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Approved leave'))),
+                  ]),
+                  const SizedBox(height: 12),
+                  TextField(controller: maintenance, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Maintenance items')),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<DormStatus>(
+                    initialValue: status,
+                    decoration: const InputDecoration(labelText: 'Status'),
+                    items: [for (final item in DormStatus.values) DropdownMenuItem(value: item, child: Text(item.label))],
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => status = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(controller: note, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Note')),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    final values = (
+      houseParent: houseParent.text,
+      capacity: int.tryParse(capacity.text) ?? dorm.capacity,
+      occupied: int.tryParse(occupied.text) ?? dorm.occupied,
+      onCampus: int.tryParse(onCampus.text) ?? dorm.onCampus,
+      approvedLeave: int.tryParse(approvedLeave.text) ?? dorm.approvedLeave,
+      maintenance: int.tryParse(maintenance.text) ?? dorm.maintenance,
+      status: status,
+      note: note.text,
+    );
+    houseParent.dispose();
+    capacity.dispose();
+    occupied.dispose();
+    onCampus.dispose();
+    approvedLeave.dispose();
+    maintenance.dispose();
+    note.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.edit(
+      name: dorm.name,
+      houseParent: values.houseParent,
+      capacity: values.capacity,
+      occupied: values.occupied,
+      onCampus: values.onCampus,
+      approvedLeave: values.approvedLeave,
+      maintenance: values.maintenance,
+      status: values.status,
+      note: values.note,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
     if (result.success) {
       widget.onBoardingChanged?.call();
       await _load();
@@ -172,6 +333,7 @@ class _BoardingPageState extends State<BoardingPage> {
             if (compact) ...[
               _DormitoryOverview(
                 dorms: _visibleDorms,
+                hasAnyDorms: snapshot.dorms.isNotEmpty,
                 permissions: snapshot.permissions,
                 searchController: _searchController,
                 previewEnabled: _previewEnabled,
@@ -180,6 +342,8 @@ class _BoardingPageState extends State<BoardingPage> {
                   () => _previewEnabled = !_previewEnabled,
                 ),
                 onToggleReview: _toggleReview,
+                onAdd: _addDorm,
+                onEdit: _editDorm,
               ),
 
             ] else
@@ -190,6 +354,7 @@ class _BoardingPageState extends State<BoardingPage> {
                     flex: 7,
                     child: _DormitoryOverview(
                       dorms: _visibleDorms,
+                      hasAnyDorms: snapshot.dorms.isNotEmpty,
                       permissions: snapshot.permissions,
                       searchController: _searchController,
                       previewEnabled: _previewEnabled,
@@ -198,6 +363,8 @@ class _BoardingPageState extends State<BoardingPage> {
                         () => _previewEnabled = !_previewEnabled,
                       ),
                       onToggleReview: _toggleReview,
+                      onAdd: _addDorm,
+                      onEdit: _editDorm,
                     ),
                   ),
 
@@ -249,21 +416,27 @@ class _StatCard extends StatelessWidget {
 class _DormitoryOverview extends StatelessWidget {
   const _DormitoryOverview({
     required this.dorms,
+    required this.hasAnyDorms,
     required this.permissions,
     required this.searchController,
     required this.previewEnabled,
     required this.onQueryChanged,
     required this.onPreviewChanged,
     required this.onToggleReview,
+    required this.onAdd,
+    required this.onEdit,
   });
 
   final List<BoardingDorm> dorms;
+  final bool hasAnyDorms;
   final BoardingPermissions permissions;
   final TextEditingController searchController;
   final bool previewEnabled;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onPreviewChanged;
   final ValueChanged<BoardingDorm> onToggleReview;
+  final VoidCallback onAdd;
+  final ValueChanged<BoardingDorm> onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -297,6 +470,9 @@ class _DormitoryOverview extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 12),
+                if (permissions.canManageAll)
+                  OutlinedButton.icon(onPressed: onAdd, icon: const Icon(Icons.add_rounded), label: const Text('Add dormitory')),
                 const SizedBox(width: 12),
                 OutlinedButton(
                   onPressed: onPreviewChanged,
@@ -341,16 +517,24 @@ class _DormitoryOverview extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               if (dorms.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 30),
-                  child: Center(child: Text('No dormitories match this search.')),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 30),
+                  child: Center(
+                    child: Text(
+                      hasAnyDorms
+                          ? 'No dormitories match this search.'
+                          : 'No dormitories yet. Add the first one above.',
+                    ),
+                  ),
                 )
               else
                 for (final dorm in dorms) ...[
                   _DormCard(
                     dorm: dorm,
                     canReview: permissions.canReviewHandover,
+                    canManageAll: permissions.canManageAll,
                     onToggleReview: () => onToggleReview(dorm),
+                    onEdit: () => onEdit(dorm),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -366,12 +550,16 @@ class _DormCard extends StatelessWidget {
   const _DormCard({
     required this.dorm,
     required this.canReview,
+    required this.canManageAll,
     required this.onToggleReview,
+    required this.onEdit,
   });
 
   final BoardingDorm dorm;
   final bool canReview;
+  final bool canManageAll;
   final VoidCallback onToggleReview;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -417,21 +605,34 @@ class _DormCard extends StatelessWidget {
             '${dorm.onCampus} on campus · ${dorm.maintenance} maintenance items',
             style: theme.textTheme.bodySmall,
           ),
-          if (canReview) ...[
+          if (canReview || canManageAll) ...[
             const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: onToggleReview,
-              icon: Icon(
-                dorm.handoverReviewed
-                    ? Icons.restart_alt_rounded
-                    : Icons.fact_check_outlined,
-                size: 18,
-              ),
-              label: Text(
-                dorm.handoverReviewed
-                    ? 'Reopen review'
-                    : 'Mark handover reviewed',
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (canReview)
+                  OutlinedButton.icon(
+                    onPressed: onToggleReview,
+                    icon: Icon(
+                      dorm.handoverReviewed
+                          ? Icons.restart_alt_rounded
+                          : Icons.fact_check_outlined,
+                      size: 18,
+                    ),
+                    label: Text(
+                      dorm.handoverReviewed
+                          ? 'Reopen review'
+                          : 'Mark handover reviewed',
+                    ),
+                  ),
+                if (canManageAll)
+                  OutlinedButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Edit'),
+                  ),
+              ],
             ),
           ],
         ],

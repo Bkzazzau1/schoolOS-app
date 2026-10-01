@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/boarding_models.dart';
-import 'boarding_demo_data.dart';
 
 class BoardingSnapshot {
   const BoardingSnapshot({required this.dorms, required this.permissions});
@@ -28,36 +27,28 @@ class BoardingRepository {
 
   static const _entityType = 'boarding_dorm';
 
+  // Mirrors apps.schoollife.specs.campus.BOARDING exactly: manage=MANAGERS for the dorm record
+  // itself, but the guarded handoverReviewed field is narrower - LEADERS only (proprietor,
+  // principal - never administrator).
+  static const _managers = {SchoolRole.proprietor, SchoolRole.principal, SchoolRole.administrator};
+  static const _leaders = {SchoolRole.proprietor, SchoolRole.principal};
+
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
   BoardingPermissions permissionsFor(SchoolMembership membership) {
     return BoardingPermissions(
-      canReviewHandover: membership.role == SchoolRole.proprietor,
+      canManageAll: _managers.contains(membership.role),
+      canReviewHandover: _leaders.contains(membership.role),
     );
   }
 
   Future<BoardingSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
-
-    if (records.isEmpty) {
-      for (final dorm in boardingWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: _entityId(dorm.name),
-          payload: dorm.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
 
     final dorms = records
         .map((record) => BoardingDorm.fromJson(record.payload))
@@ -68,6 +59,85 @@ class BoardingRepository {
       dorms: dorms,
       permissions: permissionsFor(membership),
     );
+  }
+
+  Future<BoardingActionResult> create({
+    required String name,
+    required String houseParent,
+    required int capacity,
+    required DormStatus status,
+    required String note,
+  }) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (!permissionsFor(membership).canManageAll) {
+      return const BoardingActionResult(
+        success: false,
+        message: 'This membership cannot add a dormitory.',
+      );
+    }
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) {
+      return const BoardingActionResult(success: false, message: 'Enter a dormitory name.');
+    }
+    final entityId = _entityId(cleanName);
+    final existing = await _localDatabase.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _entityType,
+      entityId: entityId,
+    );
+    if (existing != null) {
+      return const BoardingActionResult(
+        success: false,
+        message: 'A dormitory with this name already exists.',
+      );
+    }
+
+    final dorm = BoardingDorm(
+      name: cleanName,
+      houseParent: houseParent.trim(),
+      capacity: capacity < 0 ? 0 : capacity,
+      occupied: 0,
+      onCampus: 0,
+      approvedLeave: 0,
+      maintenance: 0,
+      status: status,
+      note: note.trim(),
+    );
+    await _save(dorm, SyncOperation.create);
+    return const BoardingActionResult(success: true, message: 'Dormitory added and queued for sync.');
+  }
+
+  Future<BoardingActionResult> edit({
+    required String name,
+    required String houseParent,
+    required int capacity,
+    required int occupied,
+    required int onCampus,
+    required int approvedLeave,
+    required int maintenance,
+    required DormStatus status,
+    required String note,
+  }) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (!permissionsFor(membership).canManageAll) {
+      return const BoardingActionResult(
+        success: false,
+        message: 'This membership cannot edit a dormitory.',
+      );
+    }
+    final current = await _requireDorm(name);
+    final updated = current.copyWith(
+      houseParent: houseParent.trim(),
+      capacity: capacity < 0 ? 0 : capacity,
+      occupied: occupied < 0 ? 0 : occupied,
+      onCampus: onCampus < 0 ? 0 : onCampus,
+      approvedLeave: approvedLeave < 0 ? 0 : approvedLeave,
+      maintenance: maintenance < 0 ? 0 : maintenance,
+      status: status,
+      note: note.trim(),
+    );
+    await _save(updated, SyncOperation.update);
+    return const BoardingActionResult(success: true, message: 'Dormitory update saved and queued for sync.');
   }
 
   Future<BoardingActionResult> toggleHandoverReview(String dormName) async {
@@ -96,12 +166,37 @@ class BoardingRepository {
     final updated = current.copyWith(
       handoverReviewed: !current.handoverReviewed,
     );
+    await _save(updated, SyncOperation.update);
 
+    return BoardingActionResult(
+      success: true,
+      message: updated.handoverReviewed
+          ? 'Boarding handover review saved offline.'
+          : 'Boarding handover review reopened and queued for sync.',
+    );
+  }
+
+  Future<BoardingDorm> _requireDorm(String name) async {
+    final membership = _schoolSession.requireActiveMembership();
+    final record = await _localDatabase.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _entityType,
+      entityId: _entityId(name),
+    );
+    if (record == null) {
+      throw StateError('Dormitory $name was not found in this school.');
+    }
+    return BoardingDorm.fromJson(record.payload);
+  }
+
+  Future<void> _save(BoardingDorm dorm, SyncOperation operation) async {
+    final membership = _schoolSession.requireActiveMembership();
+    final entityId = _entityId(dorm.name);
     await _localDatabase.upsertLocalRecord(
       tenantId: membership.schoolId,
       entityType: _entityType,
       entityId: entityId,
-      payload: updated.toJson(),
+      payload: dorm.toJson(),
       isDirty: true,
     );
     await _localDatabase.queueMutation(
@@ -109,15 +204,8 @@ class BoardingRepository {
       membershipId: membership.id,
       entityType: _entityType,
       entityId: entityId,
-      operation: SyncOperation.update,
-      payload: updated.toJson(),
-    );
-
-    return BoardingActionResult(
-      success: true,
-      message: updated.handoverReviewed
-          ? 'Boarding handover review saved offline.'
-          : 'Boarding handover review reopened and queued for sync.',
+      operation: operation,
+      payload: dorm.toJson(),
     );
   }
 
