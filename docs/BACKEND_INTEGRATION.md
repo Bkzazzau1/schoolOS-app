@@ -3629,3 +3629,37 @@ front desk really log a visitor starting with an honest unset departure and refu
 manage/contribute or a blank visitor name; a manager can edit and review a real visit while the front desk can do
 neither). All 13 Visitors tests pass; full app suite back to the same 83 pre-existing failures as before this
 work, by name.
+
+## Flexible Teaching Models gets a real create flow, closing out Tier 2
+
+Sixth and last of Tier 2. `TeachingModelRepository` had `updateModel()` (change an existing class's model) but no
+way to ever add a class configuration in the first place - the same Houses-shaped gap. The real Spec
+(`TEACHING_MODELS = Spec("teaching_model_config", manage=LEADERS, read=STAFF_SIDE, required=("section",
+"model"))` in `apps/schoollife/specs/programmes.py`) is the simplest permission shape in the whole cluster: just
+`LEADERS` (proprietor, principal - no administrator, no contribute tier at all), so a single
+`canConfigureAllSections` flag - now scoped to `LEADERS` instead of proprietor alone - covers both create and
+update.
+
+**Design.** A new `create()` method lets a leader add a class's teaching-model configuration (section, class
+name, model, lead/tutor, specialist coverage, note), mirroring every other directory's shape in this cluster.
+`teachingModelStats()` was already mostly computed from a real `rows` argument (class-teacher/hybrid/
+subject-teacher counts); "Early Years rooms: 3" and "Primary overrides: 2" were fixed constants with no real
+source and are dropped, replaced with a genuinely computed "Configured classes" total.
+`teaching_model_demo_data.dart` is renamed `teaching_model_policy_copy.dart`, keeping `teachingModelInfo` and the
+assignment/boundary rule text as static reference copy - none of it was ever fabricated data about a particular
+school, just general guidance on what each model means.
+
+**Verification.** `flutter analyze` clean. `test/teaching_models_feature_test.dart`: the seed-preservation tests
+were removed; lead/specialist, serialization and model-change tests rewritten against inline fixtures; a new
+`copyWith` test covers the fields beyond `model`; a new assertion confirms `teachingModelStats([])` is honestly
+all zeros. New `test/teaching_model_repository_test.dart` (8 tests - a fresh school's `load()` is genuinely
+empty; `permissionsFor` matches `LEADERS` exactly, confirming administrator cannot configure here unlike every
+`MANAGERS`-gated Spec earlier in this cluster; `create()` lets a leader really add a class configuration and
+refuses administrator or a blank section/class name; `updateModel()` changes only the model, never lead/specialist
+data, and refuses administrator). All 16 Teaching Models tests pass; full app suite back to the same 83
+pre-existing failures as before this work, by name.
+
+This closes Tier 2: awards, boarding, lost_found, service, visitors and teaching_models are all genuinely real,
+alongside Tier 1's noticeboard, houses, assembly, meals, activities and events. All 12 of the "Community-sized"
+directories from the original 14-directory cluster are done. Excursions (coupled to Administrator's academic-term
+data) and transport (its own larger, multi-file pass) remain as separate decisions.
