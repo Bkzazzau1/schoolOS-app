@@ -44,18 +44,30 @@ class ServiceProject {
     return '$title $audience $coordinator'.toLowerCase().contains(normalized);
   }
 
-  ServiceProject copyWith({bool? verified}) => ServiceProject(
+  ServiceProject copyWith({
+    String? type,
+    String? audience,
+    String? coordinator,
+    String? date,
+    int? participants,
+    int? hours,
+    ServiceProjectStatus? status,
+    String? beneficiary,
+    String? note,
+    bool? verified,
+  }) =>
+      ServiceProject(
         id: id,
         title: title,
-        type: type,
-        audience: audience,
-        coordinator: coordinator,
-        date: date,
-        participants: participants,
-        hours: hours,
-        status: status,
-        beneficiary: beneficiary,
-        note: note,
+        type: type ?? this.type,
+        audience: audience ?? this.audience,
+        coordinator: coordinator ?? this.coordinator,
+        date: date ?? this.date,
+        participants: participants ?? this.participants,
+        hours: hours ?? this.hours,
+        status: status ?? this.status,
+        beneficiary: beneficiary ?? this.beneficiary,
+        note: note ?? this.note,
         verified: verified ?? this.verified,
       );
 
@@ -99,7 +111,13 @@ class ServiceStat {
 }
 
 class ServicePermissions {
-  const ServicePermissions({required this.canVerifyRecords});
+  const ServicePermissions({
+    required this.canCreate,
+    required this.canManageAll,
+    required this.canVerifyRecords,
+  });
 
+  final bool canCreate;
+  final bool canManageAll;
   final bool canVerifyRecords;
 }

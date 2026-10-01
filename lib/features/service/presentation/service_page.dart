@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/service_demo_data.dart';
+import '../data/service_policy_copy.dart';
 import '../data/service_repository.dart';
 import '../domain/service_models.dart';
 
@@ -68,6 +68,195 @@ class _ServicePageState extends State<ServicePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(result.message)),
     );
+    if (result.success) {
+      widget.onServiceChanged?.call();
+      await _load();
+    }
+  }
+
+  Future<void> _addProject() async {
+    final title = TextEditingController();
+    final type = TextEditingController();
+    final audience = TextEditingController();
+    final coordinator = TextEditingController();
+    final date = TextEditingController();
+    final beneficiary = TextEditingController();
+    final note = TextEditingController();
+    var status = ServiceProjectStatus.planned;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add service project'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: title, decoration: const InputDecoration(labelText: 'Project title')),
+                  const SizedBox(height: 12),
+                  TextField(controller: type, decoration: const InputDecoration(labelText: 'Type (e.g. Service, Peer support)')),
+                  const SizedBox(height: 12),
+                  TextField(controller: audience, decoration: const InputDecoration(labelText: 'Audience')),
+                  const SizedBox(height: 12),
+                  TextField(controller: coordinator, decoration: const InputDecoration(labelText: 'Coordinator')),
+                  const SizedBox(height: 12),
+                  TextField(controller: date, decoration: const InputDecoration(labelText: 'Date')),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<ServiceProjectStatus>(
+                    initialValue: status,
+                    decoration: const InputDecoration(labelText: 'Status'),
+                    items: [for (final item in ServiceProjectStatus.values) DropdownMenuItem(value: item, child: Text(item.label))],
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => status = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(controller: beneficiary, decoration: const InputDecoration(labelText: 'Beneficiary')),
+                  const SizedBox(height: 12),
+                  TextField(controller: note, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Note')),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Add project')),
+          ],
+        ),
+      ),
+    );
+    final values = (
+      title: title.text,
+      type: type.text,
+      audience: audience.text,
+      coordinator: coordinator.text,
+      date: date.text,
+      status: status,
+      beneficiary: beneficiary.text,
+      note: note.text,
+    );
+    title.dispose();
+    type.dispose();
+    audience.dispose();
+    coordinator.dispose();
+    date.dispose();
+    beneficiary.dispose();
+    note.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.create(
+      title: values.title,
+      type: values.type,
+      audience: values.audience,
+      coordinator: values.coordinator,
+      date: values.date,
+      status: values.status,
+      beneficiary: values.beneficiary,
+      note: values.note,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) {
+      widget.onServiceChanged?.call();
+      await _load();
+    }
+  }
+
+  Future<void> _editProject(ServiceProject project) async {
+    final type = TextEditingController(text: project.type);
+    final audience = TextEditingController(text: project.audience);
+    final coordinator = TextEditingController(text: project.coordinator);
+    final date = TextEditingController(text: project.date);
+    final participants = TextEditingController(text: '${project.participants}');
+    final hours = TextEditingController(text: '${project.hours}');
+    final beneficiary = TextEditingController(text: project.beneficiary);
+    final note = TextEditingController(text: project.note);
+    var status = project.status;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Edit ${project.title}'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: type, decoration: const InputDecoration(labelText: 'Type')),
+                  const SizedBox(height: 12),
+                  TextField(controller: audience, decoration: const InputDecoration(labelText: 'Audience')),
+                  const SizedBox(height: 12),
+                  TextField(controller: coordinator, decoration: const InputDecoration(labelText: 'Coordinator')),
+                  const SizedBox(height: 12),
+                  TextField(controller: date, decoration: const InputDecoration(labelText: 'Date')),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: TextField(controller: participants, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Participants'))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: hours, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Hours'))),
+                  ]),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<ServiceProjectStatus>(
+                    initialValue: status,
+                    decoration: const InputDecoration(labelText: 'Status'),
+                    items: [for (final item in ServiceProjectStatus.values) DropdownMenuItem(value: item, child: Text(item.label))],
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => status = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(controller: beneficiary, decoration: const InputDecoration(labelText: 'Beneficiary')),
+                  const SizedBox(height: 12),
+                  TextField(controller: note, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Note')),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    final values = (
+      type: type.text,
+      audience: audience.text,
+      coordinator: coordinator.text,
+      date: date.text,
+      participants: int.tryParse(participants.text) ?? project.participants,
+      hours: int.tryParse(hours.text) ?? project.hours,
+      status: status,
+      beneficiary: beneficiary.text,
+      note: note.text,
+    );
+    type.dispose();
+    audience.dispose();
+    coordinator.dispose();
+    date.dispose();
+    participants.dispose();
+    hours.dispose();
+    beneficiary.dispose();
+    note.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.edit(
+      id: project.id,
+      type: values.type,
+      audience: values.audience,
+      coordinator: values.coordinator,
+      date: values.date,
+      participants: values.participants,
+      hours: values.hours,
+      status: values.status,
+      beneficiary: values.beneficiary,
+      note: values.note,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
     if (result.success) {
       widget.onServiceChanged?.call();
       await _load();
@@ -169,12 +358,15 @@ class _ServicePageState extends State<ServicePage> {
             if (compact) ...[
               _ProjectRegister(
                 projects: _visibleProjects,
+                hasAnyProjects: snapshot.projects.isNotEmpty,
                 permissions: snapshot.permissions,
                 searchController: _searchController,
                 selectedStatus: _status,
                 onQueryChanged: (_) => setState(() {}),
                 onStatusChanged: (value) => setState(() => _status = value),
                 onToggleVerification: _toggleVerification,
+                onAdd: _addProject,
+                onEdit: _editProject,
               ),
               const SizedBox(height: 16),
               const _PrinciplesSidebar(),
@@ -186,12 +378,15 @@ class _ServicePageState extends State<ServicePage> {
                     flex: 7,
                     child: _ProjectRegister(
                       projects: _visibleProjects,
+                      hasAnyProjects: snapshot.projects.isNotEmpty,
                       permissions: snapshot.permissions,
                       searchController: _searchController,
                       selectedStatus: _status,
                       onQueryChanged: (_) => setState(() {}),
                       onStatusChanged: (value) => setState(() => _status = value),
                       onToggleVerification: _toggleVerification,
+                      onAdd: _addProject,
+                      onEdit: _editProject,
                     ),
                   ),
                   const SizedBox(width: 18),
@@ -244,21 +439,27 @@ class _StatCard extends StatelessWidget {
 class _ProjectRegister extends StatelessWidget {
   const _ProjectRegister({
     required this.projects,
+    required this.hasAnyProjects,
     required this.permissions,
     required this.searchController,
     required this.selectedStatus,
     required this.onQueryChanged,
     required this.onStatusChanged,
     required this.onToggleVerification,
+    required this.onAdd,
+    required this.onEdit,
   });
 
   final List<ServiceProject> projects;
+  final bool hasAnyProjects;
   final ServicePermissions permissions;
   final TextEditingController searchController;
   final ServiceProjectStatus? selectedStatus;
   final ValueChanged<String> onQueryChanged;
   final ValueChanged<ServiceProjectStatus?> onStatusChanged;
   final ValueChanged<ServiceProject> onToggleVerification;
+  final VoidCallback onAdd;
+  final ValueChanged<ServiceProject> onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -268,11 +469,20 @@ class _ProjectRegister extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Service projects',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Service projects',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                   ),
+                ),
+                if (permissions.canCreate)
+                  OutlinedButton.icon(onPressed: onAdd, icon: const Icon(Icons.add_rounded), label: const Text('Add project')),
+              ],
             ),
             const SizedBox(height: 4),
             const Text(
@@ -317,16 +527,24 @@ class _ProjectRegister extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (projects.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 30),
-                child: Center(child: Text('No service projects match these filters.')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                child: Center(
+                  child: Text(
+                    hasAnyProjects
+                        ? 'No service projects match these filters.'
+                        : 'No service projects yet. Add the first one above.',
+                  ),
+                ),
               )
             else
               for (final project in projects) ...[
                 _ProjectTile(
                   project: project,
                   canVerify: permissions.canVerifyRecords,
+                  canManageAll: permissions.canManageAll,
                   onToggleVerification: () => onToggleVerification(project),
+                  onEdit: () => onEdit(project),
                 ),
                 if (project != projects.last) const Divider(height: 26),
               ],
@@ -341,12 +559,16 @@ class _ProjectTile extends StatelessWidget {
   const _ProjectTile({
     required this.project,
     required this.canVerify,
+    required this.canManageAll,
     required this.onToggleVerification,
+    required this.onEdit,
   });
 
   final ServiceProject project;
   final bool canVerify;
+  final bool canManageAll;
   final VoidCallback onToggleVerification;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -400,20 +622,33 @@ class _ProjectTile extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              if (canVerify) ...[
+              if (canVerify || canManageAll) ...[
                 const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: onToggleVerification,
-                  icon: Icon(
-                    project.verified
-                        ? Icons.restart_alt_rounded
-                        : Icons.verified_outlined,
-                  ),
-                  label: Text(
-                    project.verified
-                        ? 'Reopen verification'
-                        : 'Verify record',
-                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (canVerify)
+                      OutlinedButton.icon(
+                        onPressed: onToggleVerification,
+                        icon: Icon(
+                          project.verified
+                              ? Icons.restart_alt_rounded
+                              : Icons.verified_outlined,
+                        ),
+                        label: Text(
+                          project.verified
+                              ? 'Reopen verification'
+                              : 'Verify record',
+                        ),
+                      ),
+                    if (canManageAll)
+                      OutlinedButton.icon(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('Edit'),
+                      ),
+                  ],
                 ),
               ],
             ],
