@@ -3542,3 +3542,33 @@ administrator can manage dorms but not review a handover; `create()` adds a real
 non-manager, and refuses a duplicate name; `edit()` really updates hand-maintained totals; `toggleHandoverReview()`
 refuses administrator and allows a real leader). All 15 Boarding tests pass; full app suite back to the same 83
 pre-existing failures as before this work, by name.
+
+## Lost & Found gets a real "anyone may report" flow
+
+Third of Tier 2. Same no-create-method gap as Houses/Assembly/Boarding, but the real Spec here is the broadest
+yet: `LOST_FOUND = Spec("lost_found_item", manage=MANAGERS|{"staff"}, contribute={"teacher","parent","student",
+"accountant","driver"}, required=("item",), guarded={"claimant": MANAGERS|{"staff"}, "status": MANAGERS|{"staff"}})`
+(in `apps/schoollife/specs/campus.py`), whose own comment states the intent plainly: "Anyone may report a found
+item; only staff who run the office settle a claim." `manage ∪ contribute` covers every role except alumni.
+`permissionsFor` previously granted `canManageClaims` to the proprietor alone and had no reporting concept at
+all.
+
+**Design.** `LostFoundPermissions` gained `canReport` (manage ∪ contribute - everyone but alumni) alongside
+`canManageClaims` (manage only, now correctly including staff, not just proprietor). A new `report()` method lets
+anyone with `canReport` log a found item; `claimant` is deliberately never set by the reporter - it's guarded to
+the claims office in the real Spec, so a report always starts honestly unclaimed (`claimant: ''`), never a
+fabricated claimant name the reporter couldn't actually know. The UI shows "Not claimed yet" rather than a blank
+line when `claimant` is empty. `lostFoundStats` was already mostly computed from a real `items` argument (open /
+claim-review / returned counts); "Storage points: 4" was the one disconnected constant and is dropped outright -
+nothing in the app tracks distinct physical storage locations, so there was no honest number to show, unlike
+"Auto disposal: Off / Policy required later" right beside it, which was already an honest placeholder for a real,
+not-yet-configured policy. `lost_found_demo_data.dart` is renamed `lost_found_policy_copy.dart`.
+
+**Verification.** `flutter analyze` clean. `test/lost_found_test.dart`: the seed-preservation test was removed;
+status, search, serialization and transition tests rewritten against inline fixtures; a new test confirms
+`lostFoundStats([])` is honestly all zeros. New `test/lost_found_repository_test.dart` (9 tests - a fresh
+school's `load()` is genuinely empty; `permissionsFor` matches the real Spec exactly, confirming every role but
+alumni can report while only managers+staff can manage claims; `report()` lets a parent really log an item
+starting honestly unclaimed and refuses alumni or an empty item description; only a manager can start a claim
+review or mark an item returned). All 14 Lost & Found tests pass; full app suite back to the same 83 pre-existing
+failures as before this work, by name.
