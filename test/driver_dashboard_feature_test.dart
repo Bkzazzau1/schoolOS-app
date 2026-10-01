@@ -4,16 +4,17 @@ import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/driver/data/driver_dashboard_repository.dart';
 import 'package:schoolos_app/features/driver/data/driver_morning_run_repository.dart';
-import 'package:schoolos_app/features/transport/data/transport_demo_data.dart';
+import 'package:schoolos_app/features/driver/domain/driver_dashboard_models.dart';
+import 'package:schoolos_app/features/transport/data/transport_rider_assignment_repository.dart';
+import 'package:schoolos_app/features/transport/data/transport_route_management_repository.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
 
-// The one demo Driver membership id the app's own seeding logic specifically recognizes
-// (DriverDashboardRepository._loadAssignment only auto-assigns this exact id to BUS-02).
 const driver = SchoolMembership(id: 'membership-driver-001', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.driver);
 const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
+const admin = SchoolMembership(id: 'membership-admin-001', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.administrator);
 
 void main() {
   LocalDatabase? db;
@@ -26,7 +27,52 @@ void main() {
     await database.initialize();
     db = database;
     session = SchoolSessionController(store: FakeSessionStore());
-    await session.setMemberships([driver, teacher]);
+    await session.setMemberships([driver, teacher, admin]);
+
+    // Build the real chain Transport Control would really have in place before a Driver ever
+    // opens the app: a real route, a real stop plan, a real driver assignment, and one real
+    // registered rider - nothing here is a fabricated seed.
+    await session.selectSchool(admin);
+    final routeManagement = TransportRouteManagementRepository(localDatabase: database, schoolSession: session);
+    await routeManagement.createRoute(
+      name: 'Barnawa / Kakuri Route',
+      vehicle: 'Toyota Hiace · BGA-02',
+      assistant: 'Not recorded yet',
+    );
+    await routeManagement.addStop(
+      routeId: 'BUS-01',
+      name: 'Barnawa Junction',
+      morningTime: '07:00',
+      afternoonTime: '15:00',
+    );
+    await routeManagement.addStop(
+      routeId: 'BUS-01',
+      name: 'Kakuri Junction',
+      morningTime: '07:10',
+      afternoonTime: '15:10',
+    );
+
+    const assignment = DriverTransportAssignment(
+      membershipId: 'membership-driver-001',
+      routeId: 'BUS-01',
+      driverDisplayName: 'Driver',
+    );
+    await database.upsertLocalRecord(
+      tenantId: driver.schoolId,
+      entityType: DriverDashboardRepository.assignmentEntityType,
+      entityId: assignment.membershipId,
+      payload: assignment.toJson(),
+      isDirty: false,
+    );
+
+    final riderAssignments = TransportRiderAssignmentRepository(localDatabase: database, schoolSession: session);
+    final plan = await routeManagement.loadPlanForRoute('BUS-01');
+    final firstStopId = plan.activeStops.first.id;
+    // STU-001 Maryam Abdullahi is the real, already-seeded administrator student directory entry
+    // (administrator_students_demo_data.dart) - the same single source every other role's tests
+    // treat as this demo school's real roster.
+    await riderAssignments.assignStudent(studentId: 'STU-001', routeId: 'BUS-01', stopId: firstStopId);
+
     await session.selectSchool(driver);
     dashboard = DriverDashboardRepository(localDatabase: database, schoolSession: session);
     morningRun = DriverMorningRunRepository(localDatabase: database, schoolSession: session);
@@ -34,14 +80,14 @@ void main() {
 
   tearDown(() => db?.close());
 
-  test('the seeded demo driver assignment carries an honest role label, never a fabricated person', () async {
+  test('a real driver assignment carries an honest role label, never a fabricated person', () async {
     await setUpSchool();
     final snapshot = await dashboard.load();
     expect(snapshot.assignment.driverDisplayName, 'Driver');
-    expect(snapshot.assignment.routeId, 'BUS-02');
+    expect(snapshot.assignment.routeId, 'BUS-01');
   });
 
-  test('the real BUS-02 rider count matches the real register: one real student, not a fabricated roster', () async {
+  test('the real rider count matches the real register: one real student, not a fabricated roster', () async {
     await setUpSchool();
     final snapshot = await dashboard.load();
     // Before any run is recorded today, the dashboard falls back to the route's own real rider
@@ -50,7 +96,7 @@ void main() {
     expect(snapshot.afternoonExpected, 1);
   });
 
-  test('the real morning manifest has only real registered students, every other stop honestly empty', () async {
+  test('the real morning manifest has only the real registered student, the other stop honestly empty', () async {
     await setUpSchool();
     final run = await morningRun.loadToday();
     expect(run.expectedRiders, 1);
@@ -61,16 +107,10 @@ void main() {
     expect(allRiders.single.name, 'Maryam Abdullahi');
     expect(allRiders.single.className, 'JSS 2A');
 
-    // Every other stop on the route is honestly empty rather than padded with invented riders.
+    // The second stop has no rider assigned to it and is honestly empty rather than padded with
+    // invented riders.
     final emptyStops = run.stops.where((stop) => stop.riders.isEmpty);
-    expect(emptyStops, hasLength(run.stops.length - 1));
-  });
-
-  test('BUS-02 seed reconciles with the real trimmed roster', () async {
-    final route = transportWebsiteSeed.firstWhere((r) => r.id == 'BUS-02');
-    await setUpSchool();
-    final run = await morningRun.loadToday();
-    expect(route.riders, run.expectedRiders);
+    expect(emptyStops, hasLength(1));
   });
 
   test('only a Driver membership can load the transport dashboard', () async {

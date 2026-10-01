@@ -3,6 +3,7 @@ import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/transport/data/transport_repository.dart';
+import 'package:schoolos_app/features/transport/data/transport_route_management_repository.dart';
 import 'package:schoolos_app/features/transport/data/transport_vehicle_readiness_repository.dart';
 import 'package:schoolos_app/features/transport/domain/transport_vehicle_readiness_models.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
@@ -31,6 +32,17 @@ void main() {
     await session.selectSchool(owner);
     readiness = TransportVehicleReadinessRepository(localDatabase: db, schoolSession: session);
     transport = TransportRepository(localDatabase: db, schoolSession: session);
+    // BUS-01 is no longer a seeded route - create a real one (deterministically the first
+    // route id a fresh school gets) so setClearance has a real route to hold/release.
+    final routeManagement = TransportRouteManagementRepository(
+      localDatabase: db,
+      schoolSession: session,
+    );
+    await routeManagement.createRoute(
+      name: 'Zaria Road Route',
+      vehicle: 'Toyota Coaster · BGA-01',
+      assistant: 'Mrs. Esther John',
+    );
   });
 
   tearDown(() => db.close());

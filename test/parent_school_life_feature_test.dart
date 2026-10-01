@@ -18,6 +18,7 @@ import 'package:schoolos_app/features/parent/data/parent_children_repository.dar
 import 'package:schoolos_app/features/parent/data/parent_school_life_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/concession_repository.dart';
 import 'package:schoolos_app/features/transport/data/transport_rider_assignment_repository.dart';
+import 'package:schoolos_app/features/transport/data/transport_route_management_repository.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
@@ -105,16 +106,46 @@ void main() {
     expect(snapshot.events.map((e) => e.title), isNot(contains('Last Term Sports Day')), reason: 'completed events are not upcoming');
   });
 
-  test('transport reflects the real per-student assignment: only the really-seeded rider shows active', () async {
+  test('transport reflects the real per-student assignment: only an actually-assigned rider shows active', () async {
     await setUpFamily();
+    await session.selectSchool(proprietor);
+    final routeManagement = TransportRouteManagementRepository(localDatabase: db!, schoolSession: session);
+    await routeManagement.createRoute(
+      name: 'Barnawa / Kakuri Route',
+      vehicle: 'Toyota Hiace · BGA-02',
+      assistant: 'Not recorded yet',
+    );
+    await routeManagement.addStop(
+      routeId: 'BUS-01',
+      name: 'Barnawa Junction',
+      morningTime: '07:00',
+      afternoonTime: '15:00',
+    );
+    final plan = await routeManagement.loadPlanForRoute('BUS-01');
+    final riderAssignments = TransportRiderAssignmentRepository(localDatabase: db!, schoolSession: session);
+    await riderAssignments.assignStudent(
+      studentId: 'STU-001',
+      routeId: 'BUS-01',
+      stopId: plan.activeStops.single.id,
+    );
+    await session.selectSchool(parent);
+
     final snapshot = await schoolLife.load();
     final maryam = snapshot.transport.firstWhere((t) => t.childName == 'Maryam Abdullahi');
     final hafsa = snapshot.transport.firstWhere((t) => t.childName == 'Hafsa Abdullahi');
 
     expect(maryam.status, 'Active');
-    expect(maryam.serviceCode, 'BUS-02', reason: 'Maryam is really seeded onto BUS-02 in the driver morning-run data');
+    expect(maryam.serviceCode, 'BUS-01', reason: 'Maryam was really just assigned to BUS-01 above');
     expect(hafsa.status, 'Not assigned');
     expect(hafsa.serviceCode, 'Not recorded yet');
+  });
+
+  test('transport is honestly "not assigned" for every child until a manager really assigns one', () async {
+    await setUpFamily();
+    final snapshot = await schoolLife.load();
+    final maryam = snapshot.transport.firstWhere((t) => t.childName == 'Maryam Abdullahi');
+    expect(maryam.status, 'Not assigned');
+    expect(maryam.serviceCode, 'Not recorded yet');
   });
 
   test('today\'s meal is honestly "Not recorded yet" until the school really sets one', () async {

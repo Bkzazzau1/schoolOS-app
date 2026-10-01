@@ -1,64 +1,104 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/transport/data/transport_demo_data.dart';
+import 'package:schoolos_app/features/transport/data/transport_policy_copy.dart';
 import 'package:schoolos_app/features/transport/domain/transport_models.dart';
 
+const _route1 = SchoolTransportRoute(
+  id: 'BUS-01',
+  name: 'Zaria Road Route',
+  vehicle: 'Toyota Coaster · BGA-01',
+  driver: 'Driver',
+  assistant: 'Not recorded yet',
+  riders: 2,
+  stops: 3,
+  morning: 'Not started',
+  afternoon: 'Not started',
+  status: TransportRouteStatus.preparing,
+  note: 'No transport run recorded yet today.',
+);
+
+const _route2 = SchoolTransportRoute(
+  id: 'BUS-02',
+  name: 'Barnawa / Kakuri Route',
+  vehicle: 'Toyota Hiace · BGA-02',
+  driver: 'Mr. Musa Lawal',
+  assistant: 'Mrs. Esther John',
+  riders: 1,
+  stops: 7,
+  morning: '1 / 1 checked',
+  afternoon: 'Pending dismissal',
+  status: TransportRouteStatus.arrived,
+  note: '',
+);
+
+const _route3 = SchoolTransportRoute(
+  id: 'BUS-03',
+  name: 'Backup Vehicle',
+  vehicle: 'Hiace · BGA-03',
+  driver: 'Relief pool',
+  assistant: 'Assigned as needed',
+  riders: 0,
+  stops: 0,
+  morning: 'Not dispatched',
+  afternoon: 'Standby',
+  status: TransportRouteStatus.maintenance,
+  note: 'Routine brake inspection; unavailable until cleared.',
+);
+
 void main() {
-  test('website transport seed has three active routes plus backup', () {
-    expect(transportWebsiteSeed, hasLength(4));
-    expect(
-      transportWebsiteSeed.where((route) => route.riders > 0),
-      hasLength(3),
-    );
-    // BUS-02's rider count matches the one real student actually registered on it (see
-    // driver_morning_run_demo_data.dart); the other routes are a separate, not-yet-audited concern.
-    expect(transportRegisteredRiders, 66);
+  test('search and status filtering work against real route fields', () {
+    final routes = [_route1, _route2, _route3];
+    expect(routes.where((route) => route.matches('Musa Lawal', null)), hasLength(1));
+    expect(routes.where((route) => route.matches('', TransportRouteStatus.arrived)), hasLength(1));
+    expect(routes.where((route) => route.matches('Backup', TransportRouteStatus.arrived)), isEmpty);
   });
 
-  test('vehicle availability matches website snapshot', () {
-    expect(
-      transportWebsiteSeed.where((route) => route.isAvailable),
-      hasLength(3),
-    );
-    expect(
-      transportWebsiteSeed.where((route) => route.status == TransportRouteStatus.maintenance).single.id,
-      'BUS-04',
-    );
-  });
-
-  test('Barnawa route (BUS-02) starts honest: no run recorded, no invented driver identity', () {
-    final route = transportWebsiteSeed.firstWhere((item) => item.id == 'BUS-02');
-    expect(route.morning, 'Not started');
-    expect(route.status, TransportRouteStatus.preparing);
-    expect(route.driver, 'Driver');
-    expect(route.assistant, 'Not recorded yet');
-    // Only one real student is actually registered on this route.
-    expect(route.riders, 1);
-  });
-
-  test('search and status filtering match website behavior', () {
-    expect(
-      transportWebsiteSeed.where((route) => route.matches('Musa Lawal', null)),
-      hasLength(1),
-    );
-    // BUS-02 now honestly starts as "preparing" (no run recorded yet) rather than a fabricated
-    // "arrived", so only the two other, not-yet-audited routes still match "arrived".
-    expect(
-      transportWebsiteSeed.where((route) => route.matches('', TransportRouteStatus.arrived)),
-      hasLength(2),
-    );
-    expect(
-      transportWebsiteSeed.where((route) => route.matches('Backup', TransportRouteStatus.arrived)),
-      isEmpty,
-    );
+  test('vehicle availability reflects status, not a fixed assumption', () {
+    expect(_route1.isAvailable, isTrue);
+    expect(_route2.isAvailable, isTrue);
+    expect(_route3.isAvailable, isFalse, reason: 'maintenance routes are never available');
   });
 
   test('route review state serializes without adding rider addresses', () {
-    final reviewed = transportWebsiteSeed.first.copyWith(reviewed: true);
+    final reviewed = _route1.copyWith(reviewed: true);
     final json = reviewed.toJson();
     final restored = SchoolTransportRoute.fromJson(json);
     expect(restored.reviewed, isTrue);
     expect(json.keys, isNot(contains('address')));
     expect(json.keys, isNot(contains('pickupPoint')));
+  });
+
+  group('transportStats is honestly computed from real routes, never fixed placeholders', () {
+    test('an empty route list is all honest zeros', () {
+      final stats = transportStats(const [], 0);
+      expect(stats.firstWhere((s) => s.label == 'Configured routes').value, '0');
+      expect(stats.firstWhere((s) => s.label == 'Registered riders').value, '0');
+      expect(stats.firstWhere((s) => s.label == 'Vehicles available').value, '0 / 0');
+      expect(stats.firstWhere((s) => s.label == 'Morning exceptions').value, '0');
+      expect(
+        stats.firstWhere((s) => s.label == 'Morning exceptions').detail,
+        'No exceptions recorded today',
+      );
+    });
+
+    test('real routes and a real exception count are reflected exactly', () {
+      final stats = transportStats([_route1, _route2, _route3], 2);
+      expect(stats.firstWhere((s) => s.label == 'Configured routes').value, '2');
+      expect(
+        stats.firstWhere((s) => s.label == 'Configured routes').detail,
+        'Plus 1 spare vehicle',
+      );
+      expect(stats.firstWhere((s) => s.label == 'Registered riders').value, '3');
+      expect(stats.firstWhere((s) => s.label == 'Vehicles available').value, '2 / 3');
+      expect(
+        stats.firstWhere((s) => s.label == 'Vehicles available').detail,
+        '1 under maintenance',
+      );
+      expect(stats.firstWhere((s) => s.label == 'Morning exceptions').value, '2');
+      expect(
+        stats.firstWhere((s) => s.label == 'Morning exceptions').detail,
+        'Riders marked exception today',
+      );
+    });
   });
 
   test('transport safety and future parent boundary remain explicit', () {

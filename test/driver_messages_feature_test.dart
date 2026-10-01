@@ -4,7 +4,10 @@ import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/driver/data/driver_dashboard_repository.dart';
 import 'package:schoolos_app/features/driver/data/driver_messages_repository.dart';
+import 'package:schoolos_app/features/driver/domain/driver_dashboard_models.dart';
 import 'package:schoolos_app/features/driver/domain/driver_messages_models.dart';
+import 'package:schoolos_app/features/transport/data/transport_route_management_repository.dart';
+import 'package:schoolos_app/features/transport/domain/transport_models.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
@@ -29,7 +32,43 @@ void main() {
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([driver]);
     await session.selectSchool(driver);
-    // The route and assignment exist first (a real school has them from the server).
+    // A real route and a real, active assignment linking this Driver to it - what a real
+    // school's server-confirmed data would already have in place before a Driver ever opens
+    // the app. Writing the raw records directly (rather than through TransportRepository's own
+    // create/assign flow) keeps this focused on DriverMessagesRepository, the thing actually
+    // under test here.
+    const route = SchoolTransportRoute(
+      id: 'BUS-02',
+      name: 'Barnawa / Kakuri Route',
+      vehicle: 'Toyota Hiace · BGA-02',
+      driver: 'Driver',
+      assistant: 'Not recorded yet',
+      riders: 0,
+      stops: 0,
+      morning: 'Not started',
+      afternoon: 'Not started',
+      status: TransportRouteStatus.preparing,
+      note: '',
+    );
+    await database.upsertLocalRecord(
+      tenantId: driver.schoolId,
+      entityType: TransportRouteManagementRepository.routeEntityType,
+      entityId: route.id,
+      payload: route.toJson(),
+      isDirty: false,
+    );
+    const assignment = DriverTransportAssignment(
+      membershipId: 'membership-driver-001',
+      routeId: 'BUS-02',
+      driverDisplayName: 'Driver',
+    );
+    await database.upsertLocalRecord(
+      tenantId: driver.schoolId,
+      entityType: DriverDashboardRepository.assignmentEntityType,
+      entityId: assignment.membershipId,
+      payload: assignment.toJson(),
+      isDirty: false,
+    );
     await DriverDashboardRepository(localDatabase: database, schoolSession: session).load();
     messages = DriverMessagesRepository(localDatabase: database, schoolSession: session);
   }
