@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/activity_demo_data.dart';
+import '../data/activity_policy_copy.dart';
 import '../data/activity_repository.dart';
 import '../domain/activity_models.dart';
 
@@ -198,7 +198,7 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
                     const SizedBox(height: 16),
                     const _ScopeCard(),
                     const SizedBox(height: 16),
-                    _Stats(compact: compact),
+                    _Stats(activities: snapshot.activities, compact: compact),
                     const SizedBox(height: 16),
                     if (wide)
                       Row(
@@ -257,7 +257,7 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
                   ),
                 ),
                 FilledButton.icon(
-                  onPressed: snapshot.permissions.canManageAll ? _addActivity : null,
+                  onPressed: snapshot.permissions.canCreate ? _addActivity : null,
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('Add activity'),
                 ),
@@ -278,9 +278,15 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
             ],
             const SizedBox(height: 12),
             if (_visible.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 30),
-                child: Center(child: Text('No programmes match these filters.')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                child: Center(
+                  child: Text(
+                    snapshot.activities.isEmpty
+                        ? 'No programmes yet. Add the first one above.'
+                        : 'No programmes match these filters.',
+                  ),
+                ),
               )
             else
               for (final item in _visible) ...[
@@ -450,26 +456,14 @@ class _ScopeCard extends StatelessWidget {
 }
 
 class _Stats extends StatelessWidget {
-  const _Stats({required this.compact});
+  const _Stats({required this.activities, required this.compact});
+  final List<SchoolActivity> activities;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final notes = const {
-      'Active programmes': 'Clubs, sports, creative + enrichment',
-      'Participation entries': 'Not a unique-student count',
-      'Programme types': 'Sport, club, creative, enrichment',
-      'Upcoming sessions': 'Representative schedule',
-      'Dedicated workflows': 'Houses + excursions separate',
-    };
-    final cards = activityStats.entries
-        .map(
-          (entry) => _StatCard(
-            label: entry.key,
-            value: entry.value,
-            note: notes[entry.key]!,
-          ),
-        )
+    final cards = activityStats(activities)
+        .map((stat) => _StatCard(label: stat.label, value: stat.value, note: stat.detail))
         .toList(growable: false);
     if (compact) {
       return Column(

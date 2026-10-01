@@ -114,10 +114,12 @@ class SchoolActivity {
 
 class ActivityPermissions {
   const ActivityPermissions({
+    required this.canCreate,
     required this.canManageAll,
     required this.canTakeAttendance,
   });
 
+  final bool canCreate;
   final bool canManageAll;
   final bool canTakeAttendance;
 }

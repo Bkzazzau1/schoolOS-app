@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/activity_models.dart';
-import 'activity_demo_data.dart';
 
 class ActivitySnapshot {
   const ActivitySnapshot({
@@ -31,43 +30,29 @@ class ActivityRepository {
 
   static const _entityType = 'school_activity';
 
+  // Mirrors apps.schoollife.specs.programmes.ACTIVITIES exactly: manage=MANAGERS, contribute={"teacher"} -
+  // a teacher may add a programme, a manager may add or change any of them.
+  static const _managers = {SchoolRole.proprietor, SchoolRole.principal, SchoolRole.administrator};
+  static const _contributors = {SchoolRole.teacher};
+
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
   ActivityPermissions permissionsFor(SchoolMembership membership) {
-    if (membership.role == SchoolRole.proprietor) {
-      return const ActivityPermissions(
-        canManageAll: true,
-        canTakeAttendance: true,
-      );
-    }
-    return const ActivityPermissions(
-      canManageAll: false,
-      canTakeAttendance: false,
+    final isManager = _managers.contains(membership.role);
+    return ActivityPermissions(
+      canCreate: isManager || _contributors.contains(membership.role),
+      canManageAll: isManager,
+      canTakeAttendance: isManager,
     );
   }
 
   Future<ActivitySnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
-
-    if (records.isEmpty) {
-      for (final activity in activityWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: activity.id,
-          payload: activity.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
 
     final activities = records
         .map((record) => SchoolActivity.fromJson(record.payload))
@@ -90,7 +75,7 @@ class ActivityRepository {
     required String note,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
-    if (!permissionsFor(membership).canManageAll) {
+    if (!permissionsFor(membership).canCreate) {
       return const ActivityActionResult(
         success: false,
         message: 'This membership cannot create school activities.',
