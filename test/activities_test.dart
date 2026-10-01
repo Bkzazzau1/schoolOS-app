@@ -1,29 +1,56 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/activities/data/activity_demo_data.dart';
+import 'package:schoolos_app/features/activities/data/activity_policy_copy.dart';
 import 'package:schoolos_app/features/activities/domain/activity_models.dart';
 
+List<SchoolActivity> _activities() => const [
+      SchoolActivity(
+        id: 'ACT-TEST-1',
+        name: 'Football Academy',
+        type: ActivityType.sport,
+        section: 'Primary + Secondary',
+        coordinator: 'Mr. Daniel Musa',
+        members: 64,
+        schedule: 'Tue & Thu · 3:00 PM',
+        venue: 'Main field',
+        attendance: 92,
+        consent: 'Not required',
+        status: 'Active',
+        icon: '⚽',
+        note: 'Skill development, teamwork and inter-school fixtures.',
+      ),
+      SchoolActivity(
+        id: 'ACT-TEST-2',
+        name: 'Coding & Robotics Club',
+        type: ActivityType.academicEnrichment,
+        section: 'Secondary',
+        coordinator: 'Mr. Samuel Ter',
+        members: 42,
+        schedule: 'Friday · 2:30 PM',
+        venue: 'ICT Lab',
+        attendance: 90,
+        consent: 'Not required',
+        status: 'Active',
+        icon: '⌘',
+        note: 'Coding challenges, simple robotics builds and digital creativity.',
+      ),
+    ];
+
 void main() {
-  test('activities seed matches the website programme directory', () {
-    expect(activityWebsiteSeed.length, 6);
-    expect(activityWebsiteSeed.map((item) => item.id).toList(), [
-      'ACT-001',
-      'ACT-002',
-      'ACT-003',
-      'ACT-004',
-      'ACT-005',
-      'ACT-006',
-    ]);
-    expect(activityWebsiteSeed[2].name, 'Coding & Robotics Club');
-    expect(activityWebsiteSeed[2].attendance, 90);
-    expect(activityWebsiteSeed[4].section, 'Early Years');
+  test('activity stats are computed from the real activities given, never a fixed sample', () {
+    final stats = activityStats(_activities());
+    expect(stats[0].value, '2');
+    expect(stats[1].value, '${64 + 42}');
+    expect(stats[2].value, '2');
+    expect(stats[3].value, '2');
+    expect(stats[3].label, 'Dedicated workflows');
+
+    final empty = activityStats(const []);
+    expect(empty[0].value, '0');
+    expect(empty[1].value, '0');
+    expect(empty[2].value, '0');
   });
 
-  test('website KPI and programme type scope remains stable', () {
-    expect(activityStats['Active programmes'], '18');
-    expect(activityStats['Participation entries'], '472');
-    expect(activityStats['Programme types'], '4');
-    expect(activityStats['Upcoming sessions'], '6');
-    expect(activityStats['Dedicated workflows'], '2');
+  test('programme types stay a fixed four-item scope', () {
     expect(ActivityType.values.map((type) => type.label).toList(), [
       'Sport',
       'Club',
@@ -33,7 +60,7 @@ void main() {
   });
 
   test('search, type and section filtering matches website behavior', () {
-    final coding = activityWebsiteSeed[2];
+    final coding = _activities()[1];
     expect(coding.matches('robotics', null, null), isTrue);
     expect(coding.matches('', ActivityType.academicEnrichment, 'Secondary'), isTrue);
     expect(coding.matches('', ActivityType.sport, null), isFalse);
@@ -41,7 +68,7 @@ void main() {
   });
 
   test('activity serialization preserves operational fields', () {
-    final original = activityWebsiteSeed.first;
+    final original = _activities().first;
     final restored = SchoolActivity.fromJson(original.toJson());
     expect(restored.name, original.name);
     expect(restored.type, original.type);
