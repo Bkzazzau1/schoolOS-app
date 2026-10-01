@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/lost_found_demo_data.dart';
+import '../data/lost_found_policy_copy.dart';
 import '../data/lost_found_repository.dart';
 import '../domain/lost_found_models.dart';
 
@@ -95,6 +95,69 @@ class _LostFoundPageState extends State<LostFoundPage> {
     }
   }
 
+  Future<void> _reportItem() async {
+    final item = TextEditingController();
+    final category = TextEditingController();
+    final found = TextEditingController();
+    final date = TextEditingController();
+    final storage = TextEditingController();
+    final note = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Report a found item'),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: item, decoration: const InputDecoration(labelText: 'Item description')),
+                const SizedBox(height: 12),
+                TextField(controller: category, decoration: const InputDecoration(labelText: 'Category')),
+                const SizedBox(height: 12),
+                TextField(controller: found, decoration: const InputDecoration(labelText: 'Where it was found')),
+                const SizedBox(height: 12),
+                TextField(controller: date, decoration: const InputDecoration(labelText: 'Date found')),
+                const SizedBox(height: 12),
+                TextField(controller: storage, decoration: const InputDecoration(labelText: 'Where it is stored')),
+                const SizedBox(height: 12),
+                TextField(controller: note, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Note (no identifying details)')),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Report item')),
+        ],
+      ),
+    );
+    final values = (item: item.text, category: category.text, found: found.text, date: date.text, storage: storage.text, note: note.text);
+    item.dispose();
+    category.dispose();
+    found.dispose();
+    date.dispose();
+    storage.dispose();
+    note.dispose();
+    if (confirmed != true) return;
+    final result = await widget.repository.report(
+      item: values.item,
+      category: values.category,
+      found: values.found,
+      date: values.date,
+      storage: values.storage,
+      note: values.note,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) {
+      widget.onLostFoundChanged?.call();
+      await _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -182,6 +245,7 @@ class _LostFoundPageState extends State<LostFoundPage> {
             if (compact) ...[
               _RegisterCard(
                 items: _visibleItems,
+                hasAnyItems: snapshot.items.isNotEmpty,
                 permissions: snapshot.permissions,
                 searchController: _searchController,
                 statusFilter: _statusFilter,
@@ -189,6 +253,7 @@ class _LostFoundPageState extends State<LostFoundPage> {
                 onStatusChanged: (value) => setState(() => _statusFilter = value),
                 onStartClaimReview: _startClaimReview,
                 onMarkReturned: _markReturned,
+                onReportItem: _reportItem,
               ),
               const SizedBox(height: 16),
               const _ClaimRulesCard(),
@@ -200,6 +265,7 @@ class _LostFoundPageState extends State<LostFoundPage> {
                     flex: 7,
                     child: _RegisterCard(
                       items: _visibleItems,
+                      hasAnyItems: snapshot.items.isNotEmpty,
                       permissions: snapshot.permissions,
                       searchController: _searchController,
                       statusFilter: _statusFilter,
@@ -208,6 +274,7 @@ class _LostFoundPageState extends State<LostFoundPage> {
                           setState(() => _statusFilter = value),
                       onStartClaimReview: _startClaimReview,
                       onMarkReturned: _markReturned,
+                      onReportItem: _reportItem,
                     ),
                   ),
                   const SizedBox(width: 18),
@@ -260,6 +327,7 @@ class _StatCard extends StatelessWidget {
 class _RegisterCard extends StatelessWidget {
   const _RegisterCard({
     required this.items,
+    required this.hasAnyItems,
     required this.permissions,
     required this.searchController,
     required this.statusFilter,
@@ -267,9 +335,11 @@ class _RegisterCard extends StatelessWidget {
     required this.onStatusChanged,
     required this.onStartClaimReview,
     required this.onMarkReturned,
+    required this.onReportItem,
   });
 
   final List<LostFoundItem> items;
+  final bool hasAnyItems;
   final LostFoundPermissions permissions;
   final TextEditingController searchController;
   final LostFoundStatus? statusFilter;
@@ -277,6 +347,7 @@ class _RegisterCard extends StatelessWidget {
   final ValueChanged<LostFoundStatus?> onStatusChanged;
   final ValueChanged<LostFoundItem> onStartClaimReview;
   final ValueChanged<LostFoundItem> onMarkReturned;
+  final VoidCallback onReportItem;
 
   @override
   Widget build(BuildContext context) {
@@ -287,11 +358,20 @@ class _RegisterCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Found-item register',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Found-item register',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (permissions.canReport)
+                  OutlinedButton.icon(onPressed: onReportItem, icon: const Icon(Icons.add_rounded), label: const Text('Report item')),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
@@ -338,9 +418,15 @@ class _RegisterCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (items.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 30),
-                child: Center(child: Text('No items match these filters.')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                child: Center(
+                  child: Text(
+                    hasAnyItems
+                        ? 'No items match these filters.'
+                        : 'No items reported yet. Report the first one above.',
+                  ),
+                ),
               )
             else
               for (final item in items) ...[
@@ -408,7 +494,7 @@ class _ItemRow extends StatelessWidget {
               Text(item.note),
               const SizedBox(height: 4),
               Text(
-                'Claimant: ${item.claimant}',
+                'Claimant: ${item.claimant.isEmpty ? 'Not claimed yet' : item.claimant}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

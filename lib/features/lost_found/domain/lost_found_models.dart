@@ -38,16 +38,25 @@ class LostFoundItem {
     return '$item $category $found'.toLowerCase().contains(normalized);
   }
 
-  LostFoundItem copyWith({LostFoundStatus? status}) => LostFoundItem(
+  LostFoundItem copyWith({
+    String? category,
+    String? found,
+    String? date,
+    String? storage,
+    LostFoundStatus? status,
+    String? claimant,
+    String? note,
+  }) =>
+      LostFoundItem(
         id: id,
         item: item,
-        category: category,
-        found: found,
-        date: date,
-        storage: storage,
+        category: category ?? this.category,
+        found: found ?? this.found,
+        date: date ?? this.date,
+        storage: storage ?? this.storage,
         status: status ?? this.status,
-        claimant: claimant,
-        note: note,
+        claimant: claimant ?? this.claimant,
+        note: note ?? this.note,
       );
 
   Map<String, Object?> toJson() => {
@@ -83,6 +92,7 @@ class LostFoundStat {
 }
 
 class LostFoundPermissions {
-  const LostFoundPermissions({required this.canManageClaims});
+  const LostFoundPermissions({required this.canReport, required this.canManageClaims});
+  final bool canReport;
   final bool canManageClaims;
 }
