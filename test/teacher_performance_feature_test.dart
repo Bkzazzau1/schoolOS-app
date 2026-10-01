@@ -1,60 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/teacher/data/teacher_performance_demo_data.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_performance_policy_copy.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_performance_repository.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_performance_models.dart';
 import 'package:schoolos_app/features/teacher/presentation/teacher_performance_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
+const _fixtureMetrics = <TeacherPerformanceMetric>[
+  TeacherPerformanceMetric(label: 'Attendance completion', value: 98, target: 95, note: '4 of 4 registers submitted'),
+  TeacherPerformanceMetric(label: 'Lesson-plan compliance', value: 92, target: 90, note: '11 of 12 plans submitted or further along'),
+  TeacherPerformanceMetric(label: 'Assessment completion', value: 84, target: 90, note: 'Average score-entry completion across 6 real assessments'),
+  TeacherPerformanceMetric(label: 'Syllabus pace', value: 71, target: 75, note: 'Average topic coverage across assigned classes'),
+];
+
+const _fixtureClassPerformance = <TeacherClassPerformance>[
+  TeacherClassPerformance(name: 'JSS 2A', average: 74, attendance: 94, syllabusPace: 72),
+  TeacherClassPerformance(name: 'JSS 2B', average: 68, attendance: 91, syllabusPace: 68),
+  TeacherClassPerformance(name: 'JSS 3A', average: 79, attendance: 96, syllabusPace: 81),
+  TeacherClassPerformance(name: 'SS1A', average: 72, attendance: 93, syllabusPace: 64),
+];
+
+const _fixtureDevelopmentLog = <TeacherDevelopmentLogItem>[
+  TeacherDevelopmentLogItem(title: '2026 Term 1 · Rating 4/5', detail: 'Strong classroom management; keep up syllabus pace.'),
+  TeacherDevelopmentLogItem(title: '2025 Term 3 · Rating 4/5', detail: 'Good assessment turnaround.'),
+];
+
 void main() {
-  test('My Performance preserves exact website score and teaching indicators', () {
-    expect(teacherPerformanceScore, 88);
-    expect(teacherPerformanceScoreLabel, 'Very good');
-    expect(teacherPerformanceMetrics, hasLength(4));
-    expect(
-      teacherPerformanceMetrics.map((item) => (item.label, item.value, item.target)),
-      [
-        ('Attendance completion', 98, 95),
-        ('Lesson-plan compliance', 92, 90),
-        ('Assessment completion', 84, 90),
-        ('Syllabus pace', 71, 75),
-      ],
-    );
-    expect(teacherPerformanceMetrics[0].isAtOrAboveTarget, isTrue);
-    expect(teacherPerformanceMetrics[2].isAtOrAboveTarget, isFalse);
+  test('overall score is a transparent average of the real metrics, not a hidden formula', () {
+    final average = (98 + 92 + 84 + 71) / 4;
+    expect(average.round(), 86);
   });
 
-  test('assigned-class outcomes preserve exact website context', () {
-    expect(teacherClassPerformance, hasLength(4));
-    expect(
-      teacherClassPerformance.map(
-        (item) => (
-          item.name,
-          item.average,
-          item.change,
-          item.attendance,
-          item.syllabusPace,
-        ),
-      ),
-      [
-        ('JSS 2A', 74, '+3.2%', 94, 72),
-        ('JSS 2B', 68, '-1.4%', 91, 68),
-        ('JSS 3A', 79, '+6.4%', 96, 81),
-        ('SS1A', 72, '+1.8%', 93, 64),
-      ],
-    );
-    expect(teacherClassPerformance[1].isImproving, isFalse);
-    expect(teacherClassPerformance[2].isImproving, isTrue);
+  test('the focus metric is the real indicator with the largest real gap to its own target', () {
+    // Assessment completion: target 90, value 84 -> gap 6 (the largest of the four).
+    // Syllabus pace: target 75, value 71 -> gap 4.
+    TeacherPerformanceMetric? focus;
+    for (final metric in _fixtureMetrics) {
+      if (!metric.isAtOrAboveTarget && (focus == null || metric.gapToTarget > focus.gapToTarget)) {
+        focus = metric;
+      }
+    }
+    expect(focus?.label, 'Assessment completion');
+    expect(focus?.gapToTarget, 6);
   });
 
-  test('development log and usage principles preserve website copy structure', () {
-    expect(teacherDevelopmentLog, hasLength(3));
-    expect(teacherDevelopmentLog[0].title, 'Revision strategy · JSS 2B');
-    expect(teacherDevelopmentLog[1].detail, '32 of 41 CA scores entered');
+  test('class outcomes carry real average/attendance/syllabus context, never an invented trend', () {
+    expect(_fixtureClassPerformance, hasLength(4));
     expect(
-      teacherDevelopmentLog[2].detail,
-      'Latest plan approved without changes',
+      _fixtureClassPerformance.map((item) => (item.name, item.average, item.attendance, item.syllabusPace)),
+      [
+        ('JSS 2A', 74, 94, 72),
+        ('JSS 2B', 68, 91, 68),
+        ('JSS 3A', 79, 96, 81),
+        ('SS1A', 72, 93, 64),
+      ],
     );
+  });
+
+  test('development log and usage principles', () {
+    expect(_fixtureDevelopmentLog, hasLength(2));
+    expect(_fixtureDevelopmentLog[0].title, contains('Rating 4/5'));
     expect(teacherPerformanceUsagePrinciples, hasLength(3));
     expect(teacherPerformanceUsagePrinciples[0].$1, 'Context matters');
     expect(teacherPerformanceUsagePrinciples[1].$1, 'Private by default');
@@ -62,18 +67,13 @@ void main() {
   });
 
   test('performance records serialize without losing target or class context', () {
-    final metric = TeacherPerformanceMetric.fromJson(
-      teacherPerformanceMetrics.first.toJson(),
-    );
+    final metric = TeacherPerformanceMetric.fromJson(_fixtureMetrics.first.toJson());
     expect(metric.label, 'Attendance completion');
     expect(metric.value, 98);
     expect(metric.target, 95);
 
-    final classRow = TeacherClassPerformance.fromJson(
-      teacherClassPerformance[1].toJson(),
-    );
+    final classRow = TeacherClassPerformance.fromJson(_fixtureClassPerformance[1].toJson());
     expect(classRow.name, 'JSS 2B');
-    expect(classRow.change, '-1.4%');
     expect(classRow.syllabusPace, 68);
 
     const reflection = TeacherPrivateReflection(
@@ -119,8 +119,7 @@ void main() {
     expect(fake.permissionsFor(principal).canViewOwnPerformance, isFalse);
   });
 
-  testWidgets('My Performance renders exact score and core website sections',
-      (tester) async {
+  testWidgets('My Performance renders the real score and core sections', (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -137,9 +136,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('My Performance'), findsOneWidget);
-    expect(find.text('88'), findsOneWidget);
+    expect(find.text('86'), findsOneWidget);
     expect(find.text('/100'), findsOneWidget);
-    expect(find.text('Very good'), findsOneWidget);
+    expect(find.text('Good'), findsOneWidget);
     expect(find.text('Core teaching indicators'), findsOneWidget);
     expect(find.text('Assigned-class outcomes'), findsOneWidget);
     expect(find.text('My development log'), findsOneWidget);
@@ -194,8 +193,7 @@ void main() {
     expect(destination, 'syllabus');
   });
 
-  testWidgets('private reflection is saved locally in the performance view',
-      (tester) async {
+  testWidgets('private reflection is saved locally in the performance view', (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -275,9 +273,9 @@ class _FakePerformanceRepository implements TeacherPerformanceDataSource {
 
   @override
   Future<TeacherPerformanceSnapshot> load() async => TeacherPerformanceSnapshot(
-        metrics: teacherPerformanceMetrics,
-        classPerformance: teacherClassPerformance,
-        developmentLog: teacherDevelopmentLog,
+        metrics: _fixtureMetrics,
+        classPerformance: _fixtureClassPerformance,
+        developmentLog: _fixtureDevelopmentLog,
         reflections: List.unmodifiable(reflections),
         permissions: permissionsFor(
           const SchoolMembership(
@@ -287,6 +285,8 @@ class _FakePerformanceRepository implements TeacherPerformanceDataSource {
             role: SchoolRole.teacher,
           ),
         ),
+        overallScore: 86,
+        focusMetric: _fixtureMetrics[2],
       );
 
   @override
