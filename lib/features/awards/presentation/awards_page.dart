@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/award_demo_data.dart';
+import '../data/award_policy_copy.dart';
 import '../data/award_repository.dart';
 import '../domain/award_models.dart';
 
@@ -263,6 +263,7 @@ class _AwardsPageState extends State<AwardsPage> {
             if (compact) ...[
               _RecognitionWall(
                 awards: _visibleAwards,
+                hasAnyAwards: snapshot.awards.isNotEmpty,
                 permissions: snapshot.permissions,
                 searchController: _searchController,
                 recipientType: _recipientType,
@@ -284,6 +285,7 @@ class _AwardsPageState extends State<AwardsPage> {
                     flex: 7,
                     child: _RecognitionWall(
                       awards: _visibleAwards,
+                      hasAnyAwards: snapshot.awards.isNotEmpty,
                       permissions: snapshot.permissions,
                       searchController: _searchController,
                       recipientType: _recipientType,
@@ -338,6 +340,7 @@ class _StatCard extends StatelessWidget {
 class _RecognitionWall extends StatelessWidget {
   const _RecognitionWall({
     required this.awards,
+    required this.hasAnyAwards,
     required this.permissions,
     required this.searchController,
     required this.recipientType,
@@ -349,6 +352,7 @@ class _RecognitionWall extends StatelessWidget {
   });
 
   final List<AwardRecognition> awards;
+  final bool hasAnyAwards;
   final AwardPermissions permissions;
   final TextEditingController searchController;
   final AwardRecipientType? recipientType;
@@ -450,9 +454,15 @@ class _RecognitionWall extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (awards.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 30),
-                child: Center(child: Text('No recognitions match these filters.')),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                child: Center(
+                  child: Text(
+                    hasAnyAwards
+                        ? 'No recognitions match these filters.'
+                        : 'No recognitions yet. Add the first one above.',
+                  ),
+                ),
               )
             else
               for (final award in awards) ...[

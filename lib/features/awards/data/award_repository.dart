@@ -3,7 +3,6 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/award_models.dart';
-import 'award_demo_data.dart';
 
 class AwardSnapshot {
   const AwardSnapshot({required this.awards, required this.permissions});
@@ -28,36 +27,28 @@ class AwardRepository {
 
   static const _entityType = 'award_recognition';
 
+  // Mirrors apps.schoollife.specs.programmes.AWARDS exactly: manage=LEADERS (proprietor,
+  // principal - never administrator here), contribute={"teacher"} - a teacher may draft, and
+  // leadership publishes. There is no separate "manage all" action in this app yet, so one flag
+  // covers the only real capability: creating a draft.
+  static const _leaders = {SchoolRole.proprietor, SchoolRole.principal};
+  static const _contributors = {SchoolRole.teacher};
+
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
   AwardPermissions permissionsFor(SchoolMembership membership) {
     return AwardPermissions(
-      canCreateDrafts: membership.role == SchoolRole.proprietor,
+      canCreateDrafts: _leaders.contains(membership.role) || _contributors.contains(membership.role),
     );
   }
 
   Future<AwardSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _entityType,
     );
-
-    if (records.isEmpty) {
-      for (final award in awardsWebsiteSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: _entityType,
-          entityId: award.id,
-          payload: award.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: _entityType,
-      );
-    }
 
     final awards = records
         .map((record) => AwardRecognition.fromJson(record.payload))
