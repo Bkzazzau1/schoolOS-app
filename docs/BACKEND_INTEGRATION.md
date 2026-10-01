@@ -2983,3 +2983,60 @@ round-trips, a load failure propagates rather than hiding as empty, search match
 community_repository_test.dart` extended (4 new tests - an alumnus can post but only ever to `alumniOnly`, nobody
 else is ever offered that audience, an alumnus can publish to it, an alumnus is refused from a general audience);
 full app suite back to the same 83 pre-existing failures as before this work, by name.
+
+## Alumni Events & Reunions becomes real
+
+The third of the Alumni workspace's six originally-locked sections. Scoped deliberately: reunion events are
+created by **school management only** (proprietor, principal or administrator) - alumni browse and RSVP, they do
+not propose their own events this pass - and an RSVP is a **simple yes/no "attending"**, not a guest-count form.
+
+**Why this is a new, dedicated entity rather than reusing the existing `school_event` Spec.** The backend already
+has a general school calendar (`apps/schoollife/specs/calendar.py: EVENTS`, entity `school_event`) and the app
+already has a generic, cross-role `lib/features/events/` screen reading it (used by Parent and Proprietor). But
+`school_event` has no audience/category concept at all - just `title` and `date` - and defaults to
+`read=EVERYONE`, the same shared constant the Community work deliberately avoided widening. Reusing it would have
+meant alumni seeing the *entire* school calendar (assemblies, excursions, PTA meetings - not what "Events &
+Reunions" means) with no way to filter. A dedicated pair of models in `apps/alumni` avoids that, and matches how
+`AlumniProfile`/`AlumniDirectoryView` already work: real Django models behind real DRF views, not the generic sync
+registry Alumni has never used.
+
+**Why RSVP is not an append-only receipt, unlike every other receipt built this session.** A read receipt
+(message seen, alert read) records a fact that stays true forever once it happens. An RSVP is different - a
+person can genuinely change their mind about attending, and the *current* answer is what matters, not a log of
+every change - so `AlumniEventRsvp` is one real, updatable row per `(event, membership)`
+(`Model.objects.update_or_create(...)`), the same "current state, not a log" shape `AlumniProfile.directory_visible`
+already uses, not the append-only shape `parent_message_receipt`/`driver_alert_receipt` use.
+
+**Design.** `AlumniEvent` (title, date, free-text time, venue, note, `created_by`) and `AlumniEventRsvp`
+(`event` + `membership`, unique together, `attending`, `clean()` requiring a real Alumni membership of the same
+school) are real Django models with a real migration. `AlumniEventListView` (`GET`: any real Alumni membership,
+via the same `_self_membership(..., activity="alumni.events")` helper Directory already generalised; `POST`:
+`require_alumni_manager`, the same helper Management/Transition/Verify/Reject already share) lists every real
+event for the school, each serialized with a real `attendingCount` (`event.rsvps.filter(attending=True).count()`)
+and the acting alumnus's own real `myRsvp` (`true`/`false`/`null` if they have never responded) - both computed
+fresh from real rows, never stored on the event itself. `AlumniEventRsvpView` 404s on an event id that isn't real
+or isn't this school's, and `update_or_create`s the acting alumnus's own row. On the app side, `AlumniEvent`
+gained a `fromCanonical`-style `fromJson`; `AlumniEventsRepository` mirrors `AlumniDirectoryRepository` exactly
+(`hasServer`, honest empty list, a real failure propagates for a retry); `AlumniEventsPage` is the alumni's own
+read-and-RSVP view; `AlumniManagementPage` - the one screen the three manager roles already use for Alumni work -
+gained a small "Reunions & Events" section (a real list + an "Add event" dialog) rather than a new management
+screen.
+
+**Verification.** Backend: new `apps.alumni.tests.test_events` (9/9 - only real alumni can browse, only
+management can create, a title/date is required, a real RSVP and its real count, changing an RSVP updates the
+same row rather than duplicating it, an event nobody has responded to has an honest zero count and a null
+`myRsvp`, a non-alumnus cannot RSVP, a forged or other-school event id is refused, cross-school isolation);
+`apps.alumni` together (17/17); `manage.py check` clean. Full backend suite: confirmed by a full `git stash`
+comparison (not just a re-run) that this pass introduces zero new failures - the suite's own run-to-run failure
+set turned out to be considerably wider than previously documented (spanning `apps.sync`, `apps.staff`,
+`apps.owner`, `apps.schools`, `apps.access`, `apps.mandates`, not only the `apps.transferverify`/`apps.invitations`/
+`apps.bankconnect` corner noted earlier), but the exact same set appears on a clean, unmodified checkout, which is
+what the stash comparison exists to prove. App: `dart analyze` clean; new `test/alumni_events_test.dart` (6/6 -
+honest empty with no server, a real event and its real RSVP state round-trip, a load failure propagates, `rsvp()`
+with no server throws rather than pretending to record a response, a real RSVP sends this membership's own answer
+and returns the real updated event, a real RSVP failure propagates); full app suite back to the same 83
+pre-existing failures as before this work, by name.
+
+This leaves Mentorship, Jobs & Opportunities and Give Back as the three remaining locked sections - each still
+needs its own real design pass; none has an existing precedent to lean on the way Directory, Community and Events
+each did.
