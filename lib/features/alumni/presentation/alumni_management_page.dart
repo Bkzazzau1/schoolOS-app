@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/models/school_membership.dart';
 import '../data/alumni_server_api.dart';
 import '../domain/alumni_event_models.dart';
+import '../domain/alumni_pledge_models.dart';
 import '../domain/alumni_profile_models.dart';
 
 class AlumniManagementPage extends StatefulWidget {
@@ -26,6 +27,7 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
   String _status = 'all';
   List<AlumniEvent>? _events;
   bool _eventsLoading = true;
+  final _pledgeBusy = <String>{};
 
   @override
   void initState() {
@@ -268,6 +270,23 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
     }
   }
 
+  Future<void> _updatePledgeStatus(AlumniPledge pledge, AlumniPledgeStatus status) async {
+    final api = widget.api;
+    if (api == null || !_pledgeBusy.add(pledge.id)) return;
+    setState(() {});
+    try {
+      await api.updatePledgeStatus(widget.manager, pledge.id, status: status);
+      if (!mounted) return;
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    } finally {
+      _pledgeBusy.remove(pledge.id);
+      if (mounted) setState(() {});
+    }
+  }
+
   Future<void> _transitionStudent() async {
     final api = widget.api;
     final candidates = _snapshot?.transitionCandidates ?? const [];
@@ -491,6 +510,29 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
             _EventSummaryCard(event: event),
             const SizedBox(height: 8),
           ],
+        const SizedBox(height: 24),
+        const Text(
+          'Give Back pledges',
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+        ),
+        const SizedBox(height: 10),
+        if (snapshot.pledges.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(18),
+              child: Text('No alumnus has made a pledge yet.'),
+            ),
+          )
+        else
+          for (final pledge in snapshot.pledges) ...[
+            _PledgeReviewCard(
+              pledge: pledge,
+              busy: _pledgeBusy.contains(pledge.id),
+              onAcknowledge: () => _updatePledgeStatus(pledge, AlumniPledgeStatus.acknowledged),
+              onFulfil: () => _updatePledgeStatus(pledge, AlumniPledgeStatus.fulfilled),
+            ),
+            const SizedBox(height: 8),
+          ],
         const SizedBox(height: 18),
         Row(
           children: [
@@ -533,6 +575,70 @@ class _AlumniManagementPageState extends State<AlumniManagementPage> {
             const SizedBox(height: 10),
           ],
       ],
+    );
+  }
+}
+
+class _PledgeReviewCard extends StatelessWidget {
+  const _PledgeReviewCard({
+    required this.pledge,
+    required this.busy,
+    required this.onAcknowledge,
+    required this.onFulfil,
+  });
+
+  final AlumniPledge pledge;
+  final bool busy;
+  final VoidCallback onAcknowledge;
+  final VoidCallback onFulfil;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionable = pledge.status == AlumniPledgeStatus.offered ||
+        pledge.status == AlumniPledgeStatus.acknowledged;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(pledge.alumniName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      Text(pledge.category.label, style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                Chip(label: Text(pledge.status.label)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(pledge.description),
+            if (actionable) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (pledge.status == AlumniPledgeStatus.offered)
+                    OutlinedButton(
+                      onPressed: busy ? null : onAcknowledge,
+                      child: const Text('Acknowledge'),
+                    ),
+                  FilledButton(
+                    onPressed: busy ? null : onFulfil,
+                    child: const Text('Mark fulfilled'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

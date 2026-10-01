@@ -9,10 +9,12 @@ import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../data/alumni_directory_repository.dart';
 import '../data/alumni_events_repository.dart';
+import '../data/alumni_give_back_repository.dart';
 import '../data/alumni_profile_repository.dart';
 import '../data/alumni_server_api.dart';
 import 'alumni_directory_page.dart';
 import 'alumni_events_page.dart';
+import 'alumni_give_back_page.dart';
 import 'alumni_profile_page.dart';
 
 class AlumniNavItem {
@@ -194,11 +196,11 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
               'Jobs and opportunities are not available yet.',
           icon: Icons.work_outline,
         ),
-      'give-back' => _foundationCard(
-          title: 'Give Back',
-          description:
-              'School support is not available yet.',
-          icon: Icons.volunteer_activism_outlined,
+      'give-back' => AlumniGiveBackPage(
+          repository: AlumniGiveBackRepository(
+            membership: widget.membership,
+            remote: AlumniServerScope.maybeOf(context),
+          ),
         ),
       _ => const SizedBox.shrink(),
     };

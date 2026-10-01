@@ -5,6 +5,7 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/alumni_directory_models.dart';
 import '../domain/alumni_event_models.dart';
+import '../domain/alumni_pledge_models.dart';
 import '../domain/alumni_profile_models.dart';
 
 class AlumniServerApi {
@@ -164,7 +165,64 @@ class AlumniServerApi {
             Map<String, dynamic>.from(item as Map),
           ),
       ],
+      pledges: [
+        for (final item in (map['pledges'] as List? ?? const []))
+          AlumniPledge.fromJson(Map<String, dynamic>.from(item as Map)),
+      ],
     );
+  }
+
+  /// This alumnus's own real, non-monetary pledges - never a public board of everyone's.
+  Future<List<AlumniPledge>> loadMyPledges(SchoolMembership membership) async {
+    final data = await _api.get(
+      'alumni/schools/${membership.schoolId}/give-back/',
+      query: _who(membership),
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return [
+      for (final item in (map['pledges'] as List? ?? const []))
+        AlumniPledge.fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
+  }
+
+  Future<AlumniPledge> createPledge(
+    SchoolMembership membership, {
+    required AlumniPledgeCategory category,
+    required String description,
+  }) async {
+    final data = await _api.post(
+      'alumni/schools/${membership.schoolId}/give-back/',
+      query: _who(membership),
+      body: {'category': category.name, 'description': description.trim()},
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniPledge.fromJson(Map<String, dynamic>.from(map['pledge'] as Map));
+  }
+
+  Future<AlumniPledge> withdrawPledge(SchoolMembership membership, String pledgeId) async {
+    final data = await _api.post(
+      'alumni/schools/${membership.schoolId}/give-back/$pledgeId/withdraw/',
+      query: _who(membership),
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniPledge.fromJson(Map<String, dynamic>.from(map['pledge'] as Map));
+  }
+
+  /// School management moves a real pledge to `acknowledged` or `fulfilled` - never `withdrawn`,
+  /// which stays the alumnus's own decision.
+  Future<AlumniPledge> updatePledgeStatus(
+    SchoolMembership manager,
+    String pledgeId, {
+    required AlumniPledgeStatus status,
+    String schoolNote = '',
+  }) async {
+    final data = await _api.post(
+      'alumni/schools/${manager.schoolId}/give-back/$pledgeId/status/',
+      query: _who(manager),
+      body: {'status': status.name, 'schoolNote': schoolNote.trim()},
+    );
+    final map = Map<String, dynamic>.from(data as Map);
+    return AlumniPledge.fromJson(Map<String, dynamic>.from(map['pledge'] as Map));
   }
 
   Future<AlumniProfileRecord> transitionStudent(

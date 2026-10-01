@@ -1,3 +1,5 @@
+import 'alumni_pledge_models.dart';
+
 enum AlumniVerificationState { pending, verified, rejected }
 
 extension AlumniVerificationStateLabel on AlumniVerificationState {
@@ -140,10 +142,15 @@ class AlumniManagementSnapshot {
   const AlumniManagementSnapshot({
     required this.profiles,
     required this.transitionCandidates,
+    this.pledges = const [],
   });
 
   final List<AlumniProfileRecord> profiles;
   final List<AlumniTransitionCandidate> transitionCandidates;
+
+  /// Every real, non-monetary pledge an alumnus of this school has offered - for management
+  /// oversight; see `AlumniGiveBackPage` for the alumnus's own self-service view.
+  final List<AlumniPledge> pledges;
 
   int get pendingCount => profiles
       .where((profile) =>
