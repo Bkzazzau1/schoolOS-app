@@ -3037,6 +3037,60 @@ with no server throws rather than pretending to record a response, a real RSVP s
 and returns the real updated event, a real RSVP failure propagates); full app suite back to the same 83
 pre-existing failures as before this work, by name.
 
-This leaves Mentorship, Jobs & Opportunities and Give Back as the three remaining locked sections - each still
-needs its own real design pass; none has an existing precedent to lean on the way Directory, Community and Events
-each did.
+## Alumni Give Back becomes real
+
+The fourth of the Alumni workspace's six originally-locked sections. Its core shape was decided earlier this
+session, when SMS/email delivery was being scoped: Give Back is **non-monetary pledges** - volunteering,
+mentoring, supplies, guest speaking - never real money through `apps/bankconnect`.
+
+**How "pledge" is interpreted.** A real alumnus offers something (a category plus a free-text description),
+the one-sided "I'm putting this forward" shape the word already implies. School management reviews real pledges
+and moves them through a real, honest status: `offered → acknowledged → fulfilled`, or the alumnus withdraws
+their own. This is deliberately **not** a public, two-sided marketplace (the school posting specific asks that
+alumni respond to) - that would be a materially different, larger design closer to Jobs & Opportunities' own
+shape, and wasn't what was decided.
+
+**Why a status workflow rather than a plain yes/no, unlike Events' RSVP.** An RSVP has exactly two meaningful
+states. A pledge is different - the school genuinely does something with it over time (notices it, acts on it,
+or it falls through), so `offered → acknowledged → fulfilled` is real, useful state for both sides, modelled the
+same "real status a manager moves forward" shape `AlumniVerificationStatus` already uses on `AlumniProfile`, not
+a single boolean. Unlike identity verification, there is no separate append-only event log this time - a
+pledge's own `status`/`school_note`/`updated_at` is enough history for something this simple;
+`AlumniVerificationEvent` exists specifically because *who* verified *what* evidence matters later, which doesn't
+apply here.
+
+**Design.** `AlumniPledge` (category, free-text description, status, a manager's own `school_note` - visible to
+the alumnus too, the same transparency `verification_note` already gives them) is a real Django model with a
+real migration, following the exact precedent `AlumniEvent`/`AlumniEventRsvp` just established: no existing
+school concept came close (confirmed by searching the backend for `volunteer`/`pledge`/`give.back`, which found
+nothing outside the access catalog's own label for this section), and Alumni has never used the generic sync
+registry. `AlumniPledgeListView` (self-service, `activity="alumni.give-back"`) returns *only the acting alumnus's
+own* pledges, never a public board - a pledge is something you make to the school, not something every alumnus
+browses. `AlumniPledgeWithdrawView` lets only the pledge's own alumnus withdraw it; `AlumniPledgeStatusView`
+(`require_alumni_manager`) lets only management move it to `acknowledged`/`fulfilled` - never `withdrawn`, which
+stays the alumnus's own decision, enforced by the status serializer's own choice list rather than a runtime
+check. `AlumniManagementView` - the same bundle endpoint Directory's management screen already returns
+`profiles`/`transitionCandidates` from - now also carries every real pledge with the real alumnus's name, for
+oversight. On the app side, `AlumniManagementPage` gained a "Give Back pledges" section (reusing data already in
+its existing `AlumniManagementSnapshot`, now extended with `pledges`, rather than a second fetch) alongside the
+Reunions & Events section it gained last pass.
+
+**Verification.** Backend: new `apps.alumni.tests.test_give_back` (10/10 - only real alumni can list/create; an
+alumnus only ever sees their own pledges, never another's; a pledge is refused without a real category/
+description; a new pledge starts `offered` with the real alumni name; only the pledge's own alumnus can withdraw
+it; only management can acknowledge/fulfil, never withdraw; a status update carries the real school note; a
+forged or other-school pledge id is refused on every endpoint; `AlumniManagementView` carries every real pledge
+with the real alumnus's name; cross-school isolation); `apps.alumni` together (27/27); `manage.py check` clean.
+Full backend suite: a real `git stash` comparison surfaced two failures present only in the "with changes" run
+(`apps.invitations.tests.test_service_and_mail` and `apps.bankconnect.tests.test_review` - both completely
+unrelated to `apps.alumni`, and the bankconnect one already a confirmed repeat offender from earlier this
+session); both pass cleanly in isolation, confirming pre-existing flakiness rather than a regression. App: `dart
+analyze` clean; new `test/alumni_give_back_test.dart` (11/11 - honest empty with no server, a real pledge
+round-trips, a load failure propagates, `create()`/`withdraw()` with no server throw rather than pretending to
+succeed, a real create/withdraw really calls through with this membership's own data, a too-short description is
+refused client-side, real create/withdraw failures propagate, `canWithdraw` is true only while `offered`/
+`acknowledged`); full app suite back to the same 83 pre-existing failures as before this work, by name.
+
+This leaves Mentorship and Jobs & Opportunities as the two remaining locked sections - each still needs its own
+real design pass (audience and matching-mechanism decisions neither has been given yet); neither has an existing
+precedent to lean on the way Directory, Community, Events and Give Back each did.
