@@ -2722,3 +2722,35 @@ the same real subject shares the exact same department thread end to end, a teac
 no such thread at all); `test/teacher_messages_feature_test.dart` drops its now-nonexistent demo-data assertions
 and gives its fake repository a `markThreadSeen` implementation, otherwise unchanged (9/9). Full app suite: the
 same 83 pre-existing failures as before this work, by name.
+
+## The pluggable SMS/email delivery architecture (no real provider wired - asked for explicitly)
+
+The third named gap, scoped deliberately: asked whether to build the real provider architecture only or skip it
+for now, given this environment has no real SMS/email provider account any more than it has a real `ffmpeg` or
+`clamscan` binary - the answer was the architecture, matching how video transcoding and malware scanning were
+each handled earlier.
+
+Unlike those two, there is no single standard interface a "real" SMS or email provider implements - `ffmpeg` and
+`clamscan` are universal, well-documented command-line tools, while every SMS/email vendor (Termii, Africa's
+Talking, Twilio, SendGrid, ...) has its own proprietary REST contract. Inventing one without real, verified
+documentation would mean guessing an API shape and calling it "real" - the same red line the Smart Money
+Collection plan already drew for a bank connector ("no bank or provider API is invented"). So
+`apps/administration/communication_delivery.py` gives the seam itself: `SmsProvider`/`EmailProvider` interfaces,
+`DeliveryError`/`DeliveryUnavailable`, and an honest default
+(`UnconfiguredSmsProvider`/`UnconfiguredEmailProvider`) that refuses rather than pretends to have sent anything
+- the same `use_sms_provider`/`get_sms_provider` override-for-tests shape `apps/media/transcoding.py` already
+uses. A real provider becomes its own class here the day one is chosen and verified, the same way a real bank
+would join `apps/bankconnect`'s own registry rather than replace this seam.
+
+**Deliberately not wired into any dispatch path.** `principal_outgoing_communication`'s own payload only ever
+carries an audience *group* (`staff` or `guardians`), never a resolved list of real phone numbers or email
+addresses - there is no "who exactly does this reach" data to hand a provider yet. Resolving a real audience
+group into real contacts is its own separate piece of work (the same shape the Principal Communication Hub's
+guardian-portal pass above already did for in-app delivery, resolving "Secondary guardians" into real families)
+and was explicitly out of scope for an architecture-only pass.
+
+**Verification.** Backend: new `apps.administration.tests.test_communication_delivery` (6/6 - both honest
+defaults refuse rather than pretend to send, the default provider is the honest unconfigured one, and
+`use_sms_provider`/`use_email_provider` override only for the duration of their own block); `apps.administration`
+together (17/17); full backend suite unaffected (this module is not called from anywhere yet, so there was
+nothing else for it to affect).
