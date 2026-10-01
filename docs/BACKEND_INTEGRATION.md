@@ -3148,3 +3148,65 @@ the same 83 pre-existing failures as before this work, by name.
 This leaves Mentorship as the one remaining locked section - it still needs its own real design pass (who
 mentors whom, and how a connection is actually made, neither of which has been decided yet); unlike the five
 sections now real, it has no existing precedent in the codebase to lean on.
+
+## Alumni Mentorship becomes real
+
+The sixth and last of the Alumni workspace's originally-locked sections. Two scope decisions confirmed before
+planning:
+
+**Audience: alumni mentoring alumni, not alumni mentoring current students.** Consistent with every other Alumni
+section this session (Directory, Community, Events, Give Back, Opportunities are all alumni-only). Extending
+mentorship to current students would be a real scope expansion with real safeguarding/duty-of-care implications -
+minors, supervision, consent - deliberately out of reach here, not a feature decision to make lightly.
+
+**Matching mechanism: a mentor directory, a request a mentor accepts or declines, then real contact info.** The
+same "reach out directly" shape Jobs & Opportunities already established, not a second, in-app messaging channel
+built just for this. Contact info is each side's own real account email - revealed to the other only once the
+mentor has actually accepted, never before; a pending or declined request reveals nothing.
+
+**Design.** `AlumniMentorProfile` is a separate, real opt-in from `AlumniProfile` itself - being listed in the
+Alumni Directory and being willing to mentor are different decisions a person makes separately, the same
+reasoning `directory_visible` already being its own explicit flag established, just as a whole second profile
+since "what I'll mentor on" (`expertise`) genuinely differs from a person's current `profession`. It is a real
+Django model (`membership` OneToOne pk, `school`, `expertise`, `bio`, `is_active`), with `clean()` requiring
+`membership.role == Role.ALUMNI`, the same guard every other Alumni model already uses. `AlumniMentorshipRequest`
+reuses `AlumniProfile.Meta.constraints`' own conditional-unique shape
+(`UniqueConstraint(fields=["mentor", "mentee"], condition=Q(status="pending"), ...)`) rather than a plain unique
+constraint: a mentee can genuinely need to ask the same mentor again later, so only a second *simultaneous
+pending* request to the same mentor is blocked, not every request ever. Every endpoint uses
+`_self_membership(request, school_id, activity="alumni.mentorship")` - no manager role is involved anywhere in
+this section (confirmed: nothing in `AlumniManagementView` changed), so `alumni_management_page.dart` was
+deliberately left untouched this pass, unlike every other section. `AlumniMentorshipRequestSerializer` withholds
+`mentorEmail`/`menteeEmail` behind `get_mentorEmail`/`get_menteeEmail`, returning `None` unless
+`status == AlumniMentorshipRequestStatus.ACCEPTED` - the same conditional-reveal shape
+`AlumniEventSerializer.get_myRsvp` already established, just protecting real contact info instead of a real RSVP.
+`AlumniMentorshipRequestWithdrawView` mirrors `AlumniPledgeWithdrawView`, restricted to the real mentee and only
+while `status == "pending"`. On the app side, `AlumniMentorshipRepository` follows the same online-only shape as
+every prior Alumni repository this session (`hasServer`, an honest empty snapshot with no server, write
+operations that throw rather than pretend to succeed), bundling the mentor directory, the alumnus's own mentor
+profile, and their own requests into one `load()`; `requestsAsMentee`/`requestsAsMentor` are computed getters
+splitting the same request list by the acting membership's real relationship to each row.
+
+**Verification.** Backend: new `apps.alumni.tests.test_mentorship` (17/17 - only real alumni can opt in as a
+mentor, browse the directory, or request; a mentor profile requires real expertise/bio; `me` is honestly `None`
+until opted in; only active mentors appear in the directory, and the directory never carries contact info; a
+request needs a real, currently-active mentor; an alumnus cannot request themselves; a second simultaneous
+pending request is refused, but a new one after a decline is allowed; only the named mentor can accept/decline;
+contact email is absent until accepted, then present for both sides; declining never reveals it; an
+already-answered request cannot be answered again; only the mentee can withdraw, only while pending; a
+forged/other-school request id is refused; requests never appear in Alumni Management; cross-school isolation for
+both mentors and requests); `apps.alumni` together (56/56); `manage.py check` clean. Full backend suite: a real
+`git stash` comparison surfaced one failure present only in the "with changes" run
+(`apps.bankconnect.tests.test_review.AssignTests.test_a_person_assigns_a_payment_to_one_student`, unrelated to
+any Alumni code) - re-run three more times in isolation with no changes present, it passed all three times,
+confirming pre-existing non-determinism rather than a regression. App: `flutter analyze` clean; new
+`test/alumni_mentorship_test.dart` (17/17 - honest empty snapshot with no server; a real mentor and own profile
+round-trip with a server; a load failure propagates; `requestsAsMentee`/`requestsAsMentor` split correctly;
+`saveMyMentorProfile()`/`requestMentor()`/`respond()`/`withdraw()` each throw with no server rather than
+pretending to succeed, really send this membership's own data when a server exists, and propagate real failures;
+accepting really reveals contact email, declining never does); full app suite back to the same 83 pre-existing
+failures as before this work, by name.
+
+This closes out the Alumni role: all six workspace sections - Directory, Community, Events & Reunions, Give Back,
+Jobs & Opportunities, and Mentorship - are now genuinely real, backed by real models, real endpoints, and real
+Flutter repositories/pages, each with its own test coverage.
