@@ -2806,7 +2806,77 @@ the app to entities `apps/schoollife/messaging/teacher_channels.py` already ship
 
 This completes every item the user named: real read-receipt/unread tracking across Parent Messages, Teacher
 Family Messages, Driver Messages and Transport Control; Teacher Messages' staff/leadership channels; the
-pluggable SMS/email delivery architecture; and now the Communication Hub's own reply-thread inbox. What remains
-honestly unbuilt, by design, stays labelled rather than faked: a manager replying into an individual guardian's
-own thread from this same screen, real SMS/email/WhatsApp delivery to a resolved audience, and follow-ups (still
-`const []`, already labelled "Not available yet").
+pluggable SMS/email delivery architecture; and now the Communication Hub's own reply-thread inbox. What remained
+honestly unbuilt at the end of this pass, by design, stayed labelled rather than faked: a manager replying into an
+individual guardian's own thread from this same screen, a real staff-audience send, real SMS/email/WhatsApp
+delivery to a resolved audience, and follow-ups (still `const []`, already labelled "Not available yet"). The
+first three of those closed in the next pass below; the fourth needs a real vendor before it can be more than an
+honest seam.
+
+## Closing the Communication Hub's remaining gaps: staff announcements, one guardian at a time, and real follow-ups
+
+Asked to close out every remaining gap rather than call Messages "done" with loose ends left inside it: a real
+staff-audience send, a manager replying into one specific guardian's own thread, and follow-ups that reflect
+something real instead of sitting on an honest, permanent "Not available yet."
+
+**Staff-audience announcements.** `queueAnnouncement`'s staff branch now does for every real, currently active
+Secondary teacher what the guardian branch already did for every real, currently active Secondary family: one
+real message into each teacher's own `teacher_leadership_message` thread - the exact channel `queueReply` already
+writes into, so a staff announcement and a direct reply are indistinguishable once they land. "Which teachers are
+Secondary" reuses the identical real directory/profile cross-reference `PrincipalAssignmentsRepository._secondaryTeachers`
+already established for a different screen (`AdministratorStaffRepository`'s own `section` field joined through
+`owner_staff_profile`'s `linkedMembershipId`), so no new real-data lookup was invented. A staff send with nobody
+really linked is refused rather than silently "succeeding" at reaching nobody - the same honesty rule the guardian
+branch already followed for an empty register.
+
+**One real guardian's own thread.** The Communication Hub gained a "Message a family" lookup: the Principal picks
+one real, active Secondary student from a searchable picker (`secondaryFamilies()`, the same real register
+`_broadcastToSecondaryGuardians` already reads), and the Hub opens that one family's real `parent_message` thread
+- read and replied into through the exact same `MANAGERS` oversight access the guardian-broadcast pass already
+relied on to write into it, with its own real receipt sharing `parent_message_receipt` (already open to `MANAGERS`
+server-side; no backend change needed). This is deliberately a targeted lookup, not a bulk inbox: picking one real
+family on purpose, the same way the leadership inbox only ever showed threads that were really sent to, never a
+proactive roster of every family's private conversation with their class teacher. `PrincipalCommunicationThread`
+turned out to already fit a guardian thread's shape exactly - `TeacherMessage.fromCanonical` reads the identical
+canonical `{id, threadId, body, authorMembershipId, createdAt}` payload `parent_message` and
+`teacher_leadership_message` both use, so no second message model was needed, and `_ThreadCard` renders either
+kind of real thread unchanged.
+
+**Real follow-ups.** Each real, currently unread leadership thread now produces one real follow-up - "Reply to
+<teacher>," pointing at that real thread - instead of the list staying permanently empty. There is no real
+due-date concept behind a reply, so "due today" now means "currently awaiting your reply" rather than inventing a
+finer urgency split nothing in the system tracks; a follow-up clears itself the moment the Principal actually
+replies, since a thread they just answered is no longer unread. The "Open" action now selects the real thread
+in this same screen instead of calling the page's cross-section navigation callback with a thread id it was never
+built to understand - a latent bug that only became reachable once follow-ups stopped being permanently empty.
+Guardian threads do not feed follow-ups: that would mean bulk-scanning every real family's conversation with
+every teacher by default just to compute a badge, the same overreach the targeted-lookup design above was chosen
+to avoid.
+
+**A second real bug found while fixing the first.** `queueAnnouncement`'s default test fixtures used a
+staff-audience, portal-channel send as a "safe," implicitly-always-succeeds way to create a generic queued
+announcement for tests that weren't about delivery at all. Once staff became a real send requiring a real linked
+teacher, one such test outside this file entirely (`principal_profile_feature_test.dart`'s "a real queued
+announcement... appears in real recent activity") started failing - caught only by diffing the full suite's
+failing-test names against a clean baseline run, not by the raw failure count, which happened to land one over
+baseline either way. Fixed by pointing that test at the guardian audience instead, which the shared demo seed
+already backs with real students.
+
+**Verification.** App: `dart analyze` clean. `test/principal_communication_feature_test.dart` extended with three
+new groups (12 new tests): staff announcements reaching every real Secondary teacher's own thread and refusing
+a Primary-section teacher or an empty register; the individual guardian inbox listing real families, staying
+honestly empty with no messages, refusing a forged or non-register student id, a real reply landing in the
+guardian's own Parent Messages thread end to end, and real unread-until-seen tracking; and a follow-up appearing
+for a real unread thread and clearing once replied to. Full file: 33/33. `principal_profile_feature_test.dart`:
+the one test fixed to use a real audience passes again; its one remaining failure
+("a real approval decision... appears in real recent activity, newest first") was confirmed pre-existing and
+unrelated - it fails identically in isolation on the unmodified baseline. Full app suite: back to the same 83
+pre-existing failures as before this work, by name, after finding and fixing the one genuinely new failure above.
+No backend change was needed anywhere in this pass - every gap closed by wiring the app to real entities and
+real permission rules (`teacher_leadership_message`, `parent_message`, `parent_message_receipt`) that already
+shipped.
+
+This closes every gap named for the Communication Hub. What remains honestly unbuilt, by design: real
+SMS/email/WhatsApp delivery to a resolved audience, which needs a real vendor and a real phone/email contact
+resolution step neither of which exist in this environment, consistent with the architecture-only scope already
+chosen for SMS/email elsewhere in this plan.
