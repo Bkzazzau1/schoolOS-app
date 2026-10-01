@@ -2926,3 +2926,60 @@ already-documented run-to-run flakiness).
 This completes the Driver role: Driver Messages (real, two-way, with read receipts) and now Driver Alerts (real,
 broadcast, with read receipts) are both genuinely connected to Transport Control, with nothing left on this
 screen still labelled "not available yet."
+
+## Alumni Directory and Alumni Community become real
+
+The Alumni role had only ever had two real sections - Dashboard and Profile (identity + proprietor/administrator/
+principal verification) - behind `apps/alumni`. The other six workspace sections all rendered the identical locked
+`Chip('Not available yet')` placeholder, with zero backend behind any of them. This pass makes two of those six
+real - Directory and Community - chosen because, once investigated, both turned out to lean on infrastructure that
+already existed rather than needing a whole new domain. Events & Reunions, Mentorship, Jobs & Opportunities and
+Give Back stay the same honest placeholder; each needs its own real design before it is picked up (Give Back,
+when it is, will be non-monetary pledges - volunteering, mentoring, supplies - not real money through
+`apps/bankconnect`, a decision made and recorded so that pass does not have to re-ask).
+
+**Alumni Directory (new).** A real, narrow, public-facing read over data that already existed:
+`AlumniProfile.directory_visible` and `verification_status` were already real fields with nowhere in the app that
+actually read them for browsing. `AlumniDirectoryView` (`apps/alumni/views.py`) lists every real, verified,
+directory-visible alumnus of the acting membership's own school, with optional `q` (name/profession/organisation)
+and `graduationYear` filters - authorized the same way the alumni's own profile view already is
+(`require_activity(..., "alumni.directory", ...)`, an activity key the access catalog had already carried for all
+six sections since before this pass). `AlumniDirectoryEntrySerializer` is deliberately narrower than
+`AlumniProfileSerializer`: never admission number, original student reference, or email - the same restraint
+`directory_visible` already implied. The Flutter side follows `AlumniProfileRepository`'s own online-only shape
+exactly: `AlumniDirectoryRepository.hasServer` false means an honest empty list, never a crash or a fabricated
+entry; a real failure still propagates so the page can show a retry rather than silently hiding it.
+
+**Alumni Community (reuses the existing community module and the existing Flutter `CommunityPage`, built no new
+screen or backend module).** `apps/schoollife/community/` was already a fully real, shipped posting system
+(`PostHandler`/`CommentHandler`/`ReactionHandler`/`ReportHandler`) that every other role already writes into
+through the exact same already-generic `lib/features/community/` client - `CommunityPage` was already reused
+unchanged by every other role's workspace (administrator, driver, finance office, parent, principal, proprietor,
+staff, student, teacher); Alumni just never wired it in. The only real gap was that alumni weren't a reader or
+writer of Community at all. Deliberately **not** done by widening `apps.schoollife.framework.EVERYONE` - about
+nine other Specs across `calendar.py`/`campus.py`/`programmes.py` default their own read permission to that same
+shared constant, so broadening it would have silently handed alumni read access to unrelated school data nobody
+asked for. Instead, `apps/schoollife/community/common.py` adds a **local** `READERS = EVERYONE | {"alumni"}`
+scoped to Community alone, a new `alumniOnly` audience, and `may_see_post` now treats alumni as a real reader
+scoped *only* to their own corner - not general in-school chatter meant for a currently enrolled section or staff
+- the same way `staffOnly` already scopes staff-only posts to the staff side. `posts.py` gained the matching
+write-guards: only alumni may post `alumniOnly`, and alumni may only ever post `alumniOnly`. Comments and
+reactions needed no change at all - both already delegate entirely to `may_see_post` on their parent post. The
+Flutter `CommunityRepository` mirrors this exactly: `SchoolRole.alumni` joins `_writers`, and `_allowedAudiences`
+now gives an alumnus exactly `[CommunityAudience.alumniOnly]` and gives everyone else every audience *except*
+that one - `load()` itself needed no change, since it already just renders whatever synced locally and the
+server's own `may_see_post` is what decided that.
+
+**Verification.** Backend: new `apps.alumni.tests.test_directory` (6/6 - a verified, directory-visible alumnus
+appears without any private field; an unverified or a verified-but-hidden profile is excluded; cross-school
+isolation; every non-alumni role is refused; search and graduation-year filters both work); `apps.schoollife.
+tests.test_community` extended with a new `AlumniCommunityTests` class (5/5 - an alumnus can post `alumniOnly` and
+nowhere else; a non-alumnus is refused from posting `alumniOnly`; only alumni and moderators read an `alumniOnly`
+post; an alumnus does not see general in-school posts; a non-alumnus can still comment on an `alumniOnly` post
+only once they can actually see it); `apps.alumni` (8/8) and `apps.schoollife` (98/98) together; `manage.py
+check` clean; full backend suite unaffected (same pre-existing failure signature, confirmed by name). App: `dart
+analyze` clean; new `test/alumni_directory_test.dart` (4/4 - no server is an honest empty list, a real entry
+round-trips, a load failure propagates rather than hiding as empty, search matching); `test/
+community_repository_test.dart` extended (4 new tests - an alumnus can post but only ever to `alumniOnly`, nobody
+else is ever offered that audience, an alumnus can publish to it, an alumnus is refused from a general audience);
+full app suite back to the same 83 pre-existing failures as before this work, by name.
