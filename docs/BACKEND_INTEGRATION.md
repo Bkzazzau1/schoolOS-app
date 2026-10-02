@@ -4251,3 +4251,51 @@ isolation between two people's duties, a not-yet-active assignment granting noth
 never unlocking a hub it was never meant to; full app suite diffed by exact failure name against the 82-failure
 baseline - zero new failures, zero fixed, after updating the three workspaces' exact-navigation-list tests
 (Administrator, Principal, Teacher) for the new entry.
+
+A follow-up pass registered two more real, working screens the same drift had missed:
+`principal.class-teachers` and `teacher.class-teacher` (`PrincipalClassTeachersPage`/`TeacherClassTeacherPage`)
+were never added to the catalog on either side when they shipped - without an entry, `visibleScreens()` would
+have silently hidden both for every Principal and Teacher the instant a school customized access on a real
+backend. Added to both `apps.access.catalog` and its Flutter mirror; backend and Flutter suites both diffed
+clean against their respective baselines (the backend run's two new-looking names were, again, the same
+non-deterministic `transferverify`/`bankconnect` tests, re-confirmed by isolated re-run).
+
+## A fourth audit covers Proprietor, Parent, Driver and Student - the roles the first three never reached
+
+Two parallel research agents audited every data and presentation file in the four remaining roles for the same
+fabrication pattern the earlier audits targeted: an ungated seed returned or written when storage is empty, or a
+permission check that doesn't match the real backend. Proprietor came back fully clean - every repository either
+reads/writes only real records, gates its demo data behind `LocalDatabase.blockDemoSeeds`, or discloses sample
+figures explicitly in the UI (`proprietor_overview_page.dart`'s sample-figures banner, confirmed always rendered
+in the live app since the branch that would hide it is unreachable). Driver came back fully clean too, already
+having absorbed the shared-roster fix from the second audit. Parent and Student each had one real, previously
+unnoticed bug.
+
+**Parent's desktop top bar invented a guardian.** `parent_workspace_page.dart`'s `_DesktopTopBar` hardcoded
+`CircleAvatar(child: Text('AY'))` and `Text('Alhaji Abdullahi Yusuf')` for every signed-in parent, regardless of
+who was actually logged in. `SchoolMembership` carries no name field at all, so this was never even reading stale
+data - it was inventing a name outright, for every parent, every time. Neither Driver's nor Student's own
+header/drawer slots do this (both show a role label and icon instead), and `parent_dashboard_repository.dart`
+already documents the correct convention in a comment: "'Guardian' is a role label, not an invented name."
+Replaced with a role icon and `membership.roleLabel`/`membership.schoolName`.
+
+**A Student could see every class's assignments, not just their own.** `student_assignment_repository.dart`'s
+`load()` returned every `academic_assignment` record in the tenant with state `published` or `closed`, with no
+check that the signed-in student's own class was actually a recipient and no `LocalDatabase.blockDemoSeeds` gate
+at all - unlike its sibling `parent_assignments_repository.dart` (same entity type), which filters to the
+family's own linked children and gates on `blockDemoSeeds`, and unlike `student_results_repository.dart`/
+`student_cbt_repository.dart`, which both correctly scope to the signed-in student's own entries. The page's own
+empty-state text already promised "your frozen recipient roster" scoping the repository never implemented.
+Standalone demo mode shares one local database across every signed-in role on a device - a pattern defended
+against everywhere else in this codebase - so without this gate, a Student would see every class's assignments
+the moment that defensive local gate actually mattered (a real backend connected, or just another role's demo
+data already sitting in the same local file). Fixed by resolving the student's own class through the same
+`student_class_link` record Results/CBT already trust, then - matching Parent's own demo-mode convention exactly
+- only enforcing the filter once `blockDemoSeeds` is true; in pure standalone demo mode, it shows every class,
+same as Parent already does.
+
+**Verification.** `flutter analyze` clean. New `test/student_assignment_repository_test.dart` (the repository's
+first-ever test file) covers: connected to a real backend, only the student's own class's assignments appear; no
+class link at all means honestly nothing; standalone demo mode shows every class; a closed assignment from the
+student's own class still appears while a draft never does; only a Student membership can load at all. Full app
+suite diffed by exact failure name against the 82-failure baseline: zero new failures, zero fixed.
