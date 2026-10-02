@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/database/local_database.dart';
 import '../data/teacher_ai_demo_data.dart';
 import '../data/teacher_ai_repository.dart';
 import '../domain/teacher_ai_models.dart';
@@ -119,8 +120,10 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
                   ],
                   const SizedBox(height: 16),
                   _tools(context, constraints.maxWidth),
-                  const SizedBox(height: 16),
-                  _suggestedActions(context),
+                  if (!LocalDatabase.blockDemoSeeds) ...[
+                    const SizedBox(height: 16),
+                    _suggestedActions(context),
+                  ],
                   const SizedBox(height: 16),
                   _governance(context),
                 ],

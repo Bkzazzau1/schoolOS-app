@@ -180,6 +180,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('connected to a real backend, the fictional suggested actions never appear',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    addTearDown(() => LocalDatabase.blockDemoSeeds = false);
+    LocalDatabase.blockDemoSeeds = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TeacherAiPage(
+            repository: _FakeTeacherAiRepository(),
+            onNavigate: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Today’s suggested actions'), findsNothing);
+    expect(find.text('Teacher AI governance'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Teacher AI prompt generates review-only response and history',
       (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
