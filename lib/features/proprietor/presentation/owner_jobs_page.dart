@@ -12,9 +12,13 @@ class OwnerJobsPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onChanged,
+    this.onBack,
   });
   final JobAssignmentRepository repository;
   final VoidCallback onChanged;
+
+  /// Reached from Settings rather than its own menu item, so this shows a way back there.
+  final VoidCallback? onBack;
 
   @override
   State<OwnerJobsPage> createState() => _OwnerJobsPageState();
@@ -160,9 +164,22 @@ class _OwnerJobsPageState extends State<OwnerJobsPage> with SyncRefresh<OwnerJob
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Jobs & Delegation',
-              style: Theme.of(context).textTheme.headlineMedium,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Jobs & Delegation',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                ),
+                if (widget.onBack != null)
+                  OutlinedButton.icon(
+                    onPressed: widget.onBack,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    label: const Text('Back to Settings'),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             const Text(

@@ -71,6 +71,7 @@ import 'proprietor_school_life_page.dart';
 import 'proprietor_staff_page.dart';
 import 'proprietor_staffing_page.dart';
 import 'owner_jobs_page.dart';
+import 'owner_settings_page.dart';
 import 'owner_payroll_page.dart';
 import 'owner_staff_profiles_page.dart';
 import '../data/owner_attention_repository.dart';
@@ -122,7 +123,6 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _OwnerNavItem('mandates', 'Mandates & Direct Debit', Icons.autorenew_rounded),
     _OwnerNavItem('enrollment', 'Enrollment & Admissions', Icons.person_add_alt_1_rounded),
     _OwnerNavItem('staff', 'Staff & HR', Icons.groups_2_rounded),
-    _OwnerNavItem('jobs', 'Jobs & Delegation', Icons.assignment_ind_outlined),
     _OwnerNavItem('staff-profiles', 'Staff Profiles', Icons.badge_outlined),
     _OwnerNavItem('staffing', 'Staffing', Icons.school_outlined),
     _OwnerNavItem('payroll', 'Payroll & Salaries', Icons.payments_outlined),
@@ -136,6 +136,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
     _OwnerNavItem('alumni', 'Alumni', Icons.diversity_3_outlined),
     _OwnerNavItem('transferverify', 'TransferVerify', Icons.shield_outlined),
     _OwnerNavItem('subscriptions', 'Subscriptions', Icons.workspace_premium_outlined),
+    _OwnerNavItem('settings', 'Settings', Icons.settings_outlined),
   ];
 
   /// The screens the owner allows this person (all of them until their access is known).
@@ -709,6 +710,10 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           repository: JobAssignmentRepository(
             database: widget.localDatabase, session: widget.schoolSession),
           onChanged: _refreshPendingCount,
+          onBack: () => setState(() => _activeModule = 'settings'),
+        ),
+      'settings' => OwnerSettingsPage(
+          onOpenJobs: () => setState(() => _activeModule = 'jobs'),
         ),
       'finance' => ProprietorFinancePage(
           repository: _financeOverviewRepository(),
@@ -799,6 +804,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
 
   String get _activeLabel {
     if (_activeModule == 'finance-approvals') return 'Concession Approvals';
+    if (_activeModule == 'jobs') return 'Jobs & Delegation';
     return _navItem(_activeModule)?.label ?? 'Executive Overview';
   }
 
@@ -908,7 +914,8 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
                             item: item,
                             selected: _activeModule == item.key ||
                                 (_activeModule == 'finance-approvals' &&
-                                    item.key == 'finance'),
+                                    item.key == 'finance') ||
+                                (_activeModule == 'jobs' && item.key == 'settings'),
                             onTap: () => _selectModule(item.key),
                           ),
                       ],
