@@ -4083,5 +4083,68 @@ repository test (`administrator_website_actions_test.dart`): honest-empty on a f
 round-trip, validation, and the permission check. Full app suite, diffed by exact failure name against the same
 85-failure baseline: zero new failures, zero fixed.
 
-This closes Administrator's full 7-instance finding from the second audit entirely. Finance Office's 3-instance
-findings from the same audit remain open for a future pass.
+This closes Administrator's full 7-instance finding from the second audit entirely.
+
+## Finance Office closes out: three ungated seeds, a duplicated fourth, and a real two-tier permission
+## model that mirrors the backend exactly
+
+Finance Office's 3-instance finding from the second audit, closed. Investigating it surfaced a fourth,
+previously-unknown fabrication (a duplicated concession seed plus a fabricated "funding source" card with no
+real field behind it at all) and a genuine permission gap precise enough to need mirroring the real Django
+backend's two-tier authority model rather than widening a single role check.
+
+**Design - the three seeds.** `finance_ledger_repository.dart` carried three separate ungated auto-seeds, each
+masking an honest path the app already has: `structures()` defaulted every unconfigured term to an invented fee
+schedule, even though `StudentAccount.status` already has a real, honest `AccountStatus.noFees` ("No fees set")
+for exactly this case; `accounts()`'s `_seedDemoPayments` fabricated roughly half the register as already having
+paid specific naira amounts on specific invented past dates; `bankLines()`'s `_seedDemoBankLines` fabricated a
+matching bank statement, including two transfers from a named sender nobody ever sent. All three are removed -
+`saveStructure`, `recordPayment` and `addBankLine` are the complete real write paths already in place - and
+`reconciliation()`'s now-pointless `await accounts()` priming call (there to force the payment seed to run first)
+is dropped with them.
+
+**Design - the duplicated fourth.** `finance_concessions_repository.dart`'s own ungated seed
+(`financeConcessionSeed`) turned out to be byte-for-byte duplicated in `proprietor/data/concession_repository.dart`
+as a private `_seed` - both repositories read and write the same `concession_request` entity type, so whichever
+loaded first silently seeded it for both. Both seeds are removed. Alongside it, `finance_concessions_page.dart`'s
+"Funding source" card (`_FundingSourceCard`) turns out to render a fully disconnected fixed breakdown
+(`financeConcessionFundingRows` - "₦125k", "₦33.5k", one row literally labelled "₦0 sample" in its own value
+string) that never changes as real concessions are approved, because `FinanceConcessionRequest` has no funding-
+source field to compute it from at all. Removed outright rather than given a fabricated "sample" label - the same
+boundary Administrator Operations' real exception draws: a label excuses content a real screen already discloses
+honestly, not a card with no real source behind it anywhere in the model.
+
+**Design - the permission gap.** The real Django backend (`apps/receivables/permissions.py`,
+`apps/concessions/handler.py`) splits Finance authority into two deliberately different tiers: **billing
+authority** (`can_manage_billing`) decides what families owe - fee schedules, due dates, discounts, scholarships,
+waivers - held by the proprietor or by whoever the proprietor has specifically given the `finance.billing_authority`
+duty through a job assignment; a job title, not even Finance Office's own Accountant role, carries it on its own.
+**Operating** the ledger (`can_operate_receivables`) - recording and correcting payments, working the bank
+statement - is Finance Office's daily work, open to the proprietor, the Accountant role, or any of four
+`OPERATE_DUTIES` holders. Concessions mirror this exactly: anyone with `finance.concessions` (or Accountant, or
+the proprietor) may submit a request; only `can_manage_billing` may decide one. The Flutter side had collapsed
+all of this into one role-only check (`role == accountant || role == proprietor`, applied identically to fee
+structure, due dates *and* payments), and `proprietor/data/concession_repository.dart`'s `decide()` had no
+permission check of any kind. A new `lib/features/finance_office/data/finance_authority.dart` mirrors the
+backend's constants and `has_duty`/`can_manage_billing`/`can_operate_receivables`/`can_submit` functions exactly
+(reading the same real `owner_job_assignment` entity the owner's Job Assignments screen already writes, the same
+shape `bad_debt_classification_repository.dart` already established for a different duty). `FinanceLedgerRepository`
+splits `_staff()` into `_billingAuthority()` (fee structure, due dates) and `_operator()` (payments, bank
+statement, reminders); `FinanceConcessionsRepository.submit`/`load` and `ConcessionRepository.decide` now check
+the matching real authority instead of a bare role.
+
+**Verification.** `flutter analyze` clean. Removing the three ledger seeds and the duplicated concession seed
+broke 29 tests across 8 files app-wide (Finance Office, Proprietor and Parent, wherever
+`FinanceLedgerRepository`/`ConcessionRepository` is composed) - each now builds real fixtures via a new
+`test/core/real_finance_fixtures.dart` helper (`seedFeeStructures`, reproducing the same sensible starting fee
+schedule as an explicit fixture rather than a production auto-seed; `seedBillingAuthority`, writing a real
+`owner_job_assignment` duty grant). The most intricate rewrite, `finance_reports_ai_reconciliation_test.dart`'s
+reconciliation scenario, hand-builds the same matched/mismatched/unmatched shape the old algorithmic seed used to
+fake, now through real `recordPayment`/`addBankLine` calls. One test whose entire premise was the removed
+fee-default seed (`finance_ledger_test.dart`'s "another term starts from the default fees") is replaced with its
+honest opposite: a fresh term now stays at `AccountStatus.noFees` until the school sets one. Full app suite,
+diffed by exact failure name against the same 82-failure baseline carried from the Administrator pass: zero new
+failures, zero fixed.
+
+This closes every instance flagged by the second audit across all 5 roles it covered (Administrator, Driver,
+Principal, Teacher, Parent, Finance Office and Proprietor).
