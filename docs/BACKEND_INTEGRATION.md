@@ -4192,3 +4192,62 @@ were also noted. None of these are fixed in this pass; they're queued for the ne
 baseline carried from the Finance Office pass: zero new failures (the one extra name seen in a full-suite run,
 `core/media_upload_queue_test.dart`'s retry-backoff test, passed cleanly in isolation - a timing-sensitive test,
 not a regression), zero fixed.
+
+## Closing out the third audit's remaining items, and a correction to one of its own claims
+
+Working through the third audit's "not yet acted on" list one by one turned up a mix: one claim that was already
+stale, one that was never true, one real orphaned file, and one real gap that got built.
+
+**The messaging claim was stale, not current.** The backend sweep's report that Driver Messages/Transport
+Control unread tracking, Parent Messages read receipts, Teacher Messages' staff/leadership channels and the
+Principal Communication Hub's reply-thread inbox were still fake on the Flutter side was checked directly against
+the live code before acting on it, rather than taken on trust - and all four were already fully real, closed out
+in sessions before this one (see this document's own "Every real messaging channel gets a real read receipt,"
+"Teacher Messages' staff/leadership channels become real" and the Principal Communication Hub sections above).
+The backend sweep's own code comments had simply not been updated after the Flutter-side fix shipped. Nothing
+needed building; a pinned instruction file that still named this cluster as open work was corrected instead, so
+a future session doesn't repeat the same stale re-check.
+
+**The money-ceiling documentation inconsistency doesn't exist.** A direct search of `apps/transferverify` for any
+amount ceiling, maximum or `MAX_AMOUNT_MINOR` reference found nothing at all - no comment, docstring or constant
+anywhere in that app discusses a money ceiling, let alone one that disagrees with `apps.receivables.constants`.
+This claim from the third audit was unfounded; there was nothing to fix.
+
+**The orphaned backend file was real and is now gone.** `apps/academics/syllabus_handlers.py` was a dead stub -
+superseded by `apps.lesson_delivery`'s canonical `SyllabusProgressHandler`, no longer imported by
+`apps/academics/apps.py`, and (confirmed by search) referenced nowhere else - kept only because an earlier
+session's sandbox had refused to let it delete the file outright, exactly as its own header comment explained.
+Deleted via an individual file removal (the sandbox's objection was specifically to a recursive directory wipe,
+not to removing one tracked file), verified with a full-suite comparison against a stashed baseline: identical
+failure set, nothing newly broken.
+
+**The Mandates/Smart Money Collection navigation gap was real, and is now closed.** A Proprietor can grant any of
+the eight Mandates/Collection duties to anyone in the staff directory through Job Assignments, regardless of
+their login role - `JobAssignmentRepository.people()` draws from the whole staff directory, not just Accountants
+or the Proprietor. But the only two menu paths into `MandatesHubPage`/`CollectionsHubPage` lived inside the
+Finance Office and Proprietor workspaces, so a duty-holder logged in as, say, an Administrator or a Teacher had
+nowhere to click. A new "My Duties" screen (`lib/features/duties/`) now appears in the Principal, Administrator,
+Teacher, Driver and Staff workspaces (Finance Office and Proprietor already have direct access and don't need
+it); it reads the person's own real, active `owner_job_assignment` duties and shows whichever of Mandates or
+Collections they actually hold, or an honest "nothing given yet" message otherwise.
+
+Registering a new screen surfaced a second, older problem on the way in: `apps/access/tests/test_catalog.py` and
+`test_api.py` both carry a hand-maintained "screens the app uses today" fixture that had drifted badly out of
+sync with `apps.access.catalog` - missing Mandates, Collections and the entire Alumni workspace from one test,
+missing `Community`, `Excursions`, `Gallery`, `Curriculum` and `Timetable` screens across several role workspaces
+from another. The catalog itself was correct throughout; only the tests describing it had gone stale. Brought
+back in sync (backend commit `04f6fd1`) before adding the new `my-duties` activities on top, so the new screen
+landed on a verified-accurate baseline rather than compounding the drift further. Two smaller, equally real gaps
+of the same kind - `principal.class-teachers` and `teacher.class-teacher` are live, working screens never
+registered in the catalog at all - were found along the way and are deliberately left for a dedicated pass rather
+than folded into this one.
+
+**Verification.** Backend: full suite diffed by exact failure name against a stashed baseline - zero new
+failures (two apparently-new names, `apps.transferverify.tests.test_disputes` and
+`apps.bankconnect.tests.test_review`, were confirmed non-deterministic by re-running them in isolation three
+times with no code change between runs). Flutter: `flutter analyze` clean; new
+`test/my_duties_repository_test.dart` covers the honest-empty case, a real mandate duty, a real collection duty,
+isolation between two people's duties, a not-yet-active assignment granting nothing, and billing authority alone
+never unlocking a hub it was never meant to; full app suite diffed by exact failure name against the 82-failure
+baseline - zero new failures, zero fixed, after updating the three workspaces' exact-navigation-list tests
+(Administrator, Principal, Teacher) for the new entry.
