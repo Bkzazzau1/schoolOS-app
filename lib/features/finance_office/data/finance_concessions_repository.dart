@@ -6,7 +6,7 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/finance_concessions_models.dart';
-import 'finance_concessions_demo_data.dart';
+import 'finance_authority.dart';
 
 class FinanceConcessionActionResult {
   const FinanceConcessionActionResult({required this.success, required this.message});
@@ -35,26 +35,10 @@ class FinanceConcessionsRepository {
 
   Future<FinanceConcessionsSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
-    var records = await _localDatabase.getLocalRecords(
+    final records = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: entityType,
     );
-
-    // With a server, demo requests would be made up and could never be decided.
-    if (records.isEmpty && confirm == null) {
-      for (final request in financeConcessionSeed) {
-        await _localDatabase.upsertLocalRecord(
-          tenantId: membership.schoolId,
-          entityType: entityType,
-          entityId: request.id,
-          payload: request.toJson(),
-        );
-      }
-      records = await _localDatabase.getLocalRecords(
-        tenantId: membership.schoolId,
-        entityType: entityType,
-      );
-    }
 
     final requests = records
         .map((record) => FinanceConcessionRequest.fromJson(record.payload))
@@ -63,9 +47,8 @@ class FinanceConcessionsRepository {
 
     return FinanceConcessionsSnapshot(
       requests: requests,
-      canSubmit: membership.role == SchoolRole.accountant ||
-          membership.role == SchoolRole.proprietor,
-      canApprove: membership.role == SchoolRole.proprietor,
+      canSubmit: await canSubmitConcession(_localDatabase, membership),
+      canApprove: await canManageBilling(_localDatabase, membership),
     );
   }
 
@@ -79,11 +62,10 @@ class FinanceConcessionsRepository {
     required String requestedBy,
   }) async {
     final membership = _schoolSession.requireActiveMembership();
-    if (membership.role != SchoolRole.accountant &&
-        membership.role != SchoolRole.proprietor) {
+    if (!await canSubmitConcession(_localDatabase, membership)) {
       return const FinanceConcessionActionResult(
         success: false,
-        message: 'Only an active owner or Finance Officer can submit from this workspace.',
+        message: 'Only the owner, Finance Office, or someone given this duty can ask for a concession.',
       );
     }
 

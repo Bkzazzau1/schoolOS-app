@@ -6,9 +6,9 @@ import '../../administrator/data/administrator_attendance_desk.dart' show sectio
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_students_models.dart';
 import '../../proprietor/data/concession_repository.dart';
-import '../../proprietor/domain/concession_request.dart';
 import '../domain/finance_ledger_models.dart';
 import 'finance_aging.dart';
+import 'finance_authority.dart';
 import 'finance_billing.dart';
 import 'finance_reconciliation.dart';
 
@@ -40,29 +40,35 @@ class FinanceLedgerRepository {
   static const structureType = 'finance_fee_structure';
   static const paymentType = 'finance_payment';
 
-  SchoolMembership _staff() {
+  /// For deciding what families owe: fee schedules, due dates, discounts, scholarships, waivers.
+  /// A job title never carries this on its own - not even Finance Office - only the owner, or
+  /// someone the owner has specifically given billing authority to.
+  Future<SchoolMembership> _billingAuthority() async {
     final m = session.requireActiveMembership();
-    if (m.role != SchoolRole.accountant && m.role != SchoolRole.proprietor) {
-      throw StateError('Only the finance office or the owner can change fees and payments.');
+    if (!await canManageBilling(database, m)) {
+      throw StateError('Only the owner, or someone the owner has given billing authority, can decide what families owe.');
+    }
+    return m;
+  }
+
+  /// For working the ledger day to day: recording and correcting payments, the bank statement,
+  /// reminders. Finance Office does this as part of their role; anyone else needs a duty for it.
+  Future<SchoolMembership> _operator() async {
+    final m = session.requireActiveMembership();
+    if (!await canOperateReceivables(database, m)) {
+      throw StateError('Only the owner or the Finance Office can do this.');
     }
     return m;
   }
 
   // ---------------------------------------------------------------- fee structures
 
+  /// This term's fee structure, one row per section - honestly empty until the school sets its own
+  /// (see [AccountStatus.noFees]), never a fabricated starting figure.
   Future<List<FeeStructure>> structures(String term) async {
     final m = session.requireActiveMembership();
-    var records = await database.getLocalRecords(tenantId: m.schoolId, entityType: structureType);
-    var found = [for (final r in records) FeeStructure.fromJson(r.payload)];
-    if (found.where((s) => s.term == term).isEmpty) {
-      // The demo school starts with sensible fees (a school server blocks this: the school sets its own).
-      for (final section in financeSections) {
-        final s = FeeStructure(term: term, section: section, items: defaultFeeItems(section));
-        await database.upsertLocalRecord(tenantId: m.schoolId, entityType: structureType, entityId: s.id, payload: s.toJson());
-      }
-      records = await database.getLocalRecords(tenantId: m.schoolId, entityType: structureType);
-      found = [for (final r in records) FeeStructure.fromJson(r.payload)];
-    }
+    final records = await database.getLocalRecords(tenantId: m.schoolId, entityType: structureType);
+    final found = [for (final r in records) FeeStructure.fromJson(r.payload)];
     final ofTerm = [for (final s in found) if (s.term == term) s];
     ofTerm.sort((a, b) => financeSections.indexOf(a.section).compareTo(financeSections.indexOf(b.section)));
     return ofTerm;
@@ -72,7 +78,7 @@ class FinanceLedgerRepository {
   Future<FinanceActionResult> saveStructure({required String term, required String section, required List<FeeItem> items}) async {
     final SchoolMembership m;
     try {
-      m = _staff();
+      m = await _billingAuthority();
     } on StateError catch (e) {
       return FinanceActionResult(success: false, message: e.message);
     }
@@ -101,7 +107,7 @@ class FinanceLedgerRepository {
     return list;
   }
 
-  /// Every student's account for the term (with the demo school's payments in place on first use).
+  /// Every student's account for the term.
   Future<List<StudentAccount>> accounts([String term = financeCurrentTerm]) async {
     final register = [
       for (final s in (await students.load()).students)
@@ -109,11 +115,7 @@ class FinanceLedgerRepository {
     ];
     final structs = await structures(term);
     final concessionList = await concessions.loadRequests();
-    var payments = await allPayments();
-    if (payments.isEmpty) {
-      await _seedDemoPayments(register, structs, concessionList, term);
-      payments = await allPayments();
-    }
+    final payments = await allPayments();
     return buildAccounts(
       students: register,
       structures: structs,
@@ -139,7 +141,7 @@ class FinanceLedgerRepository {
   }) async {
     final SchoolMembership m;
     try {
-      m = _staff();
+      m = await _operator();
     } on StateError catch (e) {
       return FinanceActionResult(success: false, message: e.message);
     }
@@ -193,7 +195,7 @@ class FinanceLedgerRepository {
   Future<FinanceActionResult> voidPayment(Payment payment, String reason) async {
     final SchoolMembership m;
     try {
-      m = _staff();
+      m = await _operator();
     } on StateError catch (e) {
       return FinanceActionResult(success: false, message: e.message);
     }
@@ -225,61 +227,6 @@ class FinanceLedgerRepository {
     );
   }
 
-  /// Payments already received when the demo school opens, so the money screens have something to show. Deterministic:
-  /// about half the families have paid in full, three in ten part, and the rest nothing yet.
-  Future<void> _seedDemoPayments(
-    List<AdministratorStudentRecord> register,
-    List<FeeStructure> structs,
-    List<ConcessionRequest> concessionList,
-    String term,
-  ) async {
-    final m = session.requireActiveMembership();
-    final accounts = buildAccounts(
-      students: register,
-      structures: structs,
-      concessions: concessionList,
-      payments: const [],
-      term: term,
-      sectionOf: sectionOfClass,
-    );
-    final now = DateTime.now();
-    var n = 0;
-    for (final a in accounts) {
-      if (a.net <= 0) continue;
-      final h = _hash('${a.student.id}-$term');
-      final bucket = h % 10;
-      if (bucket >= 8) continue; // nothing paid yet
-      final amount = bucket < 5 ? a.net : (a.net * (35 + h % 30) / 100 / 500).floor() * 500;
-      if (amount <= 0) continue;
-      n++;
-      final methods = ['Bank transfer', 'POS', 'Cash'];
-      final method = methods[h % 3];
-      final at = now.subtract(Duration(days: 1 + h % 20));
-      final payment = Payment(
-        id: 'PAY-DEMO-${n.toString().padLeft(4, '0')}',
-        receiptNumber: _receipt(n),
-        studentId: a.student.id,
-        studentName: a.student.name,
-        className: a.student.className,
-        term: term,
-        amount: amount,
-        method: method,
-        receivedAt: at.toUtc().toIso8601String(),
-        reference: method == 'Cash' ? '' : 'REF${(100000 + h % 900000)}',
-        recordedBy: m.id,
-      );
-      await database.upsertLocalRecord(tenantId: m.schoolId, entityType: paymentType, entityId: payment.id, payload: payment.toJson());
-    }
-  }
-
-  static int _hash(String value) {
-    var h = 23;
-    for (final unit in value.codeUnits) {
-      h = (h * 31 + unit) & 0x7fffffff;
-    }
-    return h;
-  }
-
   static String _naira(int amount) {
     final raw = amount.toString();
     final b = StringBuffer();
@@ -306,7 +253,7 @@ class FinanceLedgerRepository {
   Future<FinanceActionResult> setDueDate(String term, DateTime date) async {
     final SchoolMembership m;
     try {
-      m = _staff();
+      m = await _billingAuthority();
     } on StateError catch (e) {
       return FinanceActionResult(success: false, message: e.message);
     }
@@ -342,7 +289,7 @@ class FinanceLedgerRepository {
   }) async {
     final SchoolMembership m;
     try {
-      m = _staff();
+      m = await _operator();
     } on StateError catch (e) {
       return FinanceActionResult(success: false, message: e.message);
     }
@@ -401,20 +348,14 @@ class FinanceLedgerRepository {
 
   Future<List<BankLine>> bankLines() async {
     final m = session.requireActiveMembership();
-    var records = await database.getLocalRecords(tenantId: m.schoolId, entityType: bankLineType);
-    if (records.isEmpty) {
-      await _seedDemoBankLines(m);
-      records = await database.getLocalRecords(tenantId: m.schoolId, entityType: bankLineType);
-    }
+    final records = await database.getLocalRecords(tenantId: m.schoolId, entityType: bankLineType);
     final list = [for (final r in records) BankLine.fromJson(r.payload)];
     list.sort((a, b) => b.date.compareTo(a.date));
     return list;
   }
 
-  Future<ReconciliationReport> reconciliation() async {
-    await accounts(); // the demo school's payments must be in place before its statement is
-    return reconcile(lines: await bankLines(), payments: await allPayments());
-  }
+  Future<ReconciliationReport> reconciliation() async =>
+      reconcile(lines: await bankLines(), payments: await allPayments());
 
   /// Adds a line from the bank statement. A reference can only be entered once.
   Future<FinanceActionResult> addBankLine({
@@ -425,7 +366,7 @@ class FinanceLedgerRepository {
   }) async {
     final SchoolMembership m;
     try {
-      m = _staff();
+      m = await _operator();
     } on StateError catch (e) {
       return FinanceActionResult(success: false, message: e.message);
     }
@@ -458,33 +399,4 @@ class FinanceLedgerRepository {
         note: line.narration.isEmpty ? 'From the bank statement' : 'From the bank statement: ${line.narration}',
       );
 
-  /// The demo school's statement: most transfer and POS receipts appear on it, one with the wrong amount, and two payments
-  /// nobody recorded. A school server blocks this: the statement comes from the bank.
-  Future<void> _seedDemoBankLines(SchoolMembership m) async {
-    final payments = [
-      for (final p in await allPayments())
-        if (!p.isVoided && p.method != 'Cash' && p.reference.trim().isNotEmpty) p,
-    ]..sort((a, b) => a.receiptNumber.compareTo(b.receiptNumber));
-    var n = 0;
-    Future<void> add(String date, int amount, String reference, String narration) async {
-      n++;
-      final line = BankLine(id: 'BNK-DEMO-${n.toString().padLeft(3, '0')}', date: date, amount: amount, reference: reference, narration: narration);
-      await database.upsertLocalRecord(tenantId: m.schoolId, entityType: bankLineType, entityId: line.id, payload: line.toJson());
-    }
-
-    for (var i = 0; i < payments.length; i++) {
-      final p = payments[i];
-      if (i % 5 == 4) continue; // recorded by the school but not on the statement yet
-      final amount = i == 2 ? p.amount + 500 : p.amount; // one where the bank shows a different amount
-      await add(p.receivedAt.split('T').first, amount, p.reference, 'Fees ${p.studentName}');
-    }
-    final today = DateTime.now();
-    String day(int back) {
-      final d = today.subtract(Duration(days: back));
-      return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-    }
-
-    await add(day(2), 45000, 'NIP2026092107714', 'Transfer from A. S. Ibrahim');
-    await add(day(4), 20000, 'NIP2026091905530', 'Transfer, no narration');
-  }
 }

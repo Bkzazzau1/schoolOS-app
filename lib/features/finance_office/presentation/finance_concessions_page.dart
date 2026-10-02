@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/finance_concessions_demo_data.dart';
+import '../data/finance_concessions_policy_copy.dart';
 import '../data/finance_concessions_repository.dart';
 import '../domain/finance_concessions_models.dart';
 
@@ -183,19 +183,7 @@ class _FinanceConcessionsPageState extends State<FinanceConcessionsPage> {
               },
             ),
             const SizedBox(height: 14),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final narrow = constraints.maxWidth < 760;
-                const funding = _FundingSourceCard();
-                const control = _ControlPrincipleCard();
-                return narrow
-                    ? const Column(children: [funding, SizedBox(height: 14), control])
-                    : const Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [Expanded(child: funding), SizedBox(width: 14), Expanded(child: control)],
-                      );
-              },
-            ),
+            const _ControlPrincipleCard(),
           ],
         );
       },
@@ -445,28 +433,6 @@ class _ConcessionTypesCard extends StatelessWidget {
           ('Approval authority', 'Finance Office, Administrator, Head Master, Principal and Directors can request. · Only the Proprietor can approve.'),
           ('Audit trail', "Every decision records who approved it and when. · Visible on the Proprietor's approval queue"),
         ],
-      );
-}
-
-class _FundingSourceCard extends StatelessWidget {
-  const _FundingSourceCard();
-  @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Funding source', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-            const Text('Who absorbs the concession.'),
-            const SizedBox(height: 14),
-            for (final row in financeConcessionFundingRows) ...[
-              Row(children: [Expanded(child: Text(row.label)), Text(row.value, style: const TextStyle(fontWeight: FontWeight.w800))]),
-              const SizedBox(height: 5),
-              LinearProgressIndicator(value: row.percent / 100),
-              const SizedBox(height: 12),
-            ],
-          ]),
-        ),
       );
 }
 
