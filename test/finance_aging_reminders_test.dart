@@ -15,6 +15,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_finance_fixtures.dart';
 import 'core/real_student_fixtures.dart';
 
 const finance = SchoolMembership(id: 'm-fin', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.accountant);
@@ -32,13 +33,19 @@ void main() {
     await session.setMemberships([finance, teacher]);
     await session.selectSchool(finance);
     await seedClassicRoster(database, tenantId: finance.schoolId);
-    await session.selectSchool(who);
+    await seedFeeStructures(database, tenantId: finance.schoolId);
+    await seedBillingAuthority(database, membership: finance);
     ledger = FinanceLedgerRepository(
       database: database,
       session: session,
       students: AdministratorStudentsRepository(localDatabase: database, schoolSession: session),
       concessions: ConcessionRepository(localDatabase: database, schoolSession: session),
     );
+    // One real family already paid in full, so "someone who owes nothing" is real too.
+    final accounts = await ledger.accounts();
+    final paidInFull = accounts.firstWhere((a) => a.section == 'Secondary');
+    await ledger.recordPayment(student: paidInFull.student, amount: paidInFull.net, method: 'Cash');
+    await session.selectSchool(who);
   }
 
   tearDown(() => db?.close());
@@ -132,7 +139,7 @@ void main() {
     await setUpSchool(teacher);
     expect((await ledger.setDueDate(financeCurrentTerm, DateTime(2026, 10, 1))).success, isFalse);
     final account = (await ledger.accounts()).first;
-    expect((await ledger.queueReminder(account, schoolName: 'BrightGate')).message, contains('finance office'));
+    expect((await ledger.queueReminder(account, schoolName: 'BrightGate')).message, contains('Finance Office'));
   });
 
   testWidgets('the aging page shows the bands and who owes, and the reminders page queues a reminder after a preview', (tester) async {

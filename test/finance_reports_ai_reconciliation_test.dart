@@ -17,6 +17,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_finance_fixtures.dart';
 import 'core/real_student_fixtures.dart';
 
 const finance = SchoolMembership(id: 'm-fin', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.accountant);
@@ -48,13 +49,29 @@ void main() {
     await session.setMemberships([finance, teacher]);
     await session.selectSchool(finance);
     await seedClassicRoster(database, tenantId: finance.schoolId);
-    await session.selectSchool(who);
+    await seedFeeStructures(database, tenantId: finance.schoolId);
+    await seedBillingAuthority(database, membership: finance);
     ledger = FinanceLedgerRepository(
       database: database,
       session: session,
       students: AdministratorStudentsRepository(localDatabase: database, schoolSession: session),
       concessions: ConcessionRepository(localDatabase: database, schoolSession: session),
     );
+
+    // A real reconciliation scenario: one payment matches a statement line exactly, one disagrees on
+    // amount, one has no statement line yet, a cash payment stays outside matching entirely, and two
+    // statement lines have no matching receipt - the same shape the old fabricated seed used to fake.
+    final accounts = await ledger.accounts();
+    await ledger.recordPayment(student: accounts[0].student, amount: 50000, method: 'Bank transfer', reference: 'REF-A');
+    await ledger.recordPayment(student: accounts[1].student, amount: 30000, method: 'POS', reference: 'REF-B');
+    await ledger.recordPayment(student: accounts[2].student, amount: 15000, method: 'Bank transfer', reference: 'REF-C');
+    await ledger.recordPayment(student: accounts[3].student, amount: 10000, method: 'Cash');
+    await ledger.addBankLine(date: DateTime(2026, 9, 10), amount: 50000, reference: 'REF-A');
+    await ledger.addBankLine(date: DateTime(2026, 9, 10), amount: 30500, reference: 'REF-B');
+    await ledger.addBankLine(date: DateTime(2026, 9, 11), amount: 20000, reference: 'NOBODY-1');
+    await ledger.addBankLine(date: DateTime(2026, 9, 12), amount: 15000, reference: 'NOBODY-2');
+
+    await session.selectSchool(who);
   }
 
   tearDown(() => db?.close());

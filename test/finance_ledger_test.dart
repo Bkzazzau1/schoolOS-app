@@ -12,6 +12,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_finance_fixtures.dart';
 import 'core/real_student_fixtures.dart';
 
 const finance = SchoolMembership(id: 'm-fin', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.accountant);
@@ -45,13 +46,24 @@ void main() {
     await session.setMemberships([finance, teacher]);
     await session.selectSchool(finance);
     await seedClassicRoster(db, tenantId: finance.schoolId);
-    await session.selectSchool(who);
+    await seedFeeStructures(db, tenantId: finance.schoolId);
+    // The demo "Finance Office" membership is treated as someone the owner has really delegated
+    // billing authority to - the same real duty the owner's own Job Assignments screen grants.
+    await seedBillingAuthority(db, membership: finance);
     ledger = FinanceLedgerRepository(
       database: db,
       session: session,
       students: AdministratorStudentsRepository(localDatabase: db, schoolSession: session),
       concessions: ConcessionRepository(localDatabase: db, schoolSession: session),
     );
+    // A couple of real payments already made, so the ledger has something collected and something
+    // still owed - the same shape the old fabricated seed used to fake.
+    final accounts = await ledger.accounts();
+    final paidInFull = accounts.firstWhere((a) => a.section == 'Secondary');
+    await ledger.recordPayment(student: paidInFull.student, amount: paidInFull.net, method: 'Cash');
+    final partial = accounts.firstWhere((a) => a.section == 'Primary');
+    await ledger.recordPayment(student: partial.student, amount: 50000, method: 'Cash');
+    await session.selectSchool(who);
   }
 
   Future<StudentAccount> account(String id) async => (await ledger.accounts()).firstWhere((a) => a.student.id == id);
@@ -180,15 +192,17 @@ void main() {
   test('only the finance office or the owner can change fees and payments', () async {
     await setUpSchool(teacher);
     final any = (await ledger.accounts()).first;
-    expect((await ledger.recordPayment(student: any.student, amount: 1000, method: 'Cash')).message, contains('finance office'));
+    expect((await ledger.recordPayment(student: any.student, amount: 1000, method: 'Cash')).message, contains('Finance Office'));
     final save = await ledger.saveStructure(term: financeCurrentTerm, section: 'Primary', items: const [FeeItem(name: 'A', amount: 1)]);
     expect(save.success, isFalse);
   });
 
-  test('another term starts from the default fees in the demo school', () async {
+  test('a term with no fee structure set yet is honestly empty, not defaulted to invented fees', () async {
     await setUpSchool();
     final structs = await ledger.structures('2026/2027 · Term 2');
-    expect(structs.length, 3);
-    expect(structs.every((s) => s.total > 0), isTrue);
+    expect(structs, isEmpty);
+    final accounts = await ledger.accounts('2026/2027 · Term 2');
+    expect(accounts.every((a) => a.status == AccountStatus.noFees), isTrue);
+    expect(accounts.every((a) => a.statusLabel == 'No fees set'), isTrue);
   });
 }

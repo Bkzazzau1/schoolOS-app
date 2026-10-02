@@ -12,10 +12,12 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_finance_fixtures.dart';
 import 'core/real_student_fixtures.dart';
 
 const parent = SchoolMembership(id: 'm-parent', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.parent);
 const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
+const _financeSetup = SchoolMembership(id: 'm-fin-setup', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.accountant);
 
 void main() {
   LocalDatabase? db;
@@ -28,34 +30,36 @@ void main() {
     await database.initialize();
     db = database;
     session = SchoolSessionController(store: FakeSessionStore());
-    await session.setMemberships([parent, teacher]);
-    await session.selectSchool(parent);
+    await session.setMemberships([parent, teacher, _financeSetup]);
+    await session.selectSchool(_financeSetup);
     for (final s in const [
       (id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', guardian: 'Alhaji Abdullahi Musa'),
       (id: 'PRI-003', name: 'Hafsa Abdullahi', className: 'Primary 3', guardian: 'Alhaji Abdullahi Sani'),
     ]) {
       await seedRealStudent(database, tenantId: parent.schoolId, id: s.id, name: s.name, className: s.className, guardian: s.guardian);
     }
+    await seedFeeStructures(database, tenantId: parent.schoolId);
     final students = AdministratorStudentsRepository(localDatabase: database, schoolSession: session);
-    final children = ParentChildrenRepository(
-      localDatabase: database,
-      schoolSession: session,
-      students: students,
-      attendance: AdministratorAttendanceRepository(localDatabase: database, schoolSession: session),
-      ledger: FinanceLedgerRepository(
-        database: database,
-        session: session,
-        students: students,
-        concessions: ConcessionRepository(localDatabase: database, schoolSession: session),
-      ),
-    );
-    await children.replaceLinkedChildren(childIds: const ['STU-001', 'PRI-003']);
     ledger = FinanceLedgerRepository(
       database: database,
       session: session,
       students: students,
       concessions: ConcessionRepository(localDatabase: database, schoolSession: session),
     );
+    // Maryam's family has a real payment on record already, so Parent Documents has a real receipt
+    // to show - the same shape the old fabricated seed used to fake.
+    final maryam = (await students.load()).students.firstWhere((s) => s.id == 'STU-001');
+    await ledger.recordPayment(student: maryam, amount: 50000, method: 'Cash');
+
+    await session.selectSchool(parent);
+    final children = ParentChildrenRepository(
+      localDatabase: database,
+      schoolSession: session,
+      students: students,
+      attendance: AdministratorAttendanceRepository(localDatabase: database, schoolSession: session),
+      ledger: ledger,
+    );
+    await children.replaceLinkedChildren(childIds: const ['STU-001', 'PRI-003']);
     documents = ParentDocumentsRepository(
       localDatabase: database,
       schoolSession: session,

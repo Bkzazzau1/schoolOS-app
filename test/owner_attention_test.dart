@@ -45,6 +45,16 @@ void main() {
   tearDown(() => db.close());
 
   test('the queue shows what is really waiting: a pending concession, then nothing once it is decided', () async {
+    await db.upsertLocalRecord(
+      tenantId: owner.schoolId,
+      entityType: ConcessionRepository.entityType,
+      entityId: 'CNC-FIX-001',
+      payload: const ConcessionRequest(
+        id: 'CNC-FIX-001', student: 'Yusuf Bello', className: 'JSS 2B', type: ConcessionType.scholarship,
+        grossFee: 185000, amount: 75000, reason: 'Founder Scholarship', requestedBy: 'Finance Office',
+        requestedByRole: 'Finance Office', requestedAt: '02 Sep 2026', status: ConcessionStatus.pendingApproval,
+      ).toJson(),
+    );
     final concessions = ConcessionRepository(localDatabase: db, schoolSession: session);
     final pending = (await concessions.loadRequests()).where((r) => r.status == ConcessionStatus.pendingApproval).toList();
     expect(pending, isNotEmpty);

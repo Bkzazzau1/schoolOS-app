@@ -172,9 +172,9 @@ void main() {
       expect((await requests.load()).requests, isEmpty);
     });
 
-    test('on demo data the numbers and the sample requests are as before', () async {
+    test('on demo data, nothing is made up either, until a real request is submitted', () async {
       final requests = FinanceConcessionsRepository(localDatabase: db, schoolSession: session);
-      expect((await requests.load()).requests, isNotEmpty);           // the sample requests
+      expect((await requests.load()).requests, isEmpty);              // nothing invented, demo or not
       final result = await requests.submit(
         student: 'Aisha Ibrahim', className: 'Nursery 2', type: FinanceConcessionType.discount,
         grossFee: 100000, amount: 5000, reason: '', requestedBy: 'Finance Office',
