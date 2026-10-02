@@ -182,18 +182,18 @@ class _AdministratorWebsitePageState extends State<AdministratorWebsitePage> {
                 ],
                 const SizedBox(height: 16),
                 if (wide)
-                  const Row(
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: _AdmissionsFormCard()),
-                      SizedBox(width: 16),
-                      Expanded(child: _BrandingCard()),
+                      const Expanded(child: _AdmissionsFormCard()),
+                      const SizedBox(width: 16),
+                      Expanded(child: _BrandingCard(schoolName: widget.schoolName)),
                     ],
                   )
                 else ...[
                   const _AdmissionsFormCard(),
                   const SizedBox(height: 16),
-                  const _BrandingCard(),
+                  _BrandingCard(schoolName: widget.schoolName),
                 ],
               ],
             );
@@ -292,13 +292,11 @@ class _KpiGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dynamicKpis = <AdministratorWebsiteKpi>[
-      administratorWebsiteKpis[0],
       AdministratorWebsiteKpi(
         label: 'Admissions',
         value: admissionsOpen ? 'Open' : 'Closed',
         detail: '$admissionSession intake',
       ),
-      ...administratorWebsiteKpis.skip(2),
     ];
     return Wrap(
       spacing: 12,
@@ -456,7 +454,9 @@ class _AdmissionsFormCard extends StatelessWidget {
 }
 
 class _BrandingCard extends StatelessWidget {
-  const _BrandingCard();
+  const _BrandingCard({required this.schoolName});
+
+  final String schoolName;
 
   @override
   Widget build(BuildContext context) {
@@ -470,7 +470,7 @@ class _BrandingCard extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: [
-              for (final item in administratorWebsiteBrandIdentity)
+              for (final item in administratorWebsiteBrandIdentity(schoolName))
                 SizedBox(
                   width: 220,
                   child: Container(

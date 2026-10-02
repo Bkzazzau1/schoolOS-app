@@ -1,23 +1,5 @@
 import '../domain/administrator_website_models.dart';
 
-const administratorWebsiteDomain = 'brightgateacademy.ng';
-
-// Real application and published-notice counts are tracked for real on the Admissions and
-// Notices screens; this settings/preview screen does not duplicate them with a disconnected
-// fixed number.
-const administratorWebsiteKpis = <AdministratorWebsiteKpi>[
-  AdministratorWebsiteKpi(
-    label: 'Domain',
-    value: administratorWebsiteDomain,
-    detail: 'Branded school website',
-  ),
-  AdministratorWebsiteKpi(
-    label: 'Admissions',
-    value: 'Open',
-    detail: '2026/2027 intake',
-  ),
-];
-
 const administratorPublicWebsiteSections = <PublicWebsiteSection>[
   PublicWebsiteSection(
     title: 'About the school',
@@ -69,15 +51,17 @@ const administratorAdmissionFormRequirements = <AdmissionFormRequirement>[
   ),
 ];
 
-const administratorWebsiteBrandIdentity = <WebsiteBrandIdentity>[
-  WebsiteBrandIdentity(label: 'Website name', value: 'BrightGate Academy'),
-  WebsiteBrandIdentity(label: 'Domain', value: administratorWebsiteDomain),
-  WebsiteBrandIdentity(label: 'Logo', value: 'BGA mark'),
-  WebsiteBrandIdentity(label: 'Theme', value: 'School theme variables'),
-];
+/// The website's own brand identity, built from the school's real name - no real domain, logo or
+/// theme setting exists yet, so those show an honest "Not set yet" rather than an invented value.
+List<WebsiteBrandIdentity> administratorWebsiteBrandIdentity(String schoolName) => [
+      WebsiteBrandIdentity(label: 'Website name', value: schoolName),
+      const WebsiteBrandIdentity(label: 'Domain', value: 'Not set yet'),
+      const WebsiteBrandIdentity(label: 'Logo', value: 'Not set yet'),
+      const WebsiteBrandIdentity(label: 'Theme', value: 'Not set yet'),
+    ];
 
 const administratorWebsiteWhiteLabelPrinciple =
-    'Parents, applicants and public visitors interact with BrightGate Academy. SchoolOS operates the management layer behind the school’s own brand.';
+    'Parents, applicants and public visitors interact with the school\'s own brand. SchoolOS operates the management layer behind it.';
 
 const administratorWebsitePreviewBoundary =
     'Connect to the internet to preview the public school website.';

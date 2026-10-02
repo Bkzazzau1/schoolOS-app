@@ -20,14 +20,6 @@ void main() {
     expect(fixture.admissionSession, '2026/2027');
   });
 
-  test('website manager preserves headline KPI values without a disconnected fixed count', () {
-    expect(administratorWebsiteDomain, 'brightgateacademy.ng');
-    // Real application and published-notice counts belong to the real Admissions and Notices
-    // screens; this settings/preview screen no longer duplicates them with a fixed number.
-    expect(administratorWebsiteKpis, hasLength(2));
-    expect(administratorWebsiteKpis.map((k) => k.label), ['Domain', 'Admissions']);
-  });
-
   test('all five public website sections are published', () {
     expect(administratorPublicWebsiteSections, hasLength(5));
     expect(
@@ -60,15 +52,16 @@ void main() {
     );
   });
 
-  test('branding identity preserves website name domain logo and theme', () {
-    expect(administratorWebsiteBrandIdentity, hasLength(4));
+  test('branding identity uses the real school name, and is honest about what is not set yet', () {
+    final identity = administratorWebsiteBrandIdentity('Green Valley International School');
+    expect(identity, hasLength(4));
     expect(
-      administratorWebsiteBrandIdentity.map((item) => '${item.label}:${item.value}'),
+      identity.map((item) => '${item.label}:${item.value}'),
       containsAll([
-        'Website name:BrightGate Academy',
-        'Domain:brightgateacademy.ng',
-        'Logo:BGA mark',
-        'Theme:School theme variables',
+        'Website name:Green Valley International School',
+        'Domain:Not set yet',
+        'Logo:Not set yet',
+        'Theme:Not set yet',
       ]),
     );
   });
@@ -88,7 +81,7 @@ void main() {
   });
 
   test('white-label and native preview boundaries remain explicit', () {
-    expect(administratorWebsiteWhiteLabelPrinciple, contains('BrightGate Academy'));
+    expect(administratorWebsiteWhiteLabelPrinciple, isNot(contains('BrightGate')));
     expect(administratorWebsiteWhiteLabelPrinciple, contains('SchoolOS'));
     expect(administratorWebsitePreviewBoundary, contains('Connect to the internet'));
     expect(administratorWebsitePreviewBoundary, isNot(contains('production')));
