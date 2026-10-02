@@ -21,7 +21,9 @@ void main() {
   });
 
   test('every owner activity in the catalog is a screen the app has', () {
-    final known = {...menuKeys, 'finance-approvals'};
+    // 'jobs' is reached from Settings rather than its own menu item, the same way
+    // 'finance-approvals' is reached from Owner Finance.
+    final known = {...menuKeys, 'finance-approvals', 'jobs'};
     for (final e in accessCatalogEntries.where((e) => e.key.startsWith('owner.'))) {
       expect(known, contains(e.key.substring('owner.'.length)), reason: '${e.key} has no screen in the app');
     }

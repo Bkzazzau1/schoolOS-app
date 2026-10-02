@@ -73,7 +73,6 @@ void main() {
       'Owner Finance',
       'Enrollment & Admissions',
       'Staff & HR',
-      'Jobs & Delegation',
       'Staff Profiles',
       'Payroll & Salaries',
       'Executive Reports',
@@ -82,6 +81,7 @@ void main() {
       'Structure & Leadership',
       'School Appearance',
       'Access & Activities',
+      'Settings',
     ];
     for (final screen in screens) {
       final item = find.text(screen).first;
@@ -93,6 +93,17 @@ void main() {
       if (problem != null && !problem.toString().contains('overflowed')) {
         fail('$screen threw: $problem');
       }
+    }
+
+    // Jobs & Delegation has no menu item of its own - it is reached from the Settings hub just
+    // opened above.
+    final jobsTile = find.text('Jobs & Delegation').first;
+    expect(jobsTile, findsOneWidget, reason: 'Jobs & Delegation is on the Settings hub');
+    await tester.tap(jobsTile);
+    await settle();
+    final problem = tester.takeException();
+    if (problem != null && !problem.toString().contains('overflowed')) {
+      fail('Jobs & Delegation threw: $problem');
     }
   });
 }
