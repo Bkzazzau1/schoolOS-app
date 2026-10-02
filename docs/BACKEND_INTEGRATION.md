@@ -4299,3 +4299,61 @@ first-ever test file) covers: connected to a real backend, only the student's ow
 class link at all means honestly nothing; standalone demo mode shows every class; a closed assignment from the
 student's own class still appears while a draft never does; only a Student membership can load at all. Full app
 suite diffed by exact failure name against the 82-failure baseline: zero new failures, zero fixed.
+
+## A production-readiness sweep: a label is not a gate
+
+The user asked for every demo/sample data path to be checked against a stricter question than any earlier
+audit: not "is this honestly labeled in the demo," but "would this still appear if a real school connected a real
+backend right now" - i.e. is it actually gated behind `LocalDatabase.blockDemoSeeds`, the static flag
+`AppServices.bootstrap` sets to `apiConfig.enabled`. Two parallel research agents swept every repository and
+presentation file in `lib/features/` for this specific gap. Seven real findings came back, all now fixed.
+
+**Finance Office's live navigation led to three fully fabricated screens.** `finance_office_workspace_page.dart`
+wired `'store'` and `'expenses'` directly to `FinanceStorePage`/`FinanceCashflowPage` - pure `const` arrays of
+fabricated stock, orders and cash-flow entries with no repository, no `LocalDatabase` usage and no gate
+whatsoever. `'mandates'` fell back to `FinanceMandatesPage` (fabricated guardians and amounts) instead of the
+honest `MandatesNoServerNotice` the app already uses for this exact "no server connected" case. All three pages,
+their demo-data files, their domain models and their three dedicated tests were fully orphaned (confirmed via
+grep) the moment the workspace page stopped constructing them, and are deleted outright. `'store'`/`'expenses'`
+now fall through to the workspace's existing `_UpcomingFinanceFeature`, matching every other not-yet-built screen.
+
+**The Proprietor's landing screen was permanently fabricated.** `proprietor_overview_page.dart` - the first
+screen an owner ever sees - had no gate anywhere: the KPI grid, an AI "health score" of 87/100 with an invented
+narrative, three section cards with invented leader names ("Mrs. Maryam Abdullahi," "Mrs. Hauwa Sule," "Mr.
+Ibrahim Danladi"), a finance summary with an invented collection-trend sparkline, and an enrollment summary
+("648" students, "96% retention") were all hardcoded constants. A "sample figures" banner disclosed this to a
+human reader, but every other Proprietor module (Finance, Enrollment, Staff & HR, Reports) had already migrated
+to real repositories - Overview was simply never wired to them. It now takes the same `OwnerReportsRepository`
+Reports and Proprietor AI already use, and every card reads from that one real snapshot: real active students,
+teaching staff and staff attendance; real fee collection and outstanding balances when the ledger is connected
+("Not available yet" when it isn't); real per-section student counts and fee collection; a one-line executive
+summary built only from what the snapshot actually contains, never a generated score. Figures with no real source
+anywhere in the app - academic health, school-wide student attendance, enrollment retention/trend, a financing
+line, the historical collection-trend chart - are dropped entirely rather than faked; the enrollment repository's
+own doc comment already explained why retention isn't shown: "they need history from earlier terms, which is not
+recorded."
+
+**Four smaller instances, each already labeled as a sample but never actually gated.** Administrator Attendance's
+gate-device seed and Administrator Operations' queue seed both wrote their sample rows into local storage
+unconditionally on every fresh school, demo or production; both now check `!LocalDatabase.blockDemoSeeds` first,
+and each page shows an honest "No real ... yet" message when the list comes back empty instead of a label with
+nothing under it. Teacher AI's "Today's suggested actions" card (explicitly labeled "generated from fictional
+demo data") is now hidden entirely once connected to a real backend, since no real pacing-suggestion engine
+exists to replace it. Administrator Students' family-account and record-quality task cards were the one instance
+with no label at all - specific invented claims ("2 guardian links awaiting verification," "7 profiles missing
+one document") with no real computation behind them anywhere; replaced with the real, already-written family-
+account authority boundary text instead of invented counts. Administrator Website Manager's Branding & Identity
+card rendered a different school's invented identity ("BrightGate Academy," "brightgateacademy.ng") regardless of
+which real school was actually signed in, never reading the real `schoolName` already passed into the page -
+`AdministratorWebsiteSettings` has no domain/logo/theme field at all, so this was invented outright, not stale.
+It now shows the real school name and an honest "Not set yet" for the settings that don't exist yet.
+
+**Verification.** Both research agents' claims were spot-checked directly against the current code before acting
+(two sub-claims about which specific strings were or weren't UI-labeled turned out to be wrong, though the
+underlying ungated-seed finding itself was correct both times - acted on the verified finding, not the
+unverified label claim). `flutter analyze` clean throughout. Full app suite diffed by exact failure name against
+the 82-failure baseline after every fix: zero new failures, zero fixed. New tests: `proprietor_overview_page_test.dart`
+(a fresh connected-backend school shows none of the old fabricated names/figures/scores anywhere, and shows the
+real counts a real registration or real staff file produces); a new gating test in
+`administrator_attendance_actions_test.dart` and a new `administrator_operations_actions_test.dart` (the first
+test file ever written against that repository); a new gating test in `teacher_ai_feature_test.dart`.
