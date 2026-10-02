@@ -4148,3 +4148,47 @@ failures, zero fixed.
 
 This closes every instance flagged by the second audit across all 5 roles it covered (Administrator, Driver,
 Principal, Teacher, Parent, Finance Office and Proprietor).
+
+## A third audit (two parallel Flutter sweeps plus the first-ever backend sweep) finds a dead, fabricated
+## attendance module and removes it entirely
+
+With the second audit's findings closed out, a third pass covered ground the first two never reached: every
+Flutter role and shared module not already in the "closed" list, and - for the first time - the Django backend
+itself, searching specifically for duty-delegation models the app hasn't mirrored and for fabrication outside
+test code.
+
+**The finding.** `lib/features/attendance/` turned out to be an entirely separate, pre-refactor attendance module
+that predates the real, already-fixed Administrator/Teacher/Principal attendance system. Its `loadRoster()`
+fabricated 12 students with invented Nigerian names and admission numbers across two hardcoded classes the first
+time it ran, with no `blockDemoSeeds` gate at all (every other seed in this codebase checks it) and no UI
+disclosure - and because it never re-queried storage after writing, it would still have displayed the fabricated
+roster from memory even in a mode where the app's central write guard silently blocked the write. It had no real
+way to ever become real either: there was no write path to add a genuine student to one of its two classes, only
+`saveAttendance` to record a session for whoever was already (fictionally) on the roster.
+
+Tracing every route to it confirmed it is not reachable by any user today: `DashboardPage`, the only place it's
+wired in, explicitly branches to a dedicated workspace for 9 of the app's 10 roles, and the one role that falls
+through to its generic shell - Alumni - doesn't have the `attendance` capability in `RolePermissions.forRole`, so
+the destination tab that would open it never appears. Rather than patch the fabrication in a module with no real
+path forward and no live audience, the whole module - repository, domain models, and page - is deleted outright,
+along with `DashboardPage`'s now-dead references to it and a domain-model unit test in `app_smoke_test.dart` that
+exercised the deleted types directly.
+
+**What the audit also surfaced, not yet acted on.** The backend sweep found five more duty-delegation families
+the Flutter app hasn't mirrored (Mandates: `finance.mandate_provider_manage`/`_manage`/`_prepare`/`_approve`;
+Smart Money Collection: `finance.collection_provider_manage`/`_policy_manage`/`_prepare`/`_approve`) - but unlike
+the three duties already fixed for Finance, both hub pages on the Flutter side are already fully server-driven
+with no client-side role logic to get wrong, so the actual gap is navigational: neither hub has a menu entry
+outside the Finance Office and Proprietor workspaces, so a delegated duty-holder logging in under another role
+has nowhere to click. The backend also confirmed, from its own code and tests, that Driver Messages/Transport
+Control unread tracking, Parent Messages read receipts, and Teacher Messages' staff/leadership and department
+channels are fully real and waiting server-side while the Flutter side still shows demo content for them - and,
+separately, that the Principal Communication Hub's reply-thread inbox has no real backend aggregation endpoint
+yet at all, unlike the other three. A confirmed-orphaned backend file a prior session left behind
+(`apps/academics/syllabus_handlers.py`) and a minor money-ceiling documentation inconsistency in `transferverify`
+were also noted. None of these are fixed in this pass; they're queued for the next ones.
+
+**Verification.** `flutter analyze` clean. Full app suite, diffed by exact failure name against the 82-failure
+baseline carried from the Finance Office pass: zero new failures (the one extra name seen in a full-suite run,
+`core/media_upload_queue_test.dart`'s retry-backoff test, passed cleanly in isolation - a timing-sensitive test,
+not a regression), zero fixed.
