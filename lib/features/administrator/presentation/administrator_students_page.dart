@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/administrator_students_policy_copy.dart';
 import '../data/administrator_students_repository.dart';
 import '../domain/administrator_students_models.dart';
 
@@ -152,38 +151,7 @@ class _AdministratorStudentsPageState extends State<AdministratorStudentsPage> {
                 onOpen: _openStudent,
               ),
               const SizedBox(height: 16),
-              if (wide)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _TaskCard(
-                        title: 'Family-account tasks',
-                        tasks: administratorFamilyTasks,
-                        footer: administratorFamilyBoundary,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: _TaskCard(
-                        title: 'Record quality',
-                        tasks: administratorRecordQualityTasks,
-                      ),
-                    ),
-                  ],
-                )
-              else ...[
-                const _TaskCard(
-                  title: 'Family-account tasks',
-                  tasks: administratorFamilyTasks,
-                  footer: administratorFamilyBoundary,
-                ),
-                const SizedBox(height: 16),
-                const _TaskCard(
-                  title: 'Record quality',
-                  tasks: administratorRecordQualityTasks,
-                ),
-              ],
+              const _FamilyAccountBoundaryCard(),
             ],
           ),
         );
@@ -439,12 +407,10 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-class _TaskCard extends StatelessWidget {
-  const _TaskCard({required this.title, required this.tasks, this.footer});
-
-  final String title;
-  final List<AdministratorStudentTask> tasks;
-  final String? footer;
+/// No real source exists yet for "guardian links awaiting verification" or "profiles missing a
+/// document" style counts - rather than invent them, this states the real authority boundary only.
+class _FamilyAccountBoundaryCard extends StatelessWidget {
+  const _FamilyAccountBoundaryCard();
 
   @override
   Widget build(BuildContext context) {
@@ -456,29 +422,11 @@ class _TaskCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+              'Family accounts',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
             ),
-            Text('Sample counts. Open the registers for current records.', style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 12),
-            for (final task in tasks)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(task.title, style: const TextStyle(fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 3),
-                    Text(task.detail),
-                  ],
-                ),
-              ),
-            if (footer != null) ...[
-              const Divider(),
-              Text(footer!, style: Theme.of(context).textTheme.bodySmall),
-            ],
+            const SizedBox(height: 8),
+            Text(administratorFamilyBoundary, style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
       ),

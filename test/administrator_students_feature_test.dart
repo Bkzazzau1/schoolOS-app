@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schoolos_app/features/administrator/data/administrator_students_policy_copy.dart';
 import 'package:schoolos_app/features/administrator/domain/administrator_students_models.dart';
 
 const _fixtureStudents = <AdministratorStudentRecord>[
@@ -65,22 +64,6 @@ void main() {
       _fixtureStudents[2].name,
       'Yusuf Bello',
     );
-  });
-
-  test('website family account tasks are preserved exactly', () {
-    expect(administratorFamilyTasks, hasLength(2));
-    expect(administratorFamilyTasks[0].title, contains('2 guardian links'));
-    expect(administratorFamilyTasks[0].detail, contains('access scope'));
-    expect(administratorFamilyTasks[1].title, contains('1 sibling link'));
-    expect(administratorFamilyTasks[1].detail, contains('without merging'));
-  });
-
-  test('website record quality tasks are preserved exactly', () {
-    expect(administratorRecordQualityTasks, hasLength(2));
-    expect(administratorRecordQualityTasks[0].title, contains('7 profiles'));
-    expect(administratorRecordQualityTasks[0].detail, contains('previous-school'));
-    expect(administratorRecordQualityTasks[1].title, contains('3 emergency contacts'));
-    expect(administratorRecordQualityTasks[1].detail, 'Contact details incomplete.');
   });
 
   test('student directory serialization preserves operational fields', () {
