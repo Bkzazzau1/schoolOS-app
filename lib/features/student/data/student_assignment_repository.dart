@@ -2,6 +2,7 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/data/administrator_students_repository.dart';
 
 const studentAssignmentEntityType = 'academic_assignment';
 const studentAssignmentSubmissionEntityType = 'student_assignment_submission';
@@ -148,15 +149,49 @@ class StudentAssignmentRepository {
   StudentAssignmentRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
+    required AdministratorStudentsRepository students,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _students = students;
+
+  static const _classLinkEntityType = 'student_class_link';
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final AdministratorStudentsRepository _students;
+
+  /// This student's own class name, the same `student_class_link` record
+  /// Results/CBT already trust for identity - never a class someone else
+  /// picked for them, and never guessed when the link is missing.
+  Future<String?> _myClassName(SchoolMembership membership) async {
+    final record = await _localDatabase.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _classLinkEntityType,
+      entityId: membership.id,
+    );
+    final studentId = (record?.payload['studentId'] as String? ?? '').trim();
+    if (studentId.isEmpty) return null;
+    final roster = (await _students.load()).students;
+    for (final student in roster) {
+      if (student.id == studentId) return student.className;
+    }
+    return null;
+  }
 
   Future<List<StudentAssignmentItem>> load() async {
     final membership = _schoolSession.requireActiveMembership();
     if (membership.role != SchoolRole.student) return const [];
+
+    // Standalone demo mode shares one local database across every seeded
+    // role and, like Parent's own assignments repository, does not filter
+    // there - only once a real backend is connected does this become a real
+    // boundary worth enforcing locally too, in addition to the sync pull
+    // itself only ever sending this student their own class's assignments.
+    String? myClassName;
+    if (LocalDatabase.blockDemoSeeds) {
+      myClassName = await _myClassName(membership);
+      if (myClassName == null) return const [];
+    }
 
     final assignmentRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
@@ -191,6 +226,7 @@ class StudentAssignmentRepository {
       final state = record.payload['state'] as String? ?? '';
       if (state != 'published' && state != 'closed') continue;
       final assignment = StudentAssignment.fromJson(record.payload);
+      if (myClassName != null && assignment.className != myClassName) continue;
       items.add(
         StudentAssignmentItem(
           assignment: assignment,

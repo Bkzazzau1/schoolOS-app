@@ -595,18 +595,18 @@ class _DesktopTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           const CircleAvatar(
-            child: Text('AY', style: TextStyle(fontWeight: FontWeight.w900)),
+            child: Icon(Icons.family_restroom_rounded),
           ),
           if (showGuardianName) ...[
             const SizedBox(width: 8),
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Alhaji Abdullahi Yusuf',
-                  style: TextStyle(fontWeight: FontWeight.w800),
+                  membership.roleLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                Text('Parent / Guardian', style: TextStyle(fontSize: 12)),
+                Text(membership.schoolName, style: const TextStyle(fontSize: 12)),
               ],
             ),
           ],

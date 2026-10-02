@@ -151,6 +151,10 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
     _assignmentRepository = StudentAssignmentRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
+      students: AdministratorStudentsRepository(
+        localDatabase: widget.localDatabase,
+        schoolSession: widget.schoolSession,
+      ),
     );
     _cbtRepository = StudentCbtRepository(
       localDatabase: widget.localDatabase,
