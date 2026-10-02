@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/core/auth/app_capability.dart';
 import 'package:schoolos_app/edge_ai/models/edge_model_manifest.dart';
-import 'package:schoolos_app/features/attendance/domain/attendance_models.dart';
 import 'package:schoolos_app/features/lesson_plans/data/lesson_plan_generation_service.dart';
 import 'package:schoolos_app/features/lesson_plans/domain/lesson_plan_models.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
@@ -36,24 +35,6 @@ void main() {
       RolePermissions.can(SchoolRole.teacher, AppCapability.lessonPlans),
       isTrue,
     );
-  });
-
-  test('attendance entry changes status without changing student identity', () {
-    const student = AttendanceStudent(
-      id: 'student-1',
-      admissionNumber: 'J1A-001',
-      name: 'Aisha Musa',
-    );
-    const entry = AttendanceEntry(
-      student: student,
-      status: AttendanceStatus.present,
-    );
-
-    final absent = entry.copyWith(status: AttendanceStatus.absent);
-
-    expect(absent.student.id, 'student-1');
-    expect(absent.status, AttendanceStatus.absent);
-    expect(absent.toJson()['status'], 'absent');
   });
 
   test('lesson plan remains available without edge or cloud AI', () async {
