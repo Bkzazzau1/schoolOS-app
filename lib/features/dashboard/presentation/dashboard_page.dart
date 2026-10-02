@@ -13,8 +13,6 @@ import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/layout/app_breakpoints.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
-import '../../attendance/data/attendance_repository.dart';
-import '../../attendance/presentation/attendance_page.dart';
 import '../../driver/presentation/driver_workspace_page.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
 import '../../parent/presentation/parent_workspace_page.dart';
@@ -50,7 +48,6 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> with SyncRefresh<DashboardPage> {
   int _selectedIndex = 0;
   int _pendingSyncCount = 0;
-  late final AttendanceRepository _attendanceRepository;
   late final LessonPlanRepository _lessonPlanRepository;
   late final List<_AppDestination> _destinations;
 
@@ -62,8 +59,6 @@ class _DashboardPageState extends State<DashboardPage> with SyncRefresh<Dashboar
         Icons.dashboard_rounded, AppCapability.dashboard),
     _AppDestination(
         'Students', Icons.groups_outlined, Icons.groups_rounded, AppCapability.students),
-    _AppDestination('Attendance', Icons.fact_check_outlined,
-        Icons.fact_check_rounded, AppCapability.attendance),
     _AppDestination('Academics', Icons.menu_book_outlined,
         Icons.menu_book_rounded, AppCapability.academics),
     _AppDestination('Messages', Icons.chat_bubble_outline_rounded,
@@ -76,10 +71,6 @@ class _DashboardPageState extends State<DashboardPage> with SyncRefresh<Dashboar
     _destinations = _allDestinations
         .where((item) => RolePermissions.can(widget.membership.role, item.capability))
         .toList(growable: false);
-    _attendanceRepository = AttendanceRepository(
-      localDatabase: widget.localDatabase,
-      schoolSession: widget.schoolSession,
-    );
     _lessonPlanRepository = LessonPlanRepository(
       localDatabase: widget.localDatabase,
       schoolSession: widget.schoolSession,
@@ -167,9 +158,6 @@ class _DashboardPageState extends State<DashboardPage> with SyncRefresh<Dashboar
 
   Widget _workspace() {
     final destination = _destinations[_selectedIndex];
-    if (destination.capability == AppCapability.attendance) {
-      return AttendancePage(repository: _attendanceRepository, onSaved: _refreshPendingCount);
-    }
     if (destination.capability == AppCapability.academics &&
         RolePermissions.can(widget.membership.role, AppCapability.lessonPlans)) {
       return LessonPlanPage(
