@@ -792,7 +792,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
       _ => ProprietorOverviewPage(
           schoolName: widget.membership.schoolName,
           onModuleRequested: _openFromOverview,
-          attention: _attentionRepository(),
+          reports: _reportsRepository(),
         ),
     };
   }

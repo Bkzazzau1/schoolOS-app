@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/sync/sync_scope.dart';
-import '../data/owner_attention_repository.dart';
+import '../data/owner_enrollment.dart';
+import '../data/owner_finance_overview.dart';
+import '../data/owner_reports.dart';
 import '../data/proprietor_overview_demo_data.dart';
+import '../domain/concession_request.dart' show formatNaira;
 import '../domain/proprietor_overview_models.dart';
 
 class ProprietorOverviewPage extends StatefulWidget {
@@ -10,11 +13,13 @@ class ProprietorOverviewPage extends StatefulWidget {
     super.key,
     required this.schoolName,
     this.onModuleRequested,
-    this.attention,
+    this.reports,
   });
 
-  /// What is waiting on the owner, from the school's real records. Without it the sample list is shown.
-  final OwnerAttentionRepository? attention;
+  /// The school's real records - staff, finance, enrollment and what is waiting on the owner. Every
+  /// figure on this page comes from here; without it, the page shows an honest empty state rather
+  /// than a sample.
+  final OwnerReportsRepository? reports;
   final String schoolName;
   final ValueChanged<String>? onModuleRequested;
 
@@ -24,35 +29,50 @@ class ProprietorOverviewPage extends StatefulWidget {
 
 class _ProprietorOverviewPageState extends State<ProprietorOverviewPage> with SyncRefresh<ProprietorOverviewPage> {
   int _selectedSectionIndex = 2;
-  List<ProprietorAttentionItem>? _attention;
-  List<ProprietorLeadershipItem>? _leadership;
+  OwnerReports? _reports;
 
   @override
   void initState() {
     super.initState();
-    _loadAttention();
+    _load();
   }
 
   @override
-  void onSynced() => _loadAttention();
+  void onSynced() => _load();
 
-  Future<void> _loadAttention() async {
-    final repository = widget.attention;
+  Future<void> _load() async {
+    final repository = widget.reports;
     if (repository == null) return;
     try {
       final loaded = await repository.load();
       if (!mounted) return;
-      setState(() {
-        _attention = loaded.items;
-        _leadership = loaded.leadership;
-      });
+      setState(() => _reports = loaded);
     } catch (_) {
-      // Keep whatever was shown; the queue is a convenience.
+      // Keep whatever was shown; the overview is a convenience.
     }
   }
 
-  ProprietorSectionPerformance get _selectedSection =>
-      ProprietorOverviewDemoData.sections[_selectedSectionIndex];
+  static const _sectionOrder = ['Early Years', 'Primary', 'Secondary'];
+
+  String get _selectedSectionName => _sectionOrder[_selectedSectionIndex];
+
+  EnrollmentSectionRow? get _selectedSection {
+    final sections = _reports?.enrollment?.sections;
+    if (sections == null) return null;
+    for (final row in sections) {
+      if (row.section == _selectedSectionName) return row;
+    }
+    return null;
+  }
+
+  OwnerFeeSection? get _selectedFeeSection {
+    final sections = _reports?.finance.fees?.sections;
+    if (sections == null) return null;
+    for (final row in sections) {
+      if (row.section == _selectedSectionName) return row;
+    }
+    return null;
+  }
 
   void _openModule(String moduleKey) {
     final callback = widget.onModuleRequested;
@@ -97,18 +117,13 @@ class _ProprietorOverviewPageState extends State<ProprietorOverviewPage> with Sy
                     onAi: () => _openModule('ai'),
                   ),
                   const SizedBox(height: 20),
-                  _ExecutiveAiBrief(
-                    attendancePercent:
-                        ProprietorOverviewDemoData.weightedAttendance,
+                  _ExecutiveBrief(
+                    reports: _reports,
                     onAskAi: () => _openModule('ai'),
                     onReport: () => _openModule('reports'),
                   ),
                   const SizedBox(height: 18),
-                  if (widget.attention != null) const _SampleNote(),
-                  _KpiGrid(
-                    items: ProprietorOverviewDemoData.kpis,
-                    width: width,
-                  ),
+                  _KpiGrid(items: _kpisFrom(_reports), width: width),
                   const SizedBox(height: 18),
                   _ResponsivePair(
                     width: width,
@@ -117,20 +132,24 @@ class _ProprietorOverviewPageState extends State<ProprietorOverviewPage> with Sy
                     left: _SectionPerformanceCard(
                       selectedIndex: _selectedSectionIndex,
                       selectedSection: _selectedSection,
+                      selectedFeeSection: _selectedFeeSection,
+                      sectionNames: _sectionOrder,
                       onSelected: (index) {
                         setState(() => _selectedSectionIndex = index);
                       },
                       onReports: () => _openModule('reports'),
                     ),
-                    right: _AttentionQueueCard(items: _attention, onOpen: _openModule),
+                    right: _AttentionQueueCard(items: _reports?.attention.items, onOpen: _openModule),
                   ),
                   const SizedBox(height: 18),
                   _ResponsivePair(
                     width: width,
                     left: _FinanceSummaryCard(
+                      fees: _reports?.finance.fees,
                       onOpen: () => _openModule('finance'),
                     ),
                     right: _EnrollmentSummaryCard(
+                      enrollment: _reports?.enrollment,
                       onOpen: () => _openModule('enrollment'),
                     ),
                   ),
@@ -140,7 +159,7 @@ class _ProprietorOverviewPageState extends State<ProprietorOverviewPage> with Sy
                     leftFlex: 3,
                     rightFlex: 2,
                     left: _LeadershipOversightCard(
-                      items: _leadership,
+                      items: _reports?.attention.leadership,
                       onOpen: () => _openModule('structure'),
                     ),
                     right: _QuickAccessCard(onOpen: _openModule),
@@ -239,16 +258,35 @@ class _OverviewHeader extends StatelessWidget {
   }
 }
 
-class _ExecutiveAiBrief extends StatelessWidget {
-  const _ExecutiveAiBrief({
-    required this.attendancePercent,
+/// A one-line, real-facts summary - never a generated score or narrative. Ask Proprietor AI itself
+/// (owner_reports.dart/proprietor_ai_service.dart) is where an actual AI-composed brief belongs;
+/// this card only ever states what [reports] really contains.
+class _ExecutiveBrief extends StatelessWidget {
+  const _ExecutiveBrief({
+    required this.reports,
     required this.onAskAi,
     required this.onReport,
   });
 
-  final int attendancePercent;
+  final OwnerReports? reports;
   final VoidCallback onAskAi;
   final VoidCallback onReport;
+
+  String get _summary {
+    final r = reports;
+    if (r == null) return 'Connect your school records to see a real executive summary here.';
+    final waiting = r.attention.items.length;
+    final parts = <String>[
+      waiting == 0 ? 'Nothing is waiting on you.' : '$waiting item${waiting == 1 ? '' : 's'} waiting on you.',
+    ];
+    final collected = r.finance.fees?.totals.collectedPercent;
+    if (collected != null) parts.add('$collected% of this term\'s fees collected.');
+    final attendanceKpi = r.staff.kpis.where((k) => k.label == 'Staff attendance').toList();
+    if (attendanceKpi.isNotEmpty && attendanceKpi.first.value != 'Not recorded') {
+      parts.add('Staff attendance ${attendanceKpi.first.value}.');
+    }
+    return parts.join(' ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -259,115 +297,46 @@ class _ExecutiveAiBrief extends StatelessWidget {
       color: theme.colorScheme.primaryContainer.withValues(alpha: 0.48),
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 760;
-            final score = Container(
-              width: compact ? double.infinity : 132,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(18),
-              ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              child: const Icon(Icons.summarize_outlined, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
               child: Column(
-                crossAxisAlignment:
-                    compact ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('School health', style: theme.textTheme.labelMedium),
-                  const SizedBox(height: 4),
                   Text(
-                    '87',
-                    style: theme.textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                    'Executive Summary',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                   ),
-                  Text('/100 · Stable', style: theme.textTheme.bodySmall),
-                ],
-              ),
-            );
-
-            final brief = Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  child: const Text(
-                    'AI',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 8),
+                  Text(_summary, style: theme.textTheme.bodyMedium?.copyWith(height: 1.45)),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Executive AI Brief',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            'Current term',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                      TextButton.icon(
+                        onPressed: onAskAi,
+                        icon: const Icon(Icons.auto_awesome_outlined, size: 17),
+                        label: const Text('Ask Proprietor AI'),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'School-wide operations are stable with $attendancePercent% attendance and 94% fee collection. Current owner priorities are Secondary attendance, outstanding fees, two curriculum pacing gaps and one Primary staffing assignment.',
-                        style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          TextButton.icon(
-                            onPressed: onAskAi,
-                            icon: const Icon(Icons.auto_awesome_outlined, size: 17),
-                            label: const Text('Ask School AI'),
-                          ),
-                          TextButton.icon(
-                            onPressed: onReport,
-                            icon: const Icon(Icons.description_outlined, size: 17),
-                            label: const Text('Open executive report'),
-                          ),
-                        ],
+                      TextButton.icon(
+                        onPressed: onReport,
+                        icon: const Icon(Icons.description_outlined, size: 17),
+                        label: const Text('Open executive report'),
                       ),
                     ],
                   ),
-                ),
-              ],
-            );
-
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  brief,
-                  const SizedBox(height: 16),
-                  score,
                 ],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(child: brief),
-                const SizedBox(width: 20),
-                score,
-              ],
-            );
-          },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -429,20 +398,21 @@ class _KpiCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    item.trend,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: accent,
-                      fontWeight: FontWeight.w800,
+                if (item.trend.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      item.trend,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -466,42 +436,49 @@ class _KpiCard extends StatelessWidget {
   }
 }
 
+/// Real enrollment counts, and real fee-collection per section when the ledger is connected -
+/// never a fabricated attendance/academic/status figure with no source behind it.
 class _SectionPerformanceCard extends StatelessWidget {
   const _SectionPerformanceCard({
     required this.selectedIndex,
     required this.selectedSection,
+    required this.selectedFeeSection,
+    required this.sectionNames,
     required this.onSelected,
     required this.onReports,
   });
 
   final int selectedIndex;
-  final ProprietorSectionPerformance selectedSection;
+  final EnrollmentSectionRow? selectedSection;
+  final OwnerFeeSection? selectedFeeSection;
+  final List<String> sectionNames;
   final ValueChanged<int> onSelected;
   final VoidCallback onReports;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final section = selectedSection;
+    final fees = selectedFeeSection;
 
     return _OwnerCard(
       title: 'Section Performance',
-      subtitle: 'Compare each school section without collapsing everything into one score.',
+      subtitle: 'Real student counts and fee collection per school section.',
       trailing: TextButton(
         onPressed: onReports,
         child: const Text('View reports'),
       ),
       child: Column(
         children: [
-          for (var index = 0;
-              index < ProprietorOverviewDemoData.sections.length;
-              index++) ...[
+          for (var index = 0; index < sectionNames.length; index++) ...[
             _SectionRow(
-              section: ProprietorOverviewDemoData.sections[index],
+              name: sectionNames[index],
+              students: index == selectedIndex ? section?.activeStudents : null,
+              feeCollectionPercent: index == selectedIndex ? fees?.rate : null,
               selected: selectedIndex == index,
               onTap: () => onSelected(index),
             ),
-            if (index != ProprietorOverviewDemoData.sections.length - 1)
-              const SizedBox(height: 8),
+            if (index != sectionNames.length - 1) const SizedBox(height: 8),
           ],
           const SizedBox(height: 16),
           Container(
@@ -516,21 +493,15 @@ class _SectionPerformanceCard extends StatelessWidget {
                 final items = [
                   _DetailMetric(
                     label: 'Selected section',
-                    value: selectedSection.name,
-                    note:
-                        '${selectedSection.leader} · ${selectedSection.leaderRole}',
+                    value: sectionNames[selectedIndex],
                   ),
                   _DetailMetric(
-                    label: 'Students',
-                    value: '${selectedSection.students}',
+                    label: 'Active students',
+                    value: section == null ? 'Not available yet' : '${section.activeStudents}',
                   ),
                   _DetailMetric(
-                    label: 'Staff',
-                    value: '${selectedSection.staff}',
-                  ),
-                  _DetailMetric(
-                    label: 'Status',
-                    value: selectedSection.statusLabel,
+                    label: 'Fee collection',
+                    value: fees == null ? 'Not available yet' : '${fees.rate}%',
                   ),
                 ];
 
@@ -567,12 +538,16 @@ class _SectionPerformanceCard extends StatelessWidget {
 
 class _SectionRow extends StatelessWidget {
   const _SectionRow({
-    required this.section,
+    required this.name,
+    required this.students,
+    required this.feeCollectionPercent,
     required this.selected,
     required this.onTap,
   });
 
-  final ProprietorSectionPerformance section;
+  final String name;
+  final int? students;
+  final int? feeCollectionPercent;
   final bool selected;
   final VoidCallback onTap;
 
@@ -596,26 +571,17 @@ class _SectionRow extends StatelessWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SectionIdentity(section: section),
+                    Text(name, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 14,
                       runSpacing: 8,
                       children: [
-                        _InlineMetric(label: 'Students', value: '${section.students}'),
-                        _InlineMetric(
-                          label: 'Attendance',
-                          value: '${section.attendancePercent}%',
-                        ),
-                        _InlineMetric(
-                          label: 'Academic',
-                          value: '${section.academicPercent}%',
-                        ),
+                        _InlineMetric(label: 'Students', value: students == null ? '—' : '$students'),
                         _InlineMetric(
                           label: 'Fees',
-                          value: '${section.feeCollectionPercent}%',
+                          value: feeCollectionPercent == null ? 'Not available yet' : '$feeCollectionPercent%',
                         ),
-                        _HealthBadge(status: section.status),
                       ],
                     ),
                   ],
@@ -624,25 +590,22 @@ class _SectionRow extends StatelessWidget {
 
               return Row(
                 children: [
-                  Expanded(flex: 3, child: _SectionIdentity(section: section)),
+                  Expanded(
+                    flex: 3,
+                    child: Text(name, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900)),
+                  ),
                   Expanded(
                     child: Text(
-                      '${section.students}',
+                      students == null ? '—' : '$students',
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
                   Expanded(
-                    child: _MiniProgress(value: section.attendancePercent),
+                    child: feeCollectionPercent == null
+                        ? Text('Not available yet', style: theme.textTheme.bodySmall, textAlign: TextAlign.center)
+                        : _MiniProgress(value: feeCollectionPercent!),
                   ),
-                  Expanded(
-                    child: _MiniProgress(value: section.academicPercent),
-                  ),
-                  Expanded(
-                    child: _MiniProgress(value: section.feeCollectionPercent),
-                  ),
-                  const SizedBox(width: 8),
-                  _HealthBadge(status: section.status),
                 ],
               );
             },
@@ -656,19 +619,16 @@ class _SectionRow extends StatelessWidget {
 class _AttentionQueueCard extends StatelessWidget {
   const _AttentionQueueCard({required this.items, required this.onOpen});
 
-  /// Null while loading, or when there is no real data (then the sample list is shown).
+  /// Null while loading, or when there is no real data yet.
   final List<ProprietorAttentionItem>? items;
   final ValueChanged<String> onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final real = items;
-    final list = real ?? ProprietorOverviewDemoData.attention;
+    final list = items ?? const <ProprietorAttentionItem>[];
     return _OwnerCard(
       title: 'Owner Attention Queue',
-      subtitle: real == null
-          ? 'Sample items. Your own appear here as work arrives.'
-          : 'Waiting on you, from the school records.',
+      subtitle: 'Waiting on you, from the school records.',
       trailing: CircleAvatar(radius: 16, child: Text('${list.length}')),
       child: Column(
         children: [
@@ -680,7 +640,7 @@ class _AttentionQueueCard extends StatelessWidget {
           for (var index = 0; index < list.length; index++) ...[
             _AttentionItem(
               item: list[index],
-              onTap: real == null || list[index].moduleKey == null ? null : () => onOpen(list[index].moduleKey!),
+              onTap: list[index].moduleKey == null ? null : () => onOpen(list[index].moduleKey!),
             ),
             if (index != list.length - 1) const SizedBox(height: 10),
           ],
@@ -754,159 +714,95 @@ class _AttentionItem extends StatelessWidget {
 }
 
 class _FinanceSummaryCard extends StatelessWidget {
-  const _FinanceSummaryCard({required this.onOpen});
+  const _FinanceSummaryCard({required this.fees, required this.onOpen});
 
+  /// Null when the Finance Office's ledger has not been read yet.
+  final OwnerFeeSummary? fees;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final totals = fees?.totals;
     return _OwnerCard(
       title: 'Finance & Cash Collection',
       subtitle: 'Owner-level collection and exposure summary.',
       trailing: TextButton(onPressed: onOpen, child: const Text('Owner Finance')),
-      child: Column(
-        children: [
-          const Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _FinanceMetric(label: 'Invoiced', value: '₦62.8m'),
-              _FinanceMetric(label: 'Collected', value: '₦59.1m'),
-              _FinanceMetric(label: 'Outstanding', value: '₦3.7m'),
-              _FinanceMetric(label: 'Financing', value: '₦150k'),
-            ],
-          ),
-          const SizedBox(height: 22),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Collection trend',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                '94.1%',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 100,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+      child: totals == null
+          ? const Text('Not available yet. Connect the Finance Office ledger to see real figures here.')
+          : Column(
               children: [
-                for (final value in ProprietorOverviewDemoData.collectionTrend)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Tooltip(
-                        message: '$value%',
-                        child: FractionallySizedBox(
-                          heightFactor: value / 100,
-                          alignment: Alignment.bottomCenter,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _FinanceMetric(label: 'Billed', value: formatNaira(totals.net)),
+                    _FinanceMetric(label: 'Collected', value: formatNaira(totals.paid)),
+                    _FinanceMetric(label: 'Outstanding', value: formatNaira(totals.balance)),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Collection rate',
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                       ),
                     ),
-                  ),
+                    Text(
+                      '${totals.collectedPercent}%',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
               ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }
 
 class _EnrollmentSummaryCard extends StatelessWidget {
-  const _EnrollmentSummaryCard({required this.onOpen});
+  const _EnrollmentSummaryCard({required this.enrollment, required this.onOpen});
 
+  /// Null while loading or when the register could not be read.
+  final OwnerEnrollment? enrollment;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final data = enrollment;
 
     return _OwnerCard(
-      title: 'Enrollment & Retention',
-      subtitle: 'Whole-school enrollment movement.',
+      title: 'Enrollment',
+      subtitle: 'Whole-school enrollment, from the real student register.',
       trailing: TextButton(onPressed: onOpen, child: const Text('Enrollment')),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: data == null
+          ? const Text('Not available yet.')
+          : Column(
+              children: [
+                Text('Current enrollment', style: theme.textTheme.labelLarge),
+                const SizedBox(height: 5),
+                Text(
+                  '${data.activeStudents}',
+                  style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                Text(
+                  'On the school register',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
-                    Text('Current enrollment', style: theme.textTheme.labelLarge),
-                    const SizedBox(height: 5),
-                    Text(
-                      '648',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      '+29 net students this session',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+                    for (final section in data.sections)
+                      _FinanceMetric(label: section.section, value: '${section.activeStudents}'),
                   ],
                 ),
-              ),
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: theme.colorScheme.primary,
-                    width: 8,
-                  ),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '96%',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const Text('retention'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _FinanceMetric(label: 'Early Years', value: '84'),
-              _FinanceMetric(label: 'Primary', value: '286'),
-              _FinanceMetric(label: 'Secondary', value: '278'),
-            ],
-          ),
-        ],
-      ),
+              ],
+            ),
     );
   }
 }
@@ -914,13 +810,13 @@ class _EnrollmentSummaryCard extends StatelessWidget {
 class _LeadershipOversightCard extends StatelessWidget {
   const _LeadershipOversightCard({required this.items, required this.onOpen});
 
-  /// Null when there is no real data (then the sample list is shown).
+  /// Null while loading, or when there is no real data yet.
   final List<ProprietorLeadershipItem>? items;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final list = items ?? ProprietorOverviewDemoData.leadership;
+    final list = items ?? const <ProprietorLeadershipItem>[];
     return _OwnerCard(
       title: 'Leadership Oversight',
       subtitle: 'Current section leadership and owner-level signal.',
@@ -1154,33 +1050,6 @@ class _ResponsivePair extends StatelessWidget {
   }
 }
 
-class _SectionIdentity extends StatelessWidget {
-  const _SectionIdentity({required this.section});
-
-  final ProprietorSectionPerformance section;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          section.name,
-          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          '${section.leaderRole} · ${section.leader}',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _MiniProgress extends StatelessWidget {
   const _MiniProgress({required this.value});
 
@@ -1200,33 +1069,6 @@ class _MiniProgress extends StatelessWidget {
           backgroundColor: theme.colorScheme.surfaceContainerHighest,
         ),
       ],
-    );
-  }
-}
-
-class _HealthBadge extends StatelessWidget {
-  const _HealthBadge({required this.status});
-
-  final ProprietorHealthStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final watch = status == ProprietorHealthStatus.watch;
-    final accent = watch ? theme.colorScheme.tertiary : theme.colorScheme.primary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        watch ? 'Watch' : 'Healthy',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: accent,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
     );
   }
 }
@@ -1251,11 +1093,10 @@ class _InlineMetric extends StatelessWidget {
 }
 
 class _DetailMetric extends StatelessWidget {
-  const _DetailMetric({required this.label, required this.value, this.note});
+  const _DetailMetric({required this.label, required this.value});
 
   final String label;
   final String value;
-  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -1271,10 +1112,6 @@ class _DetailMetric extends StatelessWidget {
         ),
         const SizedBox(height: 3),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
-        if (note != null) ...[
-          const SizedBox(height: 2),
-          Text(note!, style: theme.textTheme.bodySmall),
-        ],
       ],
     );
   }
@@ -1336,29 +1173,53 @@ String _moduleTitle(String moduleKey) {
   };
 }
 
-/// Says which parts of the overview are still sample figures.
-class _SampleNote extends StatelessWidget {
-  const _SampleNote();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'The Owner Attention Queue and Leadership are from your school records. The figures on fees, attendance, '
-              'results and enrolment below are sample figures until those modules hold real data.',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ),
-        ],
-      ),
-    );
+/// The KPI grid's real figures, from the same records Finance/Enrollment/Staff & HR already show -
+/// never a trend badge, since no history is recorded to compute one from.
+List<ProprietorKpi> _kpisFrom(OwnerReports? reports) {
+  if (reports == null) {
+    return const [
+      ProprietorKpi(label: 'Active students', value: '—', note: 'Not available yet', trend: '', tone: ProprietorKpiTone.blue),
+    ];
   }
+  final collected = reports.finance.fees?.totals.collectedPercent;
+  final balance = reports.finance.fees?.totals.balance;
+  final staffAttendance = reports.staff.kpis.firstWhere((k) => k.label == 'Staff attendance');
+  final teaching = reports.staff.kpis.firstWhere((k) => k.label == 'Teaching staff');
+  return [
+    ProprietorKpi(
+      label: 'Active students',
+      value: '${reports.enrollment?.activeStudents ?? '—'}',
+      note: 'On the school register',
+      trend: '',
+      tone: ProprietorKpiTone.green,
+    ),
+    ProprietorKpi(
+      label: 'Teaching staff',
+      value: teaching.value,
+      note: teaching.note,
+      trend: '',
+      tone: ProprietorKpiTone.blue,
+    ),
+    ProprietorKpi(
+      label: 'Fee collection',
+      value: collected == null ? 'Not available yet' : '$collected%',
+      note: collected == null ? 'Connect the Finance Office ledger' : 'Of this term\'s billed fees',
+      trend: '',
+      tone: ProprietorKpiTone.green,
+    ),
+    ProprietorKpi(
+      label: 'Outstanding fees',
+      value: balance == null ? 'Not available yet' : formatNaira(balance),
+      note: balance == null ? 'Connect the Finance Office ledger' : 'Across the whole school',
+      trend: '',
+      tone: ProprietorKpiTone.amber,
+    ),
+    ProprietorKpi(
+      label: 'Staff attendance',
+      value: staffAttendance.value,
+      note: staffAttendance.note,
+      trend: '',
+      tone: ProprietorKpiTone.purple,
+    ),
+  ];
 }

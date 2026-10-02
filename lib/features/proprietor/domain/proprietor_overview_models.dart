@@ -1,37 +1,6 @@
-enum ProprietorHealthStatus { healthy, watch }
-
 enum ProprietorAttentionTone { high, medium, info }
 
 enum ProprietorLeadershipSignal { onTrack, review }
-
-class ProprietorSectionPerformance {
-  const ProprietorSectionPerformance({
-    required this.name,
-    required this.leader,
-    required this.leaderRole,
-    required this.students,
-    required this.attendancePercent,
-    required this.academicPercent,
-    required this.feeCollectionPercent,
-    required this.staff,
-    required this.status,
-  });
-
-  final String name;
-  final String leader;
-  final String leaderRole;
-  final int students;
-  final int attendancePercent;
-  final int academicPercent;
-  final int feeCollectionPercent;
-  final int staff;
-  final ProprietorHealthStatus status;
-
-  String get statusLabel => switch (status) {
-        ProprietorHealthStatus.healthy => 'Healthy',
-        ProprietorHealthStatus.watch => 'Watch',
-      };
-}
 
 class ProprietorAttentionItem {
   const ProprietorAttentionItem({
