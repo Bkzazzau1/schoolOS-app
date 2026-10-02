@@ -528,16 +528,20 @@ class _DevicesCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Device health', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            const Text('Sample devices. Gate hardware is not connected yet, so these are examples.'),
-            const SizedBox(height: 10),
-            for (final item in devices)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text('${item.location} · ${item.type}\nLast event ${item.lastEvent} · ${item.events}'),
-                isThreeLine: true,
-                trailing: Text(item.status.label, style: const TextStyle(fontWeight: FontWeight.w900)),
-              ),
+            if (devices.isEmpty)
+              const Text('No real attendance hardware is connected yet.')
+            else ...[
+              const Text('Sample devices. Gate hardware is not connected yet, so these are examples.'),
+              const SizedBox(height: 10),
+              for (final item in devices)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text('${item.location} · ${item.type}\nLast event ${item.lastEvent} · ${item.events}'),
+                  isThreeLine: true,
+                  trailing: Text(item.status.label, style: const TextStyle(fontWeight: FontWeight.w900)),
+                ),
+            ],
           ],
         ),
       ),

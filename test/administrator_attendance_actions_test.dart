@@ -100,7 +100,21 @@ void main() {
     return buildAttendanceDesk(students: expected, events: snapshot.events, corrections: snapshot.corrections);
   }
 
-  tearDown(() => db.close());
+  tearDown(() {
+    LocalDatabase.blockDemoSeeds = false;
+    db.close();
+  });
+
+  test('connected to a real backend, the sample gate devices are never seeded', () async {
+    db = LocalDatabase(cipher: PayloadCipher(secureStorage: MemorySecureStorage()), databasePath: ':memory:');
+    await db.initialize();
+    session = SchoolSessionController(store: FakeSessionStore());
+    await session.setMemberships([admin]);
+    await session.selectSchool(admin);
+    LocalDatabase.blockDemoSeeds = true;
+    final repo = AdministratorAttendanceRepository(localDatabase: db, schoolSession: session);
+    expect((await repo.load()).devices, isEmpty);
+  });
 
   test('a school day shows the real check-ins, the real unmatched scan and the real pending corrections entered for it', () async {
     await setUpSchool();

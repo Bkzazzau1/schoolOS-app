@@ -41,7 +41,7 @@ class AdministratorOperationsRepository {
       entityType: _entityType,
     );
 
-    if (records.isEmpty) {
+    if (records.isEmpty && !LocalDatabase.blockDemoSeeds) {
       for (var i = 0; i < administratorOperationsWebsiteSeed.length; i++) {
         final item = administratorOperationsWebsiteSeed[i];
         await _localDatabase.upsertLocalRecord(

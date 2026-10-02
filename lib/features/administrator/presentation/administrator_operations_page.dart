@@ -159,11 +159,15 @@ class _QueueCard extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
             ),
             const SizedBox(height: 4),
-            Text(
-              'Sample counts. Open Transport, Meals or Visitors for current records.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
+            if (tasks.isEmpty)
+              const Text('No real operations queue has been recorded yet.')
+            else ...[
+              Text(
+                'Sample counts. Open Transport, Meals or Visitors for current records.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+            ],
             for (final task in tasks)
               Padding(
                 padding: const EdgeInsets.only(bottom: 14),

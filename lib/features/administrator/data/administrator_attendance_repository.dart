@@ -58,7 +58,7 @@ class AdministratorAttendanceRepository {
       tenantId: membership.schoolId,
       entityType: _deviceEntityType,
     );
-    if (deviceRecords.isEmpty) {
+    if (deviceRecords.isEmpty && !LocalDatabase.blockDemoSeeds) {
       for (final item in administratorAttendanceWebsiteDevices) {
         await _localDatabase.upsertLocalRecord(
           tenantId: membership.schoolId,
