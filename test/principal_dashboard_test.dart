@@ -69,7 +69,7 @@ void main() {
   tearDown(() => db?.close());
 
   test('principal workspace preserves every real website destination', () {
-    expect(principalNavigation.length, 20);
+    expect(principalNavigation.length, 21);
     expect(principalNavigation.map((item) => item.label).toList(), [
       'Dashboard',
       'Teachers',
@@ -91,6 +91,7 @@ void main() {
       'School Performance',
       'Profile',
       'Community',
+      'My Duties',
     ]);
   });
 

@@ -61,7 +61,7 @@ const _fixtureSnapshot = TeacherDashboardSnapshot(
 
 void main() {
   test('teacher workspace preserves exact website destinations, plus real Family Messages', () {
-    expect(teacherNavigation.length, 21);
+    expect(teacherNavigation.length, 22);
     expect(teacherNavigation.map((item) => item.label).toList(), [
       'Dashboard',
       'My Timetable',
@@ -84,6 +84,7 @@ void main() {
       'My Performance',
       'Profile',
       'Community',
+      'My Duties',
     ]);
   });
 

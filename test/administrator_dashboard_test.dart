@@ -66,7 +66,7 @@ void main() {
   });
 
   test('administrator workspace exposes every real website destination', () {
-    expect(administratorNavigation, hasLength(19));
+    expect(administratorNavigation, hasLength(20));
     expect(
       administratorNavigation.map((item) => item.label).toList(),
       [
@@ -89,6 +89,7 @@ void main() {
         'Operations',
         'Notices',
         'Community',
+        'My Duties',
       ],
     );
   });
