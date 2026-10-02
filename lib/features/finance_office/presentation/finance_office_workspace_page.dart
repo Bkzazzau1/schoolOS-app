@@ -22,21 +22,19 @@ import '../data/finance_concessions_repository.dart';
 import '../data/finance_office_dashboard_demo_data.dart';
 import '../domain/finance_office_dashboard_models.dart';
 import 'finance_ai_page.dart';
-import 'finance_cashflow_page.dart';
 import 'finance_concessions_page.dart';
 import 'finance_debt_aging_page.dart';
 import 'finance_family_accounts_page.dart';
 import 'finance_fee_structure_page.dart';
 import '../../mandates/data/mandates_api.dart';
+import '../../mandates/presentation/mandate_widgets.dart';
 import '../../mandates/presentation/mandates_hub_page.dart';
-import 'finance_mandates_page.dart';
 import 'finance_office_dashboard_page.dart';
 import 'finance_payroll_page.dart';
 import 'finance_receipts_page.dart';
 import 'finance_reconciliation_page.dart';
 import 'finance_reminders_page.dart';
 import 'finance_reports_page.dart';
-import 'finance_store_page.dart';
 
 class FinanceOfficeWorkspacePage extends StatefulWidget {
   const FinanceOfficeWorkspacePage({
@@ -180,13 +178,11 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
           ),
         'collections' => CollectionsHubPage(membership: widget.membership),
         'reminders' => FinanceRemindersPage(ledger: _ledger, schoolName: widget.membership.schoolName, onChanged: _refreshPendingCount),
-        'store' => const FinanceStorePage(),
-        'mandates' => MandatesScope.maybeOf(context) != null ? MandatesHubPage(membership: widget.membership) : const FinanceMandatesPage(),
+        'mandates' => MandatesScope.maybeOf(context) != null ? MandatesHubPage(membership: widget.membership) : const MandatesNoServerNotice(),
         'debt-aging' => FinanceDebtAgingPage(ledger: _ledger, onChanged: _refreshPendingCount, onOpenReminders: () => _select('reminders')),
         'receipts' => FinanceReceiptsPage(ledger: _ledger, schoolName: widget.membership.schoolName, onChanged: _refreshPendingCount),
         'accounts' => FinanceFamilyAccountsPage(ledger: _ledger, onChanged: _refreshPendingCount),
         'reconciliation' => FinanceReconciliationPage(ledger: _ledger, onChanged: _refreshPendingCount),
-        'expenses' => const FinanceCashflowPage(),
         'payroll' => FinancePayrollPage(
           localDatabase: widget.localDatabase,
           schoolSession: widget.schoolSession,
