@@ -22,6 +22,7 @@ const teacherNavigation = <TeacherNavItem>[
   TeacherNavItem(key: 'performance', label: 'My Performance'),
   TeacherNavItem(key: 'profile', label: 'Profile'),
   TeacherNavItem(key: 'community', label: 'Community'),
+  TeacherNavItem(key: 'my-duties', label: 'My Duties'),
 ];
 
 const teacherConnectedWorkflow =

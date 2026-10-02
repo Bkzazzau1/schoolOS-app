@@ -11,6 +11,8 @@ import '../../administrator/presentation/administrator_workspace_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../duties/data/my_duties_repository.dart';
+import '../../duties/presentation/my_duties_page.dart';
 import '../../excursions/data/excursion_repository.dart';
 import '../../excursions/presentation/excursions_page.dart';
 import '../../finance_office/presentation/finance_office_workspace_page.dart';
@@ -251,6 +253,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
             onBack: () => _select('dashboard'),
             onCommunityChanged: _refreshPendingCount,
           ),
+        'my-duties' => MyDutiesPage(membership: widget.membership, repository: MyDutiesRepository(database: widget.localDatabase, membership: widget.membership)),
         _ => TeacherDashboardPage(schoolName: widget.membership.schoolName, repository: _dashboard, onNavigate: _select),
       };
 
@@ -471,6 +474,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         'performance' => Icons.insights_rounded,
         'profile' => Icons.person_outline_rounded,
         'community' => Icons.forum_outlined,
+        'my-duties' => Icons.badge_outlined,
         _ => Icons.circle_outlined,
       };
 }

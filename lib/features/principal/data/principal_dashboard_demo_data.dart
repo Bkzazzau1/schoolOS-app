@@ -21,6 +21,7 @@ const principalNavigation = <PrincipalNavItem>[
   PrincipalNavItem(key: 'performance', label: 'School Performance'),
   PrincipalNavItem(key: 'profile', label: 'Profile'),
   PrincipalNavItem(key: 'community', label: 'Community'),
+  PrincipalNavItem(key: 'my-duties', label: 'My Duties'),
 ];
 
 const principalScopeBoundary =

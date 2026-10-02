@@ -9,6 +9,8 @@ import '../../../shared/models/school_membership.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../duties/data/my_duties_repository.dart';
+import '../../duties/presentation/my_duties_page.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../proprietor/data/owner_staff_profile_repository.dart';
 import '../../proprietor/data/payroll_batch_repository.dart';
@@ -414,6 +416,11 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
           onBack: () => setState(() => _activeKey = 'dashboard'),
           onCommunityChanged: _refreshPendingCount,
         );
+      case 'my-duties':
+        return MyDutiesPage(
+          membership: widget.membership,
+          repository: MyDutiesRepository(database: widget.localDatabase, membership: widget.membership),
+        );
       default:
         return _UpcomingAdministratorFeature(
           item: _activeItem,
@@ -684,6 +691,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
         'operations' => Icons.hub_outlined,
         'notices' => Icons.campaign_outlined,
         'community' => Icons.forum_outlined,
+        'my-duties' => Icons.assignment_ind_rounded,
         _ => Icons.circle_outlined,
       };
 }

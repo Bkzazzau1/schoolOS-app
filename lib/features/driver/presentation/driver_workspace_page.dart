@@ -10,6 +10,8 @@ import '../../../shared/models/school_membership.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
+import '../../duties/data/my_duties_repository.dart';
+import '../../duties/presentation/my_duties_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
 import '../data/driver_afternoon_run_repository.dart';
 import '../data/driver_dashboard_repository.dart';
@@ -77,6 +79,7 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefr
     _DriverNavItem('messages', 'Messages & Alerts', Icons.mail_outline_rounded),
     _DriverNavItem('history', 'Trip History & Profile', Icons.history_rounded),
     _DriverNavItem('community', 'Community', Icons.forum_outlined),
+    _DriverNavItem('my-duties', 'My Duties', Icons.badge_outlined),
   ];
 
   /// The screens the owner allows this person (all of them until their access is known).
@@ -220,6 +223,10 @@ class _DriverWorkspacePageState extends State<DriverWorkspacePage> with SyncRefr
             ),
             onBack: () => setState(() => _activeKey = 'dashboard'),
             onCommunityChanged: _refreshPendingCount,
+          ),
+        'my-duties' => MyDutiesPage(
+            membership: widget.membership,
+            repository: MyDutiesRepository(database: widget.localDatabase, membership: widget.membership),
           ),
         _ => DriverDashboardPage(
             repository: _dashboardRepository,
