@@ -1,4 +1,4 @@
-package com.example.schoolos_app
+package com.skulgen.app
 
 import io.flutter.embedding.android.FlutterActivity
 
