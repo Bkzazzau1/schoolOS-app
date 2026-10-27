@@ -1,3 +1,4 @@
+import '../domain/concession_request.dart' show formatNaira;
 import 'owner_attention_repository.dart';
 import 'owner_enrollment.dart';
 import 'owner_finance_overview.dart';
@@ -108,11 +109,34 @@ OwnerReports buildOwnerReports({
         ]),
       ],
     ),
-    const ReportDoc(
-      title: 'Fee collection',
-      coverage: 'Billing, collections, outstanding fees and aging',
-      unavailableReason: 'The Finance role has not recorded fees or payments yet.',
-    ),
+    if (finance.fees == null)
+      const ReportDoc(
+        title: 'Fee collection',
+        coverage: 'Billing, collections, outstanding fees and aging',
+        unavailableReason: 'The Finance role has not recorded fees or payments yet.',
+      )
+    else
+      ReportDoc(
+        title: 'Fee collection',
+        coverage: 'Billing, collections, outstanding fees and aging',
+        sections: [
+          ReportSection('Figures', [
+            'Term: ${finance.fees!.term}',
+            'Billed: ${formatNaira(finance.fees!.totals.net)}',
+            'Collected: ${formatNaira(finance.fees!.totals.paid)} (${finance.fees!.totals.collectedPercent}%)',
+            'Outstanding: ${formatNaira(finance.fees!.totals.balance)}',
+          ]),
+          ReportSection('By section', [
+            for (final s in finance.fees!.sections)
+              '${s.section}: ${s.students} students, ${formatNaira(s.paid)} of ${formatNaira(s.net)} collected (${s.rate}%)',
+          ]),
+          ReportSection('Outstanding & aging', [
+            '${finance.fees!.owingAccounts} account${finance.fees!.owingAccounts == 1 ? '' : 's'} owing, ${finance.fees!.daysOverdue} days overdue (${finance.fees!.band})',
+            if (finance.fees!.topOwing.isEmpty) 'Nothing stands out.',
+            for (final (name, className, amount) in finance.fees!.topOwing) '$name ($className): ${formatNaira(amount)} owed',
+          ]),
+        ],
+      ),
     if (enrollment == null || enrollment.empty)
       const ReportDoc(
         title: 'Enrollment & admissions',
