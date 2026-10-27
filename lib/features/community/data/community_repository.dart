@@ -1,8 +1,18 @@
+import 'dart:math';
+
 import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/community_models.dart';
+
+final _idRandom = Random();
+
+/// A microsecond timestamp alone can collide on two rapid successive calls (the clock's real
+/// resolution varies by platform) - harmless when it only ordered items in a list, but each
+/// comment is now its own stored record, where a collision would silently overwrite one comment
+/// with another. The random suffix makes that practically impossible.
+String _uniqueSuffix() => _idRandom.nextInt(0x7fffffff).toRadixString(36);
 
 class CommunitySnapshot {
   const CommunitySnapshot({
@@ -45,6 +55,8 @@ class CommunityRepository {
         _schoolSession = schoolSession;
 
   static const _postEntity = 'community_post';
+  static const _commentEntity = 'community_comment';
+  static const _reactionEntity = 'community_reaction';
   static const _reportEntity = 'community_report';
 
   final LocalDatabase _localDatabase;
@@ -60,9 +72,44 @@ class CommunityRepository {
       tenantId: membership.schoolId,
       entityType: _postEntity,
     );
+    final commentRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _commentEntity,
+    );
+    final reactionRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _reactionEntity,
+    );
+
+    final commentsByPost = <String, List<CommunityComment>>{};
+    for (final record in commentRecords) {
+      final comment = CommunityComment.fromJson(record.payload);
+      commentsByPost.putIfAbsent(comment.postId, () => []).add(comment);
+    }
+    for (final list in commentsByPost.values) {
+      list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    }
+
+    final reactionCountByPost = <String, int>{};
+    final myReactedPosts = <String>{};
+    for (final record in reactionRecords) {
+      final postId = record.payload['postId'] as String? ?? '';
+      if (postId.isEmpty) continue;
+      reactionCountByPost[postId] = (reactionCountByPost[postId] ?? 0) + 1;
+      if (record.payload['authorMembershipId'] == membership.id) {
+        myReactedPosts.add(postId);
+      }
+    }
 
     final posts = postRecords
-        .map((record) => CommunityPost.fromJson(record.payload))
+        .map((record) {
+          final post = CommunityPost.fromJson(record.payload);
+          return post.withEngagement(
+            reactions: reactionCountByPost[post.id] ?? 0,
+            comments: commentsByPost[post.id] ?? const [],
+            reactedByMe: myReactedPosts.contains(post.id),
+          );
+        })
         .toList(growable: false)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -190,6 +237,7 @@ class CommunityRepository {
       timeLabel: 'Just now · offline',
       reactions: 0,
       comments: const [],
+      reactedByMe: false,
       mediaLabel: mediaLabel?.trim().isEmpty ?? true ? null : mediaLabel!.trim(),
     );
 
@@ -200,10 +248,58 @@ class CommunityRepository {
     );
   }
 
+  /// A reaction is a per-person toggle (apps.schoollife.community.reactions.ReactionHandler), its
+  /// own record with id `<postId>:<membershipId>`, never a counter anyone can bump more than once.
+  /// Reacting again takes it back.
   Future<CommunityActionResult> react(String postId) async {
-    final post = await _requirePost(postId);
-    final updated = post.copyWith(reactions: post.reactions + 1);
-    await _savePost(updated, SyncOperation.update);
+    final membership = _schoolSession.requireActiveMembership();
+    await _requirePost(postId);
+    final id = '$postId:${membership.id}';
+    final existing = await _localDatabase.getLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _reactionEntity,
+      entityId: id,
+    );
+
+    if (existing != null) {
+      await _localDatabase.deleteLocalRecord(
+        tenantId: membership.schoolId,
+        entityType: _reactionEntity,
+        entityId: id,
+      );
+      await _localDatabase.queueMutation(
+        tenantId: membership.schoolId,
+        membershipId: membership.id,
+        entityType: _reactionEntity,
+        entityId: id,
+        operation: SyncOperation.delete,
+        payload: const {},
+        baseVersion: existing.serverVersion,
+      );
+      return const CommunityActionResult(success: true, message: 'Reaction removed, saved offline.');
+    }
+
+    final payload = {
+      'postId': postId,
+      'kind': 'like',
+      'authorMembershipId': membership.id,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+    };
+    await _localDatabase.upsertLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _reactionEntity,
+      entityId: id,
+      payload: payload,
+      isDirty: true,
+    );
+    await _localDatabase.queueMutation(
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      entityType: _reactionEntity,
+      entityId: id,
+      operation: SyncOperation.create,
+      payload: payload,
+    );
     return const CommunityActionResult(
       success: true,
       message: 'Reaction saved offline.',
@@ -223,16 +319,31 @@ class CommunityRepository {
     }
 
     final membership = _schoolSession.requireActiveMembership();
-    final post = await _requirePost(postId);
+    await _requirePost(postId);
     final now = DateTime.now().toUtc();
     final comment = CommunityComment(
-      id: '$postId-C-${now.microsecondsSinceEpoch}',
+      id: '$postId-C-${now.microsecondsSinceEpoch}-${_uniqueSuffix()}',
+      postId: postId,
       author: membership.roleLabel,
+      authorMembershipId: membership.id,
       text: cleanText,
       createdAt: now,
     );
-    final updated = post.copyWith(comments: [...post.comments, comment]);
-    await _savePost(updated, SyncOperation.update);
+    await _localDatabase.upsertLocalRecord(
+      tenantId: membership.schoolId,
+      entityType: _commentEntity,
+      entityId: comment.id,
+      payload: comment.toJson(),
+      isDirty: true,
+    );
+    await _localDatabase.queueMutation(
+      tenantId: membership.schoolId,
+      membershipId: membership.id,
+      entityType: _commentEntity,
+      entityId: comment.id,
+      operation: SyncOperation.create,
+      payload: comment.toJson(),
+    );
     return const CommunityActionResult(
       success: true,
       message: 'Comment saved offline.',

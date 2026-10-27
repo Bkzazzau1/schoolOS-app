@@ -31,22 +31,30 @@ extension CommunityVisibilityLabel on CommunityVisibility {
       };
 }
 
+/// A real `community_comment` record (apps.schoollife.community.comments.CommentHandler) - its
+/// own entity, never nested inside a post's own payload.
 class CommunityComment {
   const CommunityComment({
     required this.id,
+    required this.postId,
     required this.author,
+    required this.authorMembershipId,
     required this.text,
     required this.createdAt,
   });
 
   final String id;
+  final String postId;
   final String author;
+  final String authorMembershipId;
   final String text;
   final DateTime createdAt;
 
   Map<String, Object?> toJson() => {
         'id': id,
+        'postId': postId,
         'author': author,
+        'authorMembershipId': authorMembershipId,
         'text': text,
         'createdAt': createdAt.toUtc().toIso8601String(),
       };
@@ -54,7 +62,9 @@ class CommunityComment {
   factory CommunityComment.fromJson(Map<String, dynamic> json) {
     return CommunityComment(
       id: json['id'] as String,
+      postId: json['postId'] as String? ?? '',
       author: json['author'] as String,
+      authorMembershipId: json['authorMembershipId'] as String? ?? '',
       text: json['text'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -74,6 +84,7 @@ class CommunityPost {
     required this.timeLabel,
     required this.reactions,
     required this.comments,
+    required this.reactedByMe,
     this.mediaLabel,
   });
 
@@ -86,13 +97,66 @@ class CommunityPost {
   final String body;
   final DateTime createdAt;
   final String timeLabel;
+
+  /// The real count of `community_reaction` records for this post, and the list of real
+  /// `community_comment` records for it - both their own records server-side (apps.schoollife.
+  /// community.posts.PostHandler drops anything nested on the post itself), so the repository
+  /// attaches them here at load time rather than storing them on the post's own payload.
   final int reactions;
   final List<CommunityComment> comments;
+
+  /// Whether the signed-in member's own reaction exists among those real records - a reaction is
+  /// a per-person toggle (apps.schoollife.community.reactions.ReactionHandler), never a counter
+  /// anyone can bump more than once.
+  final bool reactedByMe;
   final String? mediaLabel;
 
-  CommunityPost copyWith({
-    int? reactions,
-    List<CommunityComment>? comments,
+  bool matches(String query, CommunityAudience? audienceFilter) {
+    if (audienceFilter != null && audience != audienceFilter) return false;
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return true;
+    final haystack = [author, role, title, body, audience.label].join(' ').toLowerCase();
+    return haystack.contains(needle);
+  }
+
+  /// Only the post's own fields - comments and reactions are never part of this record's payload.
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'author': author,
+        'role': role,
+        'audience': audience.name,
+        'visibility': visibility.name,
+        'title': title,
+        'body': body,
+        'createdAt': createdAt.toUtc().toIso8601String(),
+        'timeLabel': timeLabel,
+        'mediaLabel': mediaLabel,
+      };
+
+  /// Parses only the post's own fields; [reactions]/[comments]/[reactedByMe] are attached
+  /// separately by the repository once this is built.
+  factory CommunityPost.fromJson(Map<String, dynamic> json) {
+    return CommunityPost(
+      id: json['id'] as String,
+      author: json['author'] as String,
+      role: json['role'] as String,
+      audience: CommunityAudience.values.byName(json['audience'] as String),
+      visibility: CommunityVisibility.values.byName(json['visibility'] as String),
+      title: json['title'] as String,
+      body: json['body'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      timeLabel: json['timeLabel'] as String,
+      reactions: 0,
+      comments: const [],
+      reactedByMe: false,
+      mediaLabel: json['mediaLabel'] as String?,
+    );
+  }
+
+  CommunityPost withEngagement({
+    required int reactions,
+    required List<CommunityComment> comments,
+    required bool reactedByMe,
   }) {
     return CommunityPost(
       id: id,
@@ -104,52 +168,10 @@ class CommunityPost {
       body: body,
       createdAt: createdAt,
       timeLabel: timeLabel,
-      reactions: reactions ?? this.reactions,
-      comments: comments ?? this.comments,
-      mediaLabel: mediaLabel,
-    );
-  }
-
-  bool matches(String query, CommunityAudience? audienceFilter) {
-    if (audienceFilter != null && audience != audienceFilter) return false;
-    final needle = query.trim().toLowerCase();
-    if (needle.isEmpty) return true;
-    final haystack = [author, role, title, body, audience.label].join(' ').toLowerCase();
-    return haystack.contains(needle);
-  }
-
-  Map<String, Object?> toJson() => {
-        'id': id,
-        'author': author,
-        'role': role,
-        'audience': audience.name,
-        'visibility': visibility.name,
-        'title': title,
-        'body': body,
-        'createdAt': createdAt.toUtc().toIso8601String(),
-        'timeLabel': timeLabel,
-        'reactions': reactions,
-        'comments': comments.map((item) => item.toJson()).toList(),
-        'mediaLabel': mediaLabel,
-      };
-
-  factory CommunityPost.fromJson(Map<String, dynamic> json) {
-    final comments = (json['comments'] as List<dynamic>? ?? const [])
-        .map((item) => CommunityComment.fromJson(Map<String, dynamic>.from(item as Map)))
-        .toList(growable: false);
-    return CommunityPost(
-      id: json['id'] as String,
-      author: json['author'] as String,
-      role: json['role'] as String,
-      audience: CommunityAudience.values.byName(json['audience'] as String),
-      visibility: CommunityVisibility.values.byName(json['visibility'] as String),
-      title: json['title'] as String,
-      body: json['body'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      timeLabel: json['timeLabel'] as String,
-      reactions: json['reactions'] as int,
+      reactions: reactions,
       comments: comments,
-      mediaLabel: json['mediaLabel'] as String?,
+      reactedByMe: reactedByMe,
+      mediaLabel: mediaLabel,
     );
   }
 }

@@ -798,8 +798,8 @@ class _CommunityPostCard extends StatelessWidget {
             children: [
               TextButton.icon(
                 onPressed: onReact,
-                icon: const Icon(Icons.favorite_border_rounded),
-                label: const Text('React'),
+                icon: Icon(post.reactedByMe ? Icons.favorite_rounded : Icons.favorite_border_rounded),
+                label: Text(post.reactedByMe ? 'Reacted' : 'React'),
               ),
               TextButton.icon(
                 onPressed: onComment,
