@@ -19,6 +19,7 @@ CommunityPost _post({
     timeLabel: 'Yesterday · 1:20 PM',
     reactions: 61,
     comments: comments,
+    reactedByMe: false,
     mediaLabel: 'Event photos · 12 items',
   );
 }
@@ -32,22 +33,48 @@ void main() {
     expect(post.matches('', CommunityAudience.secondary), isFalse);
   });
 
-  test('Community post serialization preserves moderation-relevant fields', () {
+  test('Community post serialization preserves its own fields, never comments or reactions', () {
+    // Comments and reactions are their own real records server-side
+    // (apps.schoollife.community.posts.PostHandler drops anything nested on
+    // the post), so a post's own payload never carries them - the repository
+    // attaches them separately after loading each collection.
     final comment = CommunityComment(
       id: 'POST-TEST-C1',
+      postId: 'POST-TEST',
       author: 'Mr Principal',
+      authorMembershipId: 'm-principal',
       text: 'Well done to all four houses for excellent sportsmanship.',
       createdAt: DateTime.utc(2026, 9, 18, 15, 30),
     );
     final original = _post(comments: [comment]);
-    final restored = CommunityPost.fromJson(original.toJson());
+    expect(original.toJson().containsKey('comments'), isFalse);
+    expect(original.toJson().containsKey('reactions'), isFalse);
 
+    final restored = CommunityPost.fromJson(original.toJson());
     expect(restored.id, original.id);
     expect(restored.audience, original.audience);
     expect(restored.visibility, CommunityVisibility.publicShowcase);
-    expect(restored.reactions, 61);
-    expect(restored.comments, hasLength(1));
+    expect(restored.reactions, 0);
+    expect(restored.comments, isEmpty);
+    expect(restored.reactedByMe, isFalse);
     expect(restored.mediaLabel, 'Event photos · 12 items');
+  });
+
+  test('a comment is its own real record and round-trips in full', () {
+    final comment = CommunityComment(
+      id: 'POST-TEST-C1',
+      postId: 'POST-TEST',
+      author: 'Mr Principal',
+      authorMembershipId: 'm-principal',
+      text: 'Well done to all four houses for excellent sportsmanship.',
+      createdAt: DateTime.utc(2026, 9, 18, 15, 30),
+    );
+    final restored = CommunityComment.fromJson(comment.toJson());
+    expect(restored.id, comment.id);
+    expect(restored.postId, 'POST-TEST');
+    expect(restored.author, 'Mr Principal');
+    expect(restored.authorMembershipId, 'm-principal');
+    expect(restored.text, comment.text);
   });
 
   test('Community keeps the Noticeboard boundary explicit', () {

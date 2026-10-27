@@ -33,6 +33,9 @@ class _Database implements LocalDatabase {
         return Future<void>.value();
       case #queueMutation:
         return Future<String>.value('mutation');
+      case #deleteLocalRecord:
+        records.remove(key);
+        return Future<void>.value();
     }
     return super.noSuchMethod(invocation);
   }
@@ -257,6 +260,78 @@ void main() {
       await repository.comment(postId: postId, text: 'Another real comment.');
       final snapshot = await repository.load();
       expect(snapshot.commentsThisWeek, 2);
+    });
+  });
+
+  group('comments and reactions are their own records, never nested on the post', () {
+    Future<String> publishOnePost(SchoolRole as_) async {
+      await actAs(as_);
+      await repository.publish(
+        authorName: 'Someone',
+        title: 'A post',
+        body: 'Body',
+        audience: CommunityAudience.wholeSchool,
+        visibility: CommunityVisibility.schoolOnly,
+      );
+      return (await repository.load()).posts.single.id;
+    }
+
+    test('a post never carries comments/reactions in its own stored payload', () async {
+      final postId = await publishOnePost(SchoolRole.teacher);
+      final stored = database.records.values.singleWhere((r) => r.entityType == 'community_post');
+      expect(stored.payload.containsKey('comments'), isFalse);
+      expect(stored.payload.containsKey('reactions'), isFalse);
+      expect(postId, isNotEmpty);
+    });
+
+    test('reacting creates a real community_reaction record owned by the real member', () async {
+      final postId = await publishOnePost(SchoolRole.teacher);
+      final me = session.requireActiveMembership();
+      await repository.react(postId);
+
+      final stored = database.records['${me.schoolId}/community_reaction/$postId:${me.id}'];
+      expect(stored, isNotNull);
+      expect(stored!.payload['postId'], postId);
+      expect(stored.payload['authorMembershipId'], me.id);
+
+      final post = (await repository.load()).posts.single;
+      expect(post.reactions, 1);
+      expect(post.reactedByMe, isTrue);
+    });
+
+    test('reacting a second time takes the reaction back, never stacks it', () async {
+      final postId = await publishOnePost(SchoolRole.teacher);
+      final me = session.requireActiveMembership();
+      await repository.react(postId);
+      await repository.react(postId);
+
+      expect(database.records.containsKey('${me.schoolId}/community_reaction/$postId:${me.id}'), isFalse);
+      final post = (await repository.load()).posts.single;
+      expect(post.reactions, 0);
+      expect(post.reactedByMe, isFalse);
+    });
+
+    test('only the real reacting member\'s own reaction counts as reactedByMe for them', () async {
+      final postId = await publishOnePost(SchoolRole.teacher);
+      await repository.react(postId);
+
+      await actAs(SchoolRole.driver);
+      final post = (await repository.load()).posts.single;
+      expect(post.reactions, 1, reason: 'the real reaction still counts in the total');
+      expect(post.reactedByMe, isFalse, reason: 'but it is not this member\'s own reaction');
+    });
+
+    test('a comment is a real community_comment record with the real post id', () async {
+      final postId = await publishOnePost(SchoolRole.teacher);
+      await repository.comment(postId: postId, text: 'Well done.');
+
+      final stored = database.records.values.singleWhere((r) => r.entityType == 'community_comment');
+      expect(stored.payload['postId'], postId);
+      expect(stored.payload['text'], 'Well done.');
+
+      final post = (await repository.load()).posts.single;
+      expect(post.comments, hasLength(1));
+      expect(post.comments.single.postId, postId);
     });
   });
 }
