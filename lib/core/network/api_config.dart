@@ -26,3 +26,25 @@ class ApiConfig {
         : parsed.replace(queryParameters: {...parsed.queryParameters, ...query});
   }
 }
+
+/// Thrown at startup when a release build has no real backend wired in. A
+/// release build must never silently fall back to running on demo data: that
+/// would ship indistinguishably from a real release until someone noticed the
+/// data was fake.
+class MissingApiBaseUrlError extends StateError {
+  MissingApiBaseUrlError()
+      : super(
+          'This release build has no API_BASE_URL, so it would silently run on '
+          'demo data. Build with --dart-define=API_BASE_URL=<the real backend '
+          'URL>.',
+        );
+}
+
+/// Call once at startup, before anything else. [isRelease] is `kReleaseMode`
+/// in `main()`, passed in rather than read here so this can be tested without
+/// actually producing a release build.
+void assertApiConfiguredForRelease(ApiConfig config, {required bool isRelease}) {
+  if (isRelease && !config.enabled) {
+    throw MissingApiBaseUrlError();
+  }
+}
