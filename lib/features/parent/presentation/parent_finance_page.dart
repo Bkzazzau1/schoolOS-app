@@ -130,7 +130,10 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
   void _openReceipts(ParentFinanceSnapshot snapshot) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ParentFinanceReceiptsPage(snapshot: snapshot),
+        builder: (_) => ParentFinanceReceiptsPage(
+          snapshot: snapshot,
+          schoolName: widget.repository.activeMembership.schoolName,
+        ),
       ),
     );
   }
@@ -903,8 +906,9 @@ class _ReminderCard extends StatelessWidget {
 }
 
 class ParentFinanceReceiptsPage extends StatefulWidget {
-  const ParentFinanceReceiptsPage({super.key, required this.snapshot});
+  const ParentFinanceReceiptsPage({super.key, required this.snapshot, required this.schoolName});
   final ParentFinanceSnapshot snapshot;
+  final String schoolName;
 
   @override
   State<ParentFinanceReceiptsPage> createState() => _ParentFinanceReceiptsPageState();
@@ -959,7 +963,11 @@ class _ParentFinanceReceiptsPageState extends State<ParentFinanceReceiptsPage> {
                   ],
                 ),
               );
-              final detail = _ReceiptDetail(receipt: selected, academicPeriod: widget.snapshot.academicPeriod);
+              final detail = _ReceiptDetail(
+                receipt: selected,
+                academicPeriod: widget.snapshot.academicPeriod,
+                schoolName: widget.schoolName,
+              );
               if (constraints.maxWidth < 820) {
                 return Column(children: [history, const SizedBox(height: 14), detail]);
               }
@@ -980,7 +988,7 @@ class _ParentFinanceReceiptsPageState extends State<ParentFinanceReceiptsPage> {
 
   Future<void> _copyReceipt(BuildContext context, ParentFinanceReceipt receipt) async {
     final text = [
-      'BrightGate Academy · Payment Receipt',
+      '${widget.schoolName} · Payment Receipt',
       'Receipt: ${receipt.number}',
       'Student: ${receipt.student}',
       'Admission: ${receipt.admissionNumber}',
@@ -1002,15 +1010,16 @@ class _ParentFinanceReceiptsPageState extends State<ParentFinanceReceiptsPage> {
 }
 
 class _ReceiptDetail extends StatelessWidget {
-  const _ReceiptDetail({required this.receipt, required this.academicPeriod});
+  const _ReceiptDetail({required this.receipt, required this.academicPeriod, required this.schoolName});
   final ParentFinanceReceipt receipt;
   final String academicPeriod;
+  final String schoolName;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
-      title: 'BrightGate Academy',
-      subtitle: 'Kaduna Campus · PAYMENT RECEIPT',
+      title: schoolName,
+      subtitle: 'PAYMENT RECEIPT',
       trailing: const Chip(label: Text('Confirmed')),
       child: Column(
         children: [
