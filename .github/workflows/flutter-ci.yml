@@ -41,10 +41,9 @@ jobs:
     # successfully: it just silently runs on demo data (lib/core/network/api_config.dart).
     # This job proves the real release-build pipeline actually works once that
     # flag is supplied, so "we forgot to pass it" is never discovered only after
-    # a real build was already sent out. CI_API_BASE_URL is a placeholder until
-    # a real backend domain exists (see docs/ACCOUNT_RECOVERY_CREDENTIAL_MANAGEMENT.md
-    # and the launch-readiness tracker's external items); replace it with the
-    # real `secrets.API_BASE_URL` once that domain is chosen.
+    # a real build was already sent out. Defaults to the real production API;
+    # set the CI_API_BASE_URL repository variable to point builds at a
+    # staging backend instead, without touching this file.
     runs-on: windows-latest
 
     steps:
@@ -64,4 +63,4 @@ jobs:
         run: flutter config --enable-windows-desktop
 
       - name: Release build with a real API_BASE_URL
-        run: flutter build windows --release --dart-define=API_BASE_URL=${{ vars.CI_API_BASE_URL || 'https://ci-placeholder.schoolos.invalid/api/v1' }}
+        run: flutter build windows --release --dart-define=API_BASE_URL=${{ vars.CI_API_BASE_URL || 'https://api.skulgen.com/api/v1' }}
