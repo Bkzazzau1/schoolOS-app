@@ -902,7 +902,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(18),
-                    child: _OwnerBrand(extended: extended),
+                    child: _OwnerBrand(extended: extended, schoolName: widget.membership.schoolName),
                   ),
                   Expanded(
                     child: ListView(
@@ -983,8 +983,9 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
 }
 
 class _OwnerBrand extends StatelessWidget {
-  const _OwnerBrand({required this.extended});
+  const _OwnerBrand({required this.extended, required this.schoolName});
   final bool extended;
+  final String schoolName;
 
   @override
   Widget build(BuildContext context) {
@@ -1005,7 +1006,7 @@ class _OwnerBrand extends StatelessWidget {
         : ListenableBuilder(
             listenable: appearance,
             builder: (context, _) =>
-                appearance.logo == null ? plainMark : SchoolLogo(schoolName: '', size: 44, appearance: appearance),
+                appearance.logo == null ? plainMark : SchoolLogo(schoolName: schoolName, size: 44, appearance: appearance),
           );
     if (!extended) return mark;
     return Row(
@@ -1017,7 +1018,8 @@ class _OwnerBrand extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'SkulGen',
+                schoolName,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w900,
                 ),

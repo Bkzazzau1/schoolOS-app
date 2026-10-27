@@ -350,7 +350,7 @@ class _Conversation extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _MessageBubble(
-          label: 'SCHOOLOS AI · ${response.isOffline ? 'OFFLINE' : 'CONNECTED'}',
+          label: 'SKULGEN AI · ${response.isOffline ? 'OFFLINE' : 'CONNECTED'}',
           text: response.answer,
           icon: Icons.auto_awesome_rounded,
           emphasized: true,

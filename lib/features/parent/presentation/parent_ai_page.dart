@@ -329,7 +329,7 @@ class _ChatCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _Bubble(
-            label: 'SCHOOLOS AI',
+            label: 'SKULGEN AI',
             body: response.answer,
             guardian: false,
             footer: response.isGroundedInCachedFamilyContext

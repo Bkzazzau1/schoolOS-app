@@ -1252,9 +1252,10 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
                             leading: SchoolLogo(
                               schoolName: widget.membership.schoolName,
                             ),
-                            title: const Text(
-                              'SkulGen',
-                              style: TextStyle(fontWeight: FontWeight.w900),
+                            title: Text(
+                              widget.membership.schoolName,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w900),
                             ),
                             subtitle: const Text('Student Portal'),
                           )

@@ -537,7 +537,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: _AdminBrand(extended: extended),
+                    child: _AdminBrand(extended: extended, schoolName: widget.membership.schoolName),
                   ),
                   if (extended)
                     Padding(
@@ -751,8 +751,9 @@ class _UpcomingAdministratorFeature extends StatelessWidget {
 }
 
 class _AdminBrand extends StatelessWidget {
-  const _AdminBrand({required this.extended});
+  const _AdminBrand({required this.extended, required this.schoolName});
   final bool extended;
+  final String schoolName;
 
   @override
   Widget build(BuildContext context) {
@@ -779,12 +780,12 @@ class _AdminBrand extends StatelessWidget {
       children: [
         mark,
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('SkulGen', style: TextStyle(fontWeight: FontWeight.w900)),
-              Text('Administration Desk'),
+              Text(schoolName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
+              const Text('Administration Desk'),
             ],
           ),
         ),

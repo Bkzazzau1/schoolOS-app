@@ -729,14 +729,14 @@ class _FamilyIdentityCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'SkulGen',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-              ),
               Text(
-                '$schoolName · Family Portal',
+                schoolName,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+              ),
+              Text(
+                'Family Portal',
                 style: TextStyle(
                   fontSize: 11,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
