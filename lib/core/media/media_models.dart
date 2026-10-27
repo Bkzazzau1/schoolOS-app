@@ -1,6 +1,6 @@
 import 'media_json.dart';
 
-/// One file SchoolOS knows about, exactly as the server sent it: its category and kind, its size, whether it has
+/// One file SkulGen knows about, exactly as the server sent it: its category and kind, its size, whether it has
 /// finished being checked, and - never more than this - a caption and a preview. There is no account number, no
 /// credential, and no raw filesystem path anywhere in this shape; the server never sends one.
 class MediaAsset {

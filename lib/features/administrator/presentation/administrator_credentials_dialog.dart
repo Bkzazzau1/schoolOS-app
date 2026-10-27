@@ -111,7 +111,7 @@ class _CredentialManagementPageState
                           ),
                         ),
                         child: const Text(
-                          'SchoolOS never shows a person’s private permanent password. '
+                          'SkulGen never shows a person’s private permanent password. '
                           'A temporary password appears only while that account is required '
                           'to change it on the next sign-in.',
                         ),
@@ -162,9 +162,9 @@ class _CredentialManagementPageState
       builder: (dialogContext) => AlertDialog(
         title: Text('Reset ${parent ? 'Parent' : 'Student'} password?'),
         content: Text(
-          '${party.name} will be signed out of existing SchoolOS sessions. '
+          '${party.name} will be signed out of existing SkulGen sessions. '
           'The password returns to the registered first name temporarily, and '
-          'SchoolOS will require a new private password at the next sign-in.',
+          'SkulGen will require a new private password at the next sign-in.',
         ),
         actions: [
           TextButton(
@@ -255,7 +255,7 @@ class _CredentialManagementPageState
       return '$label\nLogin ID: ${party.loginId}\nTemporary password: $password\nChange password on first sign-in: Yes';
     }
 
-    final text = 'SchoolOS credentials\n\n'
+    final text = 'SkulGen credentials\n\n'
         '${line('Student · ${handoff.student.name}', handoff.student)}\n\n'
         '${line('Parent · ${handoff.parent.name}', handoff.parent)}\n\n'
         'Keep these details private.';
@@ -277,7 +277,7 @@ class _CredentialManagementPageState
       if (!mounted) return;
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Credential change saved by SchoolOS.')),
+        const SnackBar(content: Text('Credential change saved by SkulGen.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -581,11 +581,11 @@ class _ErrorState extends StatelessWidget {
 
 String _message(Object error) {
   if (error is ApiOfflineException) {
-    return 'Could not reach SchoolOS. Credential changes require the server.';
+    return 'Could not reach SkulGen. Credential changes require the server.';
   }
   if (error is ApiException) return error.message;
   if (error is SessionExpiredException) return error.message;
-  return 'SchoolOS could not complete this credential action. Please retry.';
+  return 'SkulGen could not complete this credential action. Please retry.';
 }
 
 String _dateLabel(DateTime date) {

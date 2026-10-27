@@ -48,6 +48,6 @@ const administratorAttendanceFlow = <String>[
   '2. Identify student|Match credential',
   '3. Record event|Time + device + direction',
   '4. Attendance rule|Present · Late · Exit',
-  '5. SchoolOS ledger|Daily history',
+  '5. SkulGen ledger|Daily history',
   '6. Parent update|Arrival / departure',
 ];

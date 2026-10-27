@@ -16,7 +16,7 @@ const principalQuickReply =
     'Thank you for your response. We will coordinate the next step and keep you informed.';
 const principalAttendanceTemplateSubject = 'Attendance follow-up';
 const principalAttendanceTemplateMessage =
-    'Dear Parent/Guardian, please review the attendance records available in SchoolOS and contact the school with any questions. Thank you.';
+    'Dear Parent/Guardian, please review the attendance records available in SkulGen and contact the school with any questions. Thank you.';
 
 const principalCommunicationPrivacyBoundary =
     'Only authorized school users and linked guardians receive student-specific information. Cross-school messaging is not permitted.';

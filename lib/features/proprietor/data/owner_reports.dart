@@ -197,7 +197,7 @@ String renderReport(ReportDoc doc) {
 /// The whole pack, as saved by "Create report pack".
 String renderReportPack({required String schoolName, required OwnerReports reports}) {
   final b = StringBuffer()
-    ..writeln('SchoolOS Executive Report Pack')
+    ..writeln('SkulGen Executive Report Pack')
     ..writeln(schoolName)
     ..writeln('Generated: ${_date(reports.generatedOn)}')
     ..writeln()

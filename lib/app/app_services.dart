@@ -73,7 +73,7 @@ class AppServices {
   final AuthRepository? auth;
 
   /// Commercial/account-level operations above individual school tenants.
-  /// Present only when the real SchoolOS backend is configured.
+  /// Present only when the real SkulGen backend is configured.
   final OrganizationRepository? organizations;
 
   /// Read-only commercial plan, subscription and entitlement state. Payment
@@ -104,11 +104,11 @@ class AppServices {
   /// Mandates & Direct Debit (Remita, Lendsqr). Online only: absent without a server. Separate from Smart Money Collection.
   final MandatesApi? mandates;
 
-  /// SchoolOS's one canonical file/media service. Online only: absent without a server. See [mediaQueue] for
+  /// SkulGen's one canonical file/media service. Online only: absent without a server. See [mediaQueue] for
   /// queuing a file while offline.
   final MediaApi? mediaApi;
 
-  /// Families and the accounts each one pays into (the school's own accounts, never SchoolOS's). Online only.
+  /// Families and the accounts each one pays into (the school's own accounts, never SkulGen's). Online only.
   final FamilyFeesApi? familyFees;
   final TransferVerifyAssociationsApi? transferVerifyAssociations;
   final TransferVerifyNetworkApi? transferVerifyNetwork;

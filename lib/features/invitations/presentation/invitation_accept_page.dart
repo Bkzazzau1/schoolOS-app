@@ -87,7 +87,7 @@ class _InvitationAcceptPageState extends State<InvitationAcceptPage> {
 
   String? _validate(InvitationPreview preview) {
     if (preview.accountExists) {
-      if (_email.text.trim().isEmpty) return 'Enter the email address of your SchoolOS account.';
+      if (_email.text.trim().isEmpty) return 'Enter the email address of your SkulGen account.';
       if (_password.text.isEmpty) return 'Enter your password.';
       return null;
     }
@@ -105,7 +105,7 @@ class _InvitationAcceptPageState extends State<InvitationAcceptPage> {
     try {
       await action();
     } on ApiOfflineException {
-      _fail('Could not reach SchoolOS. Check your connection and try again.');
+      _fail('Could not reach SkulGen. Check your connection and try again.');
     } on ApiException catch (error) {
       _fail(_explain(error));
     } on SessionExpiredException catch (error) {
@@ -209,7 +209,7 @@ class _InvitationAcceptPageState extends State<InvitationAcceptPage> {
       Text('For ${preview.staffName} · ${preview.maskedEmail}', style: theme.textTheme.bodyMedium),
       const SizedBox(height: 20),
       if (preview.accountExists) ...[
-        const Text('You already have a SchoolOS account. Sign in to join this school.'),
+        const Text('You already have a SkulGen account. Sign in to join this school.'),
         const SizedBox(height: 12),
         TextField(
           controller: _email,

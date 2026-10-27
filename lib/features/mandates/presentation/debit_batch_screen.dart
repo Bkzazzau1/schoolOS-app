@@ -303,7 +303,7 @@ class _DebitBatchScreenState extends State<DebitBatchScreen> {
           onPressed: _busy
               ? null
               : () async {
-                  if (await confirmAction(context, title: 'Start debiting?', message: 'This sends ${b.totalItems} approved debits (${formatMoneyMinor(b.totalAmountMinor)}) to the providers. Before each one, SchoolOS checks the family\'s balance and mandate again and sends nothing that changed.', action: 'Start debiting')) {
+                  if (await confirmAction(context, title: 'Start debiting?', message: 'This sends ${b.totalItems} approved debits (${formatMoneyMinor(b.totalAmountMinor)}) to the providers. Before each one, SkulGen checks the family\'s balance and mandate again and sends nothing that changed.', action: 'Start debiting')) {
                     await _run(() => widget.api.startDebiting(widget.membership, b.id), done: 'Debiting started.');
                   }
                 },

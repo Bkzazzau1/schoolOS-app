@@ -57,7 +57,7 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
       if (!mounted) return;
       setState(() => _invoices = invoices);
     } on ApiOfflineException {
-      _setError('Invoice details are unavailable while SchoolOS is offline.');
+      _setError('Invoice details are unavailable while SkulGen is offline.');
     } on SessionExpiredException catch (error) {
       _setError(error.message);
     } on ApiException catch (error) {
@@ -76,7 +76,7 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
       _message('Invoice prepared from the latest billing usage snapshot.');
       await _load();
     } on ApiOfflineException {
-      _message('Could not reach SchoolOS. Check your connection and try again.');
+      _message('Could not reach SkulGen. Check your connection and try again.');
     } on SessionExpiredException catch (error) {
       _message(error.message);
     } on ApiException catch (error) {
@@ -104,7 +104,7 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
       _message('Paystack checkout opened. Return here after payment and refresh the status.');
       await _load();
     } on ApiOfflineException {
-      _message('Could not reach SchoolOS. Check your connection and try again.');
+      _message('Could not reach SkulGen. Check your connection and try again.');
     } on SessionExpiredException catch (error) {
       _message(error.message);
     } on ApiException catch (error) {
@@ -132,7 +132,7 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
       );
       await _load();
     } on ApiOfflineException {
-      _message('Could not reach SchoolOS. Check your connection and try again.');
+      _message('Could not reach SkulGen. Check your connection and try again.');
     } on SessionExpiredException catch (error) {
       _message(error.message);
     } on ApiException catch (error) {
@@ -202,7 +202,7 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
             const SizedBox(height: 8),
             Text(
               automatic
-                  ? 'SchoolOS issues invoices from the server billing cycle and authoritative roster meter. This app cannot alter the student count or charge amount.'
+                  ? 'SkulGen issues invoices from the server billing cycle and authoritative roster meter. This app cannot alter the student count or charge amount.'
                   : 'Invoices are calculated by the server from the plan and an authoritative billing usage snapshot; this app cannot enter or alter the charge amount.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -226,8 +226,8 @@ class _OrganizationInvoicesCardState extends State<OrganizationInvoicesCard> {
               const SizedBox(height: 16),
               Text(
                 automatic
-                    ? 'No SchoolOS invoice has reached its issue point yet.'
-                    : 'No SchoolOS invoices have been issued for this organization yet.',
+                    ? 'No SkulGen invoice has reached its issue point yet.'
+                    : 'No SkulGen invoices have been issued for this organization yet.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

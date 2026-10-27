@@ -6,7 +6,7 @@ import '../../../core/media/presentation/media_attachments_panel.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/gallery_models.dart';
 
-/// One album's real photos and videos - the first real consumer of SchoolOS's shared media service. The album
+/// One album's real photos and videos - the first real consumer of SkulGen's shared media service. The album
 /// record itself (its title, term, visibility) stays exactly what GalleryRepository already keeps; this page only
 /// adds what is actually IN it.
 ///

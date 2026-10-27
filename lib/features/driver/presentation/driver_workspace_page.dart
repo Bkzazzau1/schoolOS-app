@@ -471,7 +471,7 @@ class _DriverIdentityCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'SchoolOS',
+                'SkulGen',
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
               Text(

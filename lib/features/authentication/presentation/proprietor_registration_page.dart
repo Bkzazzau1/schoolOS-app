@@ -46,7 +46,7 @@ class _ProprietorRegistrationPageState
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create SchoolOS account')),
+      appBar: AppBar(title: const Text('Create SkulGen account')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -306,7 +306,7 @@ class _ProprietorRegistrationPageState
       if (!mounted) return;
       Navigator.of(context).pop(profile);
     } on ApiOfflineException {
-      _showError('Could not reach SchoolOS. Check your connection and try again.');
+      _showError('Could not reach SkulGen. Check your connection and try again.');
     } on ApiException catch (error) {
       _showError(error.message);
     } on SessionExpiredException catch (error) {

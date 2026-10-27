@@ -4,7 +4,7 @@ import '../domain/bank_labels.dart';
 import '../domain/payment_models.dart';
 import 'bank_widgets.dart';
 
-/// One payment in a list: how much, from whom, what the sender wrote, and what SchoolOS has done with it.
+/// One payment in a list: how much, from whom, what the sender wrote, and what SkulGen has done with it.
 class PaymentTile extends StatelessWidget {
   const PaymentTile({super.key, required this.payment, required this.onTap});
 

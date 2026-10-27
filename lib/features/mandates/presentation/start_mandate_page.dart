@@ -180,7 +180,7 @@ class _StartMandatePageState extends State<StartMandatePage> {
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            'The payer authorises the mandate themselves: SchoolOS asks them, and nothing is debited until they have and their bank has '
+            'The payer authorises the mandate themselves: SkulGen asks them, and nothing is debited until they have and their bank has '
             'activated it. Staff cannot give that consent for them.',
           ),
           const SizedBox(height: 16),

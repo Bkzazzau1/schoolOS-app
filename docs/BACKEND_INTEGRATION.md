@@ -1,4 +1,4 @@
-# Connecting the app to the SchoolOS backend
+# Connecting the app to the SkulGen backend
 
 The backend lives in `schoolOS_backend`; its full list of app changes is `docs/APP_CHANGES.md` there. This page says what
 the app has done and how to try it.
@@ -234,7 +234,7 @@ Backend: `apps/structure/appearance.py` accepts the new theme ids, `custom` with
 `test/school_appearance_test.dart`, backend `apps.structure`.
 The logo also shows in the teacher, parent, finance, principal and driver side panels and the owner's side mark. Not done: the login page (no school is chosen yet there).
 
-**Also keeps a real copy in SchoolOS Media & Files.** When a school server exists, choosing a new logo now also queues it
+**Also keeps a real copy in SkulGen Media & Files.** When a school server exists, choosing a new logo now also queues it
 into the same shared `MediaUploadQueue` every other real attachment uses (`school_appearance`/`theme`'s now-registered owner
 kind, `school_logo` category). This is additive, not a replacement: every screen still renders the logo from the
 controller's own cached bytes above, in every mode including fully offline, and demo mode is entirely unaffected, since
@@ -591,7 +591,7 @@ belongs to (e.g. "JSS 2A Guardians" → `'JSS 2A'`); for a staff or leadership c
 class-scoped. `TeacherMessagesRepository.load()` now filters the channel list to the teacher's real assigned classes plus
 every non-class-scoped channel, and `queueMessage` re-checks that same real visibility before accepting a message —
 closing a real scope leak where any teacher could message any class's guardian group, contradicting the screen's own
-stated privacy boundary ("Teachers communicate only through approved SchoolOS channels linked to their assigned classes
+stated privacy boundary ("Teachers communicate only through approved SkulGen channels linked to their assigned classes
 or school role"). The KPI strip (Unread, Guardian groups, Staff channels, Channels with unread) is now computed from the
 real, filtered channel list instead of a fixed snapshot that didn't even agree with the fixed thread list it described
 (the old "Guardian groups: 3" against only two guardian-group threads in the same file).
@@ -1874,7 +1874,7 @@ shipped. Full suite: 1165 passing, same 8 pre-existing unrelated failures, zero 
 > approved collection batches instead of being recorded by hand or issued one at a time.
 
 **What it is.** A school's owner (or someone the owner has explicitly authorised) connects the school's *own* bank or
-collection-provider accounts to SchoolOS. SchoolOS then reads the credits those accounts receive, turns every
+collection-provider accounts to SkulGen. SkulGen then reads the credits those accounts receive, turns every
 provider's data into one canonical payment, matches each payment to a student where the evidence is clear, and
 puts everything else in front of a person. Parents keep paying the school's accounts exactly as they do now; nothing
 here touches a parent's own bank. It replaces the static "Smart Collections" prototype in Finance, which drew
@@ -1914,7 +1914,7 @@ faked and nothing is stored on the phone.
 - **Never returned.** No endpoint can return a credential; every serializer lists its fields by name. Only the last four
   digits of an account are ever sent, and the number itself is never stored (a keyed, per-school one-way fingerprint
   stops the same account being connected twice). A sender's full account number is masked before it is stored.
-- **Never leaked.** Provider error text is replaced by short SchoolOS-written codes; audit records drop any key that
+- **Never leaked.** Provider error text is replaced by short SkulGen-written codes; audit records drop any key that
   looks like a secret; request bodies that can carry a credential are kept out of Django error reports; tests check
   that the key, the full account number and the webhook secret appear in no response, audit row, stored column or log.
 - **On the phone.** Credentials exist only in the dialog's text boxes (masked, no suggestions), go once in a POST body,
@@ -1967,8 +1967,8 @@ changes, and is refused if made on a stale screen (`expectedStatus`).
 
 1. The documentation and credentials for at least one real provider, and a connector written against them (the
    interface is `providers/base.py`; a provider is one class and one registry entry). Which one comes first is the owner's
-   call and should be the school's own bank or collection provider. **Paystack is not the recommendation:** SchoolOS's own
-   Paystack is reserved for what schools pay SchoolOS (the SaaS subscription) and is not part of the school-fee path;
+   call and should be the school's own bank or collection provider. **Paystack is not the recommendation:** SkulGen's own
+   Paystack is reserved for what schools pay SkulGen (the SaaS subscription) and is not part of the school-fee path;
    the `paystack` entry here means a school's *own* Paystack account, only if a school uses one.
 2. Production `BANKCONNECT_SECRET_KEYS`, and a cron entry for `sync_bank_connections`.
 3. Redirect registration and deep-link handling for any authorisation-style provider.
@@ -1995,8 +1995,8 @@ account looks like depends on the **bank** that issued it. (The earlier "Parent:
 above explains why the id stood in; that stand-in is gone.)
 
 **The money flow this is built on.** School fees are the **school's** money: families pay into the school's own bank account and
-SchoolOS neither receives nor holds it. What schools pay **SchoolOS** (the SaaS subscription, `apps/billing`) is a separate
-matter, and Paystack will be connected for that alone. Nothing in the fee path uses a SchoolOS payment provider, and the
+SkulGen neither receives nor holds it. What schools pay **SkulGen** (the SaaS subscription, `apps/billing`) is a separate
+matter, and Paystack will be connected for that alone. Nothing in the fee path uses a SkulGen payment provider, and the
 parent-facing text says the payment goes straight to the school.
 
 **Backend** (`schoolOS_backend`, `docs/SCHOOL_FEE_RECEIVABLES.md`, "Collection accounts" and "Merging two families"):
@@ -2043,13 +2043,13 @@ including a refusal), and the updated Parent dashboard tests.
 ## Smart Money Collection: the school's own collection provider (Paystack, Monnify)
 
 **What it is.** A school connects its **own** Paystack or Monnify account with the credentials that provider issued to it.
-SchoolOS makes each family one collection account at that provider, reads the provider's signed notifications, and matches each payment
-to the family **by the account it was paid into**. The provider moves and settles the money; SchoolOS never receives or holds it, and
-never asks for the school's settlement bank account. (What schools pay SchoolOS - the SaaS subscription - is a different thing.)
+SkulGen makes each family one collection account at that provider, reads the provider's signed notifications, and matches each payment
+to the family **by the account it was paid into**. The provider moves and settles the money; SkulGen never receives or holds it, and
+never asks for the school's settlement bank account. (What schools pay SkulGen - the SaaS subscription - is a different thing.)
 The backend is described in `schoolOS_backend/docs/SMART_MONEY_COLLECTION.md`; this section is the app.
 
 **Smart Money Collection currently supports Paystack and Monnify for family collection accounts (Family Payment Details).** Remita is reserved
-for a separate SchoolOS Mandates / Direct Debit feature (not started) and is not a collection provider: the app offers no Remita card, no
+for a separate SkulGen Mandates / Direct Debit feature (not started) and is not a collection provider: the app offers no Remita card, no
 Remita option when connecting, switching or preparing a batch, and no Remita payment reference on a family's payment details. Only the
 server's answer decides what is offered, and the server refuses Remita as a collection provider whatever the app sends.
 
@@ -2098,7 +2098,7 @@ provider connections, their own four duties, their own screens, and the server r
 payment, and Remita is never offered as a collection provider). The full design and the provider facts are in the backend repository's
 `docs/MANDATES_DIRECT_DEBIT.md`.
 
-**The rule the whole thing follows.** A mandate gives SchoolOS an authorised payment rail. **The fee ledger decides what is owed**, and no
+**The rule the whole thing follows.** A mandate gives SkulGen an authorised payment rail. **The fee ledger decides what is owed**, and no
 debit happens without valid consent, a debit-ready mandate, current debt and a different person's approval.
 
 **Where it is.**
@@ -2149,10 +2149,10 @@ pages, the mandate detail, the batch screen, the payer's page and the Parent car
 - **Remita** is written against Remita's published Direct Debit documentation. Its live address is set by whoever runs the server and Remita
   requires a UAT with it before go-live, so nothing has been run against real money.
 - **Lendsqr** can make, activate (by a transfer to a NIBSS account) and watch mandates. Lendsqr's published documentation has no debit
-  instruction or notification call, so through Lendsqr SchoolOS does **not** send debits: it says so on the provider's card and on the batch,
+  instruction or notification call, so through Lendsqr SkulGen does **not** send debits: it says so on the provider's card and on the batch,
   never guesses, and the debit stays "pending documentation". Live use is switched off until the server enables it, and it needs the
   organisation to be licensed by Lendsqr's rules; the app never says a school is eligible.
-- Every provider figure and time is the provider's; SchoolOS assumes no notice period and no fixed activation wait.
+- Every provider figure and time is the provider's; SkulGen assumes no notice period and no fixed activation wait.
 
 **Found and fixed while testing.** The dialogs for replacing credentials, typing a one-time password, lowering an amount and giving a reason
 disposed their text fields the moment they were closed, while the closing animation was still drawing them ("used after being disposed"); they
@@ -2166,7 +2166,7 @@ maker, the checker, stale and refused batches, partial failure and retry, unknow
 four duties, the menus, and the owner's workspace with and without a server). Full suite: 1517 passing; the 83 failures are the same 83 as before
 this work, by name.
 
-## SchoolOS Media & Files: one shared file service, real in Gallery and staff documents (real backend and app)
+## SkulGen Media & Files: one shared file service, real in Gallery and staff documents (real backend and app)
 
 A canonical file/attachment service (`lib/core/media`), reused by every feature that needs a real file - a
 photo, a video, a document - instead of a separate upload system per screen. The backend side is
@@ -2180,7 +2180,7 @@ A screen picks a file (file_picker) -> copied at once into this app's own storag
         v
 MediaUploadQueue (online only, the same durable-queue shape SyncCoordinator uses): initiate -> the bytes go
    straight to wherever the server said (its own /upload/ address for local/dev storage; a presigned URL for
-   S3-compatible storage, with no SchoolOS token in that second request) -> complete
+   S3-compatible storage, with no SkulGen token in that second request) -> complete
         |
         v
 The server verifies and, for an image, builds a thumbnail; the file becomes "available". A transient failure
@@ -2209,8 +2209,8 @@ bytes, its checksum and whether it has been checked only ever exist on the serve
   `waiting -> uploading -> uploaded`/`failed`, with its own per-row retry time (`nextAttemptAt`) - unlike ordinary
   sync mutations, uploads are not strictly ordered, so each retries independently.
 - `ApiClient` gained `putBytes` (raw bytes, not JSON) for local/dev storage's own direct-upload address; a
-  presigned S3-compatible upload is sent with `package:http` directly, with **no SchoolOS bearer token at all** -
-  sending one would only leak it to an address that is not SchoolOS's own.
+  presigned S3-compatible upload is sent with `package:http` directly, with **no SkulGen bearer token at all** -
+  sending one would only leak it to an address that is not SkulGen's own.
 
 **Real today.**
 
@@ -2381,7 +2381,7 @@ Older media tests, unchanged by this pass: `media_queue_test` (the `LocalDatabas
 retrying by hand), `media_attachments_panel_test` (empty state, listing, picking, a rejected file type, a failed
 upload's retry, who may remove a file), `gallery_media_integration_test`, `owner_staff_profile_media_test`.
 
-## Unified SchoolOS Messaging: Parent Messages becomes real and two-way (first of four; Driver Messages, Teacher's
+## Unified SkulGen Messaging: Parent Messages becomes real and two-way (first of four; Driver Messages, Teacher's
 ## own Messages and the Principal Communication Hub stay exactly as they are for now)
 
 Four separate, mutually incompatible "Messages" features exist in this app today (Parent, Teacher, Driver,
@@ -2455,7 +2455,7 @@ message and a teacher reply are each real to the other on the exact same thread)
 twenty-item navigation list updated to twenty-one for the new screen. Full app suite: the same 83 pre-existing
 failures as before this work, by name.
 
-## Unified SchoolOS Messaging (second of four): Driver Messages becomes real and two-way
+## Unified SkulGen Messaging (second of four): Driver Messages becomes real and two-way
 
 The second of the four separate "Messages" features (see the Parent Messages pass above). Unlike Parent
 Messages, the Driver-to-school direction here was already real and tested - the gap was entirely the missing
@@ -2518,7 +2518,7 @@ same end-to-end shape Teacher Family Messages proved for Parent Messages - a Dri
 Control reply are each real to the other on the exact same thread). Full app suite: the same 83 pre-existing
 failures as before this work, by name.
 
-## Unified SchoolOS Messaging (third of four): Teacher Messages' guardian-group channels become real
+## Unified SkulGen Messaging (third of four): Teacher Messages' guardian-group channels become real
 
 The third of the four separate "Messages" features. Unlike the first two passes, this one needed **no backend
 change at all** - the real capability it needed already existed.
@@ -2563,7 +2563,7 @@ channels are no longer demo constants to pin against - its widget-level coverage
 send, AI draft, routing, phone rendering) is otherwise unchanged (10/10). Full app suite: the same 83
 pre-existing failures as before this work, by name.
 
-## Unified SchoolOS Messaging (fourth of four): the Principal Communication Hub's guardian announcements become real
+## Unified SkulGen Messaging (fourth of four): the Principal Communication Hub's guardian announcements become real
 
 The last of the four separate "Messages" features. Like the Teacher Messages pass, this needed no new
 authorization concept - a Principal was already a real participant in the channel that actually delivers it.

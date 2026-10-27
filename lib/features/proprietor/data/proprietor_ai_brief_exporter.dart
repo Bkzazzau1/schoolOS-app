@@ -10,7 +10,7 @@ import 'proprietor_ai_text.dart';
 String renderAiBrief({required String schoolName, required DateTime date, required List<ExecutiveBriefSection> sections}) {
   final day = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   final buffer = StringBuffer()
-    ..writeln('SchoolOS Proprietor AI Executive Brief')
+    ..writeln('SkulGen Proprietor AI Executive Brief')
     ..writeln(schoolName)
     ..writeln('Generated: $day')
     ..writeln('Built from the records on this device. Nothing is estimated.')

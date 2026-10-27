@@ -428,7 +428,7 @@ class _TeacherPerformancePageState extends State<TeacherPerformancePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('How this score should be used', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-              const Text('SchoolOS should avoid misleading teacher rankings.'),
+              const Text('SkulGen should avoid misleading teacher rankings.'),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 12,

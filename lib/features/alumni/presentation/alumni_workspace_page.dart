@@ -224,7 +224,7 @@ class _AlumniWorkspacePageState extends State<AlumniWorkspacePage>
         ),
         const SizedBox(height: 6),
         Text(
-          'A dedicated SchoolOS space for verified former students to stay connected with their school and alumni community.',
+          'A dedicated SkulGen space for verified former students to stay connected with their school and alumni community.',
           style: theme.textTheme.bodyLarge?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

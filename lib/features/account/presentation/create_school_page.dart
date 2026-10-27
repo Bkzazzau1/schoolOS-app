@@ -57,7 +57,7 @@ class _CreateSchoolPageState extends State<CreateSchoolPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'SchoolOS will create a separate school tenant and your proprietor access together. School data will remain isolated from every other school in this account.',
+                'SkulGen will create a separate school tenant and your proprietor access together. School data will remain isolated from every other school in this account.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

@@ -1,5 +1,5 @@
 /// Pulls the secret out of what a person pasted or tapped: the whole link from
-/// their email (`https://brightgate.schoolos.ng/invite/<secret>/`), just the last
+/// their email (`https://brightgate.skulgen.com/invite/<secret>/`), just the last
 /// part, or the bare secret. Returns null when it cannot be a link from a school.
 ///
 /// It only finds the secret. Whether the link is still good is for the server to say.

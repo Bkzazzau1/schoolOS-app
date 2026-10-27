@@ -79,7 +79,7 @@ class SettingField {
   final bool required;
 }
 
-/// How the provider is to tell SchoolOS about payments, and what the school must do about it.
+/// How the provider is to tell SkulGen about payments, and what the school must do about it.
 class WebhookGuide {
   const WebhookGuide({required this.mode, required this.where, required this.verification, required this.events, required this.note});
 
@@ -91,17 +91,17 @@ class WebhookGuide {
         note: json['note'] as String? ?? '',
       );
 
-  /// "dashboard": the school pastes SchoolOS's address into the provider's own dashboard.
+  /// "dashboard": the school pastes SkulGen's address into the provider's own dashboard.
   final String mode;
   final String where;
 
-  /// "hmac_sha512": the provider signs each event. "requery": it does not, so SchoolOS confirms each one with the provider.
+  /// "hmac_sha512": the provider signs each event. "requery": it does not, so SkulGen confirms each one with the provider.
   final String verification;
   final List<String> events;
   final String note;
 }
 
-/// A collection provider SchoolOS supports: Paystack or Monnify. The school connects its OWN account at one of them.
+/// A collection provider SkulGen supports: Paystack or Monnify. The school connects its OWN account at one of them.
 class CollectionProvider {
   const CollectionProvider({
     required this.code,
@@ -220,7 +220,7 @@ class ProvidersInfo {
 }
 
 /// The school's own connection to one collection provider. Nothing on it is secret: the server never sends a credential,
-/// and SchoolOS never asks for (or shows) a settlement account.
+/// and SkulGen never asks for (or shows) a settlement account.
 class ProviderConnection {
   const ProviderConnection({
     required this.id,
@@ -326,7 +326,7 @@ class ConnectionCheck {
   final String message;
 }
 
-/// Where the school gives the provider SchoolOS's address for payment notifications, and whether it is known to work.
+/// Where the school gives the provider SkulGen's address for payment notifications, and whether it is known to work.
 class WebhookSetup {
   const WebhookSetup({
     required this.path,

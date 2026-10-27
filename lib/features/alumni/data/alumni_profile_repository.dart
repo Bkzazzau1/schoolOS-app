@@ -59,7 +59,7 @@ class AlumniProfileRepository {
     final remote = _remote;
     if (remote == null) {
       throw StateError(
-        'Alumni profile submission requires the SchoolOS server. Your last downloaded profile remains available offline.',
+        'Alumni profile submission requires the SkulGen server. Your last downloaded profile remains available offline.',
       );
     }
     final saved = await remote.saveMyProfile(

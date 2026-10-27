@@ -10,7 +10,7 @@ Administrator changes are stored immediately in encrypted local SQLite and queue
 Admissions / Registration / Lifecycle UI
     -> encrypted local record
     -> durable outbox
-    -> SchoolOS sync API
+    -> SkulGen sync API
     -> server validation
     -> canonical student domain
 ```
@@ -38,7 +38,7 @@ The native confirmation text deliberately distinguishes local completion from ca
 - server acceptance creates the canonical Student and active Enrollment;
 - only that canonical active Enrollment becomes billable.
 
-This preserves the global SchoolOS rule that **queued does not mean synced, approved, released or server-accepted**.
+This preserves the global SkulGen rule that **queued does not mean synced, approved, released or server-accepted**.
 
 ## Lifecycle
 

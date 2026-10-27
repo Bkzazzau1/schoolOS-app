@@ -1,4 +1,4 @@
-// Mandates & Direct Debit fixtures. Unlike a hand-written sample, every response in test/fixtures/mandates was RECORDED from the SchoolOS
+// Mandates & Direct Debit fixtures. Unlike a hand-written sample, every response in test/fixtures/mandates was RECORDED from the SkulGen
 // server's own API (the Django tests drive the real endpoints and write down what came back), so these tests break if the app and the server
 // stop agreeing about a field. The server never sends a full account number or a credential, and neither does any file here.
 

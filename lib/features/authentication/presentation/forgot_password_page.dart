@@ -59,7 +59,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Enter the same login ID you normally use: Student admission ID or Parent phone number. SchoolOS does not reveal whether an account exists; your school office will review a valid request.',
+                          'Enter the same login ID you normally use: Student admission ID or Parent phone number. SkulGen does not reveal whether an account exists; your school office will review a valid request.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
@@ -151,7 +151,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       if (!mounted) return;
       setState(() => _result = message);
     } on ApiOfflineException {
-      _showError('Could not reach SchoolOS. Check your connection and try again.');
+      _showError('Could not reach SkulGen. Check your connection and try again.');
     } on ApiException catch (error) {
       _showError(error.message);
     } finally {

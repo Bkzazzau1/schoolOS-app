@@ -12,7 +12,7 @@ const proprietorAiPrompts = <ProprietorAiPrompt>[
 ];
 
 const proprietorAiContextBoundary =
-    'Before any model receives context, SchoolOS must filter by tenant, campus, section, role and record sensitivity. The AI '
+    'Before any model receives context, SkulGen must filter by tenant, campus, section, role and record sensitivity. The AI '
     'must never receive data merely because a user can type a question about it.';
 
 const proprietorAiDecisionBoundary =

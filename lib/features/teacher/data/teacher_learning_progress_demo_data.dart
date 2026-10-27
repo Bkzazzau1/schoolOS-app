@@ -20,7 +20,7 @@ const teacherLearningNoActionsNote =
     'No support actions are suggested yet. Suggestions will appear here once real, topic-tagged evidence shows a pattern worth a teacher\'s attention — never from a single score.';
 
 const teacherLearningGovernanceBoundary =
-    'SchoolOS should describe current evidence and suggest support. It must not assign a permanent intelligence level, publicly rank children, diagnose a condition, or let AI make promotion, punishment or exclusion decisions.';
+    'SkulGen should describe current evidence and suggest support. It must not assign a permanent intelligence level, publicly rank children, diagnose a condition, or let AI make promotion, punishment or exclusion decisions.';
 
 const teacherLearningEvidenceBoundary =
     'A low score, negative trend or attendance context is evidence for teacher review, not a deterministic label. Compare multiple sources, keep the learner within assigned-class scope and require human follow-up before any consequential school action.';

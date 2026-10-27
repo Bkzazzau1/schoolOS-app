@@ -61,7 +61,7 @@ List<WebsiteBrandIdentity> administratorWebsiteBrandIdentity(String schoolName) 
     ];
 
 const administratorWebsiteWhiteLabelPrinciple =
-    'Parents, applicants and public visitors interact with the school\'s own brand. SchoolOS operates the management layer behind it.';
+    'Parents, applicants and public visitors interact with the school\'s own brand. SkulGen operates the management layer behind it.';
 
 const administratorWebsitePreviewBoundary =
     'Connect to the internet to preview the public school website.';

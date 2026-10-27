@@ -231,7 +231,7 @@ class _TeachingModelsPageState extends State<TeachingModelsPage> {
             ),
             const SizedBox(height: 14),
             const Text(
-              'SchoolOS must fit the school’s real structure. Nursery and Primary can use one teacher for a class, while specialists or subject teachers are added only where the school actually uses them.',
+              'SkulGen must fit the school’s real structure. Nursery and Primary can use one teacher for a class, while specialists or subject teachers are added only where the school actually uses them.',
             ),
             const SizedBox(height: 20),
             Wrap(

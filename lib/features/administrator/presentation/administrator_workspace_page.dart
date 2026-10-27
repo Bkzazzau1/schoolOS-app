@@ -783,7 +783,7 @@ class _AdminBrand extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)),
+              Text('SkulGen', style: TextStyle(fontWeight: FontWeight.w900)),
               Text('Administration Desk'),
             ],
           ),

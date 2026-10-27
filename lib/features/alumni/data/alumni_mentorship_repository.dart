@@ -65,7 +65,7 @@ class AlumniMentorshipRepository {
   }) async {
     final remote = _remote;
     if (remote == null) {
-      throw StateError('Becoming a mentor requires the SchoolOS server.');
+      throw StateError('Becoming a mentor requires the SkulGen server.');
     }
     final cleanBio = bio.trim();
     if (cleanBio.length < 5) {
@@ -80,7 +80,7 @@ class AlumniMentorshipRepository {
   }) async {
     final remote = _remote;
     if (remote == null) {
-      throw StateError('Requesting a mentor requires the SchoolOS server.');
+      throw StateError('Requesting a mentor requires the SkulGen server.');
     }
     return remote.requestMentor(_membership, mentorMembershipId: mentorMembershipId, message: message);
   }
@@ -88,7 +88,7 @@ class AlumniMentorshipRepository {
   Future<AlumniMentorshipRequest> respond(String requestId, {required bool accept}) async {
     final remote = _remote;
     if (remote == null) {
-      throw StateError('Responding to a mentorship request requires the SchoolOS server.');
+      throw StateError('Responding to a mentorship request requires the SkulGen server.');
     }
     return remote.respondToMentorshipRequest(_membership, requestId, accept: accept);
   }
@@ -96,7 +96,7 @@ class AlumniMentorshipRepository {
   Future<AlumniMentorshipRequest> withdraw(String requestId) async {
     final remote = _remote;
     if (remote == null) {
-      throw StateError('Withdrawing a mentorship request requires the SchoolOS server.');
+      throw StateError('Withdrawing a mentorship request requires the SkulGen server.');
     }
     return remote.withdrawMentorshipRequest(_membership, requestId);
   }

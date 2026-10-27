@@ -507,7 +507,7 @@ class TransportRepository {
       return const TransportActionResult(
         success: false,
         message:
-            'This Driver does not yet have an activated SchoolOS membership.',
+            'This Driver does not yet have an activated SkulGen membership.',
       );
     }
 

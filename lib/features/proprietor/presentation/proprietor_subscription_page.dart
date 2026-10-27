@@ -7,7 +7,7 @@ import '../../billing/domain/subscription_summary.dart';
 import '../../billing/presentation/organization_invoices_card.dart';
 import '../../billing/presentation/organization_subscription_card.dart';
 
-/// The owner's own school-level view of the account's SchoolOS subscription -
+/// The owner's own school-level view of the account's SkulGen subscription -
 /// the same real data Account Home shows for the account as a whole, reached
 /// from inside a school without leaving it. Only ever built when
 /// BillingScope is present (a connected server); the calling nav already
@@ -72,7 +72,7 @@ class _ProprietorSubscriptionPageState extends State<ProprietorSubscriptionPage>
             const SizedBox(height: 5),
             Text('Subscription', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 5),
-            const Text('The SchoolOS plan, billing cadence and entitlements for this account.'),
+            const Text('The SkulGen plan, billing cadence and entitlements for this account.'),
             const SizedBox(height: 18),
             if (widget.organizationId.isEmpty)
               const Card(
@@ -102,7 +102,7 @@ class _ProprietorSubscriptionPageState extends State<ProprietorSubscriptionPage>
           if (snapshot.hasError) {
             final error = snapshot.error;
             final message = error is ApiOfflineException
-                ? 'Subscription details are unavailable while SchoolOS is offline.'
+                ? 'Subscription details are unavailable while SkulGen is offline.'
                 : error is ApiException
                     ? error.message
                     : 'Could not load the subscription.';
@@ -138,7 +138,7 @@ class _ProprietorSubscriptionPageState extends State<ProprietorSubscriptionPage>
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'SchoolOS subscription',
+                              'SkulGen subscription',
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                             ),
                           ),

@@ -97,7 +97,7 @@ class NoServerNotice extends StatelessWidget {
               SizedBox(height: 8),
               Text(
                 'Connecting the school\'s collection provider, making family accounts and reading the payments they receive all happen on the '
-                'SchoolOS server, so that no provider credential is ever kept on a phone. This app is running without a school server, '
+                'SkulGen server, so that no provider credential is ever kept on a phone. This app is running without a school server, '
                 'so there are no providers, accounts or payments to show.',
                 textAlign: TextAlign.center,
               ),

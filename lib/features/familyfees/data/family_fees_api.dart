@@ -9,7 +9,7 @@ import '../domain/family_fees_models.dart';
 ///
 /// Online-only on purpose: an account number is the school's own record, so nothing here is kept on the phone or made
 /// up when there is no server. School fees are the school's money - they go straight to the school through its own
-/// collection provider, and SchoolOS neither receives nor holds them. (A family's account is made by a collection batch:
+/// collection provider, and SkulGen neither receives nor holds them. (A family's account is made by a collection batch:
 /// see the Smart Money Collection API.)
 class FamilyFeesApi {
   FamilyFeesApi({required ApiClient api}) : _api = api;

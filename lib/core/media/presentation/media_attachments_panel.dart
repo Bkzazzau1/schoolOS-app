@@ -25,7 +25,7 @@ class MediaAttachmentOption {
   final String label;
   final String category;
 
-  /// 'image', 'video' or 'document' - decides which picker SchoolOS opens and how the picked bytes are checked
+  /// 'image', 'video' or 'document' - decides which picker SkulGen opens and how the picked bytes are checked
   /// before they are even queued.
   final String mediaType;
   final IconData icon;
@@ -146,7 +146,7 @@ class _MediaAttachmentsPanelState extends State<MediaAttachmentsPanel> {
       if (file == null) return;
       final mimeType = mimeTypeForExtension(file.extension);
       if (mimeType == null) {
-        _message('SchoolOS does not accept a ${file.extension ?? "that kind of"} file here.');
+        _message('SkulGen does not accept a ${file.extension ?? "that kind of"} file here.');
         return;
       }
       await widget.queue.enqueue(

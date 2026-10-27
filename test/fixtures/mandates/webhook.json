@@ -11,6 +11,6 @@
    "ACTIVATION",
    "DEBIT"
   ],
-  "note": "Remita does not sign its notifications, so SchoolOS confirms every one with Remita before it counts."
+  "note": "Remita does not sign its notifications, so SkulGen confirms every one with Remita before it counts."
  }
 }

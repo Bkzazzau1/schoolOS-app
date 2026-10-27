@@ -67,7 +67,7 @@ Future<void> _openRestoredAccountHome(
   if (auth == null) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Connect SchoolOS to the server to manage your school account.'),
+        content: Text('Connect SkulGen to the server to manage your school account.'),
       ),
     );
     return;
@@ -79,7 +79,7 @@ Future<void> _openRestoredAccountHome(
     if (profile.organizations.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('This school is not connected to a SchoolOS account you manage.'),
+          content: Text('This school is not connected to a SkulGen account you manage.'),
         ),
       );
       return;
@@ -101,7 +101,7 @@ Future<void> _openRestoredAccountHome(
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Could not refresh your SchoolOS account. Check your connection and try again.'),
+        content: Text('Could not refresh your SkulGen account. Check your connection and try again.'),
       ),
     );
   } on SessionExpiredException {
@@ -234,7 +234,7 @@ class SchoolOsApp extends StatelessWidget {
 
         return MaterialApp(
           navigatorKey: _navigatorKey,
-          title: 'SchoolOS',
+          title: 'SkulGen',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             useMaterial3: true,

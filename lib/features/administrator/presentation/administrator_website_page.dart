@@ -247,7 +247,7 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Manage the public-facing $schoolName website while SchoolOS remains invisible to parents and visitors.',
+                'Manage the public-facing $schoolName website while SkulGen remains invisible to parents and visitors.',
                 style: theme.textTheme.bodyLarge,
               ),
             ],

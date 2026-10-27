@@ -7,7 +7,7 @@ import '../domain/payment_models.dart';
 import 'payment_detail_sheet.dart';
 import 'payment_list.dart';
 
-/// Money received that SchoolOS could not settle on its own, oldest first. Nothing is matched here
+/// Money received that SkulGen could not settle on its own, oldest first. Nothing is matched here
 /// silently: a payment is either matched with clear evidence, or it waits for a person.
 class ReviewTab extends StatefulWidget {
   const ReviewTab({super.key, required this.api, required this.membership, this.onChanged});
@@ -45,14 +45,14 @@ class _ReviewTabState extends State<ReviewTab> {
       // The server's counts describe the whole queue, whichever filter is on.
       onLoaded: (page) => setState(() => _counts = page.counts),
       emptyText: _status == null
-          ? 'Nothing is waiting for review. Payments SchoolOS cannot match with confidence appear here.'
+          ? 'Nothing is waiting for review. Payments SkulGen cannot match with confidence appear here.'
           : 'Nothing with that status.',
       header: Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Oldest first. Each payment shows what SchoolOS saw and why it could not be sure.'),
+            const Text('Oldest first. Each payment shows what SkulGen saw and why it could not be sure.'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,

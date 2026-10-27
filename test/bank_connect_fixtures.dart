@@ -1,4 +1,4 @@
-// JSON exactly as the SchoolOS server sends it for the collection-provider screens, so the tests break if the
+// JSON exactly as the SkulGen server sends it for the collection-provider screens, so the tests break if the
 // app and the server stop agreeing about a field.
 
 import 'package:schoolos_app/shared/models/school_membership.dart';

@@ -517,7 +517,7 @@ class _AdministratorTimetablePageState
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Teacher is not chosen here. SchoolOS derives teacher authority from the active Teaching Assignment for this ClassSubject.',
+                    'Teacher is not chosen here. SkulGen derives teacher authority from the active Teaching Assignment for this ClassSubject.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],

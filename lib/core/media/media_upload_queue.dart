@@ -19,7 +19,7 @@ import 'media_queue_models.dart';
 /// A file is copied into this app's own storage and queued the moment [enqueue] is called (see
 /// media_local_files.dart), which never touches the network. From there this coordinator sends what it can:
 /// [initiate] on the school server, the bytes themselves (straight to this server for local/dev storage, straight
-/// to the object store with no SchoolOS token at all for S3-compatible storage), then [complete]. A network
+/// to the object store with no SkulGen token at all for S3-compatible storage), then [complete]. A network
 /// problem is retried with a growing gap, the same shape [SyncCoordinator] uses; a file the server refuses
 /// outright is marked failed and is not retried automatically again. A local copy is only ever deleted once the
 /// server has confirmed the upload, or if the person cancels a still-queued one themselves - never on a mere

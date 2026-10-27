@@ -179,7 +179,7 @@ String renderFinanceReport(ReportDoc doc) {
 String renderFinancePack({required String schoolName, required List<ReportDoc> docs, required DateTime date}) {
   final day = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   final b = StringBuffer()
-    ..writeln('SchoolOS Finance Report Pack')
+    ..writeln('SkulGen Finance Report Pack')
     ..writeln(schoolName)
     ..writeln('Generated: $day')
     ..writeln();

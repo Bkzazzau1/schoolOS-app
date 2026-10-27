@@ -139,7 +139,7 @@ void main() {
       return server;
     }
 
-    test('the bytes go straight to the object store, with no SchoolOS token, and only then is the upload completed', () async {
+    test('the bytes go straight to the object store, with no SkulGen token, and only then is the upload completed', () async {
       final received = <List<int>>[];
       final bucket = await fakeBucket(received);
       addTearDown(bucket.close);

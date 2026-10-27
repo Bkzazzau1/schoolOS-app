@@ -58,7 +58,7 @@ class _OrganizationSubscriptionCardState
     } on ApiOfflineException {
       if (!mounted) return;
       setState(() {
-        _error = 'Subscription details are unavailable while SchoolOS is offline.';
+        _error = 'Subscription details are unavailable while SkulGen is offline.';
       });
     } on SessionExpiredException catch (error) {
       if (!mounted) return;
@@ -99,7 +99,7 @@ class _OrganizationSubscriptionCardState
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'SchoolOS subscription',
+                        'SkulGen subscription',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -278,7 +278,7 @@ class SubscriptionDetailsView extends StatelessWidget {
         if (plan != null && plan.billingInterval == null) ...[
           const SizedBox(height: 8),
           Text(
-            'The billing interval has not been activated yet. SchoolOS will not generate automatic charges until the commercial cadence is configured.',
+            'The billing interval has not been activated yet. SkulGen will not generate automatic charges until the commercial cadence is configured.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

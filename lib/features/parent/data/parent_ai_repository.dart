@@ -58,7 +58,7 @@ class ParentAIRepository {
       familyAccountId: membership.id,
       assistantName: 'Family Assistant',
       description: 'Answers attendance, learning, payment, event and message questions from your real, '
-          'family-visible SchoolOS records. It explains what is recorded, what is not, and when to '
+          'family-visible SkulGen records. It explains what is recorded, what is not, and when to '
           'contact the school.',
       defaultPrompt: parentAiPrompts.first,
       defaultAnswer: suggestions.first.answer,

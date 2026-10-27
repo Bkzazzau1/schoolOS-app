@@ -698,7 +698,7 @@ class _UpcomingReminderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Upcoming fee reminder',
-      subtitle: 'SchoolOS uses the current arrangement before deciding what reminder to show.',
+      subtitle: 'SkulGen uses the current arrangement before deciding what reminder to show.',
       trailing: TextButton(onPressed: onOpen, child: const Text('Open reminder center')),
       child: Column(
         children: [
@@ -855,7 +855,7 @@ class ParentFeeRemindersPage extends StatelessWidget {
           const _ResponsivePair(
             left: _SectionCard(
               title: 'How reminders work',
-              subtitle: 'SchoolOS uses the current finance arrangement before deciding what message to show.',
+              subtitle: 'SkulGen uses the current finance arrangement before deciding what message to show.',
               child: Column(
                 children: [
                   _ListFact(title: 'Active mandate', detail: 'Show the scheduled deduction rather than a duplicate “please pay” message.'),

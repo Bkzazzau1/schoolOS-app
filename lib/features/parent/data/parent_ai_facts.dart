@@ -95,7 +95,7 @@ const parentAiPrompts = [
   'Do I have any unread messages?',
 ];
 
-/// Answers family questions from real, already family-visible SchoolOS records, and honestly refuses
+/// Answers family questions from real, already family-visible SkulGen records, and honestly refuses
 /// when it cannot answer safely — the same design already used for `FinanceAiService`, never a fixed
 /// canned reply that could drift from what the family's other real screens show.
 class ParentAiService {
@@ -240,7 +240,7 @@ class ParentAiService {
 
   ParentAiAnswer _fallback(String q) => ParentAiAnswer(
         question: q,
-        answer: 'I can help with guardian-visible SchoolOS information such as linked-child attendance, '
+        answer: 'I can help with guardian-visible SkulGen information such as linked-child attendance, '
             'learning updates, payments, approved messages and school events. I cannot access private staff '
             'notes, other families, restricted safeguarding information or confidential health records.',
         isGroundedInCachedFamilyContext: false,

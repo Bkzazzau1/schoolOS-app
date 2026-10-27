@@ -401,10 +401,10 @@ class _FlowCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'How hardware attendance reaches SchoolOS',
+              'How hardware attendance reaches SkulGen',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
             ),
-            const Text('How gate terminals will reach SchoolOS once hardware is connected.'),
+            const Text('How gate terminals will reach SkulGen once hardware is connected.'),
             const SizedBox(height: 14),
             Wrap(
               spacing: 10,

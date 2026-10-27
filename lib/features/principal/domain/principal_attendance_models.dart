@@ -345,7 +345,7 @@ class PrincipalAttendancePermissions {
 }
 
 const principalAttendanceOfflineRule =
-    'Attendance capture must continue with zero internet dependency. Palm/fingerprint matching, duplicate checks, event timestamps and local storage happen on the device or local SchoolOS node; sync is deferred until connectivity returns.';
+    'Attendance capture must continue with zero internet dependency. Palm/fingerprint matching, duplicate checks, event timestamps and local storage happen on the device or local SkulGen node; sync is deferred until connectivity returns.';
 
 const principalAttendanceBiometricPrivacyRule =
     'Store protected biometric templates or opaque template references, not reusable raw fingerprint/palm images. Biometric data is identity evidence for attendance only and must not be reused for unrelated profiling.';

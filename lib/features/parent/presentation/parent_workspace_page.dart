@@ -730,7 +730,7 @@ class _FamilyIdentityCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'SchoolOS',
+                'SkulGen',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
               ),
               Text(

@@ -1,6 +1,6 @@
 import '../domain/lesson_plan_models.dart';
 
-/// Cloud boundary implemented later by the SchoolOS Django/AI API client.
+/// Cloud boundary implemented later by the SkulGen Django/AI API client.
 ///
 /// The cloud receives an already-valid draft plus authorized school context.
 /// This keeps lesson planning usable even when the network or cloud AI is

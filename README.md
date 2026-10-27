@@ -1,6 +1,6 @@
-# SchoolOS App
+# SkulGen App
 
-SchoolOS App is the native, offline-first client for the SchoolOS platform.
+SkulGen App is the native, offline-first client for the SkulGen platform.
 
 ## Targets
 
@@ -28,7 +28,7 @@ The Runner target includes Keychain entitlements for secure storage. Native comp
 
 ## Core product rules
 
-1. **One SchoolOS app** — schools do not get separate codebases.
+1. **One SkulGen app** — schools do not get separate codebases.
 2. **Person-first accounts** — one account can belong to one or many schools.
 3. **Membership-scoped roles** — the same person may be a teacher in one school, a parent in another, and a proprietor in another.
 4. **Strict tenant isolation** — every cached record and sync mutation is scoped to a school tenant.
@@ -178,7 +178,7 @@ Connectivity available
     ↓
 SyncEngine
     ↓
-SchoolOS Django/DRF transport
+SkulGen Django/DRF transport
     ↓
 Accepted / conflict / rejected
 ```
@@ -255,7 +255,7 @@ The offline/security dependencies use Dart `>=3.10.0`. Use a current stable Flut
 ## Next milestones
 
 1. build a user-visible Sync Center for pending, failed and conflicting changes;
-2. connect real SchoolOS authentication and membership APIs;
+2. connect real SkulGen authentication and membership APIs;
 3. define the Django sync endpoint and implement the app's concrete `SyncTransport`;
 4. add connectivity-aware/background synchronization;
 5. download authorized school/class/student working sets for offline use;

@@ -78,7 +78,7 @@ class StudentRegistrationRecord {
   /// never sets this flag by itself.
   final bool canonicalActive;
 
-  /// Opaque canonical Student UUID returned only by the SchoolOS server after
+  /// Opaque canonical Student UUID returned only by the SkulGen server after
   /// activation. This is the safe identity for future QR/barcode references.
   final String canonicalStudentId;
 

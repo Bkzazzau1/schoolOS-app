@@ -111,7 +111,7 @@ class _TransportDriverAssignmentsPanelState
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Approved Driver staff appear here. A Driver needs an activated SchoolOS membership before an operational route can be assigned.',
+                        'Approved Driver staff appear here. A Driver needs an activated SkulGen membership before an operational route can be assigned.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -396,7 +396,7 @@ class _DriverCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accountLabel = driver.accountLinked
-        ? 'SchoolOS account linked'
+        ? 'SkulGen account linked'
         : 'Account activation pending';
     return Container(
       padding: const EdgeInsets.all(15),

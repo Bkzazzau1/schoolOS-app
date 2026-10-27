@@ -33,7 +33,7 @@ class AlumniOpportunitiesRepository {
   }) async {
     final remote = _remote;
     if (remote == null) {
-      throw StateError('Posting an opportunity requires the SchoolOS server.');
+      throw StateError('Posting an opportunity requires the SkulGen server.');
     }
     final cleanDescription = description.trim();
     if (cleanDescription.length < 5) {
@@ -60,7 +60,7 @@ class AlumniOpportunitiesRepository {
   Future<AlumniOpportunity> close(String opportunityId) async {
     final remote = _remote;
     if (remote == null) {
-      throw StateError('Closing a posting requires the SchoolOS server.');
+      throw StateError('Closing a posting requires the SkulGen server.');
     }
     return remote.closeOpportunity(_membership, opportunityId);
   }

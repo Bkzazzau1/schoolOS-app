@@ -344,7 +344,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
                         ? ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: SchoolLogo(schoolName: widget.membership.schoolName),
-                            title: const Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)),
+                            title: const Text('SkulGen', style: TextStyle(fontWeight: FontWeight.w900)),
                             subtitle: const Text('Teacher Portal'),
                           )
                         : SchoolLogo(schoolName: widget.membership.schoolName),

@@ -56,7 +56,7 @@ class _MandatesOverviewTabState extends State<MandatesOverviewTab> {
         children: [
           const Text(
             'A mandate is a payer\'s authority for the school to collect approved school fees from their bank account. The provider executes each '
-            'debit; SchoolOS never holds the money. What a family owes always comes from the fee ledger, never from a mandate.',
+            'debit; SkulGen never holds the money. What a family owes always comes from the fee ledger, never from a mandate.',
           ),
           const SizedBox(height: 12),
           BankSection(

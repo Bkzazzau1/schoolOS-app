@@ -8,7 +8,7 @@ import 'bank_widgets.dart';
 import 'webhook_setup_dialog.dart';
 
 /// Connect Collection Provider: the school connects its OWN Paystack or Monnify account with the credentials that
-/// provider issued to it. There is no bank account to enter and nothing to confirm: SchoolOS never receives or holds fee money.
+/// provider issued to it. There is no bank account to enter and nothing to confirm: SkulGen never receives or holds fee money.
 ///
 /// What the school is asked for depends on the provider (the fields come from the server), and a secret is masked while typed,
 /// sent once over HTTPS, and never shown or kept again.
@@ -153,7 +153,7 @@ class _ConnectProviderPageState extends State<ConnectProviderPage> {
                   children: [
                     const Text(
                       'Connect the school\'s own account at one of these providers. Parents pay into accounts the provider makes for each family, '
-                      'and the money goes to the school through the provider: SchoolOS never receives or holds it.',
+                      'and the money goes to the school through the provider: SkulGen never receives or holds it.',
                     ),
                     const SizedBox(height: 16),
                     const Text('Choose the school\'s provider', style: TextStyle(fontWeight: FontWeight.w700)),

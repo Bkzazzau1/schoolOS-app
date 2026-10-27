@@ -68,7 +68,7 @@ class _InitialPasswordChangePageState extends State<InitialPasswordChangePage> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Your school created this account with a temporary first-name password. Choose a private password before opening your SchoolOS workspace.',
+                          'Your school created this account with a temporary first-name password. Choose a private password before opening your SkulGen workspace.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
@@ -157,7 +157,7 @@ class _InitialPasswordChangePageState extends State<InitialPasswordChangePage> {
       if (!mounted) return;
       Navigator.of(context).pop(profile);
     } on ApiOfflineException {
-      _showError('Could not reach SchoolOS. Check your connection and try again.');
+      _showError('Could not reach SkulGen. Check your connection and try again.');
     } on ApiException catch (error) {
       _showError(error.message);
     } on SessionExpiredException catch (error) {

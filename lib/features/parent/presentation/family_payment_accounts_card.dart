@@ -7,7 +7,7 @@ import '../../familyfees/domain/family_fees_models.dart';
 
 /// Where a parent pays: the FAMILY's account, shown once, however many children there are.
 ///
-/// It is the school's own account, issued or recorded by the school's finance side; SchoolOS does not receive or hold
+/// It is the school's own account, issued or recorded by the school's finance side; SkulGen does not receive or hold
 /// the payment. What it looks like depends on the bank, so the screen shows whatever the bank gave (the number under
 /// the bank's own word for it, and any extra facts to quote) instead of assuming one format. It needs the school's
 /// server: without one it says so, and never shows a number it made up.
@@ -56,7 +56,7 @@ class _FamilyPaymentAccountsCardState extends State<FamilyPaymentAccountsCard> {
             const SizedBox(height: 3),
             Text(
               'One account for the whole family, however many children you have. It is the school\'s own account: your payment goes '
-              'straight to the school, and SchoolOS does not receive or hold it.',
+              'straight to the school, and SkulGen does not receive or hold it.',
               style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 14),

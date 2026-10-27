@@ -261,7 +261,7 @@ class _AccountCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Account information', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-            const Text('Personal contact details for your SchoolOS account.'),
+            const Text('Personal contact details for your SkulGen account.'),
             const SizedBox(height: 14),
             LayoutBuilder(builder: (context, constraints) {
               final fields = <Widget>[

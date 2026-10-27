@@ -243,7 +243,7 @@ void main() {
     testWidgets('no signal is explained', (tester) async {
       await open(tester, (r) async => throw const ApiOfflineException());
       await pasteAndContinue(tester, _secret);
-      expect(find.textContaining('Could not reach SchoolOS'), findsOneWidget);
+      expect(find.textContaining('Could not reach SkulGen'), findsOneWidget);
     });
 
     testWidgets('a good link shows who it is for, and a link the app was opened with is checked straight away', (tester) async {

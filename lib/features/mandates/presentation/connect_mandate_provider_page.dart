@@ -100,7 +100,7 @@ class _ConnectMandateProviderPageState extends State<ConnectMandateProviderPage>
         children: [
           const Text(
             'Connect the school\'s own account at Remita or Lendsqr, with the credentials the provider issued to your school. The provider '
-            'executes each debit and moves the money; SchoolOS never holds it. You can connect both: each mandate stays with the provider it was '
+            'executes each debit and moves the money; SkulGen never holds it. You can connect both: each mandate stays with the provider it was '
             'made under.',
           ),
           const SizedBox(height: 16),
@@ -126,9 +126,9 @@ class _ConnectMandateProviderPageState extends State<ConnectMandateProviderPage>
                       const SizedBox(height: 8),
                       Wrap(spacing: 8, runSpacing: 4, children: [
                         if (p.capabilities.supportsManualDebit)
-                          const StatusChip(label: 'Can debit through SchoolOS', color: Color(0xFF1B7F3B))
+                          const StatusChip(label: 'Can debit through SkulGen', color: Color(0xFF1B7F3B))
                         else
-                          const StatusChip(label: 'Debits not available through SchoolOS yet', color: Color(0xFF8A6D00)),
+                          const StatusChip(label: 'Debits not available through SkulGen yet', color: Color(0xFF8A6D00)),
                         if (p.capabilities.supportsOtpActivation) const StatusChip(label: 'Activate with a bank one-time password', color: Color(0xFF3B5BA5)),
                         if (p.capabilities.supportsTransferActivation) const StatusChip(label: 'Activate by a transfer', color: Color(0xFF3B5BA5)),
                         if (p.capabilities.requiresProviderCustomer) const StatusChip(label: 'Needs the payer\'s customer id', color: Color(0xFF8A6D00)),

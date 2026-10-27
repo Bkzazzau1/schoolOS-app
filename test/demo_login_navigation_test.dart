@@ -91,7 +91,7 @@ void main() {
       final services = _DemoServices();
       await tester.pumpWidget(MaterialApp(home: LoginPage(services: services)));
       await tester.enterText(find.byType(TextFormField).first, 'demo');
-      await tester.enterText(find.byType(TextFormField).last, 'SchoolOS123!');
+      await tester.enterText(find.byType(TextFormField).last, 'SkulGen123!');
       await tester.tap(find.text('Sign in'));
       await tester.pumpAndSettle();
       expect(find.byType(LoginPage), findsNothing);

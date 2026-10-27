@@ -76,7 +76,7 @@ class BankConnectApi {
   }) =>
       _act(m, id, 'replace-credentials', {'credentials': credentials, if (settings != null) 'settings': settings});
 
-  /// Where to give the provider SchoolOS's address for payment notifications, and whether it is known to work.
+  /// Where to give the provider SkulGen's address for payment notifications, and whether it is known to work.
   Future<WebhookSetup> webhookSetup(SchoolMembership m, String id) async =>
       WebhookSetup.fromJson(readMap(readMap(await _api.get('${_base(m)}connections/$id/webhook/', query: _who(m)))['webhook']));
 

@@ -1,8 +1,8 @@
-/// Where the SchoolOS backend is.
+/// Where the SkulGen backend is.
 ///
 /// Set it when running or building the app:
 ///
-///     flutter run --dart-define=API_BASE_URL=https://api.schoolos.ng/api/v1
+///     flutter run --dart-define=API_BASE_URL=https://api.skulgen.com/api/v1
 ///
 /// With no value the app runs on its built-in demo data exactly as before, so
 /// nothing changes until a backend is chosen.

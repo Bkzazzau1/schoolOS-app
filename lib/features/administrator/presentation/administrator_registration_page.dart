@@ -470,7 +470,7 @@ class _AdministratorRegistrationPageState
           const SizedBox(height: 12),
           const _BoundaryBox(
             text:
-                'Initial password rule: the person’s first name. The live credential view shows a temporary password only while SchoolOS still requires a first-login password change. Private permanent passwords are never visible to the school.',
+                'Initial password rule: the person’s first name. The live credential view shows a temporary password only while SkulGen still requires a first-login password change. Private permanent passwords are never visible to the school.',
           ),
           if (serverApi != null) ...[
             const SizedBox(height: 12),

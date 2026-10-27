@@ -1253,7 +1253,7 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
                               schoolName: widget.membership.schoolName,
                             ),
                             title: const Text(
-                              'SchoolOS',
+                              'SkulGen',
                               style: TextStyle(fontWeight: FontWeight.w900),
                             ),
                             subtitle: const Text('Student Portal'),

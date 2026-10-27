@@ -172,7 +172,7 @@ void main() {
     expect(q.pendingCount(membership), 1);
   });
 
-  testWidgets('a file type SchoolOS does not accept here is refused on the phone, and nothing is queued', (tester) async {
+  testWidgets('a file type SkulGen does not accept here is refused on the phone, and nothing is queued', (tester) async {
     final q = makeQueue();
     await pump(
       tester,

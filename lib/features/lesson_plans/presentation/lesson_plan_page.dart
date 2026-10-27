@@ -107,7 +107,7 @@ class _LessonPlanPageState extends State<LessonPlanPage> {
       if (!mounted) return;
       setState(() {
         _saveMessage = queueForSync
-            ? 'Saved on this device and queued for SchoolOS Cloud sync.'
+            ? 'Saved on this device and queued for SkulGen Cloud sync.'
             : 'Saved securely on this device. No internet required.';
       });
     } finally {

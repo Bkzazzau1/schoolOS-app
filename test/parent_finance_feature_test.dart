@@ -304,7 +304,7 @@ void main() {
     });
 
     testWidgets('a test account is labelled as one', (tester) async {
-      await pumpPage(tester, server: (_) => families([payAccountJson(provider: 'sandbox', bankName: 'SchoolOS Test Bank', isTest: true)]));
+      await pumpPage(tester, server: (_) => families([payAccountJson(provider: 'sandbox', bankName: 'SkulGen Test Bank', isTest: true)]));
       expect(find.text('Test account'), findsOneWidget);
     });
 
@@ -351,7 +351,7 @@ void main() {
       expect(find.text('Total to transfer'), findsOneWidget);
       expect(find.text('Copy total'), findsOneWidget);
       expect(find.textContaining('queued'), findsNothing);
-      expect(find.textContaining('SchoolOS does not receive or hold your payment'), findsWidgets);
+      expect(find.textContaining('SkulGen does not receive or hold your payment'), findsWidgets);
     });
   });
 }

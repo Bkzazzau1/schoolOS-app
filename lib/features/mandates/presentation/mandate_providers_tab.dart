@@ -190,7 +190,7 @@ class _MandateProvidersTabState extends State<MandateProvidersTab> {
             if (!c.capabilities.supportsManualDebit)
               const Padding(
                 padding: EdgeInsets.only(top: 6),
-                child: Text('SchoolOS can make, activate and watch mandates here, but cannot send a debit through this provider yet.', style: TextStyle(color: Color(0xFF8A6D00))),
+                child: Text('SkulGen can make, activate and watch mandates here, but cannot send a debit through this provider yet.', style: TextStyle(color: Color(0xFF8A6D00))),
               ),
             if (c.lastErrorCode.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(bankErrorLabel(c.lastErrorCode), style: const TextStyle(color: Color(0xFFB3261E)))),
             if (can) ...[
@@ -243,7 +243,7 @@ extension on MandateConnection {
   bool get capabilitiesHaveWebhooks => capabilities.supportsWebhooks;
 }
 
-/// Where the school gives the provider SchoolOS's address for notifications. It is not called active until a notification the provider
+/// Where the school gives the provider SkulGen's address for notifications. It is not called active until a notification the provider
 /// confirmed has really arrived.
 class _WebhookDialog extends StatefulWidget {
   const _WebhookDialog({required this.connection, required this.hook, required this.justConnected, required this.onNewAddress});

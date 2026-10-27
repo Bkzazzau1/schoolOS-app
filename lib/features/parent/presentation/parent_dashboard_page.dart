@@ -942,7 +942,7 @@ class _LoadFailure extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text('Family dashboard unavailable', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 6),
-                  const Text('SchoolOS could not read the cached family dashboard. Retry without leaving the workspace.', textAlign: TextAlign.center),
+                  const Text('SkulGen could not read the cached family dashboard. Retry without leaving the workspace.', textAlign: TextAlign.center),
                   const SizedBox(height: 16),
                   FilledButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry')),
                 ],

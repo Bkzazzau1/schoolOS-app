@@ -184,7 +184,7 @@ void main() {
       final server = FakeServer((r) async => throw const ApiOfflineException());
       await pumpLogin(tester, services(server));
       await signInWith(tester, 'musa@school.ng', 'a-good-password');
-      expect(find.textContaining('Could not reach SchoolOS'), findsOneWidget);
+      expect(find.textContaining('Could not reach SkulGen'), findsOneWidget);
     });
 
     testWidgets('an email is required before anything is sent', (tester) async {

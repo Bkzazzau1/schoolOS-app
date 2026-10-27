@@ -6,7 +6,7 @@ import 'media_json.dart';
 import 'media_models.dart';
 import 'media_upload_queue.dart';
 
-/// Talks to SchoolOS's one canonical file/media service. Every feature that shows or attaches a real file - the
+/// Talks to SkulGen's one canonical file/media service. Every feature that shows or attaches a real file - the
 /// school logo excepted, still its own small path for now - goes through this, never a feature-specific upload
 /// of its own.
 ///
@@ -67,8 +67,8 @@ class MediaApi {
   }
 
   /// PUTs bytes to a LOCAL-storage upload address (one of this server's own, relative). An object-storage
-  /// (presigned) address is never sent through this client at all - it needs no SchoolOS token, and sending one
-  /// would only leak it to a URL that is not SchoolOS's own. See MediaUploadQueue for the full flow.
+  /// (presigned) address is never sent through this client at all - it needs no SkulGen token, and sending one
+  /// would only leak it to a URL that is not SkulGen's own. See MediaUploadQueue for the full flow.
   Future<void> uploadDirect(MediaUploadInstructions instructions, List<int> bytes, {required String mimeType}) =>
       _api.putBytes(instructions.uploadUrl, bytes, mimeType: mimeType);
 

@@ -26,7 +26,7 @@ class AlumniEventsRepository {
   Future<AlumniEvent> rsvp(String eventId, {required bool attending}) async {
     final remote = _remote;
     if (remote == null) {
-      throw StateError('Responding to a reunion requires the SchoolOS server.');
+      throw StateError('Responding to a reunion requires the SkulGen server.');
     }
     return remote.rsvp(_membership, eventId, attending: attending);
   }

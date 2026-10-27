@@ -108,7 +108,7 @@ class PaymentDecision {
   final String toStatus;
 }
 
-/// A payment into a family's collection account, in SchoolOS's own shape whichever provider reported it.
+/// A payment into a family's collection account, in SkulGen's own shape whichever provider reported it.
 class BankPayment {
   const BankPayment({
     required this.id,

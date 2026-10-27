@@ -29,7 +29,7 @@ class AlumniGiveBackRepository {
   }) async {
     final remote = _remote;
     if (remote == null) {
-      throw StateError('Making a pledge requires the SchoolOS server.');
+      throw StateError('Making a pledge requires the SkulGen server.');
     }
     final clean = description.trim();
     if (clean.length < 5) {
@@ -41,7 +41,7 @@ class AlumniGiveBackRepository {
   Future<AlumniPledge> withdraw(String pledgeId) async {
     final remote = _remote;
     if (remote == null) {
-      throw StateError('Withdrawing a pledge requires the SchoolOS server.');
+      throw StateError('Withdrawing a pledge requires the SkulGen server.');
     }
     return remote.withdrawPledge(_membership, pledgeId);
   }

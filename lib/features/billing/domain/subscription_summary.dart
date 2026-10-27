@@ -19,7 +19,7 @@ class BillingPlan {
 
   factory BillingPlan.fromJson(Map<String, dynamic> json) => BillingPlan(
         code: json['code'] as String? ?? '',
-        name: json['name'] as String? ?? 'SchoolOS plan',
+        name: json['name'] as String? ?? 'SkulGen plan',
         description: json['description'] as String? ?? '',
         currency: json['currency'] as String? ?? 'NGN',
         billingInterval: json['billingInterval'] as String?,

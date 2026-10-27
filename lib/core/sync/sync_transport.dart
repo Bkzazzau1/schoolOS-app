@@ -27,7 +27,7 @@ class SyncRetryLater implements Exception {
   String toString() => reason;
 }
 
-/// Network boundary between the sync engine and the SchoolOS backend
+/// Network boundary between the sync engine and the SkulGen backend
 /// (`HttpSyncTransport`).
 ///
 /// Keeping transport separate from the sync engine means offline persistence,

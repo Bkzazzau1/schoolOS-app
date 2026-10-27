@@ -1,4 +1,4 @@
-/// Mirrors apps.transferverify.models.AssociationStatus - whether SchoolOS
+/// Mirrors apps.transferverify.models.AssociationStatus - whether SkulGen
 /// staff have verified this association enough to accept members.
 enum TransferVerifyAssociationStatus {
   pendingVerification,
@@ -19,7 +19,7 @@ enum TransferVerifyAssociationStatus {
 }
 
 /// A real, verified network of schools a Proprietor may ask their school to
-/// join - never SchoolOS's own commercial organizations.Organization.
+/// join - never SkulGen's own commercial organizations.Organization.
 class TransferVerifyAssociation {
   const TransferVerifyAssociation({
     required this.id,

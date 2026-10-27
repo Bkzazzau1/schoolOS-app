@@ -84,7 +84,7 @@ class _CollectionsHubPageState extends State<CollectionsHubPage> with SingleTick
                 const SizedBox(height: 4),
                 Text(
                   'The school\'s own collection provider makes each family an account to pay into. The money goes to the school through the '
-                  'provider; SchoolOS never receives or holds it. Payments are matched to families, and anything unclear waits for a person.',
+                  'provider; SkulGen never receives or holds it. Payments are matched to families, and anything unclear waits for a person.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],

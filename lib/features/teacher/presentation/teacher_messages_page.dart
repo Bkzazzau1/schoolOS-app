@@ -379,7 +379,7 @@ class _TeacherMessagesPageState extends State<TeacherMessagesPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(selected.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                      Text('${teacherMessageChannelTypeLabel(selected.type)} · Authorized SchoolOS channel'),
+                      Text('${teacherMessageChannelTypeLabel(selected.type)} · Authorized SkulGen channel'),
                     ],
                   ),
                   OutlinedButton(

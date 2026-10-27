@@ -195,7 +195,7 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Ask questions about your linked children and family account using only guardian-visible SchoolOS context.',
+                'Ask questions about your linked children and family account using only guardian-visible SkulGen context.',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -318,7 +318,7 @@ class _ChatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'Ask Your School',
-      subtitle: 'Answers are limited to guardian-visible cached SchoolOS context.',
+      subtitle: 'Answers are limited to guardian-visible cached SkulGen context.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

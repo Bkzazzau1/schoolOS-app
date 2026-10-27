@@ -82,7 +82,7 @@ void main() {
 
   test('white-label and native preview boundaries remain explicit', () {
     expect(administratorWebsiteWhiteLabelPrinciple, isNot(contains('BrightGate')));
-    expect(administratorWebsiteWhiteLabelPrinciple, contains('SchoolOS'));
+    expect(administratorWebsiteWhiteLabelPrinciple, contains('SkulGen'));
     expect(administratorWebsitePreviewBoundary, contains('Connect to the internet'));
     expect(administratorWebsitePreviewBoundary, isNot(contains('production')));
   });

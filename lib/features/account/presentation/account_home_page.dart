@@ -46,7 +46,7 @@ class AccountHomePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SchoolOS Account'),
+        title: const Text('SkulGen Account'),
         actions: [
           IconButton(
             tooltip: 'Sign out',
@@ -226,7 +226,7 @@ class AccountHomePage extends StatelessWidget {
     if (repository == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Connect SchoolOS to the server before creating a school.'),
+          content: Text('Connect SkulGen to the server before creating a school.'),
         ),
       );
       return;
@@ -254,7 +254,7 @@ class _AccountHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final displayName = profile.name.trim().isEmpty
-        ? 'Your SchoolOS account'
+        ? 'Your SkulGen account'
         : profile.name.trim();
 
     return Container(

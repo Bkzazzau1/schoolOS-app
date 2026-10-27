@@ -86,7 +86,7 @@ class PrincipalAttendanceActionResult {
 }
 
 /// Vendor-specific palm/fingerprint SDKs should adapt their local capture result
-/// into this repository call. SchoolOS never needs internet to accept the event.
+/// into this repository call. SkulGen never needs internet to accept the event.
 abstract interface class PrincipalBiometricScannerAdapter {
   String get scannerId;
   PrincipalBiometricModality get modality;

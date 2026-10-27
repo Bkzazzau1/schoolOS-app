@@ -316,7 +316,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
                         ? ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: SchoolLogo(schoolName: widget.membership.schoolName),
-                            title: const Text('SchoolOS', style: TextStyle(fontWeight: FontWeight.w900)),
+                            title: const Text('SkulGen', style: TextStyle(fontWeight: FontWeight.w900)),
                             subtitle: const Text('Finance Office'),
                           )
                         : SchoolLogo(schoolName: widget.membership.schoolName),

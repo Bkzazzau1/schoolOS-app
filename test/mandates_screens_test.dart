@@ -139,7 +139,7 @@ void main() {
     testWidgets('it says what the ledger, not a mandate, decides, and shows what the server counted', (tester) async {
       await pumpHub(tester);
       expect(find.textContaining('What a family owes always comes from the fee ledger, never from a mandate'), findsOneWidget);
-      expect(find.textContaining('SchoolOS never holds the money'), findsWidgets);
+      expect(find.textContaining('SkulGen never holds the money'), findsWidgets);
       expect(find.text('₦380,000'), findsOneWidget); // collected
       expect(find.text('2 confirmed debits'), findsOneWidget);
       expect(find.descendant(of: key('ov-active'), matching: find.text('2')), findsOneWidget);
@@ -251,7 +251,7 @@ void main() {
       expect(find.text('NEW-TOKEN'), findsNothing);
     });
 
-    testWidgets('a provider that cannot debit through SchoolOS says so on its card', (tester) async {
+    testWidgets('a provider that cannot debit through SkulGen says so on its card', (tester) async {
       final server = MandatesServer();
       server.connections = {
         ...real('connections_both'),
@@ -278,7 +278,7 @@ void main() {
       expect(key('provider-lendsqr'), findsOneWidget);
       expect(key('provider-remita'), findsNothing);
       expect(find.textContaining('Both providers are connected'), findsNothing);
-      expect(find.textContaining('Debits not available through SchoolOS yet'), findsOneWidget);
+      expect(find.textContaining('Debits not available through SkulGen yet'), findsOneWidget);
       expect(find.textContaining('Needs the payer\'s customer id'), findsOneWidget);
     });
 

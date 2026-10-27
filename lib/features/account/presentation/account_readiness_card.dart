@@ -72,7 +72,7 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
                     const SizedBox(height: 4),
                     Text(
                       onboarding.ready
-                          ? 'Your SchoolOS account is ready for multi-school management.'
+                          ? 'Your SkulGen account is ready for multi-school management.'
                           : '${onboarding.completedCount} of ${onboarding.totalCount} setup steps completed.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -215,7 +215,7 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
       _message('Email verified successfully.');
       widget.onProfileChanged(refreshed);
     } on ApiOfflineException {
-      _message('Could not reach SchoolOS. Check your connection and try again.');
+      _message('Could not reach SkulGen. Check your connection and try again.');
     } on ApiException catch (error) {
       _message(error.message);
     } on SessionExpiredException catch (error) {
@@ -243,7 +243,7 @@ class _AccountReadinessCardState extends State<AccountReadinessCard> {
             : 'The code was created, but email delivery could not be confirmed. Try again shortly.',
       );
     } on ApiOfflineException {
-      _message('Could not reach SchoolOS. Check your connection and try again.');
+      _message('Could not reach SkulGen. Check your connection and try again.');
     } on ApiException catch (error) {
       _message(error.message);
     } on SessionExpiredException catch (error) {

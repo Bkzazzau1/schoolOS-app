@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-/// A picked or captured file's bytes, already safe in this app's own storage under a random name of SchoolOS's
+/// A picked or captured file's bytes, already safe in this app's own storage under a random name of SkulGen's
 /// own choosing - never the device's own path or a picker's temporary handle, which can stop working the moment
 /// that screen closes. Its checksum is taken here, once, from the bytes that were actually written.
 class CopiedMediaFile {

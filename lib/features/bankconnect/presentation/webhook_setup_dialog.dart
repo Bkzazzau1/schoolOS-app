@@ -5,9 +5,9 @@ import '../domain/bank_labels.dart';
 import '../domain/bank_models.dart';
 import 'bank_widgets.dart';
 
-/// Where the school gives the provider SchoolOS's address for payment notifications, and whether it is known to work.
+/// Where the school gives the provider SkulGen's address for payment notifications, and whether it is known to work.
 ///
-/// SchoolOS never says the webhook is active because it was set up: only once a verified event has really arrived. Until then it
+/// SkulGen never says the webhook is active because it was set up: only once a verified event has really arrived. Until then it
 /// says it is waiting, so a school is not left believing payments are being heard when they are not.
 Future<void> showWebhookSetupDialog(
   BuildContext context, {
@@ -68,8 +68,8 @@ class _WebhookDialogState extends State<_WebhookDialog> {
             const SizedBox(height: 12),
             Text(
               setup.mode == 'dashboard'
-                  ? 'Give ${widget.connection.providerName} this address, so it can tell SchoolOS the moment a family pays.'
-                  : 'SchoolOS gives ${widget.connection.providerName} this address for payment notifications.',
+                  ? 'Give ${widget.connection.providerName} this address, so it can tell SkulGen the moment a family pays.'
+                  : 'SkulGen gives ${widget.connection.providerName} this address for payment notifications.',
             ),
             const SizedBox(height: 8),
             SelectableText(setup.address, key: const ValueKey('webhook-address'), style: const TextStyle(fontFamily: 'monospace')),

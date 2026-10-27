@@ -1,4 +1,4 @@
-// JSON exactly as the SchoolOS server sends it for family payment accounts, so the tests break if the app and the
+// JSON exactly as the SkulGen server sends it for family payment accounts, so the tests break if the app and the
 // server stop agreeing about a field.
 
 Map<String, Object?> payAccountJson({

@@ -8,7 +8,7 @@ import '../auth/token_store.dart';
 import 'api_config.dart';
 import 'api_exceptions.dart';
 
-/// Talks to the SchoolOS backend: JSON in, JSON out, the signed-in person's
+/// Talks to the SkulGen backend: JSON in, JSON out, the signed-in person's
 /// token attached, and an expired token renewed once, quietly.
 ///
 /// It only throws three things, so callers can react to what matters:

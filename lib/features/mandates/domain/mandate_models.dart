@@ -68,7 +68,7 @@ class MandateCapabilities {
   final bool requiresProviderCustomer;
 }
 
-/// A direct-debit provider SchoolOS supports: Remita or Lendsqr. The school connects its OWN account at one or both.
+/// A direct-debit provider SkulGen supports: Remita or Lendsqr. The school connects its OWN account at one or both.
 class MandateProvider {
   const MandateProvider({
     required this.code,
@@ -257,7 +257,7 @@ class MandateActionResult {
   final String testMessage;
 }
 
-/// Where to give the provider SchoolOS's address for its notifications, and whether it is known to work.
+/// Where to give the provider SkulGen's address for its notifications, and whether it is known to work.
 class MandateWebhook {
   const MandateWebhook({required this.path, required this.url, required this.status, required this.where, required this.verification, required this.note});
 
@@ -460,7 +460,7 @@ class Mandate {
   final String status;
   final String providerStatus;
 
-  /// "payer_app" (the payer authorises in the SchoolOS app) or "provider" (with the provider).
+  /// "payer_app" (the payer authorises in the SkulGen app) or "provider" (with the provider).
   final String consentRoute;
   final DateTime? consentAt;
   final String consentChannel;

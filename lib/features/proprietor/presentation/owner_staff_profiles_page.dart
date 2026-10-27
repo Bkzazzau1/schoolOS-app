@@ -519,7 +519,7 @@ class _OwnerStaffProfileDetailPageState
     ),
   );
 
-  /// The real files attached to this staff member's own record - SchoolOS's shared media service
+  /// The real files attached to this staff member's own record - SkulGen's shared media service
   /// (docs/MEDIA.md), the first place outside Gallery to use it. Online only: without a school server there is
   /// nowhere a real file could live, so nothing is offered here.
   Widget _staffFiles() {

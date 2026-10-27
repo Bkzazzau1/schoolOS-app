@@ -133,7 +133,7 @@ class _LoginPageState extends State<LoginPage> {
 
       await _openAfterSignIn(profile);
     } on ApiOfflineException {
-      _showError('Could not reach SchoolOS. Check your connection and try again.');
+      _showError('Could not reach SkulGen. Check your connection and try again.');
     } on ApiException catch (error) {
       _showError(
         error.statusCode == 401
@@ -279,7 +279,7 @@ class _LoginCard extends StatelessWidget {
   final VoidCallback? onRegister;
 
   static const _demoUsername = 'demo';
-  static const _demoPassword = 'SchoolOS123!';
+  static const _demoPassword = 'SkulGen123!';
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +309,7 @@ class _LoginCard extends StatelessWidget {
               Text(
                 backend
                     ? 'Use your email, student admission ID, or parent phone number to sign in.'
-                    : 'Sign in to explore the local SchoolOS demo.',
+                    : 'Sign in to explore the local SkulGen demo.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -393,7 +393,7 @@ class _LoginCard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
-                        'New to SchoolOS?',
+                        'New to SkulGen?',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -520,7 +520,7 @@ class _BrandHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'SchoolOS',
+                'SkulGen',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -592,7 +592,7 @@ class _DesktopBrandPanel extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            'SchoolOS',
+            'SkulGen',
             style: theme.textTheme.bodySmall,
           ),
         ],

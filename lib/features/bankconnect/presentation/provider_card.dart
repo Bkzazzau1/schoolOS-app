@@ -104,7 +104,7 @@ class ProviderCard extends StatelessWidget {
 
   String _summaryLine(ProviderConnection c) {
     if (c.isClosed) return 'Disconnected. Its earlier payments and accounts are kept.';
-    if (c.isDisabled) return 'Disabled: SchoolOS is not using it.';
+    if (c.isDisabled) return 'Disabled: SkulGen is not using it.';
     final verified = 'Last verified ${whenLabel(c.lastVerifiedAt)}.';
     if (c.isActiveProvider) return 'New family accounts are made with this provider. $verified';
     return verified;

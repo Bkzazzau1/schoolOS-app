@@ -20,7 +20,7 @@ class MandatesNoServerNotice extends StatelessWidget {
               SizedBox(height: 8),
               Text(
                 'Connecting the school\'s Remita or Lendsqr account, a payer\'s authority to debit their account, and every debit all happen on the '
-                'SchoolOS server, so that no credential or bank account number is ever kept on a phone. This app is running without a school '
+                'SkulGen server, so that no credential or bank account number is ever kept on a phone. This app is running without a school '
                 'server, so there are no providers, mandates or debits to show. A debit is never queued on a phone as though it had happened.',
                 textAlign: TextAlign.center,
               ),

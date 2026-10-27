@@ -1,6 +1,6 @@
-# SchoolOS SaaS account layer
+# SkulGen SaaS account layer
 
-This document defines the account layer that sits above individual SchoolOS school tenants.
+This document defines the account layer that sits above individual SkulGen school tenants.
 
 ## Core hierarchy
 
@@ -139,7 +139,7 @@ The client must never create a tenant locally while offline.
 
 ## Next account-layer work
 
-1. implement these organization/profile/provisioning endpoints in the SchoolOS backend;
+1. implement these organization/profile/provisioning endpoints in the SkulGen backend;
 2. add a persistent "My schools" path from the proprietor workspace back to Account Home;
 3. add organization creation/onboarding for a brand-new customer account;
 4. add organization administrators and invitations;

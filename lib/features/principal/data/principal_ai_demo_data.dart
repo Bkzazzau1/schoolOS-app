@@ -61,6 +61,6 @@ const principalAIGuardrail =
     'Principal AI must resolve the active school, membership and principal permissions before retrieving data. It must never search another school, expose finance or staff-confidential records outside the principal’s permission set, or make automatic safeguarding/disciplinary decisions.';
 
 const principalAIProductionPrinciple =
-    'The model should never receive an unrestricted database dump. SchoolOS should retrieve the smallest authorized context first, then ask the model to reason over that context. That keeps tenant isolation and role permissions outside the model rather than trusting the model to enforce them.';
+    'The model should never receive an unrestricted database dump. SkulGen should retrieve the smallest authorized context first, then ask the model to reason over that context. That keeps tenant isolation and role permissions outside the model rather than trusting the model to enforce them.';
 
 const principalAIDataPath = <String>['Principal', 'Active school', 'Role & permissions', 'Allowed records', 'Context builder', 'AI answer'];

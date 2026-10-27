@@ -16,7 +16,7 @@ class PayDetail {
 ///
 /// What it looks like depends on the bank that issued it, so nothing here assumes ten digits: [numberLabel] is
 /// what that bank calls the number, [details] are extra facts the payer must be told, and [note] is how to pay it.
-/// The number is the school's own account. SchoolOS does not receive or hold the money.
+/// The number is the school's own account. SkulGen does not receive or hold the money.
 class FamilyPayAccount {
   const FamilyPayAccount({
     required this.id,

@@ -31,7 +31,7 @@ final subscriptionJson = {
   'plan': {
     'code': 'standard',
     'name': 'Standard',
-    'description': 'The standard SchoolOS plan.',
+    'description': 'The standard SkulGen plan.',
     'currency': 'NGN',
     'baseAmountMinor': 0,
     'studentUnitAmountMinor': 50000,
@@ -87,7 +87,7 @@ void main() {
 
     await tester.tap(find.text('Subscriptions').first);
     await tester.pumpAndSettle();
-    expect(find.textContaining('no connected SchoolOS server'), findsOneWidget);
+    expect(find.textContaining('no connected SkulGen server'), findsOneWidget);
   });
 
   testWidgets('opening it shows the real plan and status from the server', (tester) async {

@@ -449,7 +449,7 @@ class _ScopeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
       ),
       child: const Text(
-        'SchoolOS schedules and documents co-curricular programmes clearly while keeping participation separate from academic attainment. Houses and trips use their own dedicated workflows.',
+        'SkulGen schedules and documents co-curricular programmes clearly while keeping participation separate from academic attainment. Houses and trips use their own dedicated workflows.',
       ),
     );
   }

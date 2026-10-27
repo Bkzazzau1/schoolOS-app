@@ -773,7 +773,7 @@ class _AccessResolutionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _ModuleCard(
-      title: 'How SchoolOS decides what a leader can see',
+      title: 'How SkulGen decides what a leader can see',
       subtitle: 'ACCESS RESOLUTION',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

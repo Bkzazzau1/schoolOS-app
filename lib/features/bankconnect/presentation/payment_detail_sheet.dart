@@ -232,7 +232,7 @@ class _PaymentDetailState extends State<_PaymentDetail> {
     if (!p.isCredit || (p.candidates.isEmpty && p.notes.isEmpty)) return const [];
     return [
       const SizedBox(height: 16),
-      const Text('What SchoolOS saw', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      const Text('What SkulGen saw', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       for (final note in p.notes) Padding(padding: const EdgeInsets.only(top: 4), child: Text(note)),
       for (final c in p.candidates)
         Card(

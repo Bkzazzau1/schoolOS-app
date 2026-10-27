@@ -68,7 +68,7 @@
      "ACTIVATION",
      "DEBIT"
     ],
-    "note": "Remita does not sign its notifications, so SchoolOS confirms every one with Remita before it counts."
+    "note": "Remita does not sign its notifications, so SkulGen confirms every one with Remita before it counts."
    },
    "productionStatus": "implemented",
    "available": true,
@@ -125,7 +125,7 @@
     "requiresProviderCustomer": true
    },
    "onboarding": "Create an app under Developer > Apps in your school's own Lendsqr admin console, choose the direct debit scope, and enter its API key. Each payer must already be a customer in your Lendsqr organisation: enter their Lendsqr customer id when you start their mandate.",
-   "description": "Direct debit mandates activated by the payer's transfer to a NIBSS account. SchoolOS can make, activate and watch them.",
+   "description": "Direct debit mandates activated by the payer's transfer to a NIBSS account. SkulGen can make, activate and watch them.",
    "webhook": {
     "mode": "dashboard",
     "where": "",

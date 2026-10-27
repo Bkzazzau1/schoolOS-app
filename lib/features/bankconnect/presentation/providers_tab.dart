@@ -150,13 +150,13 @@ class _ProvidersTabState extends State<ProvidersTab> {
         final result = await api.enable(m, connection.id);
         message = result.check?.ok == false ? 'Enabled, but the check failed: ${result.check!.message}' : '${connection.providerName} is enabled again.';
       case ProviderCommand.disable:
-        if (!await _ask('Disable ${connection.providerName}?', 'SchoolOS will stop using it until you enable it again. Its history stays.', 'Disable')) return;
+        if (!await _ask('Disable ${connection.providerName}?', 'SkulGen will stop using it until you enable it again. Its history stays.', 'Disable')) return;
         await api.disable(m, connection.id);
         message = '${connection.providerName} is disabled.';
       case ProviderCommand.disconnect:
         if (!await _ask(
           'Disconnect ${connection.providerName}?',
-          'SchoolOS will forget its credentials. Payments and accounts already made are kept. You can connect it again later.',
+          'SkulGen will forget its credentials. Payments and accounts already made are kept. You can connect it again later.',
           'Disconnect',
         )) {
           return;
@@ -260,7 +260,7 @@ class _ProvidersTabState extends State<ProvidersTab> {
             const BankSection(
               title: 'No collection provider connected yet',
               child: Text(
-                'Connect the school\'s own account at Paystack or Monnify. SchoolOS then makes each family a collection account there, '
+                'Connect the school\'s own account at Paystack or Monnify. SkulGen then makes each family a collection account there, '
                 'and reads the provider\'s signed notifications to see what was paid. The money goes to the school through the provider.',
               ),
             ),
@@ -352,7 +352,7 @@ class _ScheduleSwitchDialogState extends State<_ScheduleSwitchDialog> {
           children: [
             const Text(
               'Plan the change for a date. When it comes, the switch becomes ready and waits for you to review and apply it. '
-              'SchoolOS never switches the school\'s provider on its own.',
+              'SkulGen never switches the school\'s provider on its own.',
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(

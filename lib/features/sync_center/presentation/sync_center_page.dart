@@ -193,7 +193,7 @@ class _SyncCenterPageState extends State<SyncCenterPage> {
             ],
           const SizedBox(height: 12),
           Text(
-            'A conflict means the school\'s record changed after your copy was downloaded. SchoolOS never overwrites the school\'s record silently: you can keep waiting, or use the school\'s version. Comparing the two side by side is not available yet.',
+            'A conflict means the school\'s record changed after your copy was downloaded. SkulGen never overwrites the school\'s record silently: you can keep waiting, or use the school\'s version. Comparing the two side by side is not available yet.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -220,7 +220,7 @@ class _SyncStatusCard extends StatelessWidget {
         child: ListTile(
           leading: const Icon(Icons.science_outlined),
           title: const Text('Demo data'),
-          subtitle: const Text('This copy of SchoolOS is not connected to a school server.'),
+          subtitle: const Text('This copy of SkulGen is not connected to a school server.'),
         ),
       );
     }

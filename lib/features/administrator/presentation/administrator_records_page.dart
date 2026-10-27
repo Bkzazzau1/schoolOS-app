@@ -153,7 +153,7 @@ class _AdministratorRecordsPageState extends State<AdministratorRecordsPage> wit
     await _finish(await widget.repository.act(record, action, note: note));
   }
 
-  /// The real files attached to this document record - SchoolOS's shared media service (docs/MEDIA.md), the
+  /// The real files attached to this document record - SkulGen's shared media service (docs/MEDIA.md), the
   /// same one Gallery and staff onboarding documents already use. Online only: without a school server there is
   /// nowhere a real file could live, so nothing is offered here.
   Widget _attachments(AdministratorDocumentRecord record) {

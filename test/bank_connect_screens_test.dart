@@ -64,9 +64,9 @@ void main() {
       expect(find.widgetWithText(Tab, 'Family accounts'), findsNothing);
     });
 
-    testWidgets('it says the money goes to the school through its provider and never through SchoolOS', (tester) async {
+    testWidgets('it says the money goes to the school through its provider and never through SkulGen', (tester) async {
       await pumpHub(tester);
-      expect(find.textContaining('SchoolOS never receives or holds it'), findsOneWidget);
+      expect(find.textContaining('SkulGen never receives or holds it'), findsOneWidget);
     });
   });
 
@@ -218,7 +218,7 @@ void main() {
       await openTab(tester, 'Providers');
       await tester.tap(find.text('Schedule switch to this provider'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('SchoolOS never switches the school\'s provider on its own'), findsOneWidget);
+      expect(find.textContaining('SkulGen never switches the school\'s provider on its own'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('schedule-switch')));
       await tester.pumpAndSettle();
       final sent = server.requests['POST switches/']!;
@@ -378,7 +378,7 @@ void main() {
       expect(find.textContaining('Account number'), findsNothing);
       expect(find.textContaining('Is this your school\'s account?'), findsNothing);
       expect(find.textContaining('Which account does this collect for?'), findsNothing);
-      expect(find.textContaining('SchoolOS never receives or holds it'), findsOneWidget);
+      expect(find.textContaining('SkulGen never receives or holds it'), findsOneWidget);
     });
 
     testWidgets('the form follows the provider: Paystack asks for one secret key, Monnify for three credentials and says it needs a BVN', (tester) async {
@@ -475,7 +475,7 @@ void main() {
   });
 
   group('review', () {
-    testWidgets('a payment SchoolOS could not settle waits for a person, with the evidence', (tester) async {
+    testWidgets('a payment SkulGen could not settle waits for a person, with the evidence', (tester) async {
       await pumpHub(tester, withSmart: false);
       await openTab(tester, 'Review');
       expect(find.text('₦50,000'), findsOneWidget);
@@ -484,7 +484,7 @@ void main() {
       expect(find.text('All (1)'), findsOneWidget);
       await tester.tap(find.text('Musa Bello'));
       await tester.pumpAndSettle();
-      expect(find.text('What SchoolOS saw'), findsOneWidget);
+      expect(find.text('What SkulGen saw'), findsOneWidget);
       expect(find.textContaining('2 students fit about equally well'), findsOneWidget);
       expect(find.textContaining('Aisha Bello (BG-0042) - 65%'), findsOneWidget);
       expect(find.textContaining('****9012'), findsOneWidget);

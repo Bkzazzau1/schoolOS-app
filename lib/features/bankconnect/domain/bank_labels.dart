@@ -149,7 +149,7 @@ String auditKindLabel(String kind) => switch (kind) {
 /// What each decision in a payment's history means.
 String decisionActionLabel(String action) => switch (action) {
       'auto_match' => 'Matched automatically',
-      'engine_review' => 'Checked by SchoolOS',
+      'engine_review' => 'Checked by SkulGen',
       'assign' => 'Assigned to a student',
       'split' => 'Split between students',
       'unrelated_income' => 'Marked as not school fees',

@@ -1017,7 +1017,7 @@ class _OwnerBrand extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'SchoolOS',
+                'SkulGen',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w900,
                 ),
@@ -1202,7 +1202,7 @@ class _SubscriptionsUnavailable extends StatelessWidget {
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
-                  'This is a standalone demo school with no connected SchoolOS server, so there is no account subscription to show here. '
+                  'This is a standalone demo school with no connected SkulGen server, so there is no account subscription to show here. '
                   'Subscription, plan and invoice details become available once this school is connected to a real server.',
                 ),
               ),

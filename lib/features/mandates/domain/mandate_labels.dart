@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Direct-debit words as a school says them. Provider codes are the server's; the wording is SchoolOS's.
+/// Direct-debit words as a school says them. Provider codes are the server's; the wording is SkulGen's.
 
 const mandateStatusLabels = <String, String>{
   'draft': 'Being set up',
@@ -106,12 +106,12 @@ String debitFailureLabel(String code) => switch (code) {
       'mandate_expired' => 'The mandate has expired.',
       'mandate_deactivated' => 'The mandate has been stopped.',
       'changed_since_approval' => 'What the family owes, or the mandate, changed after approval. Nothing was debited.',
-      'pending_documentation' => 'This provider\'s debit instructions are not available through SchoolOS yet.',
+      'pending_documentation' => 'This provider\'s debit instructions are not available through SkulGen yet.',
       '' => '',
       _ => 'The debit did not go through.',
     };
 
-String consentRouteLabel(String route) => route == 'payer_app' ? 'The payer authorises in the SchoolOS app' : 'The payer authorises with the provider';
+String consentRouteLabel(String route) => route == 'payer_app' ? 'The payer authorises in the SkulGen app' : 'The payer authorises with the provider';
 
 String batchEventLabel(String kind) => switch (kind) {
       'created' => 'Prepared',
