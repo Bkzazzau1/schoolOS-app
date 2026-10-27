@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:schoolos_app/features/finance_office/data/finance_billing.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_attention_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_finance_overview.dart';
 import 'package:schoolos_app/features/proprietor/data/owner_payroll_repository.dart';
@@ -49,5 +50,36 @@ void main() {
   test('the reporting principle keeps source context and forbids made-up figures', () {
     expect(reportingPrinciple, contains('source'));
     expect(reportingPrinciple, contains('made up'));
+  });
+
+  test('once the ledger is connected, Fee collection reports the real figures instead of "not recorded yet"', () {
+    final financeWithFees = buildFinanceOverview(
+      concessions: const [],
+      payroll: const PayrollSnapshot(staff: [], profiles: {}, authorizers: []),
+      batches: const [],
+      fees: OwnerFeeSummary(
+        term: '2026 Term 1',
+        totals: BillingTotals(gross: 100000, concession: 0, net: 100000, paid: 60000, balance: 40000),
+        sections: [
+          OwnerFeeSection(section: 'Primary', students: 2, net: 100000, paid: 60000, balance: 40000),
+        ],
+        byMethod: {},
+        due: DateTime(2026, 10, 1),
+        daysOverdue: 5,
+        band: '1-30 days',
+        owingAccounts: 1,
+        topOwing: [('Maryam Abdullahi', 'JSS 2A', 40000)],
+      ),
+    );
+    final withFees = buildOwnerReports(staff: staff, finance: financeWithFees, attention: attention, now: DateTime(2026, 9, 21));
+    final feeDoc = withFees.docs.firstWhere((d) => d.title == 'Fee collection');
+
+    expect(feeDoc.available, isTrue);
+    final text = renderReportPack(schoolName: 'A Real School', reports: withFees);
+    expect(text, contains('Billed: ₦100,000'));
+    expect(text, contains('Collected: ₦60,000 (60%)'));
+    expect(text, contains('Outstanding: ₦40,000'));
+    expect(text, contains('Maryam Abdullahi'));
+    expect(text, isNot(contains('Fee collection: The Finance role has not recorded fees or payments yet.')));
   });
 }
