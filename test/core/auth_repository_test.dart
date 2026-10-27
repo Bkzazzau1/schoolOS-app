@@ -145,15 +145,79 @@ void main() {
     },
   );
 
-  test('signing out forgets the tokens and the school', () async {
+  test('signing out forgets the tokens and the school, and revokes the refresh token', () async {
     await session.setMemberships([teacher]);
     await session.selectSchool(teacher);
-    tokens.tokens = const AuthTokens(access: 'a', refresh: 'r');
-    final auth = repo(FakeServer((r) async => jsonResponse({})));
+    tokens.tokens = const AuthTokens(access: 'a', refresh: 'r-to-revoke');
+    final server = FakeServer((r) async => jsonResponse({'loggedOut': true}));
+    final auth = repo(server);
     expect(await auth.hasSession(), isTrue);
     await auth.signOut();
     expect(await auth.hasSession(), isFalse);
     expect(session.memberships, isEmpty);
     expect(session.activeMembership, isNull);
+    expect(body(server.to('auth/logout/').single), {'refresh': 'r-to-revoke'});
+  });
+
+  test('signing out still forgets the tokens even when the server cannot be reached', () async {
+    tokens.tokens = const AuthTokens(access: 'a', refresh: 'r');
+    final auth = repo(FakeServer((r) async => throw const ApiOfflineException()));
+    await auth.signOut();
+    expect(await auth.hasSession(), isFalse);
+  });
+
+  test('signing out with no session never calls the server', () async {
+    final server = FakeServer((r) async => jsonResponse({}));
+    await repo(server).signOut();
+    expect(server.to('auth/logout/'), isEmpty);
+  });
+
+  test('requesting an email password reset posts the email and returns the servers message', () async {
+    final server = FakeServer(
+      (r) async => jsonResponse({'accepted': true, 'message': 'A code is on its way.'}),
+    );
+    final message = await repo(server).requestEmailPasswordReset('  Owner@School.NG ');
+    expect(body(server.to('credentials/password-reset/request/').single), {
+      'email': 'Owner@School.NG',
+    });
+    expect(
+      server.to('credentials/password-reset/request/').single.headers.containsKey('Authorization'),
+      isFalse,
+    );
+    expect(message, 'A code is on its way.');
+  });
+
+  test('confirming an email password reset posts email, code and the new password', () async {
+    final server = FakeServer((r) async => jsonResponse({'reset': true, 'resetAt': 'now'}));
+    await repo(server).confirmEmailPasswordReset(
+      email: 'owner@school.ng',
+      code: '123456',
+      newPassword: 'a-new-long-password-1',
+    );
+    expect(body(server.to('credentials/password-reset/confirm/').single), {
+      'email': 'owner@school.ng',
+      'code': '123456',
+      'newPassword': 'a-new-long-password-1',
+    });
+  });
+
+  test('a wrong reset code surfaces the servers own message', () async {
+    final server = FakeServer(
+      (r) async => jsonResponse({'message': 'That reset code is not correct or has expired.'}, 400),
+    );
+    await expectLater(
+      repo(server).confirmEmailPasswordReset(
+        email: 'owner@school.ng',
+        code: '000000',
+        newPassword: 'a-new-long-password-1',
+      ),
+      throwsA(
+        isA<ApiException>().having(
+          (e) => e.message,
+          'message',
+          contains('not correct or has expired'),
+        ),
+      ),
+    );
   });
 }
