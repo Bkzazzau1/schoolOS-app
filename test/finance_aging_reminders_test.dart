@@ -52,6 +52,23 @@ void main() {
 
   final due = DateTime(2026, 8, 25);
 
+  test('the due-date guess works for any school year, not just one hardcoded year', () {
+    expect(defaultDueDate('2026/2027 · Term 1'), DateTime(2026, 8, 25));
+    expect(defaultDueDate('2026/2027 · Term 2'), DateTime(2027, 1, 12));
+    expect(defaultDueDate('2026/2027 · Term 3'), DateTime(2027, 4, 27));
+    // The next school year works too, unlike a plain lookup table tied to one year.
+    expect(defaultDueDate('2027/2028 · Term 1'), DateTime(2027, 8, 25));
+    expect(defaultDueDate('2027/2028 · Term 2'), DateTime(2028, 1, 12));
+    expect(defaultDueDate('2027/2028 · Term 3'), DateTime(2028, 4, 27));
+  });
+
+  test('a term that does not match the known shape never falls back to a stale past date', () {
+    final now = DateTime.now();
+    final guess = defaultDueDate('not a real term');
+    // "today", not some hardcoded date that could be years in the past by the time this runs.
+    expect(guess.difference(now).inMinutes.abs() < 5, isTrue);
+  });
+
   test('overdue days fall into the right band', () {
     expect(bandOf(due, DateTime(2026, 8, 25)), AgingBand.notDue);
     expect(bandOf(due, DateTime(2026, 8, 20)), AgingBand.notDue);
