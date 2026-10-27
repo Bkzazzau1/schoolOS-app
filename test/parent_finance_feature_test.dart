@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:schoolos_app/features/administrator/domain/administrator_students_models.dart';
 import 'package:http/http.dart' as http;
 import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/security/payload_cipher.dart';
@@ -19,6 +20,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_finance_fixtures.dart';
 import 'core/real_student_fixtures.dart';
 import 'family_fees_fixtures.dart';
 
@@ -114,6 +116,37 @@ void main() {
         expect(receipt.admissionNumber, 'Not recorded yet');
       }
     }
+  });
+
+  testWidgets('a real receipt shows the real connected school\'s own name, never a fixed one', (tester) async {
+    await setUpFamily();
+    await session.selectSchool(accountant);
+    await seedFeeStructures(db!, tenantId: parent.schoolId);
+    final result = await ledger.recordPayment(
+      student: const AdministratorStudentRecord(
+        id: 'STU-001',
+        name: 'Maryam Abdullahi',
+        className: 'JSS 2A',
+        primaryGuardian: 'Alhaji Abdullahi Musa',
+        status: AdministratorStudentStatus.active,
+      ),
+      amount: 50000,
+      method: 'Cash',
+    );
+    expect(result.success, isTrue, reason: result.message);
+    await session.selectSchool(parent);
+    final view = await finance.load();
+    expect(view.snapshot.receipts, isNotEmpty, reason: 'the payment just recorded should produce a real receipt');
+
+    const realSchoolName = 'Example International School';
+    await tester.pumpWidget(MaterialApp(
+      home: ParentFinanceReceiptsPage(snapshot: view.snapshot, schoolName: realSchoolName),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text(realSchoolName), findsWidgets);
+    expect(find.textContaining('BrightGate Academy'), findsNothing);
+    expect(find.textContaining('Kaduna Campus'), findsNothing);
   });
 
   test('reminders are scoped to the linked children and use the real reminder level label', () async {
