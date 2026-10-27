@@ -211,6 +211,46 @@ class AuthRepository {
         'If that login ID belongs to a Student or Parent account, the school office can review the recovery request.';
   }
 
+  /// Emails a 6-digit reset code to a real Proprietor/staff (email-login)
+  /// account. Like [requestPasswordRecovery], the backend deliberately
+  /// returns the same accepted answer whether or not the email belongs to an
+  /// account, so this never reveals that either.
+  Future<String> requestEmailPasswordReset(String email) async {
+    final data = await _api.post(
+      'credentials/password-reset/request/',
+      authenticated: false,
+      body: {'email': email.trim()},
+    );
+    if (data is! Map || data['accepted'] != true) {
+      throw const ApiException(500, 'The server sent an unexpected answer.');
+    }
+    return data['message'] as String? ??
+        'If that email belongs to a SkulGen staff or proprietor account, a reset code has been sent to it.';
+  }
+
+  /// Confirms the code from [requestEmailPasswordReset] and sets the new
+  /// password. A wrong or expired code, or a password the server's own
+  /// policy refuses, surfaces as an [ApiException] with the server's own
+  /// message.
+  Future<void> confirmEmailPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final data = await _api.post(
+      'credentials/password-reset/confirm/',
+      authenticated: false,
+      body: {
+        'email': email.trim(),
+        'code': code.trim(),
+        'newPassword': newPassword,
+      },
+    );
+    if (data is! Map || data['reset'] != true) {
+      throw const ApiException(500, 'The server sent an unexpected answer.');
+    }
+  }
+
   Future<AuthProfile> registerProprietor({
     required String firstName,
     required String lastName,
@@ -349,7 +389,18 @@ class AuthRepository {
 
   Future<bool> hasSession() async => await _tokens.read() != null;
 
+  /// Signs out of this device. Revoking the refresh token server-side is
+  /// best-effort: a network failure, or the token already being invalid,
+  /// never stops the device from signing out locally.
   Future<void> signOut() async {
+    final tokens = await _tokens.read();
+    if (tokens != null) {
+      try {
+        await _api.post('auth/logout/', body: {'refresh': tokens.refresh});
+      } catch (_) {
+        // Swallowed on purpose: see the method doc.
+      }
+    }
     await _tokens.clear();
     await _schoolSession.clear();
   }
