@@ -1,13 +1,23 @@
 import '../domain/finance_ledger_models.dart';
 
-/// When fees for each term are due, until the finance office sets its own date.
-const _defaultDue = {
-  '2026/2027 · Term 1': '2026-08-25',
-  '2026/2027 · Term 2': '2027-01-12',
-  '2026/2027 · Term 3': '2027-04-27',
-};
+/// A reasonable starting guess for when fees for [term] fall due, until the finance office sets
+/// its own real date (see FinanceLedgerRepository.dueDate/setDueDate - this is never the stored,
+/// authoritative date). Recognises the school year's own "YYYY/YYYY+1 · Term N" shape so a guess
+/// is never tied to one fixed year: Term 1 starts late August, Term 2 mid-January of the second
+/// year, Term 3 late April of the second year.
+final _termPattern = RegExp(r'^(\d{4})/\d{4} · Term (\d)$');
 
-DateTime defaultDueDate(String term) => DateTime.parse(_defaultDue[term] ?? '2026-08-25');
+DateTime defaultDueDate(String term) {
+  final match = _termPattern.firstMatch(term);
+  if (match == null) return DateTime.now();
+  final firstYear = int.parse(match.group(1)!);
+  return switch (match.group(2)) {
+    '1' => DateTime(firstYear, 8, 25),
+    '2' => DateTime(firstYear + 1, 1, 12),
+    '3' => DateTime(firstYear + 1, 4, 27),
+    _ => DateTime.now(),
+  };
+}
 
 /// How long fees have been overdue.
 enum AgingBand {
