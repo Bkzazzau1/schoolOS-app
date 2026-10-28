@@ -4548,3 +4548,38 @@ suggesting `PrincipalAssignmentsRepository.addAssignment` may now require a real
 fixture never seeds, which, if also true outside tests, would mean the real "add teaching assignment" feature is
 currently broken for any class without one configured. Confirmed unrelated to this change (identical with it
 stashed out) and not yet investigated further.
+
+## A real Campus record
+
+The one piece still genuinely missing from the term/calendar audit above: `apps.structure`'s `academic_section`
+had a `campus` field that was always just free text - two sections meaning the same real site could read "Kaduna
+Campus" and "kaduna campus" and never be recognised as one, and the Proprietor's Campuses page (`owner_campuses
+.dart`) could only ever *derive* campuses by grouping on that string; it had no way to add one, rename one, or fix
+a typo, and a newly-opened campus with no sections assigned yet couldn't exist at all.
+
+**Backend:** a new `CampusHandler` (`apps/structure/campuses.py`) gives campus its own real, owner-managed,
+undeletable record - the same shape `SectionHandler` already has. `SectionHandler` now stores a validated
+`campusId` instead of the free-text field, rejecting one that doesn't exist or belongs to another school (the
+same real-reference-lookup shape `AppointmentHandler` already uses for `sectionId`); a section may still have none
+assigned yet.
+
+**App:** `AcademicSection.campusId` replaces the free-text field; a new `Campus` model and `saveCampus`/
+`assignCampus` on `ProprietorStructureRepository` give real CRUD. `owner_campuses.dart`'s `buildCampuses()` now
+groups by the real campus list (so an empty campus still shows up, honestly) rather than deriving groups from
+strings. The Campuses page gets an "Add campus" action, a rename action per campus card, and a new "Assign
+sections to a campus" list letting the owner assign or reassign any section from one place - closing the gap the
+page's own grouping logic always assumed was solved. A real layout bug was caught in the process: the assignment
+dropdown overflowed by 46px with a longer campus name, fixed with `isExpanded: true` and ellipsis-truncated items.
+
+Tests: new `CampusTests` mirroring `SectionTests`' shape in both apps; `structure_server_test.dart` gained
+campus-creation ordering (before any section that references it), add/rename, owner-only enforcement, a real-name
+requirement, and assign/reassign/clear; a new `proprietor_campuses_page_test.dart` exercises add, rename and
+section-assignment through the real widget tree (the dropdown overflow surfaced here first). A stale test in
+`owner_jobs_test.dart` that depended on the old "Section · Campus" label was updated. Full backend and Flutter
+suites both diffed by failure name against their documented baselines: zero new failures in either.
+
+**Deliberately not built this pass** (confirmed with the user before starting): enforcing campus isolation so
+someone appointed to one campus cannot see or manage another's data - `campusIsolationPrinciple` in
+`owner_campuses.dart` already states this as the intended principle, but it remains unenforced guidance, not
+access control. That would touch permission checks broadly (students, staff, attendance, fees) and was scoped out
+as a separate, larger decision.
