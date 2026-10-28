@@ -1898,7 +1898,7 @@ per-student virtual accounts with no provider behind them (its page, demo data, 
 | GTBank, UBA, Zenith, Access, FirstBank, Moniepoint, OPay, open banking, Monnify, Paystack | **Listed, not connectable.** Each is `pending_verified_documentation` with every capability off. No endpoint, credential format or webhook format was invented for any of them |
 | What a family still owes; matching a payment to an invoice or fee item | **Real once the school has raised fees** (the receivables ledger, by session and term - see the backend's SCHOOL_FEE_RECEIVABLES). Until then `outstandingFeesAvailable` is `false` and the screens say so. A payment into a family's own account settles that family; any other is matched to a student and a purpose (the account's category) |
 | Deep-link return from a bank's approval page | Not built: the person pastes the approval code |
-| Push notifications | Not built: the existing notification system is the in-app inbox, and that is what is used |
+| Push notifications | **Real infrastructure, inert until a Firebase project exists** - see "Push notifications become real infrastructure" below. The in-app inbox stays the system of record either way |
 
 In the demo (no school server) the screen says a server is needed and shows no accounts or payments. Nothing is
 faked and nothing is stored on the phone.
@@ -4357,3 +4357,55 @@ the 82-failure baseline after every fix: zero new failures, zero fixed. New test
 real counts a real registration or real staff file produces); a new gating test in
 `administrator_attendance_actions_test.dart` and a new `administrator_operations_actions_test.dart` (the first
 test file ever written against that repository); a new gating test in `teacher_ai_feature_test.dart`.
+
+## Push notifications become real infrastructure, inert until a Firebase project exists
+
+The user asked for push notifications to be built now, with the real Firebase project connected later. Both
+sides are real end-to-end infrastructure today; what's missing is purely external (a Firebase project,
+`google-services.json`, `GoogleService-Info.plist`) and nothing here depends on inventing it.
+
+**Backend (`apps.notifications.push_delivery`, `apps.accounts.DeviceToken`).** Mirrors
+`apps/administration/communication_delivery.py`'s own SMS/email seam exactly - `DeliveryError`/`DeliveryUnavailable`,
+an abstract `PushProvider`, an `UnconfiguredPushProvider` honest default, `use_push_provider` for tests - with one
+deliberate difference: unlike SMS/email, where no vendor is chosen and none is invented, push has one real vendor
+already chosen (Firebase Cloud Messaging, one stable documented API), so a real `FirebasePushProvider` is built
+here against the real `firebase-admin` SDK. `get_push_provider()` keeps returning the unconfigured default until
+`FIREBASE_PROJECT_ID`/`FIREBASE_CREDENTIALS_JSON` are both set - the same `env(..., default="")` convention
+`PAYSTACK_SECRET_KEY` already uses. `DeviceToken` is keyed on `User`, not `Membership`: a physical device has one
+push channel regardless of how many school roles its owner holds (`apps.notifications.models.Notification`'s own
+docstring is explicit that the *inbox* is per-membership; push does not follow that split).
+`apps.notifications.services.notify`/`notify_many` - the only places a `Notification` is ever created - now push,
+best effort, to every device registered to the recipient's account: a missing token, an unconfigured provider, or
+a genuine provider failure never blocks or rolls back the in-app notification, which stays the system of record
+either way. New `auth/device-tokens/` (register; reassigns a token already pointed at a different account, since a
+shared device changing hands means the old account could never use it again anyway) and
+`auth/device-tokens/unregister/` (only ever removes the caller's own token).
+
+**App (`lib/core/notifications/push_token_provider.dart`, `AuthRepository`, `AppServices`).** `PushTokenProvider`
+wraps `firebase_core`/`firebase_messaging` behind the same fail-safe shape `ApiConfig.enabled` already
+established: `Firebase.initializeApp()` is attempted once, and any failure - no config files yet, or Windows,
+which has no Firebase Cloud Messaging support at all - leaves `enabled` false rather than crashing, with no
+platform check needed to tell the two apart. `AuthRepository.signIn`/`acceptInvitationWithAccount` call
+`syncPushToken()` (register) and `signOut` calls the matching unregister, both best-effort and both already
+following the same "never block the real operation" shape `signOut`'s own refresh-token revocation already uses.
+`AppServices.bootstrap` re-syncs the token for an already-signed-in session on every launch and subscribes to
+`PushTokenProvider.onRefresh` for the rare case a token rotates mid-session. `main()` registers a background
+message handler the same way, before `runApp`, so the moment Firebase is actually connected, background pushes
+work with no further app-side changes. Android gets the `POST_NOTIFICATIONS` permission Android 13+ requires
+before any system notification can show at all; the Google Services Gradle plugin is deliberately **not**
+applied yet, and must not be until `google-services.json` exists, or the Android build itself would fail at
+configuration time. iOS needs its own `GoogleService-Info.plist` plus a real APNs key, both gated behind the
+Apple Developer Program this product does not have yet, so nothing iOS-specific (background modes, capabilities)
+was added speculatively.
+
+**Verification.** Backend: new `apps/notifications/tests/test_push_delivery.py` and `test_push_integration.py`,
+`apps/accounts/tests/test_device_tokens.py`; full suite diffed by exact failure name against the documented
+pre-existing baseline (`apps.sync`, `apps.staff`, `apps.owner`, `apps.schools`, `apps.mandates`, ...): identical
+36 failing names before and after, zero new failures. App: new `test/core/push_token_provider_test.dart` (proves
+the honest disabled-by-default outcome a plain `flutter test` run also exercises, since no Firebase plugin
+implementation is registered there either); `auth_repository_test.dart` extended with a `_FakePushTokenProvider`
+test double covering register-on-sign-in, unregister-on-sign-out, no-call when no token is available, and a
+failing provider never blocking sign-in/out. `flutter analyze` clean. Full app suite diffed by exact failure name
+against two separate same-code baseline runs (82 and 81 failures - the Flutter suite has its own flaky,
+timing-based test under full-suite load, same category as the Django suite's documented one; isolated 3/3 passes
+proved it unrelated): zero failures attributable to this change either way.
