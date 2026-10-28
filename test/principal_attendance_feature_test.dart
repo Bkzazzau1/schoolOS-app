@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_attendance_desk.dart' show schoolDay;
 import 'package:schoolos_app/features/administrator/data/administrator_attendance_repository.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
 import 'package:schoolos_app/features/principal/data/principal_attendance_repository.dart';
@@ -189,5 +190,35 @@ void main() {
     await setUpSchool(teacher);
     final result = await principalAttendance.resolveFollowUp('ATT-001');
     expect(result.success, isFalse);
+  });
+
+  test('a real school-wide holiday declared for today surfaces on the attendance snapshot', () async {
+    await setUpSchool();
+    await db!.upsertLocalRecord(
+      tenantId: principal.schoolId,
+      entityType: 'school_event',
+      entityId: 'EV-1',
+      payload: {
+        'id': 'EV-1',
+        'title': 'Eid al-Fitr',
+        'type': 'holiday',
+        'audience': 'Whole school',
+        'date': schoolDay(DateTime.now()),
+        'time': 'All day',
+        'venue': 'N/A',
+        'owner': 'Administration',
+        'status': 'scheduled',
+        'note': '',
+      },
+      serverVersion: 1,
+    );
+    final snapshot = await principalAttendance.load();
+    expect(snapshot.holidayName, 'Eid al-Fitr');
+  });
+
+  test('with no declared holiday today, the snapshot reports none', () async {
+    await setUpSchool();
+    final snapshot = await principalAttendance.load();
+    expect(snapshot.holidayName, isNull);
   });
 }

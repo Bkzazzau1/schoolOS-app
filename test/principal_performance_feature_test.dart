@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_attendance_desk.dart' show schoolDay;
 import 'package:schoolos_app/features/administrator/data/administrator_attendance_repository.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
 import 'package:schoolos_app/features/principal/data/principal_academics_repository.dart';
@@ -163,6 +164,31 @@ void main() {
     await setUpSchool();
     final snapshot = await performance.load();
     expect(snapshot.activeAcademicLabel, isNull);
+  });
+
+  test('student attendance is honestly unevaluated on a real declared holiday, not a misleading near-zero', () async {
+    await setUpSchool();
+    await db!.upsertLocalRecord(
+      tenantId: principal.schoolId,
+      entityType: 'school_event',
+      entityId: 'EV-1',
+      payload: {
+        'id': 'EV-1',
+        'title': 'Eid al-Fitr',
+        'type': 'holiday',
+        'audience': 'Whole school',
+        'date': schoolDay(DateTime.now()),
+        'time': 'All day',
+        'venue': 'N/A',
+        'owner': 'Administration',
+        'status': 'scheduled',
+        'note': '',
+      },
+      serverVersion: 1,
+    );
+    final snapshot = await performance.load();
+    final studentAttendance = snapshot.metrics.singleWhere((m) => m.label == 'Student attendance');
+    expect(studentAttendance.hasEvidence, isFalse);
   });
 
   test('activeAcademicLabel reflects the real synced active session and term', () async {

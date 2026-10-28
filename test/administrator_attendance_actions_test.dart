@@ -216,6 +216,72 @@ void main() {
     expect((await attendance.checkIn(expected.first)).message, contains('administrator'));
   });
 
+  test('a real school-wide holiday declared for today surfaces on the attendance snapshot', () async {
+    await setUpSchool();
+    await db.upsertLocalRecord(
+      tenantId: admin.schoolId,
+      entityType: 'school_event',
+      entityId: 'EV-1',
+      payload: {
+        'id': 'EV-1',
+        'title': 'Eid al-Fitr',
+        'type': 'holiday',
+        'audience': 'Whole school',
+        'date': schoolDay(DateTime.now()),
+        'time': 'All day',
+        'venue': 'N/A',
+        'owner': 'Administration',
+        'status': 'scheduled',
+        'note': '',
+      },
+      serverVersion: 1,
+    );
+    final snapshot = await attendance.load(students: expected);
+    expect(snapshot.holidayName, 'Eid al-Fitr');
+  });
+
+  test('a non-holiday event, or a holiday for a different day, never reports a holiday for today', () async {
+    await setUpSchool();
+    await db.upsertLocalRecord(
+      tenantId: admin.schoolId,
+      entityType: 'school_event',
+      entityId: 'EV-2',
+      payload: {
+        'id': 'EV-2',
+        'title': 'Inter-house sports',
+        'type': 'sports',
+        'audience': 'Whole school',
+        'date': schoolDay(DateTime.now()),
+        'time': '09:00',
+        'venue': 'Field',
+        'owner': 'Administration',
+        'status': 'scheduled',
+        'note': '',
+      },
+      serverVersion: 1,
+    );
+    await db.upsertLocalRecord(
+      tenantId: admin.schoolId,
+      entityType: 'school_event',
+      entityId: 'EV-3',
+      payload: {
+        'id': 'EV-3',
+        'title': 'Independence Day',
+        'type': 'holiday',
+        'audience': 'Whole school',
+        'date': '2000-01-01',
+        'time': 'All day',
+        'venue': 'N/A',
+        'owner': 'Administration',
+        'status': 'scheduled',
+        'note': '',
+      },
+      serverVersion: 1,
+    );
+    final snapshot = await attendance.load(students: expected);
+    expect(snapshot.holidayName, isNull);
+  });
+
   test('sections come from the class name', () {
     expect(sectionOfClass('Nursery 2'), 'Early Years');
     expect(sectionOfClass('Primary 4'), 'Primary');
