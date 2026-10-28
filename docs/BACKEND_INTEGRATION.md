@@ -4499,3 +4499,52 @@ class-teacher/Principal comment, a still-draft card, and a supplied school logo 
 `flutter analyze` clean; full suite diffed by exact failure name against the documented baseline: zero new
 failures. Windows: both `flutter build windows --debug` and the real CI release-build command verified locally
 with the CMake fix in place.
+
+## The academic-term calendar turns out to already exist; what was actually missing
+
+A later audit (triggered by a stale "academic-term/campus-calendar concept" item on a feature backlog) nearly
+repeated the same mistake "no real campus/branch record or academic-term calendar exists anywhere in the app" had
+already caused once: `apps.academics` (`AcademicSession`/`AcademicTerm`, with `active_session_for_school`/
+`active_term_for_session` services) turned out to already be real, already FK-backed into report cards,
+assessments, assignments, timetable, CBT, smart collection, weekly learning and receivables, and already synced
+to Administrator and Principal. The genuine gaps were narrower than the backlog item implied:
+
+**The real active term was never shown anywhere.** Administrator's chrome showed a fixed, honest-but-generic
+`administratorScopeLabel` ("Whole-school administration"), and Principal's Performance page only said "the current
+term" without ever naming it - both written before `apps.academics` existed, never revisited after. Now
+`AdministratorAcademicsSnapshot.activeAcademicLabel` and a matching `PrincipalAcademicsRepository
+.activeAcademicLabel()` read the real synced active session/term ("2026/2027 · Term 1", or just the session name
+with no active term yet, or nothing at all with no active session) and both screens show it.
+
+**A day could be marked a holiday with no real consequence.** The school-wide calendar's `school_event` already
+had a `type` field with a `holiday` enum value on the Flutter side, but the backend placed no more restriction on
+it than any other event type, and nothing anywhere acted on it. `apps.schoollife.specs.calendar.EVENTS` now
+guards `type: 'holiday'` to `MANAGERS` only (the same `guarded_values` shape `campus.GALLERY`/`programmes.AWARDS`
+already use for their own public-showcase flag) - a contributing teacher may still add or edit an ordinary event,
+but declaring a non-instructional day is leadership's call. On the app side, the daily attendance desk
+(Administrator and Principal) used to treat every active student as expected to check in regardless of the date;
+a holiday with zero gate scans read as a sudden attendance collapse rather than what it actually was. Both
+screens now check the real calendar for today and show an honest notice instead of an alarming empty register,
+and the Performance scorecard's "Student attendance" KPI reports unevaluated rather than a misleading near-zero
+on the same day.
+
+**Still genuinely missing:** a real campus/branch record for schools with multiple sites - confirmed as its own,
+separate, larger decision (it would affect scoping across memberships broadly), not yet built.
+
+Tests: new `AdministratorAcademicsSnapshot.activeAcademicLabel` and `PrincipalAcademicsRepository
+.activeAcademicLabel()` coverage; `apps.schoollife`'s `test_rules.py` gained the same guarded-value shape of test
+every other guarded field already has (leadership can set it, a contributor cannot, an unrelated edit afterward
+does not need leadership again, a brand-new record cannot arrive already a holiday); new attendance-repository
+tests for a real holiday surfacing (and a holiday on a different date, or a non-holiday event, never surfacing);
+a new Performance test for the honest-unevaluated behavior. Full backend suite and full Flutter suite both
+diffed by failure name against their documented baselines: zero new failures in either.
+
+While verifying this, three Flutter tests were found to fail deterministically (not the suite's usual
+timing-based flakiness) on a clean, unmodified checkout - `principal_performance_feature_test.dart`'s "a fresh
+demo school only shows evidence for indicators with an always-real source" (expects 3 evaluated indicators, gets
+1), and two in `principal_academics_feature_test.dart` around syllabus coverage and teaching-assignment creation,
+the latter now refused with "is not in the canonical active curriculum. Configure the class curriculum first." -
+suggesting `PrincipalAssignmentsRepository.addAssignment` may now require a real `ClassSubject` the shared demo
+fixture never seeds, which, if also true outside tests, would mean the real "add teaching assignment" feature is
+currently broken for any class without one configured. Confirmed unrelated to this change (identical with it
+stashed out) and not yet investigated further.
