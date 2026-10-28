@@ -3,11 +3,11 @@ import 'package:schoolos_app/features/administrator/domain/administrator_staff_m
 import 'package:schoolos_app/features/proprietor/data/owner_campuses.dart';
 import 'package:schoolos_app/features/proprietor/domain/proprietor_structure_models.dart';
 
-AcademicSection section(String id, String name, String campus, int classes, {String leader = ''}) => AcademicSection(
+AcademicSection section(String id, String name, String campusId, int classes, {String leader = ''}) => AcademicSection(
       id: id,
       name: name,
       stage: name,
-      campus: campus,
+      campusId: campusId,
       leaderTitle: 'Head',
       leaderName: leader,
       classes: classes,
@@ -22,12 +22,13 @@ AdministratorStaffRecord person(String id, String role, String sectionName, {boo
     );
 
 void main() {
-  test('sections are grouped into campuses and staff are counted by their section', () {
+  test('sections are grouped into real campuses and staff are counted by their section', () {
     final result = buildCampuses(
+      campuses: const [Campus(id: 'kaduna', name: 'Kaduna Campus'), Campus(id: 'zaria', name: 'Zaria Campus')],
       sections: [
-        section('1', 'Primary', 'Kaduna Campus', 6, leader: 'Mrs. Sule'),
-        section('2', 'Secondary', 'Kaduna Campus', 6),
-        section('3', 'Primary', 'Zaria Campus', 4, leader: 'Mr. Aliyu'),
+        section('1', 'Primary', 'kaduna', 6, leader: 'Mrs. Sule'),
+        section('2', 'Secondary', 'kaduna', 6),
+        section('3', 'Primary', 'zaria', 4, leader: 'Mr. Aliyu'),
       ],
       staff: [
         person('a', 'Class Teacher', 'Primary'),
@@ -46,8 +47,29 @@ void main() {
     expect(result.sections, 3);
   });
 
-  test('no sections means no campuses, not made-up ones', () {
-    final result = buildCampuses(sections: const [], staff: [person('a', 'Teacher', 'Primary')]);
+  test('a real campus with no sections yet still appears, honestly empty', () {
+    final result = buildCampuses(
+      campuses: const [Campus(id: 'kaduna', name: 'Kaduna Campus')],
+      sections: const [],
+      staff: const [],
+    );
+    expect(result.campuses.map((c) => c.name), ['Kaduna Campus']);
+    expect(result.campuses.single.sections, isEmpty);
+  });
+
+  test('a section with no real campus yet is counted, but groups into none', () {
+    final result = buildCampuses(
+      campuses: const [],
+      sections: [section('1', 'Primary', '', 6)],
+      staff: const [],
+    );
+    expect(result.campuses, isEmpty);
+    expect(result.sections, 1);
+    expect(result.unassignedSections, 1);
+  });
+
+  test('no campuses and no sections means nothing made up', () {
+    final result = buildCampuses(campuses: const [], sections: const [], staff: [person('a', 'Teacher', 'Primary')]);
     expect(result.campuses, isEmpty);
     expect(result.unassignedStaff, 1);
   });

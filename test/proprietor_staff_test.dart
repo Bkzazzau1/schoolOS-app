@@ -81,8 +81,8 @@ void main() {
     final o = buildStaffOverview(
       people: [person('1', 'Grace', 'Teacher', 'Primary', missing: true), person('2', 'Daniel', 'Teacher', 'Secondary')],
       sections: const [
-        AcademicSection(id: 's1', name: 'Primary', stage: 'Primary', campus: 'Main', leaderTitle: 'Headmistress', leaderName: 'Mrs. Hauwa Sule', classes: 6),
-        AcademicSection(id: 's2', name: 'Secondary', stage: 'Secondary', campus: 'Main', leaderTitle: 'Principal', leaderName: 'Mr. Ibrahim Danladi', classes: 6),
+        AcademicSection(id: 's1', name: 'Primary', stage: 'Primary', campusId: 'main', leaderTitle: 'Headmistress', leaderName: 'Mrs. Hauwa Sule', classes: 6),
+        AcademicSection(id: 's2', name: 'Secondary', stage: 'Secondary', campusId: 'main', leaderTitle: 'Principal', leaderName: 'Mr. Ibrahim Danladi', classes: 6),
       ],
       leaders: const [
         LeadershipAppointment(id: 'l1', person: 'Mrs. Hauwa Sule', title: 'Headmistress', level: LeadershipLevel.sectionHead, sectionId: 's1'),

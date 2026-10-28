@@ -24,6 +24,15 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the reason dialog can start pre-filled, for editing an existing value', (tester) async {
+    Object? result = 'unset';
+    await openWith(tester, (c) => askReason(c, title: 'Rename', action: 'Save', initial: 'Kaduna Campus'), (r) => result = r);
+    expect(find.text('Kaduna Campus'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(result, 'Kaduna Campus');
+  });
+
   testWidgets('cancelling the reason dialog returns nothing and closes cleanly', (tester) async {
     Object? result = 'unset';
     await openWith(tester, (c) => askReason(c, title: 'Reject Amina', action: 'Reject'), (r) => result = r);

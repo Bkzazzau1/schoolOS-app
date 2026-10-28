@@ -253,7 +253,7 @@ void main() {
     expect(await repository.load(), isEmpty);
     await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Primary School · Kaduna Campus').last);
+    await tester.tap(find.text('Primary School').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save assignment'));
     await tester.pumpAndSettle();

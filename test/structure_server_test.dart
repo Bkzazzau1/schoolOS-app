@@ -162,6 +162,64 @@ void main() {
       expect(result.success, isTrue);
       expect(sent.map((s) => s.split(':').first), ['leadership_appointment', 'academic_section']);
     });
+
+    test('setting up creates the real campus before any section that references it', () async {
+      final result = await repo().setUpStandardStructure();
+      expect(result.success, isTrue);
+      final firstCampus = sent.indexWhere((s) => s.startsWith('campus:'));
+      final firstSection = sent.indexWhere((s) => s.startsWith('academic_section:'));
+      expect(firstCampus, lessThan(firstSection));
+
+      final after = await repo().load();
+      expect(after.campuses.length, initialCampuses.length);
+      for (final section in after.sections) {
+        expect(section.campusId, isNotEmpty);
+      }
+    });
+
+    test('the owner can add, and later rename, a real campus', () async {
+      final structure = await setUpFirst();
+      final added = await structure.saveCampus(name: 'Zaria Campus');
+      expect(added.success, isTrue);
+      final afterAdd = await structure.load();
+      final created = afterAdd.campuses.singleWhere((c) => c.name == 'Zaria Campus');
+
+      final renamed = await structure.saveCampus(id: created.id, name: 'Zaria Main Campus');
+      expect(renamed.success, isTrue);
+      final afterRename = await structure.load();
+      expect(afterRename.campuses.where((c) => c.id == created.id).single.name, 'Zaria Main Campus');
+      expect(afterRename.campuses.length, afterAdd.campuses.length); // a rename, not a second campus
+    });
+
+    test('only the owner may add or rename a campus', () async {
+      await setUpFirst();
+      await session.selectSchool(principal);
+      final result = await ProprietorStructureRepository(localDatabase: db, schoolSession: session, confirm: confirm())
+          .saveCampus(name: 'Zaria Campus');
+      expect(result.success, isFalse);
+    });
+
+    test('a campus needs a real name', () async {
+      final structure = await setUpFirst();
+      final result = await structure.saveCampus(name: '   ');
+      expect(result.success, isFalse);
+    });
+
+    test('a section can be assigned to a real campus, reassigned, or cleared', () async {
+      final structure = await setUpFirst();
+      final section = (await structure.load()).sections.first;
+      final zaria = await structure.saveCampus(name: 'Zaria Campus');
+      expect(zaria.success, isTrue);
+      final zariaCampus = (await structure.load()).campuses.singleWhere((c) => c.name == 'Zaria Campus');
+
+      final assigned = await structure.assignCampus(section, zariaCampus.id);
+      expect(assigned.success, isTrue);
+      expect((await structure.load()).sections.singleWhere((s) => s.id == section.id).campusId, zariaCampus.id);
+
+      final cleared = await structure.assignCampus(section, '');
+      expect(cleared.success, isTrue);
+      expect((await structure.load()).sections.singleWhere((s) => s.id == section.id).campusId, isEmpty);
+    });
   });
 
   group('the structure screen with a server', () {
