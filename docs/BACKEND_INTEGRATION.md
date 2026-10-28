@@ -4409,3 +4409,56 @@ failing provider never blocking sign-in/out. `flutter analyze` clean. Full app s
 against two separate same-code baseline runs (82 and 81 failures - the Flutter suite has its own flaky,
 timing-based test under full-suite load, same category as the Django suite's documented one; isolated 3/3 passes
 proved it unrelated): zero failures attributable to this change either way.
+
+## Finance Office's own fee ledger had been silently broken in production since launch - and Store and
+## Expenses & Income become real
+
+While scoping "School Store" and "Expenses & Income" - the two Finance Office sections still falling through to
+`_UpcomingFinanceFeature` - a research pass turned up something far more urgent: `FinanceLedgerRepository`'s five
+sync entity types (`finance_fee_structure`, `finance_payment`, `finance_term_due`, `finance_reminder`,
+`finance_bank_line` - Fee Structure, payment recording/receipts/Student Accounts, due dates, reminders, bank
+reconciliation) had **no registered backend handler at all**. Every push of one was rejected outright
+("This kind of record is not accepted yet."), since `SYNC_ALLOW_UNLISTED_ENTITY_TYPES` defaults off wherever
+`DEBUG` is off - confirmed `DEBUG=False` on the live server. A real school's Finance Office could not actually
+save a fee structure, record a payment, set a due date, queue a reminder, or add a bank-statement line since
+launch; the two id-constructing entity types (`finance_fee_structure`, `finance_term_due`) additionally built
+their sync entity id from raw term text (slashes, spaces, `·`), which the sync push endpoint's own `entityId`
+pattern (`^[A-Za-z0-9._:\-]{1,128}$`) would have refused anyway even once a handler existed.
+
+**Fixed and already deployed.** The backend's `apps.financeledger` registers real handlers for all five, reusing
+`apps.receivables`' own billing-authority/operator duty split (`can_manage_billing`/`can_operate_receivables`)
+rather than inventing a separate one - exactly what the app's own `finance_authority.dart` already documented
+mirroring, just never wired up server-side. `financeSyncSafeId()` (new, in `finance_ledger_models.dart`) encodes
+free text into the sync system's safe id shape identically on both sides. Server-stamped fields (`recordedBy`,
+`receivedAt`, `queuedBy`, `addedBy`, the receipt number) are computed on the server now, never trusted from the
+app; a payment is immutable once recorded except for voiding, with a reason; a bank/POS reference can only be
+recorded once. Deployed to the live server the same day.
+
+**A genuine architectural gap, deliberately not fixed here:** this manual ledger and the real
+`apps.receivables`/Smart Money Collection system are two separate, non-reconciled sources of truth for what a
+family owes - a payment recorded through one does not appear in the other's own Student Accounts/Receipts. The
+user chose (2026-10-28) to treat unifying them as its own separate, dedicated future project rather than folding
+it into this fix.
+
+**School Store and Expenses & Income, built on the newly-working foundation.** The old, deleted `FinanceStorePage`
+design let a sale be "on account" (`awaitingPayment` → `paidReady` → `partiallyIssued` → `completed`), tied to a
+family's own payment account - there is no real buy-now-collect-later workflow anywhere in this product, and no
+family-account concept this ledger shares with `apps.receivables`, so neither is preserved. `FinanceStoreRepository`
+(backend: `apps.schoolstore`) instead always pays at the point of sale, like a `Payment`: pick a real student from
+the register, pick real catalog items and quantities, pay now. A sale's price and item name come from the store's
+own real item record, never the app; recording or voiding a sale keeps stock and sales in lockstep (this device's
+own numbers update immediately, the same way the server's own handler does, so the screen never shows stale
+counts before the next sync). `FinanceCashflowRepository` (backend: `apps.cashbook`) records the school's own
+income and spending outside the fee ledger entirely - a donation, a facility rental, paying for repairs or
+supplies: income posts immediately, an expense needs a billing authority's decision first, the same two-tier
+split everywhere else in Finance Office already uses.
+
+**Verification.** Backend: new `apps.financeledger`/`apps.schoolstore`/`apps.cashbook` test suites (84 tests);
+full suite diffed by exact failure name against the documented 36-failure baseline: identical before and after,
+zero new failures, both before and after deploying Store/Expenses. App: new `finance_store_test.dart`,
+`finance_cashflow_test.dart` (repository logic) and `finance_store_cashflow_pages_test.dart` (the real pages end
+to end - adding an item, picking a real student, recording a multi-line sale; recording an expense and approving
+it as the owner) - the widget test caught a genuine layout bug (the entry list's trailing `Column` - amount,
+status chip, approve/decline - overflowed `ListTile`'s fixed trailing slot; now a full-width `Card` layout).
+`flutter analyze` clean; full suite diffed by exact failure name against the documented baseline: zero new
+failures.
