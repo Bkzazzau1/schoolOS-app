@@ -158,4 +158,46 @@ void main() {
     expect(snapshot.classHealth, isEmpty);
     expect(snapshot.priorities, isEmpty);
   });
+
+  test('activeAcademicLabel is null with no real active session/term synced yet', () async {
+    await setUpSchool();
+    final snapshot = await performance.load();
+    expect(snapshot.activeAcademicLabel, isNull);
+  });
+
+  test('activeAcademicLabel reflects the real synced active session and term', () async {
+    await setUpSchool();
+    await db!.upsertLocalRecord(
+      tenantId: principal.schoolId,
+      entityType: 'academic_session',
+      entityId: 's1',
+      payload: const {
+        'id': 's1',
+        'code': 's1',
+        'name': '2026/2027',
+        'startsOn': '2026-09-08',
+        'endsOn': '2027-07-10',
+        'status': 'active',
+      },
+      serverVersion: 1,
+    );
+    await db!.upsertLocalRecord(
+      tenantId: principal.schoolId,
+      entityType: 'academic_term',
+      entityId: 't1',
+      payload: const {
+        'id': 't1',
+        'sessionId': 's1',
+        'code': 't1',
+        'name': 'Term 1',
+        'sequence': 1,
+        'startsOn': '2026-09-08',
+        'endsOn': '2026-12-12',
+        'status': 'active',
+      },
+      serverVersion: 1,
+    );
+    final snapshot = await performance.load();
+    expect(snapshot.activeAcademicLabel, '2026/2027 · Term 1');
+  });
 }

@@ -90,6 +90,46 @@ void main() {
     expect(principalAcademicsScopeBoundary, contains('Early Years'));
   });
 
+  test('activeAcademicLabel is null until a real session/term has been synced', () async {
+    await setUpSchool();
+    expect(await principalAcademics.activeAcademicLabel(principal.schoolId), isNull);
+  });
+
+  test('activeAcademicLabel reads the real synced active session and term', () async {
+    await setUpSchool();
+    await db!.upsertLocalRecord(
+      tenantId: principal.schoolId,
+      entityType: 'academic_session',
+      entityId: 's1',
+      payload: const {
+        'id': 's1',
+        'code': 's1',
+        'name': '2026/2027',
+        'startsOn': '2026-09-08',
+        'endsOn': '2027-07-10',
+        'status': 'active',
+      },
+      serverVersion: 1,
+    );
+    await db!.upsertLocalRecord(
+      tenantId: principal.schoolId,
+      entityType: 'academic_term',
+      entityId: 't1',
+      payload: const {
+        'id': 't1',
+        'sessionId': 's1',
+        'code': 't1',
+        'name': 'Term 1',
+        'sequence': 1,
+        'startsOn': '2026-09-08',
+        'endsOn': '2026-12-12',
+        'status': 'active',
+      },
+      serverVersion: 1,
+    );
+    expect(await principalAcademics.activeAcademicLabel(principal.schoolId), '2026/2027 · Term 1');
+  });
+
   test('classes are the real Secondary classes from the one real register, unevaluated with no invented evidence', () async {
     await setUpSchool();
     final snapshot = await principalAcademics.load();
