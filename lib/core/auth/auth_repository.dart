@@ -2,6 +2,7 @@ import '../../features/account/domain/organization_membership.dart';
 import '../../shared/models/school_membership.dart';
 import '../network/api_client.dart';
 import '../network/api_exceptions.dart';
+import '../notifications/push_token_provider.dart';
 import '../tenancy/school_session_controller.dart';
 import 'token_store.dart';
 
@@ -177,13 +178,16 @@ class AuthRepository {
     required ApiClient api,
     required TokenStore tokens,
     required SchoolSessionController schoolSession,
+    PushTokenProvider? pushTokens,
   })  : _api = api,
         _tokens = tokens,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _pushTokens = pushTokens;
 
   final ApiClient _api;
   final TokenStore _tokens;
   final SchoolSessionController _schoolSession;
+  final PushTokenProvider? _pushTokens;
 
   Future<AuthProfile> signIn(String identifier, String password) async {
     final data = await _api.post(
@@ -192,7 +196,40 @@ class AuthRepository {
       authenticated: false,
     );
     await _storeTokenPair(data);
+    await syncPushToken();
     return refreshProfile();
+  }
+
+  /// Registers this device's current push token (if push is available at all
+  /// here - see [PushTokenProvider]) against the signed-in account. Best
+  /// effort: never throws, and never blocks sign-in or app startup on a
+  /// failure here.
+  Future<void> syncPushToken() async {
+    final provider = _pushTokens;
+    if (provider == null) return;
+    try {
+      final token = await provider.currentToken();
+      final platform = provider.platform;
+      if (token == null || platform == null) return;
+      await _api.post(
+        'auth/device-tokens/',
+        body: {'token': token, 'platform': platform},
+      );
+    } catch (_) {
+      // Best-effort: see method doc.
+    }
+  }
+
+  Future<void> _unregisterPushToken() async {
+    final provider = _pushTokens;
+    if (provider == null) return;
+    try {
+      final token = await provider.currentToken();
+      if (token == null) return;
+      await _api.post('auth/device-tokens/unregister/', body: {'token': token});
+    } catch (_) {
+      // Best-effort, same as the logout call in signOut below.
+    }
   }
 
   /// Creates a school-office recovery request without revealing whether the
@@ -376,6 +413,7 @@ class AuthRepository {
       throw const ApiException(500, 'The server sent an unexpected answer.');
     }
     await _storeTokenPair(data);
+    await syncPushToken();
     final membership = SchoolMembership.fromJson(
       Map<String, dynamic>.from(data['membership'] as Map),
     );
@@ -395,6 +433,7 @@ class AuthRepository {
   Future<void> signOut() async {
     final tokens = await _tokens.read();
     if (tokens != null) {
+      await _unregisterPushToken();
       try {
         await _api.post('auth/logout/', body: {'refresh': tokens.refresh});
       } catch (_) {

@@ -9,6 +9,7 @@ import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
 import '../core/security/payload_cipher.dart';
 import '../core/notifications/notifications_controller.dart';
+import '../core/notifications/push_token_provider.dart';
 import '../core/sync/http_sync_transport.dart';
 import '../core/sync/server_confirm.dart';
 import '../core/sync/round_follow_up.dart';
@@ -180,10 +181,12 @@ class AppServices {
     if (apiConfig.enabled) {
       final tokens = SecureTokenStore();
       final api = ApiClient(config: apiConfig, tokens: tokens);
+      final pushTokens = PushTokenProvider();
       auth = AuthRepository(
         api: api,
         tokens: tokens,
         schoolSession: schoolSession,
+        pushTokens: pushTokens,
       );
       organizations = OrganizationRepository(api: api, auth: auth);
       billing = BillingRepository(api: api);
@@ -194,9 +197,14 @@ class AppServices {
         puller: SyncPuller(api: api, store: localDatabase),
       );
 
-      if (schoolSession.hasActiveSchool && !await auth.hasSession()) {
+      final signedIn = await auth.hasSession();
+      if (schoolSession.hasActiveSchool && !signedIn) {
         await schoolSession.clear();
       }
+      // A device's push token can rotate while this account stays signed in
+      // (a restored backup, a periodic FCM refresh) - re-register it each time.
+      if (signedIn) await auth.syncPushToken();
+      pushTokens.onRefresh.listen((_) => auth?.syncPushToken());
 
       serverConfirm = ServerConfirm(
         database: localDatabase,
