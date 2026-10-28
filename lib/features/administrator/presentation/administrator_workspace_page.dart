@@ -342,6 +342,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
         return AdministratorReportCardsPage(
           repository: _reportCardRepository,
           academics: _academicsRepository,
+          schoolName: widget.membership.schoolName,
           onChanged: _refreshPendingCount,
         );
       case 'staff':

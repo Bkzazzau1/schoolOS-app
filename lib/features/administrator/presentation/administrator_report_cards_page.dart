@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 
 import '../data/administrator_academics_repository.dart';
 import '../data/administrator_report_card_repository.dart';
 import '../domain/administrator_academics_models.dart';
 import '../domain/report_card_models.dart';
+import '../domain/report_card_pdf.dart';
 
 class AdministratorReportCardsPage extends StatefulWidget {
   const AdministratorReportCardsPage({
     super.key,
     required this.repository,
     required this.academics,
+    required this.schoolName,
     this.onChanged,
   });
 
   final AdministratorReportCardRepository repository;
   final AdministratorAcademicsRepository academics;
+  final String schoolName;
   final VoidCallback? onChanged;
 
   @override
@@ -286,6 +290,14 @@ class _AdministratorReportCardsPageState extends State<AdministratorReportCardsP
                         tooltip: 'History',
                         icon: const Icon(Icons.history_rounded, size: 20),
                         onPressed: () => _showHistory(item),
+                      ),
+                      IconButton(
+                        tooltip: 'Download PDF',
+                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+                        onPressed: () => Printing.layoutPdf(
+                          onLayout: (format) => buildReportCardPdf(card: item, schoolName: widget.schoolName),
+                          name: 'Report Card - ${item.studentName} - ${item.term}',
+                        ),
                       ),
                       if (actionLabel == null)
                         Chip(label: Text(reportCardStateLabel(item.state)))

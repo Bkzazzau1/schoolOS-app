@@ -45,6 +45,12 @@ jobs:
     # set the CI_API_BASE_URL repository variable to point builds at a
     # staging backend instead, without touching this file.
     runs-on: windows-latest
+    env:
+      # firebase_core's bundled firebase_cpp_sdk_windows ships a CMakeLists.txt whose own
+      # cmake_minimum_required predates what modern CMake still accepts outright - this is the
+      # upstream SDK's own file, not ours to edit. Without this, the Windows build fails at the
+      # CMake configure step with "Compatibility with CMake < 3.5 has been removed".
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
 
     steps:
       - name: Checkout

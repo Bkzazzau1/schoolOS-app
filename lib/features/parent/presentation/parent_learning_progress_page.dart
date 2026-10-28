@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../administrator/presentation/report_card_pdf_button.dart';
 import '../data/parent_learning_progress_repository.dart';
 import '../domain/parent_learning_progress_models.dart';
 
@@ -8,10 +9,12 @@ class ParentLearningProgressPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onNavigate,
+    required this.schoolName,
   });
 
   final ParentLearningProgressRepository repository;
   final ValueChanged<String> onNavigate;
+  final String schoolName;
 
   @override
   State<ParentLearningProgressPage> createState() =>
@@ -73,7 +76,7 @@ class _ParentLearningProgressPageState
                   _KpiGrid(child: selected),
                   if (selected.reportCard != null) ...[
                     const SizedBox(height: 16),
-                    _ReportCardCard(child: selected),
+                    _ReportCardCard(child: selected, schoolName: widget.schoolName),
                   ],
                   const SizedBox(height: 16),
                   _ResponsivePair(
@@ -709,9 +712,10 @@ class _TopicTile extends StatelessWidget {
 }
 
 class _ReportCardCard extends StatelessWidget {
-  const _ReportCardCard({required this.child});
+  const _ReportCardCard({required this.child, required this.schoolName});
 
   final ParentLearningChild child;
+  final String schoolName;
 
   @override
   Widget build(BuildContext context) {
@@ -749,6 +753,11 @@ class _ReportCardCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Principal: ${card.principalComment}'),
           ],
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ReportCardPdfButton(card: card, schoolName: schoolName),
+          ),
         ],
       ),
     );

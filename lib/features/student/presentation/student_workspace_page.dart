@@ -8,6 +8,7 @@ import '../../../core/sync/sync_scope.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../administrator/data/administrator_students_repository.dart';
+import '../../administrator/presentation/report_card_pdf_button.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/presentation/community_page.dart';
 import '../../dashboard/presentation/dashboard_page.dart';
@@ -667,6 +668,14 @@ class _StudentWorkspacePageState extends State<StudentWorkspacePage>
                     const SizedBox(height: 8),
                     Text('Principal: ${_results!.reportCard!.principalComment}'),
                   ],
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ReportCardPdfButton(
+                      card: _results!.reportCard!,
+                      schoolName: widget.membership.schoolName,
+                    ),
+                  ),
                 ],
               ),
             ),

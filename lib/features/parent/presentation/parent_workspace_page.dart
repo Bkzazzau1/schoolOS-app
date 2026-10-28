@@ -296,6 +296,7 @@ class _ParentWorkspacePageState extends State<ParentWorkspacePage> with SyncRefr
         'progress' => ParentLearningProgressPage(
             repository: _learningProgressRepository,
             onNavigate: _select,
+            schoolName: widget.membership.schoolName,
           ),
         'weekly-learning' => ParentWeeklyLearningPage(
             repository: _weeklyLearningRepository,
