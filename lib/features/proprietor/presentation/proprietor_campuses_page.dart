@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/sync/sync_scope.dart';
 import '../data/owner_campuses.dart';
+import '../data/proprietor_structure_repository.dart';
+import '../domain/proprietor_structure_models.dart';
+import 'owner_dialogs.dart';
 
 /// Compares the school's campuses using what is really recorded: sections, classes, staff and leadership. Students,
 /// attendance and fees are shown as not recorded until the roles that hold them have data.
@@ -45,6 +48,28 @@ class _ProprietorCampusesPageState extends State<ProprietorCampusesPage> with Sy
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
+  }
+
+  void _notify(StructureChangeResult result) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+    if (result.success) _load();
+  }
+
+  Future<void> _addCampus() async {
+    final name = await askReason(context, title: 'Add a campus', action: 'Add', label: 'Campus name');
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    _notify(await widget.repository.addCampus(name));
+  }
+
+  Future<void> _renameCampus(CampusView campus) async {
+    final name = await askReason(context, title: 'Rename campus', action: 'Save', label: 'Campus name', initial: campus.name);
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    _notify(await widget.repository.renameCampus(campus, name));
+  }
+
+  Future<void> _assignCampus(AcademicSection section, String? campusId) async {
+    _notify(await widget.repository.assignCampus(section, campusId ?? ''));
   }
 
   @override
@@ -95,10 +120,15 @@ class _ProprietorCampusesPageState extends State<ProprietorCampusesPage> with Sy
                           onPressed: () => widget.onActionRequested('overview'),
                           child: const Text('Executive Overview'),
                         ),
-                        FilledButton.icon(
+                        OutlinedButton.icon(
                           onPressed: () => widget.onActionRequested('structure'),
                           icon: const Icon(Icons.account_tree_outlined, size: 18),
                           label: const Text('Manage structure'),
+                        ),
+                        FilledButton.icon(
+                          onPressed: _addCampus,
+                          icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                          label: const Text('Add campus'),
                         ),
                       ],
                     ),
@@ -121,13 +151,21 @@ class _ProprietorCampusesPageState extends State<ProprietorCampusesPage> with Sy
                         child: Padding(
                           padding: const EdgeInsets.all(20),
                           child: Text(
-                            'No sections are set up yet, so there are no campuses to compare. Set up the structure first.',
+                            'No campuses have been added yet. Add one to start grouping sections by site.',
                             style: theme.textTheme.bodyLarge,
                           ),
                         ),
                       ),
                     for (final campus in data.campuses) ...[
-                      _CampusCard(campus: campus),
+                      _CampusCard(campus: campus, onRename: () => _renameCampus(campus)),
+                      const SizedBox(height: 14),
+                    ],
+                    if (data.allSections.isNotEmpty) ...[
+                      _AssignSectionsCard(
+                        campuses: data.campuses,
+                        sections: data.allSections,
+                        onAssign: _assignCampus,
+                      ),
                       const SizedBox(height: 14),
                     ],
                     const SizedBox(height: 4),
@@ -187,9 +225,10 @@ class _Kpi extends StatelessWidget {
 }
 
 class _CampusCard extends StatelessWidget {
-  const _CampusCard({required this.campus});
+  const _CampusCard({required this.campus, required this.onRename});
 
   final CampusView campus;
+  final VoidCallback onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -205,14 +244,25 @@ class _CampusCard extends StatelessWidget {
       ('Fees', 'Not recorded'),
     ];
     return Card(
-      key: ValueKey('campus-${campus.name}'),
+      key: ValueKey('campus-${campus.id}'),
       elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(campus.name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(campus.name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                ),
+                IconButton(
+                  tooltip: 'Rename campus',
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  onPressed: onRename,
+                ),
+              ],
+            ),
             const SizedBox(height: 4),
             Text(
               campus.sections.map((s) => s.name).join(' · '),
@@ -252,6 +302,63 @@ class _CampusCard extends StatelessWidget {
             const SizedBox(height: 6),
             if (campus.leaders.isEmpty) const Text('No section leaders appointed.'),
             for (final leader in campus.leaders) Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(leader)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AssignSectionsCard extends StatelessWidget {
+  const _AssignSectionsCard({required this.campuses, required this.sections, required this.onAssign});
+
+  final List<CampusView> campuses;
+  final List<AcademicSection> sections;
+  final void Function(AcademicSection section, String? campusId) onAssign;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sorted = [...sections]..sort((a, b) => a.name.compareTo(b.name));
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Assign sections to a campus', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text(
+              'Each section may belong to one real campus, or none yet.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            for (final section in sorted)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(section.name)),
+                    SizedBox(
+                      width: 260,
+                      child: DropdownButtonFormField<String?>(
+                        initialValue: campuses.any((c) => c.id == section.campusId) ? section.campusId : null,
+                        isDense: true,
+                        isExpanded: true,
+                        decoration: const InputDecoration(isDense: true, border: OutlineInputBorder()),
+                        hint: const Text('Not assigned', overflow: TextOverflow.ellipsis),
+                        items: [
+                          const DropdownMenuItem<String?>(value: null, child: Text('Not assigned', overflow: TextOverflow.ellipsis)),
+                          for (final campus in campuses)
+                            DropdownMenuItem<String?>(value: campus.id, child: Text(campus.name, overflow: TextOverflow.ellipsis)),
+                        ],
+                        onChanged: (campusId) => onAssign(section, campusId),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

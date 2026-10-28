@@ -192,6 +192,7 @@ class _ProprietorStructurePageState extends State<ProprietorStructurePage> with 
                     const SizedBox(height: 18),
                     _SectionGrid(
                       sections: _snapshot!.sections,
+                      campuses: _snapshot!.campuses,
                       selectedSectionId: _selectedSectionId,
                       onSelected: _selectSection,
                       compact: compact,
@@ -403,12 +404,14 @@ class _GovernanceBanner extends StatelessWidget {
 class _SectionGrid extends StatelessWidget {
   const _SectionGrid({
     required this.sections,
+    required this.campuses,
     required this.selectedSectionId,
     required this.onSelected,
     required this.compact,
   });
 
   final List<AcademicSection> sections;
+  final List<Campus> campuses;
   final String selectedSectionId;
   final ValueChanged<String> onSelected;
   final bool compact;
@@ -417,6 +420,7 @@ class _SectionGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final columns = compact ? 1 : (width >= 1100 ? 3 : 2);
+    final campusNames = {for (final campus in campuses) campus.id: campus.name};
     return GridView.count(
       crossAxisCount: columns,
       mainAxisSpacing: 12,
@@ -428,6 +432,7 @@ class _SectionGrid extends StatelessWidget {
         for (final section in sections)
           _SectionCard(
             section: section,
+            campusName: campusNames[section.campusId],
             selected: selectedSectionId == section.id,
             onTap: () => onSelected(section.id),
           ),
@@ -437,9 +442,12 @@ class _SectionGrid extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.section, required this.selected, required this.onTap});
+  const _SectionCard({required this.section, required this.campusName, required this.selected, required this.onTap});
 
   final AcademicSection section;
+
+  /// The real campus's name, or null when this section has not been assigned to one yet.
+  final String? campusName;
   final bool selected;
   final VoidCallback onTap;
 
@@ -466,7 +474,7 @@ class _SectionCard extends StatelessWidget {
               Text(section.stage.toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w900)),
               const SizedBox(height: 5),
               Text(section.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-              Text(section.campus, style: theme.textTheme.bodySmall),
+              Text(campusName ?? 'Not assigned to a campus', style: theme.textTheme.bodySmall),
               const Spacer(),
               Text(section.leaderTitle, style: const TextStyle(fontWeight: FontWeight.w800)),
               Text(section.leaderName),

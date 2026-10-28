@@ -337,7 +337,7 @@ class _OwnerJobsPageState extends State<OwnerJobsPage> with SyncRefresh<OwnerJob
                   DropdownMenuItem(
                     value: section.id,
                     child: Text(
-                      '${section.name} · ${section.campus}',
+                      section.name,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

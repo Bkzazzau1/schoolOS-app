@@ -10,6 +10,7 @@ class ProprietorStructureSnapshot {
   const ProprietorStructureSnapshot({
     required this.sections,
     required this.leaders,
+    this.campuses = const [],
     this.needsSetup = false,
   });
 
@@ -18,6 +19,7 @@ class ProprietorStructureSnapshot {
 
   final List<AcademicSection> sections;
   final List<LeadershipAppointment> leaders;
+  final List<Campus> campuses;
 }
 
 class StructureChangeResult {
@@ -43,6 +45,7 @@ class ProprietorStructureRepository {
 
   static const _sectionEntity = 'academic_section';
   static const _leaderEntity = 'leadership_appointment';
+  static const _campusEntity = 'campus';
 
   Future<ProprietorStructureSnapshot> load() async {
     final membership = _schoolSession.requireActiveMembership();
@@ -53,6 +56,10 @@ class ProprietorStructureRepository {
     final leaderRecords = await _localDatabase.getLocalRecords(
       tenantId: membership.schoolId,
       entityType: _leaderEntity,
+    );
+    final campusRecords = await _localDatabase.getLocalRecords(
+      tenantId: membership.schoolId,
+      entityType: _campusEntity,
     );
 
     if (sectionRecords.isEmpty && leaderRecords.isEmpty) {
@@ -65,6 +72,7 @@ class ProprietorStructureRepository {
       return const ProprietorStructureSnapshot(
         sections: initialAcademicSections,
         leaders: initialLeadershipAppointments,
+        campuses: initialCampuses,
       );
     }
 
@@ -76,10 +84,15 @@ class ProprietorStructureRepository {
         .map((record) => LeadershipAppointment.fromJson(record.payload))
         .toList(growable: false)
       ..sort((a, b) => a.id.compareTo(b.id));
+    final campuses = campusRecords
+        .map((record) => Campus.fromJson(record.payload))
+        .toList(growable: false)
+      ..sort((a, b) => a.name.compareTo(b.name));
 
     return ProprietorStructureSnapshot(
       sections: sections.isEmpty && !LocalDatabase.blockDemoSeeds ? initialAcademicSections : sections,
       leaders: leaders.isEmpty && !LocalDatabase.blockDemoSeeds ? initialLeadershipAppointments : leaders,
+      campuses: campuses.isEmpty && !LocalDatabase.blockDemoSeeds ? initialCampuses : campuses,
     );
   }
 
@@ -262,6 +275,11 @@ class ProprietorStructureRepository {
     if (membership.role != SchoolRole.proprietor) {
       return const StructureChangeResult(success: false, message: 'Only the school owner can set up the structure.');
     }
+    for (final campus in initialCampuses) {
+      await _createOnServer(membership, _campusEntity, campus.id, campus.toJson());
+      final refused = await _confirm(membership.schoolId, _campusEntity, campus.id);
+      if (refused != null) return refused;
+    }
     for (final section in initialAcademicSections) {
       await _createOnServer(membership, _sectionEntity, section.id, section.toJson());
       final refused = await _confirm(membership.schoolId, _sectionEntity, section.id);
@@ -275,6 +293,57 @@ class ProprietorStructureRepository {
     return const StructureChangeResult(
       success: true,
       message: 'The standard sections and leadership posts were set up. Rename them and appoint people as needed.',
+    );
+  }
+
+  /// Creates a new real campus ([id] left null) or renames an existing one ([id] given). Only the
+  /// owner may.
+  Future<StructureChangeResult> saveCampus({String? id, required String name}) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (membership.role != SchoolRole.proprietor) {
+      return const StructureChangeResult(success: false, message: 'Only the school owner can manage campuses.');
+    }
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) {
+      return const StructureChangeResult(success: false, message: 'Enter a campus name.');
+    }
+    final campus = Campus(id: id ?? 'CAMPUS-${DateTime.now().microsecondsSinceEpoch}', name: cleanName);
+    await _localDatabase.upsertLocalRecord(
+      tenantId: membership.schoolId, entityType: _campusEntity, entityId: campus.id, payload: campus.toJson(), isDirty: true,
+    );
+    await _localDatabase.queueMutation(
+      tenantId: membership.schoolId, membershipId: membership.id, entityType: _campusEntity, entityId: campus.id,
+      operation: id == null ? SyncOperation.create : SyncOperation.update, payload: campus.toJson(),
+    );
+    final refused = await _confirm(membership.schoolId, _campusEntity, campus.id);
+    if (refused != null) return refused;
+    return StructureChangeResult(
+      success: true,
+      message: id == null ? '${campus.name} was added.' : '${campus.name} was renamed.',
+    );
+  }
+
+  /// Assigns (or, with '', clears) the real campus [section] belongs to. Only the owner may.
+  Future<StructureChangeResult> assignCampus(AcademicSection section, String campusId) async {
+    final membership = _schoolSession.requireActiveMembership();
+    if (membership.role != SchoolRole.proprietor) {
+      return const StructureChangeResult(success: false, message: "Only the school owner can change a section's campus.");
+    }
+    final updated = section.copyWith(campusId: campusId);
+    await _localDatabase.upsertLocalRecord(
+      tenantId: membership.schoolId, entityType: _sectionEntity, entityId: updated.id, payload: updated.toJson(), isDirty: true,
+    );
+    await _localDatabase.queueMutation(
+      tenantId: membership.schoolId, membershipId: membership.id, entityType: _sectionEntity, entityId: updated.id,
+      operation: SyncOperation.update, payload: updated.toJson(),
+    );
+    final refused = await _confirm(membership.schoolId, _sectionEntity, updated.id);
+    if (refused != null) return refused;
+    return StructureChangeResult(
+      success: true,
+      message: campusId.isEmpty
+          ? '${section.name} is no longer assigned to a campus.'
+          : '${section.name}\'s campus was updated.',
     );
   }
 
@@ -303,6 +372,14 @@ class ProprietorStructureRepository {
   }
 
   Future<void> _seed(String tenantId) async {
+    for (final campus in initialCampuses) {
+      await _localDatabase.upsertLocalRecord(
+        tenantId: tenantId,
+        entityType: _campusEntity,
+        entityId: campus.id,
+        payload: campus.toJson(),
+      );
+    }
     for (final section in initialAcademicSections) {
       await _localDatabase.upsertLocalRecord(
         tenantId: tenantId,

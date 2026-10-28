@@ -106,25 +106,32 @@ class _ApprovalDialogState extends State<_ApprovalDialog> {
 }
 
 /// Asks for an optional reason. Returns the text (possibly empty) when confirmed, or null when cancelled.
-Future<String?> askReason(BuildContext context, {required String title, required String action, String label = 'Reason (optional)'}) =>
+Future<String?> askReason(
+  BuildContext context, {
+  required String title,
+  required String action,
+  String label = 'Reason (optional)',
+  String initial = '',
+}) =>
     showDialog<String>(
       context: context,
-      builder: (context) => _ReasonDialog(title: title, action: action, label: label),
+      builder: (context) => _ReasonDialog(title: title, action: action, label: label, initial: initial),
     );
 
 class _ReasonDialog extends StatefulWidget {
-  const _ReasonDialog({required this.title, required this.action, required this.label});
+  const _ReasonDialog({required this.title, required this.action, required this.label, this.initial = ''});
 
   final String title;
   final String action;
   final String label;
+  final String initial;
 
   @override
   State<_ReasonDialog> createState() => _ReasonDialogState();
 }
 
 class _ReasonDialogState extends State<_ReasonDialog> {
-  final _text = TextEditingController();
+  late final _text = TextEditingController(text: widget.initial);
 
   @override
   void dispose() {

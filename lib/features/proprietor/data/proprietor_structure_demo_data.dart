@@ -11,12 +11,16 @@ const proprietorStructurePeople = <String>[
   'Mrs. Fatima Bello',
 ];
 
+const initialCampuses = <Campus>[
+  Campus(id: 'kaduna', name: 'Kaduna Campus'),
+];
+
 const initialAcademicSections = <AcademicSection>[
   AcademicSection(
     id: 'nursery',
     name: 'Nursery / Early Years',
     stage: 'Nursery',
-    campus: 'Kaduna Campus',
+    campusId: 'kaduna',
     leaderTitle: 'Head Teacher',
     leaderName: 'Mrs. Mary Daniel',
     classes: 2,
@@ -25,7 +29,7 @@ const initialAcademicSections = <AcademicSection>[
     id: 'primary',
     name: 'Primary School',
     stage: 'Primary',
-    campus: 'Kaduna Campus',
+    campusId: 'kaduna',
     leaderTitle: 'Headmistress',
     leaderName: 'Mrs. Hauwa Sule',
     classes: 6,
@@ -34,7 +38,7 @@ const initialAcademicSections = <AcademicSection>[
     id: 'secondary',
     name: 'Secondary School',
     stage: 'Secondary',
-    campus: 'Kaduna Campus',
+    campusId: 'kaduna',
     leaderTitle: 'Principal',
     leaderName: 'Mr. Ibrahim Danladi',
     classes: 6,

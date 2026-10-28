@@ -17,7 +17,7 @@ class AcademicSection {
     required this.id,
     required this.name,
     required this.stage,
-    required this.campus,
+    required this.campusId,
     required this.leaderTitle,
     required this.leaderName,
     required this.classes,
@@ -26,7 +26,9 @@ class AcademicSection {
   final String id;
   final String name;
   final String stage;
-  final String campus;
+
+  /// A real [Campus.id], or '' when this section has not been assigned to one yet.
+  final String campusId;
   final String leaderTitle;
   final String leaderName;
   final int classes;
@@ -34,12 +36,13 @@ class AcademicSection {
   AcademicSection copyWith({
     String? leaderTitle,
     String? leaderName,
+    String? campusId,
   }) {
     return AcademicSection(
       id: id,
       name: name,
       stage: stage,
-      campus: campus,
+      campusId: campusId ?? this.campusId,
       leaderTitle: leaderTitle ?? this.leaderTitle,
       leaderName: leaderName ?? this.leaderName,
       classes: classes,
@@ -50,7 +53,7 @@ class AcademicSection {
         'id': id,
         'name': name,
         'stage': stage,
-        'campus': campus,
+        'campusId': campusId,
         'leaderTitle': leaderTitle,
         'leaderName': leaderName,
         'classes': classes,
@@ -61,12 +64,28 @@ class AcademicSection {
       id: json['id']! as String,
       name: json['name']! as String,
       stage: json['stage']! as String,
-      campus: json['campus']! as String,
+      campusId: json['campusId'] as String? ?? '',
       leaderTitle: json['leaderTitle']! as String,
       leaderName: json['leaderName']! as String,
       classes: json['classes']! as int,
     );
   }
+}
+
+/// One of the school's real physical sites. A section may be assigned to one (see
+/// [AcademicSection.campusId]); staff belong to a campus only through their section.
+class Campus {
+  const Campus({required this.id, required this.name});
+
+  final String id;
+  final String name;
+
+  Map<String, Object?> toJson() => {'id': id, 'name': name};
+
+  factory Campus.fromJson(Map<String, Object?> json) => Campus(
+        id: json['id']! as String,
+        name: json['name']! as String,
+      );
 }
 
 class LeadershipAppointment {
