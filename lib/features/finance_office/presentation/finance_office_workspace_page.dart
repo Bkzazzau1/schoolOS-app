@@ -18,11 +18,15 @@ import '../../dashboard/presentation/dashboard_page.dart';
 import '../../principal/presentation/principal_workspace_page.dart';
 import '../../proprietor/presentation/proprietor_workspace_page.dart';
 import '../../sync_center/presentation/sync_center_page.dart';
+import '../data/finance_cashflow_repository.dart';
 import '../data/finance_concessions_repository.dart';
 import '../data/finance_office_dashboard_demo_data.dart';
+import '../data/finance_store_repository.dart';
 import '../domain/finance_office_dashboard_models.dart';
 import 'finance_ai_page.dart';
+import 'finance_cashflow_page.dart';
 import 'finance_concessions_page.dart';
+import 'finance_store_page.dart';
 import 'finance_debt_aging_page.dart';
 import 'finance_family_accounts_page.dart';
 import 'finance_fee_structure_page.dart';
@@ -66,6 +70,8 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
   int _pendingSyncCount = 0;
   late final FinanceConcessionsRepository _concessions;
   late final FinanceLedgerRepository _ledger;
+  late final FinanceStoreRepository _store;
+  late final FinanceCashflowRepository _cashbook;
 
   FinanceOfficeNavItem get _activeItem => _navigation.firstWhere(
         (item) => item.key == _activeKey,
@@ -92,6 +98,12 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
         schoolSession: widget.schoolSession,
       ),
     );
+    _store = FinanceStoreRepository(
+      database: widget.localDatabase,
+      session: widget.schoolSession,
+      students: AdministratorStudentsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession),
+    );
+    _cashbook = FinanceCashflowRepository(database: widget.localDatabase, session: widget.schoolSession);
     _refreshPendingCount();
   }
 
@@ -177,12 +189,14 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
             onMutationQueued: _refreshPendingCount,
           ),
         'collections' => CollectionsHubPage(membership: widget.membership),
+        'store' => FinanceStorePage(repository: _store, onChanged: _refreshPendingCount),
         'reminders' => FinanceRemindersPage(ledger: _ledger, schoolName: widget.membership.schoolName, onChanged: _refreshPendingCount),
         'mandates' => MandatesScope.maybeOf(context) != null ? MandatesHubPage(membership: widget.membership) : const MandatesNoServerNotice(),
         'debt-aging' => FinanceDebtAgingPage(ledger: _ledger, onChanged: _refreshPendingCount, onOpenReminders: () => _select('reminders')),
         'receipts' => FinanceReceiptsPage(ledger: _ledger, schoolName: widget.membership.schoolName, onChanged: _refreshPendingCount),
         'accounts' => FinanceFamilyAccountsPage(ledger: _ledger, onChanged: _refreshPendingCount),
         'reconciliation' => FinanceReconciliationPage(ledger: _ledger, onChanged: _refreshPendingCount),
+        'expenses' => FinanceCashflowPage(repository: _cashbook, onChanged: _refreshPendingCount),
         'payroll' => FinancePayrollPage(
           localDatabase: widget.localDatabase,
           schoolSession: widget.schoolSession,
