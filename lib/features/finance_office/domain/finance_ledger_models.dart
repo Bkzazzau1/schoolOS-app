@@ -1,5 +1,11 @@
 import '../../administrator/domain/administrator_students_models.dart';
 
+/// Turns free text (a term name, which can contain '/', spaces and '·') into an id safe for the sync
+/// system's own entity id pattern - letters, digits, '.', '_', ':' and '-' only. Must match
+/// `apps.financeledger.sync_ids.sync_safe_id` on the server exactly, since both sides compute the
+/// same entity id independently from the same term text.
+String financeSyncSafeId(String raw) => raw.replaceAll(RegExp(r'[^A-Za-z0-9._:-]'), '-');
+
 /// One charge in a section's fee structure for a term (tuition, development levy...).
 class FeeItem {
   const FeeItem({required this.name, required this.amount});
@@ -24,7 +30,7 @@ class FeeStructure {
 
   int get total => items.fold(0, (sum, i) => sum + i.amount);
 
-  String get id => '$term|$section';
+  String get id => financeSyncSafeId('$term|$section');
 
   Map<String, Object?> toJson() => {
         'term': term,

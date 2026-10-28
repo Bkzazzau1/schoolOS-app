@@ -245,7 +245,9 @@ class FinanceLedgerRepository {
   /// When fees for the term fall due.
   Future<DateTime> dueDate(String term) async {
     final m = session.requireActiveMembership();
-    final record = await database.getLocalRecord(tenantId: m.schoolId, entityType: dueType, entityId: term);
+    final record = await database.getLocalRecord(
+      tenantId: m.schoolId, entityType: dueType, entityId: financeSyncSafeId(term),
+    );
     final stored = record?.payload['date'] as String?;
     return stored == null ? defaultDueDate(term) : DateTime.parse(stored);
   }
@@ -258,7 +260,7 @@ class FinanceLedgerRepository {
       return FinanceActionResult(success: false, message: e.message);
     }
     final day = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-    await _put(m, dueType, term, {'term': term, 'date': day});
+    await _put(m, dueType, financeSyncSafeId(term), {'term': term, 'date': day});
     return FinanceActionResult(success: true, message: 'Fees for $term are due on $day.');
   }
 
