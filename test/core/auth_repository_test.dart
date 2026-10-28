@@ -2,10 +2,37 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/core/auth/auth_repository.dart';
 import 'package:schoolos_app/core/auth/token_store.dart';
 import 'package:schoolos_app/core/network/api_exceptions.dart';
+import 'package:schoolos_app/core/notifications/push_token_provider.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'backend_test_support.dart';
+
+/// A stand-in for the real Firebase-backed [PushTokenProvider] (which stays
+/// honestly disabled in any plain `flutter test` run - see
+/// push_token_provider_test.dart) so these tests can prove what
+/// AuthRepository does once a device token genuinely exists.
+class _FakePushTokenProvider extends PushTokenProvider {
+  _FakePushTokenProvider({this.fakeToken, String fakePlatform = 'android'}) : _fakePlatform = fakePlatform;
+
+  final String? fakeToken;
+  final String _fakePlatform;
+
+  @override
+  bool get enabled => fakeToken != null;
+
+  @override
+  String? get platform => fakeToken != null ? _fakePlatform : null;
+
+  @override
+  Future<void> ensureReady() async {}
+
+  @override
+  Future<String?> currentToken() async => fakeToken;
+
+  @override
+  Stream<String> get onRefresh => const Stream.empty();
+}
 
 const _me = {
   'id': 'u-1',
@@ -33,10 +60,11 @@ void main() {
     session = SchoolSessionController(store: sessionStore);
   });
 
-  AuthRepository repo(FakeServer server) => AuthRepository(
+  AuthRepository repo(FakeServer server, {PushTokenProvider? pushTokens}) => AuthRepository(
     api: apiFor(server, tokens: tokens),
     tokens: tokens,
     schoolSession: session,
+    pushTokens: pushTokens,
   );
 
   test(
@@ -70,6 +98,49 @@ void main() {
       expect(sessionStore.memberships.length, 2);
     },
   );
+
+  test('signing in registers this devices push token when one is available', () async {
+    final server = FakeServer((r) async {
+      if (r.url.path.endsWith('auth/token/')) return jsonResponse({'access': 'a-1', 'refresh': 'r-1'});
+      return jsonResponse(_me);
+    });
+    await repo(server, pushTokens: _FakePushTokenProvider(fakeToken: 'fcm-tok-1')).signIn(
+      'musa@school.ng',
+      'a-good-password',
+    );
+    expect(body(server.to('auth/device-tokens/').single), {'token': 'fcm-tok-1', 'platform': 'android'});
+  });
+
+  test('signing in never calls device-tokens when no push token is available', () async {
+    final server = FakeServer((r) async {
+      if (r.url.path.endsWith('auth/token/')) return jsonResponse({'access': 'a-1', 'refresh': 'r-1'});
+      return jsonResponse(_me);
+    });
+    await repo(server, pushTokens: _FakePushTokenProvider()).signIn('musa@school.ng', 'a-good-password');
+    expect(server.to('auth/device-tokens/'), isEmpty);
+  });
+
+  test('signing in with no push token provider at all never calls device-tokens', () async {
+    final server = FakeServer((r) async {
+      if (r.url.path.endsWith('auth/token/')) return jsonResponse({'access': 'a-1', 'refresh': 'r-1'});
+      return jsonResponse(_me);
+    });
+    await repo(server).signIn('musa@school.ng', 'a-good-password');
+    expect(server.to('auth/device-tokens/'), isEmpty);
+  });
+
+  test('a failing device-token registration never blocks sign-in', () async {
+    final server = FakeServer((r) async {
+      if (r.url.path.endsWith('auth/token/')) return jsonResponse({'access': 'a-1', 'refresh': 'r-1'});
+      if (r.url.path.endsWith('auth/device-tokens/')) return jsonResponse({'detail': 'nope'}, 500);
+      return jsonResponse(_me);
+    });
+    final profile = await repo(server, pushTokens: _FakePushTokenProvider(fakeToken: 'fcm-tok-1')).signIn(
+      'musa@school.ng',
+      'a-good-password',
+    );
+    expect(profile.email, 'musa@school.ng');
+  });
 
   test('wrong details give the servers message and keep nothing', () async {
     final server = FakeServer(
@@ -170,6 +241,31 @@ void main() {
     final server = FakeServer((r) async => jsonResponse({}));
     await repo(server).signOut();
     expect(server.to('auth/logout/'), isEmpty);
+  });
+
+  test('signing out unregisters this devices push token when one is available', () async {
+    tokens.tokens = const AuthTokens(access: 'a', refresh: 'r');
+    final server = FakeServer((r) async => jsonResponse({'loggedOut': true, 'unregistered': true}));
+    await repo(server, pushTokens: _FakePushTokenProvider(fakeToken: 'fcm-tok-1')).signOut();
+    expect(body(server.to('auth/device-tokens/unregister/').single), {'token': 'fcm-tok-1'});
+  });
+
+  test('signing out never calls unregister when no push token is available', () async {
+    tokens.tokens = const AuthTokens(access: 'a', refresh: 'r');
+    final server = FakeServer((r) async => jsonResponse({'loggedOut': true}));
+    await repo(server, pushTokens: _FakePushTokenProvider()).signOut();
+    expect(server.to('auth/device-tokens/unregister/'), isEmpty);
+  });
+
+  test('a failing push-token unregister never blocks signing out', () async {
+    tokens.tokens = const AuthTokens(access: 'a', refresh: 'r');
+    final server = FakeServer((r) async {
+      if (r.url.path.endsWith('auth/device-tokens/unregister/')) return jsonResponse({'detail': 'nope'}, 500);
+      return jsonResponse({'loggedOut': true});
+    });
+    final auth = repo(server, pushTokens: _FakePushTokenProvider(fakeToken: 'fcm-tok-1'));
+    await auth.signOut();
+    expect(await auth.hasSession(), isFalse);
   });
 
   test('requesting an email password reset posts the email and returns the servers message', () async {
