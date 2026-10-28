@@ -105,6 +105,10 @@ class _PrincipalAttendancePageState extends State<PrincipalAttendancePage> {
             children: [
               _header(context, compact),
               const SizedBox(height: 14),
+              if (snapshot.holidayName != null) ...[
+                _holidayBanner(context, snapshot.holidayName!),
+                const SizedBox(height: 14),
+              ],
               _offlineBanner(context, snapshot),
               const SizedBox(height: 14),
               _kpis(context, compact, snapshot, openFollowUps),
@@ -223,6 +227,24 @@ class _PrincipalAttendancePageState extends State<PrincipalAttendancePage> {
             children: [Expanded(child: title), actions],
           );
   }
+
+  Widget _holidayBanner(BuildContext context, String holidayName) => Card(
+        elevation: 0,
+        color: Theme.of(context).colorScheme.secondaryContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(children: [
+            const Icon(Icons.beach_access_outlined),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Today is a declared holiday ($holidayName). No attendance is expected; the numbers below reflect '
+                'whatever scans actually came in, if any.',
+              ),
+            ),
+          ]),
+        ),
+      );
 
   Widget _offlineBanner(
     BuildContext context,

@@ -21,6 +21,29 @@ class EventActionResult {
   final String message;
 }
 
+/// The real holiday declared for [date] ('yyyy-MM-dd'), from a real `school_event` record of
+/// type 'holiday' - null on an ordinary school day. Read directly rather than through
+/// [EventRepository.load], since a caller checking "is today a holiday" has no use for the
+/// other event fields (audience, venue, ...) and no need for an active membership/permissions.
+Future<String?> holidayNameOn(
+  LocalDatabase localDatabase, {
+  required String tenantId,
+  required String date,
+}) async {
+  final records = await localDatabase.getLocalRecords(
+    tenantId: tenantId,
+    entityType: EventRepository._entityType,
+  );
+  for (final record in records) {
+    final payload = record.payload;
+    if (payload['type'] == 'holiday' && payload['date'] == date) {
+      final title = payload['title'] as String?;
+      return (title == null || title.trim().isEmpty) ? 'Holiday' : title;
+    }
+  }
+  return null;
+}
+
 class EventRepository {
   EventRepository({
     required LocalDatabase localDatabase,

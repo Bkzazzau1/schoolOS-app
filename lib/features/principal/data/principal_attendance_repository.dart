@@ -7,6 +7,7 @@ import '../../administrator/data/administrator_attendance_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/domain/administrator_attendance_models.dart';
 import '../../administrator/domain/administrator_students_models.dart';
+import '../../events/data/event_repository.dart' show holidayNameOn;
 import '../domain/principal_attendance_models.dart';
 
 class PrincipalSubjectAttendanceSummary {
@@ -56,11 +57,16 @@ class PrincipalAttendanceSnapshot {
     required this.biometricEvents,
     required this.permissions,
     required this.pendingBiometricMutations,
+    this.holidayName,
   });
 
   /// Daily/gate presence evidence. This is intentionally separate from
   /// [subjectLessons], which represents attendance in a specific lesson period.
   final List<PrincipalClassAttendance> classes;
+
+  /// The real holiday declared for today, from a real school-wide calendar entry - null on an
+  /// ordinary school day.
+  final String? holidayName;
   final List<PrincipalSubjectAttendanceSummary> subjectLessons;
 
   /// Always empty: there is no real per-day staff check-in feed yet, only a
@@ -286,6 +292,11 @@ class PrincipalAttendanceRepository {
       ..sort((a, b) => b.capturedAt.compareTo(a.capturedAt));
     final pendingBiometricMutations =
         eventRecords.where((record) => record.isDirty).length;
+    final holidayName = await holidayNameOn(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      date: schoolDay(DateTime.now()),
+    );
 
     return PrincipalAttendanceSnapshot(
       classes: classes,
@@ -296,6 +307,7 @@ class PrincipalAttendanceRepository {
       biometricEvents: biometricEvents,
       permissions: permissionsFor(membership),
       pendingBiometricMutations: pendingBiometricMutations,
+      holidayName: holidayName,
     );
   }
 

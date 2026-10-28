@@ -43,10 +43,11 @@ class PrincipalPerformanceRepository {
   bool canView(SchoolMembership membership) => membership.role == SchoolRole.principal;
 
   Future<int?> _studentAttendance() async {
-    final classes = (await _attendance.load()).classes;
-    final total = classes.fold<int>(0, (sum, row) => sum + row.total);
+    final snapshot = await _attendance.load();
+    if (snapshot.holidayName != null) return null; // no attendance is expected on a declared holiday
+    final total = snapshot.classes.fold<int>(0, (sum, row) => sum + row.total);
     if (total == 0) return null;
-    final present = classes.fold<int>(0, (sum, row) => sum + row.present);
+    final present = snapshot.classes.fold<int>(0, (sum, row) => sum + row.present);
     return (present * 100 / total).round();
   }
 

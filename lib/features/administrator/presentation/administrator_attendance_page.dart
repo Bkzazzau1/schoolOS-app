@@ -41,6 +41,7 @@ class _AdministratorAttendancePageState
   List<AdministratorAttendanceDevice> _devices = const [];
   List<AdministratorAttendanceCorrection> _corrections = const [];
   AdministratorAttendancePermissions? _permissions;
+  String? _holidayName;
 
   @override
   void initState() {
@@ -65,6 +66,7 @@ class _AdministratorAttendancePageState
         _devices = snapshot.devices;
         _corrections = snapshot.corrections;
         _permissions = snapshot.permissions;
+        _holidayName = snapshot.holidayName;
         _loading = false;
       });
     } catch (error) {
@@ -207,6 +209,10 @@ class _AdministratorAttendancePageState
               onCheckIn: (_permissions?.canReviewCorrections ?? false) ? _checkInByHand : null,
             ),
             const SizedBox(height: 18),
+            if (_holidayName != null) ...[
+              _HolidayNotice(holidayName: _holidayName!),
+              const SizedBox(height: 16),
+            ],
             _Kpis(desk: _desk!),
             const SizedBox(height: 16),
             const _FlowCard(),
@@ -386,6 +392,31 @@ class _Kpis extends StatelessWidget {
       ],
     );
   }
+}
+
+class _HolidayNotice extends StatelessWidget {
+  const _HolidayNotice({required this.holidayName});
+
+  final String holidayName;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        color: Theme.of(context).colorScheme.secondaryContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(children: [
+            const Icon(Icons.beach_access_outlined),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Today is a declared holiday ($holidayName). No attendance is expected; the numbers below reflect '
+                'whatever scans actually came in, if any.',
+              ),
+            ),
+          ]),
+        ),
+      );
 }
 
 class _FlowCard extends StatelessWidget {

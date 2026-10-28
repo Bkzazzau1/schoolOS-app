@@ -2,6 +2,7 @@ import '../../../core/database/local_database.dart';
 import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../events/data/event_repository.dart' show holidayNameOn;
 import '../domain/administrator_attendance_models.dart';
 import '../domain/administrator_students_models.dart';
 import 'administrator_attendance_demo_data.dart';
@@ -13,12 +14,17 @@ class AdministratorAttendanceSnapshot {
     required this.devices,
     required this.corrections,
     required this.permissions,
+    this.holidayName,
   });
 
   final List<AdministratorAttendanceEvent> events;
   final List<AdministratorAttendanceDevice> devices;
   final List<AdministratorAttendanceCorrection> corrections;
   final AdministratorAttendancePermissions permissions;
+
+  /// The real holiday declared for today, from a real school-wide calendar entry - null on an
+  /// ordinary school day.
+  final String? holidayName;
 }
 
 class AdministratorAttendanceRepository {
@@ -98,11 +104,18 @@ class AdministratorAttendanceRepository {
     devices.sort((a, b) =>
         (deviceOrder[a.name] ?? 9999).compareTo(deviceOrder[b.name] ?? 9999));
 
+    final holidayName = await holidayNameOn(
+      _localDatabase,
+      tenantId: membership.schoolId,
+      date: today,
+    );
+
     return AdministratorAttendanceSnapshot(
       events: events,
       devices: devices,
       corrections: corrections,
       permissions: permissionsFor(membership),
+      holidayName: holidayName,
     );
   }
 
