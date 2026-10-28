@@ -419,6 +419,15 @@ class AdministratorAcademicsSnapshot {
       .where((item) => item.sessionId == sessionId && item.status == 'active')
       .firstOrNull;
 
+  /// "2026/2027 · Term 1", or just the session name with no active term yet.
+  /// Null when no session has been marked active at all.
+  String? get activeAcademicLabel {
+    final session = activeSession;
+    if (session == null) return null;
+    final term = activeTermFor(session.id);
+    return term == null ? session.name : '${session.name} · ${term.name}';
+  }
+
   List<AdministratorClassSubject> subjectsForClass(
     String sessionId,
     String classId,

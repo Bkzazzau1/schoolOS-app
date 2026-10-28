@@ -184,6 +184,40 @@ class PrincipalAcademicsRepository {
     return '';
   }
 
+  /// "2026/2027 · Term 1", or just the session name with no active term yet.
+  /// Null when no session has been marked active at all.
+  Future<String?> activeAcademicLabel(String schoolId) async {
+    final sessionRecords = await _localDatabase.getLocalRecords(
+      tenantId: schoolId,
+      entityType: _sessionType,
+    );
+    Map<String, Object?>? activeSession;
+    for (final record in sessionRecords) {
+      if (record.payload['status'] == 'active') {
+        activeSession = record.payload;
+        break;
+      }
+    }
+    if (activeSession == null) return null;
+    final sessionName = activeSession['name'] as String? ?? '';
+    final sessionId = activeSession['id'] as String? ?? '';
+
+    final termRecords = await _localDatabase.getLocalRecords(
+      tenantId: schoolId,
+      entityType: _termType,
+    );
+    Map<String, Object?>? activeTerm;
+    for (final record in termRecords) {
+      final payload = record.payload;
+      if (payload['sessionId'] == sessionId && payload['status'] == 'active') {
+        activeTerm = payload;
+        break;
+      }
+    }
+    final termName = activeTerm?['name'] as String? ?? '';
+    return termName.isEmpty ? sessionName : '$sessionName · $termName';
+  }
+
   Future<Map<String, TeacherSyllabusProgressRecord>> _progressByTopic(
     String schoolId,
   ) async {

@@ -66,7 +66,7 @@ class _PrincipalPerformancePageState extends State<PrincipalPerformancePage> {
       children: [
         _Header(onNavigate: widget.onNavigate),
         const SizedBox(height: 16),
-        _CurrentTermNotice(),
+        _CurrentTermNotice(activeAcademicLabel: snapshot.activeAcademicLabel),
         const SizedBox(height: 16),
         _Hero(snapshot: snapshot),
         const SizedBox(height: 16),
@@ -120,24 +120,29 @@ class _Header extends StatelessWidget {
 }
 
 class _CurrentTermNotice extends StatelessWidget {
-  const _CurrentTermNotice();
+  const _CurrentTermNotice({required this.activeAcademicLabel});
+
+  final String? activeAcademicLabel;
 
   @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(children: [
-            const Icon(Icons.info_outline),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                'This scorecard reflects the current term only. Nothing in the app stores a snapshot at the end of a term yet, so a previous-term or same-term-last-year comparison is not available.',
-              ),
+  Widget build(BuildContext context) {
+    final scope = activeAcademicLabel ?? 'the current term';
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          const Icon(Icons.info_outline),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'This scorecard reflects $scope only. Nothing in the app stores a snapshot at the end of a term yet, so a previous-term or same-term-last-year comparison is not available.',
             ),
-          ]),
-        ),
-      );
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
 class _Hero extends StatelessWidget {

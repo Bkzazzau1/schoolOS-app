@@ -79,6 +79,7 @@ class PrincipalPerformanceRepository {
     final studentAttendance = await _studentAttendance();
     final teacherAttendance = await _teacherAttendance();
     final resolvedIncidents = await _resolvedIncidents();
+    final activeAcademicLabel = await _academics.activeAcademicLabel(membership.schoolId);
 
     final metrics = [
       PrincipalPerformanceMetric(
@@ -143,6 +144,7 @@ class PrincipalPerformanceRepository {
       metrics: metrics,
       classHealth: classHealth,
       priorities: const [],
+      activeAcademicLabel: activeAcademicLabel,
     );
   }
 }

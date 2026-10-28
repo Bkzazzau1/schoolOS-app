@@ -58,11 +58,16 @@ class PrincipalPerformanceSnapshot {
     required this.metrics,
     required this.classHealth,
     required this.priorities,
+    this.activeAcademicLabel,
   });
 
   final List<PrincipalPerformanceMetric> metrics;
   final List<PrincipalClassHealth> classHealth;
   final List<PrincipalPerformancePriority> priorities;
+
+  /// "2026/2027 · Term 1", from the real active academic session/term - null
+  /// when none has been marked active yet.
+  final String? activeAcademicLabel;
 
   /// The mean target-progress across metrics that actually have real evidence, as a whole
   /// percentage. `null` when no metric has any evidence yet.

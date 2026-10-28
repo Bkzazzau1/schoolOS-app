@@ -84,6 +84,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
 
   String _activeKey = 'dashboard';
   int _pendingSyncCount = 0;
+  String? _activeAcademicLabel;
   AdmissionApplicant? _registrationApplicant;
   late final AdministratorAcademicsRepository _academicsRepository;
   late final AdministratorAdmissionsRepository _admissionsRepository;
@@ -167,10 +168,14 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
       schoolSession: widget.schoolSession,
     );
     _refreshPendingCount();
+    _refreshActiveAcademicLabel();
   }
 
   @override
-  void onSynced() => _refreshPendingCount();
+  void onSynced() {
+    _refreshPendingCount();
+    _refreshActiveAcademicLabel();
+  }
 
   void _refreshPendingCount() {
     final count = widget.localDatabase.pendingCount(
@@ -179,6 +184,16 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
     if (!mounted) return;
     setState(() => _pendingSyncCount = count);
   }
+
+  Future<void> _refreshActiveAcademicLabel() async {
+    final snapshot = await _academicsRepository.load();
+    if (!mounted) return;
+    setState(() => _activeAcademicLabel = snapshot.activeAcademicLabel);
+  }
+
+  String get _scopeLabel => _activeAcademicLabel == null
+      ? administratorScopeLabel
+      : '$administratorScopeLabel · $_activeAcademicLabel';
 
   Future<void> _openSyncCenter() async {
     await Navigator.of(context).push(
@@ -481,12 +496,12 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 12),
             children: [
-              const ListTile(
-                title: Text(
+              ListTile(
+                title: const Text(
                   'Administration',
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
-                subtitle: Text(administratorScopeLabel),
+                subtitle: Text(_scopeLabel),
               ),
               const Divider(),
               for (final item in _navigation)
@@ -565,9 +580,9 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                                 ),
                               ),
                               const SizedBox(height: 3),
-                              const Text(
-                                administratorScopeLabel,
-                                style: TextStyle(fontSize: 12),
+                              Text(
+                                _scopeLabel,
+                                style: const TextStyle(fontSize: 12),
                               ),
                             ],
                           ),
@@ -616,7 +631,7 @@ class _AdministratorWorkspacePageState extends State<AdministratorWorkspacePage>
                                 'Administration Workspace',
                                 style: TextStyle(fontWeight: FontWeight.w900),
                               ),
-                              const Text(administratorScopeLabel),
+                              Text(_scopeLabel),
                             ],
                           ),
                         ),
