@@ -4462,3 +4462,40 @@ it as the owner) - the widget test caught a genuine layout bug (the entry list's
 status chip, approve/decline - overflowed `ListTile`'s fixed trailing slot; now a full-width `Card` layout).
 `flutter analyze` clean; full suite diffed by exact failure name against the documented baseline: zero new
 failures.
+
+## Report cards get a real PDF, and a Windows build regression gets caught and fixed
+
+Two earlier audit claims turned out stale before any code was written here, each caught by verifying directly
+rather than trusting the claim: "Principal two-way messaging" and "Report cards" were both already real,
+complete, tested features (the former had its own later doc section documenting completion; the latter - a full
+`apps.report_cards` backend plus Administrator/Principal/Teacher/Student/Parent Flutter integration - the earlier
+audit simply never found). The one genuine gap in report cards was narrower than claimed: there was no way to
+turn a compiled card into an actual document.
+
+**`buildReportCardPdf`** (`lib/features/administrator/domain/report_card_pdf.dart`) renders one on the device
+itself, from a `ReportCard` already synced locally - no new backend endpoint, and it works offline, since the
+sync pull already carries everything a given role may see (`apps/report_cards/visibility.py`). Every field on
+the document is real: student identity, subject lines, overall average/grade, class position, attendance,
+class-teacher and Principal comments, release date. A card that is not yet `released` can still be rendered (an
+Administrator previewing one before release) but carries a visible "NOT YET RELEASED" banner so it is never
+mistaken for the school's official copy - there is no school address/motto concept anywhere in the app yet, so
+the document uses only the school's real name and logo. `Printing.layoutPdf` (the `printing` package) hands off
+to the platform's own print/share/save sheet uniformly across Android/iOS/Windows. Wired into Student, Parent and
+Administrator; Principal's review view was left alone since reviewing an unreleased card isn't really a
+"give me the PDF" moment.
+
+**A real Windows build regression, caught before it reached anyone.** Adding `firebase_core`/`firebase_messaging`
+earlier this session (for push notifications) was never followed by an actual `flutter build windows` - only
+`flutter analyze`/`flutter test`, neither of which builds native Windows artifacts. `firebase_core` does declare
+Windows plugin support (contrary to what was assumed when it was added), and its bundled `firebase_cpp_sdk_windows`
+ships a `CMakeLists.txt` whose own `cmake_minimum_required` predates what modern CMake still accepts - failing the
+configure step outright, on every Windows build since that commit. `CMAKE_POLICY_VERSION_MINIMUM=3.5` works around
+it (verified with both a debug and the exact release-build command CI runs); added to the CI `release-build` job's
+environment so it does not fail there either.
+
+**Verification.** New `test/report_card_pdf_test.dart`: a released card with real subject lines renders as a
+real, non-empty PDF (its own `%PDF-` header, not just "didn't throw"); a subject with no recorded score, a
+class-teacher/Principal comment, a still-draft card, and a supplied school logo all render without error.
+`flutter analyze` clean; full suite diffed by exact failure name against the documented baseline: zero new
+failures. Windows: both `flutter build windows --debug` and the real CI release-build command verified locally
+with the CMake fix in place.
