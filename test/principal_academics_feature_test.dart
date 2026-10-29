@@ -18,6 +18,8 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_academics_fixtures.dart';
+import 'core/real_staff_fixtures.dart';
 import 'core/real_student_fixtures.dart';
 
 const principal = SchoolMembership(id: 'm-principal', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.principal);
@@ -28,7 +30,7 @@ void main() {
   late PrincipalAcademicsRepository principalAcademics;
   late PrincipalAssignmentsRepository principalAssignments;
 
-  Future<void> setUpSchool() async {
+  Future<void> setUpSchool({bool withCurriculum = false}) async {
     final database = LocalDatabase(cipher: PayloadCipher(secureStorage: MemorySecureStorage()), databasePath: ':memory:');
     await database.initialize();
     db = database;
@@ -36,6 +38,25 @@ void main() {
     await session.setMemberships([principal]);
     await session.selectSchool(principal);
     await seedClassicRoster(database, tenantId: principal.schoolId);
+    if (withCurriculum) {
+      await seedClassicStaff(database, tenantId: principal.schoolId);
+      await seedRealTeacherProfile(database, tenantId: principal.schoolId, staffId: 'STAFF-001');
+      final classSubjectIds = await seedSecondaryMathematicsCurriculum(database, tenantId: principal.schoolId);
+      await seedCurriculumTopic(
+        database,
+        tenantId: principal.schoolId,
+        className: 'JSS 2A',
+        classSubjectId: classSubjectIds['JSS 2A']!,
+        reportedStatus: 'completed',
+      );
+      await seedCurriculumTopic(
+        database,
+        tenantId: principal.schoolId,
+        className: 'JSS 2B',
+        classSubjectId: classSubjectIds['JSS 2B']!,
+        reportedStatus: 'behind',
+      );
+    }
     final students = AdministratorStudentsRepository(localDatabase: database, schoolSession: session);
     principalAssignments = PrincipalAssignmentsRepository(
       localDatabase: database,
@@ -146,7 +167,7 @@ void main() {
   });
 
   test('a class with an approved scheme of work reports real syllabus coverage; one without stays honestly at 0', () async {
-    await setUpSchool();
+    await setUpSchool(withCurriculum: true);
     final snapshot = await principalAcademics.load();
     final jss2a = snapshot.classes.singleWhere((c) => c.name == 'JSS 2A');
     expect(jss2a.hasSyllabusScheme, isTrue);
@@ -167,7 +188,7 @@ void main() {
   });
 
   test('a real teaching assignment is reflected in the real teacher count for that class', () async {
-    await setUpSchool();
+    await setUpSchool(withCurriculum: true);
     final result = await principalAssignments.addAssignment(className: 'JSS 2B', subject: 'Mathematics', teacherId: 'STAFF-001', periodsPerWeek: 5);
     expect(result.success, isTrue, reason: result.message);
     final snapshot = await principalAcademics.load();

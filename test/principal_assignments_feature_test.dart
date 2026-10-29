@@ -11,6 +11,9 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_academics_fixtures.dart';
+import 'core/real_staff_fixtures.dart';
+import 'core/real_student_fixtures.dart';
 
 const principal = SchoolMembership(id: 'm-principal', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.principal);
 const teacher = SchoolMembership(id: 'm-teacher', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
@@ -26,6 +29,17 @@ void main() {
     db = database;
     session = SchoolSessionController(store: FakeSessionStore());
     await session.setMemberships([principal, teacher]);
+    await seedClassicRoster(database, tenantId: principal.schoolId);
+    await seedClassicStaff(database, tenantId: principal.schoolId);
+    await seedRealTeacherProfile(database, tenantId: principal.schoolId, staffId: 'STAFF-001');
+    await seedRealStaff(database, tenantId: principal.schoolId, id: 'STAFF-014', name: 'Mr. Ahmad Sani', role: 'Teacher', section: 'Secondary');
+    await seedRealTeacherProfile(database, tenantId: principal.schoolId, staffId: 'STAFF-014');
+    await seedSecondaryMathematicsCurriculum(
+      database,
+      tenantId: principal.schoolId,
+      classNames: const ['JSS 1', 'JSS 2', 'JSS 2A', 'JSS 2B', 'JSS 3A', 'SS1A', 'SS2A', 'SS2B', 'SS3A'],
+      mathematicsFor: const ['JSS 2B'],
+    );
     await session.selectSchool(who);
     principalAssignments = PrincipalAssignmentsRepository(
       localDatabase: database,
@@ -124,7 +138,7 @@ void main() {
     // and must not appear here.
     expect(snapshot.teachers.map((t) => t.name).toSet(), {'Mrs. Amina Yusuf', 'Mr. Ahmad Sani'});
     for (final t in snapshot.teachers) {
-      expect(t.department, 'Not recorded yet');
+      expect(t.department, 'Subject qualification not classified');
       expect(t.weeklyPeriods, 0, reason: 'no assignments exist yet');
       expect(t.provisional, isFalse);
     }
@@ -186,16 +200,15 @@ void main() {
     expect(after.transfers.single.toTeacherId, 'STAFF-014');
   });
 
-  test('a transfer to a new provisional staff member creates a real provisional teacher record', () async {
+  test('a transfer can only ever go to an already-activated real Teacher account, never a new name', () async {
     await setUpSchool();
     await principalAssignments.addAssignment(className: 'JSS 2B', subject: 'Mathematics', teacherId: 'STAFF-001', periodsPerWeek: 5);
     final assignmentId = (await principalAssignments.load()).assignments.single.id;
     final result = await principalAssignments.transferAssignment(assignmentId: assignmentId, newStaffName: 'Mrs. Zainab Lawal', reason: 'STAFF-001 on leave');
-    expect(result.success, isTrue, reason: result.message);
+    expect(result.success, isFalse);
+    expect(result.message, contains('Activate the staff member as a Teacher'));
     final after = await principalAssignments.load();
-    final target = after.teachers.singleWhere((t) => t.name == 'Mrs. Zainab Lawal');
-    expect(target.provisional, isTrue);
-    expect(after.assignments.single.teacherId, target.id);
+    expect(after.assignments.single.teacherId, 'STAFF-001', reason: 'the refused transfer must leave the real assignment untouched');
   });
 
   test('only the principal may create or transfer Secondary teaching assignments', () async {

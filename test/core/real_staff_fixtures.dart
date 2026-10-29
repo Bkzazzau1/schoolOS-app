@@ -3,6 +3,8 @@ import 'package:schoolos_app/features/administrator/data/administrator_staff_att
 import 'package:schoolos_app/features/administrator/data/administrator_staff_repository.dart';
 import 'package:schoolos_app/features/administrator/domain/administrator_staff_attendance_models.dart';
 import 'package:schoolos_app/features/administrator/domain/administrator_staff_models.dart';
+import 'package:schoolos_app/features/proprietor/data/owner_staff_profile_repository.dart';
+import 'package:schoolos_app/features/proprietor/domain/owner_staff_profile_models.dart';
 
 /// Writes a real staff directory entry, the same real entity [AdministratorStaffRepository.load]
 /// merges into the directory. Tests use this instead of the fabricated directory seed that used to
@@ -47,6 +49,27 @@ Future<void> seedRealStaffAttendance(
     payload: StaffAttendanceRecord(
       id: id, name: name, role: role, section: section,
       expected: expected, present: present, leave: leave, late: late, unexplained: unexplained, status: status,
+    ).toJson(),
+  );
+}
+
+/// Links a real staff directory entry to a real (teacher) membership - the same real
+/// `owner_staff_profile` field `PrincipalAssignmentsRepository._secondaryTeachers` requires
+/// before that person can be chosen as a teaching-assignment teacher.
+Future<void> seedRealTeacherProfile(
+  LocalDatabase db, {
+  required String tenantId,
+  required String staffId,
+  String? linkedMembershipId,
+}) async {
+  await db.upsertLocalRecord(
+    tenantId: tenantId,
+    entityType: OwnerStaffProfileRepository.entityType,
+    entityId: staffId,
+    payload: StaffProfile(
+      staffId: staffId,
+      linkedMembershipId: linkedMembershipId ?? staffId,
+      systemRole: 'teacher',
     ).toJson(),
   );
 }

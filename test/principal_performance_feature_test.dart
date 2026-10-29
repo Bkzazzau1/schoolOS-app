@@ -18,6 +18,8 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
+import 'core/real_academics_fixtures.dart';
+import 'core/real_staff_fixtures.dart';
 import 'core/real_student_fixtures.dart';
 
 const principal = SchoolMembership(id: 'm-principal', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.principal);
@@ -28,7 +30,7 @@ void main() {
   late SchoolSessionController session;
   late PrincipalPerformanceRepository performance;
 
-  Future<void> setUpSchool([SchoolMembership who = principal]) async {
+  Future<void> setUpSchool([SchoolMembership who = principal, bool withCurriculum = false]) async {
     final database = LocalDatabase(cipher: PayloadCipher(secureStorage: MemorySecureStorage()), databasePath: ':memory:');
     await database.initialize();
     db = database;
@@ -36,6 +38,17 @@ void main() {
     await session.setMemberships([principal, teacher]);
     await session.selectSchool(principal);
     await seedClassicRoster(database, tenantId: principal.schoolId);
+    if (withCurriculum) {
+      await seedClassicStaff(database, tenantId: principal.schoolId);
+      final classSubjectIds = await seedSecondaryMathematicsCurriculum(database, tenantId: principal.schoolId);
+      await seedCurriculumTopic(
+        database,
+        tenantId: principal.schoolId,
+        className: 'JSS 2A',
+        classSubjectId: classSubjectIds['JSS 2A']!,
+        reportedStatus: 'completed',
+      );
+    }
     await session.selectSchool(who);
     final students = AdministratorStudentsRepository(localDatabase: database, schoolSession: session);
     final assignments = PrincipalAssignmentsRepository(
@@ -71,7 +84,7 @@ void main() {
   tearDown(() => db?.close());
 
   test('a fresh demo school only shows evidence for indicators with an always-real source', () async {
-    await setUpSchool();
+    await setUpSchool(principal, true);
     final snapshot = await performance.load();
     // Student/teacher attendance and syllabus coverage are already backed by real deterministic
     // demo data (today's gate scans, a default staff attendance record, the fixed approved
