@@ -4,6 +4,8 @@ import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_ai_repository.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_assignment_repository.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_roster.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_ai_models.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
@@ -11,7 +13,7 @@ import 'package:schoolos_app/shared/models/school_membership.dart';
 import 'core/backend_test_support.dart';
 import 'core/local_database_queue_test.dart' show MemorySecureStorage;
 
-// Has JSS 2A, JSS 2B and SS1A assigned in TeacherRoster's demo data (not JSS 3A).
+// Has JSS 2A and JSS 2B assigned in TeacherRoster's demo data (not JSS 3A or SS1A).
 const mathsTeacher = SchoolMembership(id: 'membership-teacher-003', schoolId: 'school-1', schoolName: 'BrightGate', role: SchoolRole.teacher);
 
 // Has no demo class assignment at all.
@@ -34,7 +36,13 @@ void main() {
       session: session,
       students: AdministratorStudentsRepository(localDatabase: db, schoolSession: session),
     );
-    ai = TeacherAiRepository(localDatabase: db, schoolSession: session, roster: roster);
+    ai = TeacherAiRepository(
+      localDatabase: db,
+      schoolSession: session,
+      roster: roster,
+      assignments: TeacherAssignmentRepository(localDatabase: db, schoolSession: session),
+      assessments: TeacherAssessmentRepository(localDatabase: db, schoolSession: session, roster: roster),
+    );
   }
 
   tearDown(() => db.close());
@@ -42,11 +50,10 @@ void main() {
   test('working contexts are limited to the teacher\'s real assigned classes', () async {
     await setUpSchool(mathsTeacher);
     final snapshot = await ai.load();
-    // JSS 3A Mathematics is not offered: this teacher isn't assigned JSS 3A.
+    // JSS 3A and SS1A Further Mathematics are not offered: this teacher is assigned neither.
     expect(snapshot.contextOptions, [
       TeacherAiContext.jss2aMathematics,
       TeacherAiContext.jss2bMathematics,
-      TeacherAiContext.ss1aFurtherMathematics,
     ]);
   });
 

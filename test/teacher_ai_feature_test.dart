@@ -6,6 +6,8 @@ import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
 import 'package:schoolos_app/features/administrator/data/administrator_students_repository.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_ai_demo_data.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_ai_repository.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_assessment_repository.dart';
+import 'package:schoolos_app/features/teacher/data/teacher_assignment_repository.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_roster.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_ai_models.dart';
 import 'package:schoolos_app/features/teacher/presentation/teacher_ai_page.dart';
@@ -33,7 +35,13 @@ void main() {
       session: session,
       students: AdministratorStudentsRepository(localDatabase: db, schoolSession: session),
     );
-    final repository = TeacherAiRepository(localDatabase: db, schoolSession: session, roster: roster);
+    final repository = TeacherAiRepository(
+      localDatabase: db,
+      schoolSession: session,
+      roster: roster,
+      assignments: TeacherAssignmentRepository(localDatabase: db, schoolSession: session),
+      assessments: TeacherAssessmentRepository(localDatabase: db, schoolSession: session, roster: roster),
+    );
 
     final snapshot = await repository.load();
     expect(snapshot.history, isEmpty);
@@ -61,7 +69,7 @@ void main() {
     );
   });
 
-  test('Teacher AI preserves four website tools and three suggested actions', () {
+  test('Teacher AI preserves four website tools', () {
     expect(teacherAiTools, hasLength(4));
     expect(teacherAiTools.map((item) => item.title), [
       'Lesson planner',
@@ -75,10 +83,6 @@ void main() {
       'assessments',
       'students',
     ]);
-    expect(teacherAiSuggestedActions, hasLength(3));
-    expect(teacherAiSuggestedActions[0].destination, 'syllabus');
-    expect(teacherAiSuggestedActions[1].destination, 'assessments');
-    expect(teacherAiSuggestedActions[2].destination, 'assignments');
   });
 
   test('Teacher AI preserves initial website history and response contract', () {
@@ -180,13 +184,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('connected to a real backend, the fictional suggested actions never appear',
+  testWidgets('with nothing real pending, the suggested-actions card says so honestly',
       (tester) async {
     tester.view.physicalSize = const Size(1400, 4000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    addTearDown(() => LocalDatabase.blockDemoSeeds = false);
-    LocalDatabase.blockDemoSeeds = true;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -199,9 +201,44 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Today’s suggested actions'), findsNothing);
-    expect(find.text('Teacher AI governance'), findsOneWidget);
+    expect(find.text('Today’s suggested actions'), findsOneWidget);
+    expect(find.text('Nothing needs your attention right now.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a real suggested action is shown and routes to its real destination',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    String? destination;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TeacherAiPage(
+            repository: _FakeTeacherAiRepository(
+              suggestedActions: const [
+                TeacherAiSuggestedAction(
+                  title: 'Fractions quiz · JSS 2B',
+                  description: '3 submissions still need marking.',
+                  destination: 'assignments',
+                  actionLabel: 'Open assignments',
+                ),
+              ],
+            ),
+            onNavigate: (value) => destination = value,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fractions quiz · JSS 2B'), findsOneWidget);
+    expect(find.text('3 submissions still need marking.'), findsOneWidget);
+    expect(find.text('Nothing needs your attention right now.'), findsNothing);
+    await tester.tap(find.widgetWithText(TextButton, 'Open assignments'));
+    await tester.pump();
+    expect(destination, 'assignments');
   });
 
   testWidgets('Teacher AI prompt generates review-only response and history',
@@ -338,7 +375,10 @@ class _EmptyFakeTeacherAiRepository implements TeacherAiRepository {
 }
 
 class _FakeTeacherAiRepository implements TeacherAiRepository {
+  _FakeTeacherAiRepository({this.suggestedActions = const []});
+
   String? lastPrompt;
+  final List<TeacherAiSuggestedAction> suggestedActions;
 
   @override
   TeacherAiPermissions permissionsFor(SchoolMembership membership) {
@@ -370,6 +410,7 @@ class _FakeTeacherAiRepository implements TeacherAiRepository {
             role: SchoolRole.teacher,
           ),
         ),
+        suggestedActions: suggestedActions,
       );
 
   @override
