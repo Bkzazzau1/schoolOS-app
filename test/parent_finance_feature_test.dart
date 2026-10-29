@@ -354,6 +354,8 @@ void main() {
       // Separate section, separate figures: never folded into "Your children"'s manual-ledger totals.
       expect(find.text('Outstanding'), findsWidgets);
       expect(find.text('Your children'), findsOneWidget);
+      // A receipt is offered for the payment that still counts, never for the reversed one.
+      expect(find.text('Download receipt'), findsOneWidget);
     });
 
     testWidgets('with no payments yet, verified collections says so honestly rather than showing nothing', (tester) async {

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 
 import '../../../shared/models/school_membership.dart';
 import '../../bankconnect/presentation/bank_widgets.dart' show describeBankError;
 import '../../familyfees/data/family_fees_api.dart';
 import '../../familyfees/domain/family_fees_models.dart';
+import '../domain/verified_payment_receipt_pdf.dart';
 
 /// What Smart Money Collection has actually verified for this family - read straight from the same
 /// virtual-account ledger Finance Office's own Collections screen reads, never from a locally-editable
@@ -115,7 +117,7 @@ class _VerifiedCollectionsCardState extends State<VerifiedCollectionsCard> {
               if (families.length > 1) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(each.family.displayName, style: const TextStyle(fontWeight: FontWeight.w900))),
               _PositionSummary(position: each.family.position),
               const SizedBox(height: 10),
-              _PaymentsList(payments: each.payments),
+              _PaymentsList(payments: each.payments, schoolName: widget.membership.schoolName, familyName: each.family.displayName),
               if (each != families.last) const SizedBox(height: 16),
             ],
           ],
@@ -157,8 +159,10 @@ class _PositionSummary extends StatelessWidget {
 }
 
 class _PaymentsList extends StatelessWidget {
-  const _PaymentsList({required this.payments});
+  const _PaymentsList({required this.payments, required this.schoolName, required this.familyName});
   final List<FamilyVerifiedPayment> payments;
+  final String schoolName;
+  final String familyName;
 
   @override
   Widget build(BuildContext context) {
@@ -204,6 +208,17 @@ class _PaymentsList extends StatelessWidget {
                   if (payment.creditMinor > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Held as family credit · ${_money(payment.creditMinor)}')),
                   if (payment.unappliedMinor > 0)
                     Padding(padding: const EdgeInsets.only(top: 4), child: Text('Not yet applied · ${_money(payment.unappliedMinor)}', style: TextStyle(color: scheme.error))),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => Printing.layoutPdf(
+                        onLayout: (format) => buildVerifiedPaymentReceiptPdf(payment: payment, schoolName: schoolName, familyName: familyName),
+                        name: 'Receipt - $familyName - ${payment.dateLabel}',
+                      ),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                      label: const Text('Download receipt'),
+                    ),
+                  ),
                 ] else
                   const Padding(
                     padding: EdgeInsets.only(top: 4),
