@@ -4583,3 +4583,41 @@ someone appointed to one campus cannot see or manage another's data - `campusIso
 `owner_campuses.dart` already states this as the intended principle, but it remains unenforced guidance, not
 access control. That would touch permission checks broadly (students, staff, attendance, fees) and was scoped out
 as a separate, larger decision.
+
+## Teacher AI's "suggested actions" becomes real
+
+An audit of the last remaining backlog item, "Teacher AI suggested actions," found Teacher AI itself was already a
+full, shipped feature (chat workspace, real class-context filtering, prompt history, four tool cards, a
+governance boundary) - only its "Today's suggested actions" card was ever fake: three hardcoded items (one a
+fabricated "strong improvement" claim with no real evidence behind it), explicitly labeled "generated from
+fictional demo data," and hidden entirely once connected to a real backend since nothing real existed to show in
+its place.
+
+It now computes two genuinely real flags from `TeacherAiRepository._suggestedActions()`, reusing the same
+`TeacherAssignmentRepository`/`TeacherAssessmentRepository` every other real Teacher screen already reads: a
+published assignment with unmarked submissions, and a published assessment with incomplete score entry. With
+neither, the card now says "Nothing needs your attention right now" instead of disappearing - the same
+honest-rather-than-hidden choice Principal Performance already established for its own metrics.
+
+**Deliberately left out: a "class is behind on the syllabus" signal**, and worth a dedicated look before anyone
+builds on it. `TeacherSyllabusSnapshot.isBehind()` (`teacher_syllabus_repository.dart`) has `if (canonical) return
+false` as its first line - `canonical` is true on any real backend, so this always reports "not behind" there,
+full stop. The backend has a real, registered handler for the exact entity type the Flutter client already reads
+(`teacher_syllabus_progress`, confirmed matching `apps.lesson_delivery.SyllabusProgressHandler`), and the commit
+that added the guard explains the intent was for progress to become *derived* from real lesson-delivery evidence
+on a real backend rather than teacher self-report (`canReportCoverage` is disabled there too, pointing teachers
+to "Lesson Plans & Delivery" instead) - but whether that derivation ever actually writes a `behind` status the
+client could trust was not confirmed, and the blanket guard reads like a leftover from before derivation was
+reliable, never revisited. Not investigated further or changed this pass; see the matching memory note.
+
+Tests: `teacher_ai_feature_test.dart`'s widget tests replace the old "fictional actions never appear on a real
+backend" check with "an empty real list says so honestly" and "a real one appears and routes correctly"; a new
+`teacher_ai_suggested_actions_test.dart` seeds real assignment/assessment records straight through their own
+model's `toJson()` (so the real repositories' own `fromJson` parsing is exercised too, not just the aggregation)
+and covers: a real unmarked/incomplete item appears with the right wording; a fully-marked, draft, fully-entered
+or released one doesn't; another teacher's real records are never leaked into this teacher's suggestions. Fixed
+in passing: `teacher_ai_roster_test.dart` had a stale assertion (and matching comment) claiming its fixture
+teacher was assigned SS1A Further Mathematics; the real demo roster only ever had JSS 2A and JSS 2B. A genuine,
+deterministic pre-existing failure (confirmed unrelated to this change by stashing it out), now corrected to
+match the real fixture. Full suite diffed by failure name against the documented baseline: one fewer failure
+(the fixed test), zero new ones.
