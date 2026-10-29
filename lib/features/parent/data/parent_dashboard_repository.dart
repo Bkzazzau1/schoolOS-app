@@ -89,7 +89,6 @@ class ParentDashboardRepository {
           ),
     ];
 
-    final mandate = financeSnapshot.mandate;
     final finance = ParentFinanceSnapshot(
       totalBilled: financeSnapshot.children.fold<int>(0, (sum, account) => sum + account.grossFees),
       totalPaid: financeSnapshot.children.fold<int>(0, (sum, account) => sum + account.paidAmount),
@@ -101,9 +100,11 @@ class ParentDashboardRepository {
             balance: account.balance,
           ),
       ],
-      nextScheduledDebit: mandate.enabled ? mandate.monthlyAmount : 0,
-      nextScheduledDebitLabel:
-          mandate.enabled ? '${mandate.debitDay} · ${mandate.collectionMethod}' : _notRecorded,
+      // No real source gives a fixed "next scheduled debit": Direct Debit mandates authorise what a
+      // provider may collect, not a recurring amount on a fixed day (see apps.mandates). Honestly empty,
+      // the same as reminderHistory and storeOrders above.
+      nextScheduledDebit: 0,
+      nextScheduledDebitLabel: _notRecorded,
     );
 
     final messages = <ParentMessagePreview>[

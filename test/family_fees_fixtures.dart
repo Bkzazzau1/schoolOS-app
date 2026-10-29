@@ -32,11 +32,40 @@ Map<String, Object?> payAccountJson({
   };
 }
 
+Map<String, Object?> familyPositionJson({
+  int grossMinor = 30000000,
+  int adjustmentsMinor = 0,
+  int netMinor = 30000000,
+  int paidMinor = 2000000,
+  int outstandingMinor = 28000000,
+  int overdueMinor = 0,
+  int arrearsMinor = 0,
+  int currentMinor = 28000000,
+  int creditMinor = 0,
+  int collectibleMinor = 28000000,
+  int charges = 3,
+}) =>
+    {
+      'grossMinor': grossMinor,
+      'adjustmentsMinor': adjustmentsMinor,
+      'netMinor': netMinor,
+      'paidMinor': paidMinor,
+      'outstandingMinor': outstandingMinor,
+      'overdueMinor': overdueMinor,
+      'arrearsMinor': arrearsMinor,
+      'currentMinor': currentMinor,
+      'creditMinor': creditMinor,
+      'collectibleMinor': collectibleMinor,
+      'charges': charges,
+      'currency': 'NGN',
+    };
+
 Map<String, Object?> myFamilyJson({
   String id = 'fam-1',
   String code = 'FAM-K7Q2M9XA',
   String name = 'Bello family',
   List<Map<String, Object?>> accounts = const [],
+  Map<String, Object?>? position,
 }) =>
     {
       'id': id,
@@ -46,11 +75,49 @@ Map<String, Object?> myFamilyJson({
       'createdAt': '2026-09-01T09:00:00+01:00',
       'mergedInto': null,
       'mergedAt': null,
-      'position': {'outstandingMinor': 28000000, 'currency': 'NGN'},
+      'position': position ?? familyPositionJson(),
       'collectionAccounts': accounts,
     };
 
 Map<String, Object?> myFamiliesJson(List<Map<String, Object?>> families) => {'families': families};
+
+Map<String, Object?> verifiedAllocationJson({
+  String studentId = 'stu-1',
+  String studentName = 'Ahmad Bello',
+  String purpose = 'tuition',
+  int amountMinor = 12000000,
+  String item = 'Tuition',
+}) =>
+    {'studentId': studentId, 'studentName': studentName, 'purpose': purpose, 'amountMinor': amountMinor, 'receivableId': 'rec-1', 'item': item};
+
+Map<String, Object?> verifiedPaymentJson({
+  String transactionId = 'tx-1',
+  String date = '2026-10-12T09:30:00+01:00',
+  String provider = 'paystack',
+  String reference = 'PSK-4471',
+  int amountMinor = 12000000,
+  String status = 'matched',
+  bool countsTowardBalance = true,
+  List<Map<String, Object?>>? allocations,
+  int allocatedMinor = 12000000,
+  int creditMinor = 0,
+  int unappliedMinor = 0,
+}) =>
+    {
+      'transactionId': transactionId,
+      'date': date,
+      'provider': provider,
+      'reference': reference,
+      'amountMinor': amountMinor,
+      'status': status,
+      'countsTowardBalance': countsTowardBalance,
+      'allocations': allocations ?? [verifiedAllocationJson()],
+      'allocatedMinor': allocatedMinor,
+      'creditMinor': creditMinor,
+      'unappliedMinor': unappliedMinor,
+    };
+
+Map<String, Object?> verifiedPaymentsJson(List<Map<String, Object?>> payments) => {'payments': payments};
 
 Map<String, Object?> familyRowJson({
   String id = 'fam-1',

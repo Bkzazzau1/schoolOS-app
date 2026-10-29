@@ -6,16 +6,7 @@ import '../data/parent_finance_demo_data.dart';
 import '../data/parent_finance_repository.dart';
 import '../domain/parent_finance_models.dart';
 import 'family_payment_accounts_card.dart';
-
-// The real choices a guardian can actually pick for a payment mandate. A fresh family's real mandate
-// preference honestly reads "Not recorded yet" for collectionMethod (no real one has ever been
-// configured) — that value is correct for a read-only display, but it is not a selectable option here,
-// so initializing the picker to it would crash. The dropdown always falls back to a real option instead.
-const _mandateDebitDays = ['5th', '10th', '15th', '20th', '25th', '28th'];
-const _mandateCollectionMethods = [
-  'Bank direct debit · preview',
-  'Salary-linked collection · preview',
-];
+import 'verified_collections_card.dart';
 
 class ParentFinancePage extends StatefulWidget {
   const ParentFinancePage({
@@ -34,14 +25,8 @@ class ParentFinancePage extends StatefulWidget {
 class _ParentFinancePageState extends State<ParentFinancePage> {
   late Future<ParentFinanceViewData> _future;
   bool _controlsInitialized = false;
-  bool _autoPay = true;
-  String _debitDay = '25th';
-  String _mandateAmount = '30000';
-  String _collectionMethod = 'Bank direct debit · preview';
   final Map<String, bool> _selectedAccounts = <String, bool>{};
   final Map<String, String> _payAmounts = <String, String>{};
-  bool _savingMandate = false;
-  String? _notice;
 
   @override
   void initState() {
@@ -52,14 +37,6 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
   Future<ParentFinanceViewData> _load() async {
     final data = await widget.repository.load();
     if (!_controlsInitialized) {
-      _autoPay = data.snapshot.mandate.enabled;
-      _debitDay = _mandateDebitDays.contains(data.snapshot.mandate.debitDay)
-          ? data.snapshot.mandate.debitDay
-          : _mandateDebitDays.first;
-      _mandateAmount = data.snapshot.mandate.monthlyAmount.toString();
-      _collectionMethod = _mandateCollectionMethods.contains(data.snapshot.mandate.collectionMethod)
-          ? data.snapshot.mandate.collectionMethod
-          : _mandateCollectionMethods.first;
       for (final child in data.snapshot.children) {
         _selectedAccounts[child.id] = true;
         _payAmounts[child.id] = child.balance.toString();
@@ -81,42 +58,6 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$label copied')),
     );
-  }
-
-  Future<void> _saveMandate() async {
-    if (_savingMandate) return;
-    final amount = int.tryParse(_mandateAmount.trim());
-    if (amount == null || amount < 0) {
-      setState(() => _notice = 'Enter a valid monthly mandate amount.');
-      return;
-    }
-
-    setState(() {
-      _savingMandate = true;
-      _notice = null;
-    });
-    try {
-      await widget.repository.saveMandatePreference(
-        ParentPaymentMandatePreference(
-          enabled: _autoPay,
-          monthlyAmount: amount,
-          debitDay: _debitDay,
-          collectionMethod: _collectionMethod,
-        ),
-      );
-      widget.onQueueChanged();
-      if (!mounted) return;
-      setState(() {
-        _notice =
-            'Payment mandate preference saved locally and queued for synchronization. This does not create a real debit instruction.';
-      });
-      await _refresh();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _notice = error.toString().replaceFirst('Bad state: ', ''));
-    } finally {
-      if (mounted) setState(() => _savingMandate = false);
-    }
   }
 
   void _openReminders(ParentFinanceSnapshot snapshot) {
@@ -185,15 +126,13 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
                   ),
                   const SizedBox(height: 18),
                   _FinanceKpis(snapshot: snapshot),
-                  if (_notice != null) ...[
-                    const SizedBox(height: 14),
-                    _Callout(text: _notice!),
-                  ],
                   const SizedBox(height: 14),
                   FamilyPaymentAccountsCard(
                     membership: widget.repository.activeMembership,
                     onCopy: _copy,
                   ),
+                  const SizedBox(height: 14),
+                  VerifiedCollectionsCard(membership: widget.repository.activeMembership),
                   const SizedBox(height: 14),
                   DirectDebitCard(membership: widget.repository.activeMembership),
                   const SizedBox(height: 14),
@@ -211,26 +150,7 @@ class _ParentFinancePageState extends State<ParentFinancePage> {
                     onCopyTotal: combinedTotal > 0 ? () => _copy(combinedTotal.toString(), 'Total') : null,
                   ),
                   const SizedBox(height: 14),
-                  _ResponsivePair(
-                    left: _ChildBalancesCard(snapshot: snapshot),
-                    right: _MandateCard(
-                      autoPay: _autoPay,
-                      debitDay: _debitDay,
-                      amount: _mandateAmount,
-                      collectionMethod: _collectionMethod,
-                      queued: data.mandateQueued,
-                      saving: _savingMandate,
-                      onAutoPayChanged: (value) =>
-                          setState(() => _autoPay = value),
-                      onDebitDayChanged: (value) =>
-                          setState(() => _debitDay = value),
-                      onAmountChanged: (value) =>
-                          setState(() => _mandateAmount = value),
-                      onCollectionMethodChanged: (value) =>
-                          setState(() => _collectionMethod = value),
-                      onSave: _saveMandate,
-                    ),
-                  ),
+                  _ChildBalancesCard(snapshot: snapshot),
                   const SizedBox(height: 14),
                   _UpcomingReminderCard(
                     reminders: snapshot.reminders,
@@ -574,114 +494,6 @@ class _ChildBalancesCard extends StatelessWidget {
             text:
                 'You can pay smaller amounts at any time. If a payment is more than you owe, the extra is kept as credit for your family. '
                 'For a very large payment, arrange it with the school\'s Finance Office first.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MandateCard extends StatelessWidget {
-  const _MandateCard({
-    required this.autoPay,
-    required this.debitDay,
-    required this.amount,
-    required this.collectionMethod,
-    required this.queued,
-    required this.saving,
-    required this.onAutoPayChanged,
-    required this.onDebitDayChanged,
-    required this.onAmountChanged,
-    required this.onCollectionMethodChanged,
-    required this.onSave,
-  });
-
-  final bool autoPay;
-  final String debitDay;
-  final String amount;
-  final String collectionMethod;
-  final bool queued;
-  final bool saving;
-  final ValueChanged<bool> onAutoPayChanged;
-  final ValueChanged<String> onDebitDayChanged;
-  final ValueChanged<String> onAmountChanged;
-  final ValueChanged<String> onCollectionMethodChanged;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    const days = _mandateDebitDays;
-    const methods = _mandateCollectionMethods;
-    return _SectionCard(
-      title: 'Automatic payment mandate',
-      subtitle: 'Optional recurring collection preference connected to the school-fee ledger.',
-      trailing: queued
-          ? const Chip(
-              avatar: Icon(Icons.schedule_send_outlined, size: 16),
-              label: Text('Queued'),
-            )
-          : null,
-      child: Column(
-        children: [
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: autoPay,
-            onChanged: onAutoPayChanged,
-            title: const Text('Automatic monthly charge'),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            initialValue: amount,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Monthly amount',
-              prefixText: '₦',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: onAmountChanged,
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: debitDay,
-            decoration: const InputDecoration(
-              labelText: 'Preferred debit day',
-              border: OutlineInputBorder(),
-            ),
-            items: [for (final day in days) DropdownMenuItem(value: day, child: Text(day))],
-            onChanged: (value) {
-              if (value != null) onDebitDayChanged(value);
-            },
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: collectionMethod,
-            decoration: const InputDecoration(
-              labelText: 'Collection method',
-              border: OutlineInputBorder(),
-            ),
-            items: [for (final method in methods) DropdownMenuItem(value: method, child: Text(method))],
-            onChanged: (value) {
-              if (value != null) onCollectionMethodChanged(value);
-            },
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: saving ? null : onSave,
-              icon: saving
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(saving ? 'Saving…' : 'Save payment mandate preference'),
-            ),
-          ),
-          const SizedBox(height: 10),
-          const _Callout(
-            text:
-                'This is a parent-authorized preference. Saving it locally or queuing it for sync does not create a real debit instruction.',
           ),
         ],
       ),

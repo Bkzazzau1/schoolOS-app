@@ -1,5 +1,4 @@
 import '../../../core/database/local_database.dart';
-import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../../finance_office/data/finance_aging.dart' show reminderLevelNames;
@@ -12,19 +11,18 @@ import 'parent_children_repository.dart';
 const _notRecorded = 'Not recorded yet';
 
 class ParentFinanceRepository {
+  /// [localDatabase] is accepted for constructor consistency with every other Parent repository, even
+  /// though this one only ever reads through the real ledger and children repositories below and never
+  /// touches the local database directly itself.
   ParentFinanceRepository({
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
     required ParentChildrenRepository children,
     required FinanceLedgerRepository ledger,
-  })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession,
+  })  : _schoolSession = schoolSession,
         _children = children,
         _ledger = ledger;
 
-  static const _mandateEntityType = 'parent_finance_mandate_preference';
-
-  final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
   final ParentChildrenRepository _children;
   final FinanceLedgerRepository _ledger;
@@ -118,28 +116,11 @@ class ParentFinanceRepository {
       }
     }
 
-    final mandateRecord = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _mandateEntityType,
-      entityId: membership.id,
-    );
-    final mandate = mandateRecord == null
-        ? const ParentPaymentMandatePreference(
-            enabled: false,
-            monthlyAmount: 0,
-            debitDay: '25th',
-            collectionMethod: _notRecorded,
-          )
-        : ParentPaymentMandatePreference.fromJson(
-            Map<String, dynamic>.from(mandateRecord.payload['preference'] as Map? ?? const <String, dynamic>{}),
-          );
-
     final snapshot = ParentFinanceSnapshot(
       familyAccountId: membership.id,
       academicPeriod: _notRecorded,
       children: childAccounts,
       ledger: ledgerEntries,
-      mandate: mandate,
       reminders: parentReminders,
       // No real source tracks multiple delivery attempts/channels per reminder.
       reminderHistory: const [],
@@ -149,74 +130,7 @@ class ParentFinanceRepository {
       storeOrders: const [],
     );
 
-    return ParentFinanceViewData(
-      snapshot: snapshot,
-      mandateQueued: mandateRecord?.isDirty ?? false,
-    );
-  }
-
-  Future<String> saveMandatePreference(
-    ParentPaymentMandatePreference preference,
-  ) async {
-    final membership = _requireParentMembership();
-    _validateMandate(preference);
-
-    final existing = await _localDatabase.getLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _mandateEntityType,
-      entityId: membership.id,
-    );
-    final payload = <String, Object?>{
-      'membershipId': membership.id,
-      'schoolId': membership.schoolId,
-      'preference': preference.toJson(),
-      'updatedAt': DateTime.now().toUtc().toIso8601String(),
-      'state': 'queued',
-    };
-
-    await _localDatabase.upsertLocalRecord(
-      tenantId: membership.schoolId,
-      entityType: _mandateEntityType,
-      entityId: membership.id,
-      payload: payload,
-      serverVersion: existing?.serverVersion,
-      isDirty: true,
-    );
-
-    return _localDatabase.queueMutation(
-      tenantId: membership.schoolId,
-      membershipId: membership.id,
-      entityType: _mandateEntityType,
-      entityId: membership.id,
-      operation: SyncOperation.update,
-      payload: payload,
-      baseVersion: existing?.serverVersion,
-    );
-  }
-
-  void _validateMandate(ParentPaymentMandatePreference preference) {
-    const allowedDays = {'5th', '10th', '15th', '20th', '25th', '28th'};
-    if (preference.monthlyAmount < 0) {
-      throw ArgumentError.value(
-        preference.monthlyAmount,
-        'monthlyAmount',
-        'Monthly amount cannot be negative.',
-      );
-    }
-    if (!allowedDays.contains(preference.debitDay)) {
-      throw ArgumentError.value(
-        preference.debitDay,
-        'debitDay',
-        'Unsupported preferred debit day.',
-      );
-    }
-    if (preference.collectionMethod.trim().isEmpty) {
-      throw ArgumentError.value(
-        preference.collectionMethod,
-        'collectionMethod',
-        'Collection method is required.',
-      );
-    }
+    return ParentFinanceViewData(snapshot: snapshot);
   }
 
   /// The signed-in parent's membership, for the screens that ask the school's server about their family.

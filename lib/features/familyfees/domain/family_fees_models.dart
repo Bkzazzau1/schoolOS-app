@@ -84,24 +84,155 @@ class FamilyPayAccount {
   String get bankLabel => bankName.isNotEmpty ? bankName : provider;
 }
 
+/// A family's real, verified financial position - worked out live from Smart Money Collection and the
+/// school's fee ledger, never remembered. The same figures Finance Office's own tools read.
+class FamilyPosition {
+  const FamilyPosition({
+    required this.grossMinor,
+    required this.adjustmentsMinor,
+    required this.netMinor,
+    required this.paidMinor,
+    required this.outstandingMinor,
+    required this.overdueMinor,
+    required this.arrearsMinor,
+    required this.currentMinor,
+    required this.creditMinor,
+    required this.collectibleMinor,
+    required this.charges,
+    required this.currency,
+  });
+
+  factory FamilyPosition.fromJson(Map<String, dynamic> json) => FamilyPosition(
+        grossMinor: (json['grossMinor'] as num?)?.toInt() ?? 0,
+        adjustmentsMinor: (json['adjustmentsMinor'] as num?)?.toInt() ?? 0,
+        netMinor: (json['netMinor'] as num?)?.toInt() ?? 0,
+        paidMinor: (json['paidMinor'] as num?)?.toInt() ?? 0,
+        outstandingMinor: (json['outstandingMinor'] as num?)?.toInt() ?? 0,
+        overdueMinor: (json['overdueMinor'] as num?)?.toInt() ?? 0,
+        arrearsMinor: (json['arrearsMinor'] as num?)?.toInt() ?? 0,
+        currentMinor: (json['currentMinor'] as num?)?.toInt() ?? 0,
+        creditMinor: (json['creditMinor'] as num?)?.toInt() ?? 0,
+        collectibleMinor: (json['collectibleMinor'] as num?)?.toInt() ?? 0,
+        charges: (json['charges'] as num?)?.toInt() ?? 0,
+        currency: json['currency'] as String? ?? 'NGN',
+      );
+
+  final int grossMinor;
+  final int adjustmentsMinor;
+  final int netMinor;
+  final int paidMinor;
+  final int outstandingMinor;
+  final int overdueMinor;
+  final int arrearsMinor;
+  final int currentMinor;
+  final int creditMinor;
+  final int collectibleMinor;
+  final int charges;
+  final String currency;
+}
+
 /// A family the signed-in parent's children belong to, and where it pays.
 class MyFamily {
-  const MyFamily({required this.id, required this.code, required this.displayName, required this.accounts});
+  const MyFamily({required this.id, required this.code, required this.displayName, required this.accounts, required this.position});
 
   factory MyFamily.fromJson(Map<String, dynamic> json) => MyFamily(
         id: json['id'] as String? ?? '',
         code: json['code'] as String? ?? '',
         displayName: json['displayName'] as String? ?? '',
         accounts: [for (final a in readMaps(json['collectionAccounts'])) FamilyPayAccount.fromJson(a)],
+        position: FamilyPosition.fromJson(readMap(json['position'])),
       );
 
   final String id;
   final String code;
   final String displayName;
   final List<FamilyPayAccount> accounts;
+  final FamilyPosition position;
 
   /// The accounts a payer can use right now.
   List<FamilyPayAccount> get payable => [for (final a in accounts) if (a.canPay) a];
+}
+
+/// One real allocation within a verified payment: where (some of) it went.
+class FamilyVerifiedAllocation {
+  const FamilyVerifiedAllocation({
+    required this.studentId,
+    required this.studentName,
+    required this.purpose,
+    required this.amountMinor,
+    required this.item,
+  });
+
+  factory FamilyVerifiedAllocation.fromJson(Map<String, dynamic> json) => FamilyVerifiedAllocation(
+        studentId: json['studentId'] as String? ?? '',
+        studentName: json['studentName'] as String? ?? '',
+        purpose: json['purpose'] as String? ?? '',
+        amountMinor: (json['amountMinor'] as num?)?.toInt() ?? 0,
+        item: json['item'] as String? ?? '',
+      );
+
+  final String studentId;
+  final String studentName;
+  final String purpose;
+  final int amountMinor;
+  final String item;
+}
+
+/// One real payment that is, or was, part of a family's Smart Money Collection history - the same payments
+/// Finance Office's own Collections screen shows, read through the family's own ledger. A payment that was
+/// reversed, refunded or found to be a duplicate still appears here: [countsTowardBalance] says whether it
+/// does, never its absence.
+class FamilyVerifiedPayment {
+  const FamilyVerifiedPayment({
+    required this.transactionId,
+    required this.date,
+    required this.provider,
+    required this.reference,
+    required this.amountMinor,
+    required this.status,
+    required this.countsTowardBalance,
+    required this.allocations,
+    required this.allocatedMinor,
+    required this.creditMinor,
+    required this.unappliedMinor,
+  });
+
+  factory FamilyVerifiedPayment.fromJson(Map<String, dynamic> json) => FamilyVerifiedPayment(
+        transactionId: json['transactionId'] as String? ?? '',
+        date: json['date'] as String? ?? '',
+        provider: json['provider'] as String? ?? '',
+        reference: json['reference'] as String? ?? '',
+        amountMinor: (json['amountMinor'] as num?)?.toInt() ?? 0,
+        status: json['status'] as String? ?? '',
+        countsTowardBalance: json['countsTowardBalance'] == true,
+        allocations: [for (final a in readMaps(json['allocations'])) FamilyVerifiedAllocation.fromJson(a)],
+        allocatedMinor: (json['allocatedMinor'] as num?)?.toInt() ?? 0,
+        creditMinor: (json['creditMinor'] as num?)?.toInt() ?? 0,
+        unappliedMinor: (json['unappliedMinor'] as num?)?.toInt() ?? 0,
+      );
+
+  final String transactionId;
+  final String date;
+  final String provider;
+  final String reference;
+  final int amountMinor;
+  final String status;
+  final bool countsTowardBalance;
+  final List<FamilyVerifiedAllocation> allocations;
+  final int allocatedMinor;
+  final int creditMinor;
+  final int unappliedMinor;
+
+  String get dateLabel => date.split('T').first;
+
+  /// Words for a parent, never a raw status code.
+  String get statusLabel => switch (status) {
+        'matched' || 'partially_matched' => 'Confirmed',
+        'reversed' => 'Reversed',
+        'refunded' => 'Refunded',
+        'duplicate' => 'Held as a possible duplicate',
+        _ => 'Under review',
+      };
 }
 
 // -- the school's side -------------------------------------------------------------------------------------------

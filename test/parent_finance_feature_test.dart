@@ -13,7 +13,6 @@ import 'package:schoolos_app/features/familyfees/data/family_fees_api.dart';
 import 'package:schoolos_app/features/finance_office/data/finance_ledger_repository.dart';
 import 'package:schoolos_app/features/parent/data/parent_children_repository.dart';
 import 'package:schoolos_app/features/parent/data/parent_finance_repository.dart';
-import 'package:schoolos_app/features/parent/domain/parent_finance_models.dart';
 import 'package:schoolos_app/features/parent/presentation/parent_finance_page.dart';
 import 'package:schoolos_app/features/proprietor/data/concession_repository.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
@@ -166,35 +165,13 @@ void main() {
     expect(view.snapshot.storeOrders, isEmpty);
   });
 
-  test('a fresh family has no mandate set up, honestly disabled rather than a fabricated active one', () async {
-    await setUpFamily();
-    final view = await finance.load();
-    expect(view.snapshot.mandate.enabled, isFalse);
-    expect(view.mandateQueued, isFalse);
-  });
-
-  test('saving a mandate preference round-trips and queues for sync', () async {
-    await setUpFamily();
-    await finance.saveMandatePreference(const ParentPaymentMandatePreference(
-      enabled: true,
-      monthlyAmount: 20000,
-      debitDay: '25th',
-      collectionMethod: 'Bank direct debit',
-    ));
-    final view = await finance.load();
-    expect(view.snapshot.mandate.enabled, isTrue);
-    expect(view.snapshot.mandate.monthlyAmount, 20000);
-    expect(view.mandateQueued, isTrue);
-    expect(db!.pendingCount(tenantId: parent.schoolId), greaterThan(0));
-  });
-
   test('only a Parent membership can load family finance', () async {
     await setUpFamily(teacher);
     expect(finance.load(), throwsStateError);
   });
 
   testWidgets(
-    'the page renders for a fresh family with no mandate configured, without crashing the mandate picker',
+    'the page renders for a fresh family with no linked children configured, without crashing',
     (tester) async {
       tester.view.physicalSize = const Size(1600, 4000);
       tester.view.devicePixelRatio = 1;
@@ -209,11 +186,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // A fresh family's real mandate honestly has no collection method configured
-      // ("Not recorded yet"), which is not one of the picker's own selectable options; the page must
-      // still render the picker with a real default instead of crashing on that mismatch.
-      expect(find.text('Automatic payment mandate'), findsOneWidget);
-      expect(find.text('Bank direct debit · preview'), findsOneWidget);
+      expect(find.text('Your children'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -326,8 +299,11 @@ void main() {
       expect(find.text('0123456789'), findsOneWidget);
     });
 
-    testWidgets('it asks the school\'s server for this parent\'s families and nothing else', (tester) async {
-      final server = FakeServer((_) => families([payAccountJson()]));
+    testWidgets('it asks the school\'s server only about this parent\'s own family, never another', (tester) async {
+      final server = FakeServer((request) async {
+        if (request.url.path.endsWith('/payments/')) return jsonResponse(verifiedPaymentsJson(const []));
+        return families([payAccountJson()]);
+      });
       tester.view.physicalSize = const Size(1600, 4000);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -339,10 +315,53 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final request = server.requests.single;
-      expect(request.method, 'GET');
-      expect(request.url.path, '/api/v1/schools/school-1/receivables/me/families/');
-      expect(request.url.queryParameters, {'membership': 'm-parent'});
+      // Two cards, both honestly scoped to this family: the payment accounts above, and verified
+      // collections below. Every request names this parent and this family, and nothing else.
+      for (final request in server.requests) {
+        expect(request.method, 'GET');
+        expect(request.url.path, startsWith('/api/v1/schools/school-1/receivables/me/families/'));
+        expect(request.url.queryParameters['membership'], 'm-parent');
+      }
+      expect(server.requests.map((r) => r.url.path), contains('/api/v1/schools/school-1/receivables/me/families/'));
+    });
+
+    testWidgets('verified collections are shown separately from the manual ledger, never added to it', (tester) async {
+      final server = FakeServer((request) async {
+        if (request.url.path.endsWith('/payments/')) {
+          return jsonResponse(verifiedPaymentsJson([
+            verifiedPaymentJson(),
+            verifiedPaymentJson(transactionId: 'tx-2', status: 'reversed', countsTowardBalance: false, allocations: const [], allocatedMinor: 0),
+          ]));
+        }
+        return families([payAccountJson()]);
+      });
+      tester.view.physicalSize = const Size(1600, 4000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await setUpFamily();
+      await tester.pumpWidget(
+        FamilyFeesScope(
+          api: FamilyFeesApi(api: apiFor(server)),
+          child: MaterialApp(home: Scaffold(body: ParentFinancePage(repository: finance, onQueueChanged: () {}))),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Verified Smart Money Collection'), findsOneWidget);
+      expect(find.byKey(const ValueKey('verified-payment-tx-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('verified-payment-tx-2')), findsOneWidget);
+      expect(find.text('This payment no longer counts toward your balance.'), findsOneWidget);
+      // Separate section, separate figures: never folded into "Your children"'s manual-ledger totals.
+      expect(find.text('Outstanding'), findsWidgets);
+      expect(find.text('Your children'), findsOneWidget);
+    });
+
+    testWidgets('with no payments yet, verified collections says so honestly rather than showing nothing', (tester) async {
+      await pumpPage(tester, server: (request) async {
+        if (request.url.path.endsWith('/payments/')) return jsonResponse(verifiedPaymentsJson(const []));
+        return families([payAccountJson()]);
+      });
+      expect(find.byKey(const ValueKey('verified-collections-no-payments')), findsOneWidget);
     });
 
     testWidgets('paying for several children at once gives one total to transfer, and no payment request is queued', (tester) async {

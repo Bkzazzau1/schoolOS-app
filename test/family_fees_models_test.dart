@@ -75,6 +75,33 @@ void main() {
       expect(f.accounts, hasLength(2));
       expect(f.payable.map((a) => a.id), ['acc-1']);
     });
+
+    test('a family\'s real financial position is parsed, not dropped', () {
+      final f = MyFamily.fromJson(myFamilyJson(position: familyPositionJson(outstandingMinor: 15000000, creditMinor: 500000)));
+      expect((f.position.outstandingMinor, f.position.creditMinor, f.position.currency), (15000000, 500000, 'NGN'));
+    });
+  });
+
+  group('a family\'s verified Smart Money Collection payments', () {
+    test('a fully matched payment carries its allocation and nothing unapplied', () {
+      final p = FamilyVerifiedPayment.fromJson(verifiedPaymentJson());
+      expect((p.amountMinor, p.status, p.countsTowardBalance, p.statusLabel), (12000000, 'matched', true, 'Confirmed'));
+      expect(p.allocations.single.studentName, 'Ahmad Bello');
+      expect((p.allocatedMinor, p.creditMinor, p.unappliedMinor), (12000000, 0, 0));
+    });
+
+    test('a reversed payment still appears, with no allocation and words that say it does not count', () {
+      final p = FamilyVerifiedPayment.fromJson(verifiedPaymentJson(
+        status: 'reversed', countsTowardBalance: false, allocations: const [], allocatedMinor: 0, creditMinor: 0, unappliedMinor: 0,
+      ));
+      expect((p.countsTowardBalance, p.statusLabel), (false, 'Reversed'));
+      expect(p.allocations, isEmpty);
+    });
+
+    test('an overpayment is shown as credit, never silently added to what was allocated', () {
+      final p = FamilyVerifiedPayment.fromJson(verifiedPaymentJson(amountMinor: 15000000, allocatedMinor: 12000000, creditMinor: 3000000));
+      expect((p.allocatedMinor, p.creditMinor, p.unappliedMinor), (12000000, 3000000, 0));
+    });
   });
 
   group('the school\'s view of families', () {

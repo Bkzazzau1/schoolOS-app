@@ -86,36 +86,6 @@ class ParentFinanceLedgerEntry {
       );
 }
 
-class ParentPaymentMandatePreference {
-  const ParentPaymentMandatePreference({
-    required this.enabled,
-    required this.monthlyAmount,
-    required this.debitDay,
-    required this.collectionMethod,
-  });
-
-  final bool enabled;
-  final int monthlyAmount;
-  final String debitDay;
-  final String collectionMethod;
-
-  Map<String, Object?> toJson() => {
-        'enabled': enabled,
-        'monthlyAmount': monthlyAmount,
-        'debitDay': debitDay,
-        'collectionMethod': collectionMethod,
-      };
-
-  factory ParentPaymentMandatePreference.fromJson(Map<String, dynamic> json) =>
-      ParentPaymentMandatePreference(
-        enabled: json['enabled'] as bool? ?? false,
-        monthlyAmount: (json['monthlyAmount'] as num? ?? 0).toInt(),
-        debitDay: json['debitDay'] as String? ?? '25th',
-        collectionMethod:
-            json['collectionMethod'] as String? ?? 'Bank direct debit · preview',
-      );
-}
-
 class ParentFeeReminder {
   const ParentFeeReminder({
     required this.childId,
@@ -321,7 +291,6 @@ class ParentFinanceSnapshot {
     required this.academicPeriod,
     required this.children,
     required this.ledger,
-    required this.mandate,
     required this.reminders,
     required this.reminderHistory,
     required this.receipts,
@@ -332,7 +301,6 @@ class ParentFinanceSnapshot {
   final String academicPeriod;
   final List<ParentFinanceChildAccount> children;
   final List<ParentFinanceLedgerEntry> ledger;
-  final ParentPaymentMandatePreference mandate;
   final List<ParentFeeReminder> reminders;
   final List<ParentFeeReminderHistoryEntry> reminderHistory;
   final List<ParentFinanceReceipt> receipts;
@@ -343,28 +311,11 @@ class ParentFinanceSnapshot {
   int get paidTotal => children.fold(0, (sum, child) => sum + child.paidAmount);
   int get outstandingTotal => children.fold(0, (sum, child) => sum + child.balance);
 
-  ParentFinanceSnapshot copyWith({
-    ParentPaymentMandatePreference? mandate,
-  }) {
-    return ParentFinanceSnapshot(
-      familyAccountId: familyAccountId,
-      academicPeriod: academicPeriod,
-      children: children,
-      ledger: ledger,
-      mandate: mandate ?? this.mandate,
-      reminders: reminders,
-      reminderHistory: reminderHistory,
-      receipts: receipts,
-      storeOrders: storeOrders,
-    );
-  }
-
   Map<String, Object?> toJson() => {
         'familyAccountId': familyAccountId,
         'academicPeriod': academicPeriod,
         'children': children.map((item) => item.toJson()).toList(),
         'ledger': ledger.map((item) => item.toJson()).toList(),
-        'mandate': mandate.toJson(),
         'reminders': reminders.map((item) => item.toJson()).toList(),
         'reminderHistory': reminderHistory.map((item) => item.toJson()).toList(),
         'receipts': receipts.map((item) => item.toJson()).toList(),
@@ -377,9 +328,6 @@ class ParentFinanceSnapshot {
         academicPeriod: json['academicPeriod'] as String,
         children: _list(json['children'], ParentFinanceChildAccount.fromJson),
         ledger: _list(json['ledger'], ParentFinanceLedgerEntry.fromJson),
-        mandate: ParentPaymentMandatePreference.fromJson(
-          Map<String, dynamic>.from(json['mandate'] as Map),
-        ),
         reminders: _list(json['reminders'], ParentFeeReminder.fromJson),
         reminderHistory: _list(
           json['reminderHistory'],
@@ -391,13 +339,9 @@ class ParentFinanceSnapshot {
 }
 
 class ParentFinanceViewData {
-  const ParentFinanceViewData({
-    required this.snapshot,
-    required this.mandateQueued,
-  });
+  const ParentFinanceViewData({required this.snapshot});
 
   final ParentFinanceSnapshot snapshot;
-  final bool mandateQueued;
 }
 
 List<T> _list<T>(

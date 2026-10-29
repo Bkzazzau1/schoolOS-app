@@ -21,10 +21,18 @@ class FamilyFeesApi {
 
   // -- a parent ------------------------------------------------------------------------------------------------
 
-  /// The families this parent's children belong to, each with the accounts it pays into.
+  /// The families this parent's children belong to, each with the accounts it pays into and its real,
+  /// verified financial position.
   Future<List<MyFamily>> myFamilies(SchoolMembership m) async {
     final data = readMap(await _api.get('${_base(m)}me/families/', query: _who(m)));
     return [for (final f in readMaps(data['families'])) MyFamily.fromJson(f)];
+  }
+
+  /// This family's real Smart Money Collection history: every payment that is, or ever was, part of its
+  /// ledger, with what it went towards. Never another family's.
+  Future<List<FamilyVerifiedPayment>> payments(SchoolMembership m, String familyId) async {
+    final data = readMap(await _api.get('${_base(m)}me/families/$familyId/payments/', query: _who(m)));
+    return [for (final p in readMaps(data['payments'])) FamilyVerifiedPayment.fromJson(p)];
   }
 
   // -- the school's finance side --------------------------------------------------------------------------------
