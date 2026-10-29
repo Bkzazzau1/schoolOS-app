@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/database/local_database.dart';
 import '../data/teacher_ai_demo_data.dart';
 import '../data/teacher_ai_repository.dart';
 import '../domain/teacher_ai_models.dart';
@@ -120,10 +119,8 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
                   ],
                   const SizedBox(height: 16),
                   _tools(context, constraints.maxWidth),
-                  if (!LocalDatabase.blockDemoSeeds) ...[
-                    const SizedBox(height: 16),
-                    _suggestedActions(context),
-                  ],
+                  const SizedBox(height: 16),
+                  _suggestedActions(context, snapshot.data!.suggestedActions),
                   const SizedBox(height: 16),
                   _governance(context),
                 ],
@@ -387,7 +384,7 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
     );
   }
 
-  Widget _suggestedActions(BuildContext context) => Card(
+  Widget _suggestedActions(BuildContext context, List<TeacherAiSuggestedAction> actions) => Card(
         elevation: 0,
         child: Padding(
           padding: const EdgeInsets.all(18),
@@ -399,23 +396,26 @@ class _TeacherAiPageState extends State<TeacherAiPage> {
                 style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
               ),
               const SizedBox(height: 3),
-              const Text('Suggestions generated from fictional demo data and teacher-authorized context.'),
+              const Text('Real flags from your own assignments and assessments - never generated or guessed.'),
               const SizedBox(height: 12),
-              for (final action in teacherAiSuggestedActions) ...[
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    action.title,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+              if (actions.isEmpty)
+                const Text('Nothing needs your attention right now.')
+              else
+                for (final action in actions) ...[
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      action.title,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(action.description),
+                    trailing: TextButton(
+                      onPressed: () => widget.onNavigate(action.destination),
+                      child: Text(action.actionLabel),
+                    ),
                   ),
-                  subtitle: Text(action.description),
-                  trailing: TextButton(
-                    onPressed: () => widget.onNavigate(action.destination),
-                    child: Text(action.actionLabel),
-                  ),
-                ),
-                if (action != teacherAiSuggestedActions.last) const Divider(height: 1),
-              ],
+                  if (action != actions.last) const Divider(height: 1),
+                ],
             ],
           ),
         ),

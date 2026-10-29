@@ -34,30 +34,6 @@ const teacherAiTools = <TeacherAiTool>[
   ),
 ];
 
-const teacherAiSuggestedActions = <TeacherAiSuggestedAction>[
-  TeacherAiSuggestedAction(
-    title: 'JSS 2B · curriculum pace',
-    description:
-        'Class is slightly behind plan. Consider a focused recovery lesson before introducing the next topic.',
-    destination: 'syllabus',
-    actionLabel: 'Review syllabus',
-  ),
-  TeacherAiSuggestedAction(
-    title: 'JSS 3A · strong improvement',
-    description:
-        'Latest demo assessment average is improving. Consider reinforcing the topics students mastered well.',
-    destination: 'assessments',
-    actionLabel: 'Open analytics',
-  ),
-  TeacherAiSuggestedAction(
-    title: 'Pending marking',
-    description:
-        'One assignment still has unmarked submissions in the demo queue.',
-    destination: 'assignments',
-    actionLabel: 'Open assignments',
-  ),
-];
-
 const teacherAiInitialResponse =
     'Your AI workspace is ready. Ask about your assigned classes, lesson preparation, assessments, interventions or communication.';
 
