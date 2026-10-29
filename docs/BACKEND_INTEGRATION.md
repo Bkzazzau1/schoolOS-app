@@ -4621,3 +4621,31 @@ teacher was assigned SS1A Further Mathematics; the real demo roster only ever ha
 deterministic pre-existing failure (confirmed unrelated to this change by stashing it out), now corrected to
 match the real fixture. Full suite diffed by failure name against the documented baseline: one fewer failure
 (the fixed test), zero new ones.
+
+## Two flagged items closed: the syllabus "behind" guard, and the teaching-assignment test fixtures
+
+**The stale `canonical` guard in `isBehind()` is gone.** Confirmed first, not just assumed: `apps.lesson_delivery
+.services.serialize_topic_progress` is the only place that ever writes a real `teacher_syllabus_progress` record,
+and it only ever writes `completed`/`inProgress` - nothing anywhere, backend or frontend, has ever computed a real
+"behind schedule" signal. So `if (canonical) return false` changed nothing in practice, but it was a hardcoded
+override that would keep suppressing a real signal forever even if one existed later, unless someone remembered
+this exact line. Removed; `isBehind()` now just evaluates the real rows unconditionally (behaviorally identical
+today). `principal_academics_repository.dart`'s matching hardcoded `syllabusBehind: false` got the same fix.
+Building the actual "behind schedule" computation (comparing a topic's timetable schedule against missing
+delivery evidence) remains a separate, unbuilt feature - not touched this pass.
+
+**The "add teaching assignment" failure was a test-fixture gap, not a product bug.**
+`PrincipalAssignmentsRepository.addAssignment` has required a real, canonical active curriculum since teaching
+assignments became curriculum-authoritative (an earlier, deliberate change) - a real school configures this
+through the Administrator's Academics screen first. Three test files' fixtures were simply never updated to seed
+one: `principal_academics_feature_test.dart`, `principal_performance_feature_test.dart` (two tests relying on the
+same curriculum/syllabus evidence), and `principal_assignments_feature_test.dart` (which turned out to have never
+seeded students or staff at all either - it predates the fabricated-directory seed's removal and was missed in
+that migration). New shared fixtures (`test/core/real_academics_fixtures.dart`: a real active session/term, class
+and class-subject records, curriculum topics with real syllabus progress; `seedRealTeacherProfile` added to
+`real_staff_fixtures.dart`) are seeded only where each specific test needs them, since sibling tests in the same
+files deliberately exercise the "nothing configured yet" case. Also found and fixed in passing: a transfer to a
+brand-new staff name is correctly refused today ("Activate the staff member as a Teacher before assigning
+subjects") - provisional-teacher creation via transfer was deliberately removed in the same curriculum-
+authoritative change, but one test still expected it to succeed; rewritten to assert the real refusal instead.
+Full suite diffed by failure name: 8 fewer failures, zero new ones.
