@@ -169,6 +169,7 @@ class CollectionPermissions {
     this.canManagePolicy = false,
     this.canPrepare = false,
     this.canApprove = false,
+    this.canDecideReconciliation = false,
   });
 
   factory CollectionPermissions.fromJson(Map<String, dynamic> json) => CollectionPermissions(
@@ -177,6 +178,7 @@ class CollectionPermissions {
         canManagePolicy: json['canManagePolicy'] == true,
         canPrepare: json['canPrepare'] == true,
         canApprove: json['canApprove'] == true,
+        canDecideReconciliation: json['canDecideReconciliation'] == true,
       );
 
   final bool canView;
@@ -184,6 +186,10 @@ class CollectionPermissions {
   final bool canManagePolicy;
   final bool canPrepare;
   final bool canApprove;
+
+  /// May change what a payment under review means (assign, split, mark a duplicate, reverse, refund,
+  /// reopen) - never implied by [canView] alone: seeing the queue is not deciding what is in it.
+  final bool canDecideReconciliation;
 }
 
 class ProvidersInfo {
