@@ -106,6 +106,7 @@ class AdministratorAcademicClass {
     required this.nextClassId,
     required this.isTerminal,
     required this.isActive,
+    this.campusId = '',
     this.pendingSync = false,
   });
 
@@ -118,6 +119,9 @@ class AdministratorAcademicClass {
   final String nextClassId;
   final bool isTerminal;
   final bool isActive;
+
+  /// A real campus id, or '' when this class has not been assigned to one yet.
+  final String campusId;
   final bool pendingSync;
 
   Map<String, Object?> toJson() => {
@@ -125,6 +129,7 @@ class AdministratorAcademicClass {
         'code': code,
         'name': name,
         'section': section,
+        'campusId': campusId,
         'levelOrder': levelOrder,
         'stream': stream,
         'nextClassId': nextClassId,
@@ -141,6 +146,7 @@ class AdministratorAcademicClass {
         code: json['code'] as String? ?? '',
         name: json['name'] as String? ?? '',
         section: json['section'] as String? ?? '',
+        campusId: json['campusId'] as String? ?? '',
         levelOrder: json['levelOrder'] as int? ?? 1,
         stream: json['stream'] as String? ?? '',
         nextClassId: json['nextClassId'] as String? ?? '',
