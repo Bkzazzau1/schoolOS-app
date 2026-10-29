@@ -173,11 +173,15 @@ class SubscriptionDetailsView extends StatelessWidget {
           runSpacing: 16,
           children: [
             _Metric(label: 'Plan', value: plan?.name ?? 'Plan not assigned'),
-            if (plan != null && plan.studentUnitAmountMinor > 0)
+            if (summary.pricingPreview != null)
               _Metric(
-                label: 'Price basis',
-                value:
-                    '${_money(plan.currency, plan.studentUnitAmountMinor)} / student',
+                label: summary.pricingPreview!.isMultiSchool
+                    ? 'Fixed fee (all schools)'
+                    : 'Fixed fee',
+                value: _money(
+                  summary.pricingPreview!.currency,
+                  summary.pricingPreview!.totalMinor,
+                ),
               ),
             _Metric(
               label: 'Billing cadence',
@@ -204,6 +208,10 @@ class SubscriptionDetailsView extends StatelessWidget {
               ),
           ],
         ),
+        if (summary.pricingPreview != null) ...[
+          const SizedBox(height: 10),
+          _PricingPreviewNote(preview: summary.pricingPreview!),
+        ],
         const SizedBox(height: 14),
         Text(
           _accessMessage(summary),
@@ -328,6 +336,73 @@ class SubscriptionDetailsView extends StatelessWidget {
         'The subscription is suspended. Existing local school data is preserved while the account is resolved.',
       _ => 'Subscription access state is not available.',
     };
+  }
+}
+
+/// What a school's fixed fee is based on - its enrollment bracket (or enterprise
+/// agreement) and, for an annual plan, the discount off the gross per-term total. Never the
+/// retired per-student calculation.
+class _PricingPreviewNote extends StatelessWidget {
+  const _PricingPreviewNote({required this.preview});
+
+  final PricingPreview preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+
+    if (preview.isMultiSchool) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final line in preview.lines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                '${_schoolFeeLine(line)} · ${_money(preview.currency, line.fixedFeeMinor)}',
+                style: style,
+              ),
+            ),
+          if (preview.hasDiscount) ...[
+            const SizedBox(height: 2),
+            Text(_discountLine(preview), style: style),
+          ],
+        ],
+      );
+    }
+
+    final line = preview.lines.isEmpty ? null : preview.lines.first;
+    if (line == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(_schoolFeeLine(line), style: style),
+        if (preview.hasDiscount) ...[
+          const SizedBox(height: 2),
+          Text(_discountLine(preview), style: style),
+        ],
+      ],
+    );
+  }
+
+  static String _schoolFeeLine(PricingPreviewLine line) {
+    final basis = line.pricingSource == 'enterprise'
+        ? 'enterprise agreement'
+        : line.bracketMaxStudents == null
+            ? '${line.bracketMinStudents ?? 0}+ students'
+            : '${line.bracketMinStudents ?? 0}–${line.bracketMaxStudents} students';
+    final term = line.termCount != null && line.termCount! > 1
+        ? ' · ${line.termCount} terms'
+        : '';
+    return 'Bracket: $basis$term';
+  }
+
+  static String _discountLine(PricingPreview preview) {
+    return 'Annual discount: -${_money(preview.currency, preview.discountMinor)} '
+        '(gross ${_money(preview.currency, preview.grossMinor)})';
   }
 }
 

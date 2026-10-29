@@ -44,6 +44,64 @@ class BillingPaymentAttempt {
       );
 }
 
+class BillingInvoiceLine {
+  const BillingInvoiceLine({
+    required this.id,
+    required this.schoolId,
+    required this.schoolName,
+    required this.billableStudentCount,
+    required this.currency,
+    required this.fixedFeeMinor,
+    required this.pricingSource,
+    required this.grossFeeMinor,
+    required this.discountMinor,
+    this.bracketMinStudents,
+    this.bracketMaxStudents,
+    this.termCount,
+  });
+
+  final String id;
+  final String schoolId;
+  final String schoolName;
+  final int billableStudentCount;
+  final String currency;
+  final int fixedFeeMinor;
+  final String pricingSource;
+  final int? bracketMinStudents;
+  final int? bracketMaxStudents;
+  final int grossFeeMinor;
+  final int discountMinor;
+  final int? termCount;
+
+  bool get isEnterprise => pricingSource == 'enterprise';
+
+  /// A short label for the bracket/agreement that set this line's fee -
+  /// never the retired per-student calculation.
+  String get pricingLabel {
+    if (isEnterprise) return 'Enterprise agreement';
+    final max = bracketMaxStudents;
+    final min = bracketMinStudents ?? 0;
+    return max == null ? '$min+ students' : '$min–$max students';
+  }
+
+  factory BillingInvoiceLine.fromJson(Map<String, dynamic> json) =>
+      BillingInvoiceLine(
+        id: json['id'] as String? ?? '',
+        schoolId: json['schoolId'] as String? ?? '',
+        schoolName: json['schoolName'] as String? ?? 'School',
+        billableStudentCount:
+            (json['billableStudentCount'] as num?)?.toInt() ?? 0,
+        currency: json['currency'] as String? ?? 'NGN',
+        fixedFeeMinor: (json['fixedFeeMinor'] as num?)?.toInt() ?? 0,
+        pricingSource: json['pricingSource'] as String? ?? 'bracket',
+        bracketMinStudents: (json['bracketMinStudents'] as num?)?.toInt(),
+        bracketMaxStudents: (json['bracketMaxStudents'] as num?)?.toInt(),
+        grossFeeMinor: (json['grossFeeMinor'] as num?)?.toInt() ?? 0,
+        discountMinor: (json['discountMinor'] as num?)?.toInt() ?? 0,
+        termCount: (json['termCount'] as num?)?.toInt(),
+      );
+}
+
 class BillingInvoice {
   const BillingInvoice({
     required this.id,
@@ -56,12 +114,16 @@ class BillingInvoice {
     required this.billableStudentCount,
     required this.amountDueMinor,
     required this.amountPaidMinor,
+    required this.grossAmountMinor,
+    required this.discountMinor,
     required this.issuedAt,
+    this.pricingMode,
     this.periodStart,
     this.periodEnd,
     this.dueAt,
     this.paidAt,
     this.paymentAttempts = const [],
+    this.lines = const [],
   });
 
   final String id;
@@ -74,12 +136,21 @@ class BillingInvoice {
   final int billableStudentCount;
   final int amountDueMinor;
   final int amountPaidMinor;
+  final int grossAmountMinor;
+  final int discountMinor;
+  final String? pricingMode;
   final DateTime issuedAt;
   final DateTime? periodStart;
   final DateTime? periodEnd;
   final DateTime? dueAt;
   final DateTime? paidAt;
   final List<BillingPaymentAttempt> paymentAttempts;
+  final List<BillingInvoiceLine> lines;
+
+  /// Fixed-bracket pricing (not the retired per-student calculation).
+  bool get isFixedBracketPriced => pricingMode == 'fixed_bracket';
+  bool get hasDiscount => discountMinor > 0;
+  bool get isMultiSchool => lines.length > 1;
 
   int get outstandingMinor {
     // amountDueMinor is trusted server data, but nothing upstream guarantees it
@@ -107,6 +178,11 @@ class BillingInvoice {
             (json['billableStudentCount'] as num?)?.toInt() ?? 0,
         amountDueMinor: (json['amountDueMinor'] as num?)?.toInt() ?? 0,
         amountPaidMinor: (json['amountPaidMinor'] as num?)?.toInt() ?? 0,
+        grossAmountMinor: (json['grossAmountMinor'] as num?)?.toInt() ??
+            (json['amountDueMinor'] as num?)?.toInt() ??
+            0,
+        discountMinor: (json['discountMinor'] as num?)?.toInt() ?? 0,
+        pricingMode: json['pricingMode'] as String?,
         issuedAt: DateTime.tryParse(json['issuedAt'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0),
         periodStart: json['periodStart'] is String
@@ -127,6 +203,11 @@ class BillingInvoice {
               BillingPaymentAttempt.fromJson(
                 Map<String, dynamic>.from(item),
               ),
+        ],
+        lines: [
+          for (final item in (json['lines'] as List? ?? const []))
+            if (item is Map)
+              BillingInvoiceLine.fromJson(Map<String, dynamic>.from(item)),
         ],
       );
 }

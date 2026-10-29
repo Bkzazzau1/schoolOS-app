@@ -308,6 +308,38 @@ class _InvoiceRow extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
+                if (invoice.hasDiscount) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Annual discount: -${_money(invoice.currency, invoice.discountMinor)} '
+                    '(gross ${_money(invoice.currency, invoice.grossAmountMinor)})',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                if (invoice.isMultiSchool) ...[
+                  const SizedBox(height: 6),
+                  for (final line in invoice.lines)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        '${line.schoolName}: ${_money(line.currency, line.fixedFeeMinor)} '
+                        '(${line.pricingLabel})',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                ] else if (invoice.lines.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    invoice.lines.first.pricingLabel,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -138,6 +138,72 @@ class BillingAutomation {
       );
 }
 
+class PricingPreviewLine {
+  const PricingPreviewLine({
+    required this.schoolId,
+    required this.billableStudentCount,
+    required this.fixedFeeMinor,
+    required this.pricingSource,
+    this.bracketMinStudents,
+    this.bracketMaxStudents,
+    this.termCount,
+  });
+
+  final String schoolId;
+  final int billableStudentCount;
+  final int fixedFeeMinor;
+  final String pricingSource;
+  final int? bracketMinStudents;
+  final int? bracketMaxStudents;
+  final int? termCount;
+
+  factory PricingPreviewLine.fromJson(Map<String, dynamic> json) =>
+      PricingPreviewLine(
+        schoolId: json['schoolId'] as String? ?? '',
+        billableStudentCount:
+            (json['billableStudentCount'] as num?)?.toInt() ?? 0,
+        fixedFeeMinor: (json['fixedFeeMinor'] as num?)?.toInt() ?? 0,
+        pricingSource: json['pricingSource'] as String? ?? 'bracket',
+        bracketMinStudents: (json['bracketMinStudents'] as num?)?.toInt(),
+        bracketMaxStudents: (json['bracketMaxStudents'] as num?)?.toInt(),
+        termCount: (json['termCount'] as num?)?.toInt(),
+      );
+}
+
+/// What the next invoice would charge, from the last roster count SkulGen has observed -
+/// a preview, not a bill: the real amount is only ever set when an invoice is actually
+/// issued. Null until SkulGen has captured at least one usage snapshot for this organization.
+class PricingPreview {
+  const PricingPreview({
+    required this.totalMinor,
+    required this.grossMinor,
+    required this.discountMinor,
+    required this.currency,
+    required this.lines,
+  });
+
+  final int totalMinor;
+  final int grossMinor;
+  final int discountMinor;
+  final String currency;
+  final List<PricingPreviewLine> lines;
+
+  bool get hasDiscount => discountMinor > 0;
+  bool get isMultiSchool => lines.length > 1;
+
+  factory PricingPreview.fromJson(Map<String, dynamic> json) => PricingPreview(
+        totalMinor: (json['totalMinor'] as num?)?.toInt() ?? 0,
+        grossMinor: (json['grossMinor'] as num?)?.toInt() ?? 0,
+        discountMinor: (json['discountMinor'] as num?)?.toInt() ?? 0,
+        currency: json['currency'] as String? ?? 'NGN',
+        lines: [
+          for (final item in (json['lines'] as List? ?? const []))
+            if (item is Map)
+              PricingPreviewLine.fromJson(Map<String, dynamic>.from(item)),
+        ],
+      );
+}
+
 class OrganizationSubscriptionSummary {
   const OrganizationSubscriptionSummary({
     required this.organizationId,
@@ -153,6 +219,7 @@ class OrganizationSubscriptionSummary {
     this.graceEndsAt,
     this.cancelAtPeriodEnd = false,
     this.automation = BillingAutomation.unavailable,
+    this.pricingPreview,
   });
 
   final String organizationId;
@@ -166,6 +233,7 @@ class OrganizationSubscriptionSummary {
   final DateTime? currentPeriodEnd;
   final DateTime? trialEndsAt;
   final DateTime? graceEndsAt;
+  final PricingPreview? pricingPreview;
   final bool cancelAtPeriodEnd;
   final BillingAutomation automation;
 
@@ -224,6 +292,11 @@ class OrganizationSubscriptionSummary {
               Map<String, dynamic>.from(json['automation'] as Map),
             )
           : BillingAutomation.unavailable,
+      pricingPreview: json['pricingPreview'] is Map
+          ? PricingPreview.fromJson(
+              Map<String, dynamic>.from(json['pricingPreview'] as Map),
+            )
+          : null,
     );
   }
 }
