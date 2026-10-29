@@ -191,6 +191,45 @@ void main() {
     },
   );
 
+  testWidgets('a manual ledger receipt and a verified collection coexist, shown separately, never summed', (tester) async {
+    tester.view.physicalSize = const Size(1600, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await setUpFamily();
+    await session.selectSchool(accountant);
+    await seedFeeStructures(db!, tenantId: parent.schoolId);
+    final result = await ledger.recordPayment(
+      student: const AdministratorStudentRecord(
+        id: 'STU-001', name: 'Maryam Abdullahi', className: 'JSS 2A', primaryGuardian: 'Alhaji Abdullahi Musa',
+        status: AdministratorStudentStatus.active,
+      ),
+      amount: 50000, // the manual ledger's own unit: whole naira, not kobo
+      method: 'Cash',
+    );
+    expect(result.success, isTrue, reason: result.message);
+    await session.selectSchool(parent);
+
+    final server = FakeServer((request) async {
+      if (request.url.path.endsWith('/payments/')) return jsonResponse(verifiedPaymentsJson([verifiedPaymentJson()]));
+      return jsonResponse(myFamiliesJson([myFamilyJson(accounts: [payAccountJson()], position: familyPositionJson(paidMinor: 12000000))]));
+    });
+    await tester.pumpWidget(
+      FamilyFeesScope(
+        api: FamilyFeesApi(api: apiFor(server)),
+        child: MaterialApp(home: Scaffold(body: ParentFinancePage(repository: finance, onQueueChanged: () {}))),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The manual record's own figure (₦50,000, whole naira) and the verified one's (120,000,000 kobo =
+    // ₦120,000) both appear, each in its own section, and neither screen shows their sum (₦170,000).
+    expect(find.textContaining('₦50,000'), findsWidgets);
+    expect(find.textContaining('₦120,000'), findsWidgets);
+    expect(find.textContaining('₦170,000'), findsNothing);
+    expect(find.text('Your children'), findsOneWidget);
+    expect(find.text('Verified Smart Money Collection'), findsOneWidget);
+  });
+
   group('where the family pays', () {
     Future<void> pumpPage(WidgetTester tester, {Future<http.Response> Function(http.Request)? server}) async {
       tester.view.physicalSize = const Size(1600, 4000);
