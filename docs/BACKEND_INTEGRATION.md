@@ -4649,3 +4649,50 @@ brand-new staff name is correctly refused today ("Activate the staff member as a
 subjects") - provisional-teacher creation via transfer was deliberately removed in the same curriculum-
 authoritative change, but one test still expected it to succeed; rewritten to assert the real refusal instead.
 Full suite diffed by failure name: 8 fewer failures, zero new ones.
+
+## Campus isolation enforcement begins: the foundation, and the Students screen
+
+The Proprietor's own campus-grouping code already states the goal as a principle
+(`campusIsolationPrinciple` in `owner_campuses.dart`): "someone appointed to one campus should not automatically
+see or manage another." Nothing enforced it. Building real enforcement needed two real links that didn't exist
+anywhere, and a decision about where to build them.
+
+**Built on `apps.owner.jobs` (Job Assignments), not `apps.structure`'s `LeadershipAppointment`.**
+`LeadershipAppointment.person` is free text with zero connection to a real account - fixing that would mean
+changing how every existing appointment is made. Job Assignments already does exactly what was needed: any duty,
+to anyone in the staff directory regardless of role, resolved to a real, server-forged membership link (the same
+transaction that activates a staff invitation) - never something a client can set. `LeadershipAppointment` is
+untouched by this work; it stays a pure organizational-chart record.
+
+**Membership → campus:** job assignments gained an optional `campusId` (`apps/owner/jobs/assignments.py`,
+validated against a real campus record, sibling to the existing `sectionId`), and
+`apps.owner.jobs.access.campus_scope_for(membership)` resolves it - directly, or through a `sectionHead`
+assignment's own section's real campus. `None` means whole-school, the default for every membership until the
+owner deliberately sets up a scoped assignment - nothing changes for a school that never does.
+
+**Class → campus:** `apps.academics.AcademicClass` - the real, canonical class every other feature already keys
+off - gained its own `campus_id` (migration `0005_academicclass_campus_id`), deliberately independent of
+`apps.structure.AcademicSection`'s existing `campusId` rather than resolved through it: there is no structural
+link from a real student's class to that organizational section, only a loose stage-name string match
+(`sectionOfClass()`) that cannot tell two campuses' "Secondary" sections apart.
+
+**First real enforcement surface: Administrator's Students screen.** `lib/core/tenancy/campus_scope.dart`
+(`campusScopeFor()`) mirrors the backend function exactly, reading the membership's own already-synced job
+assignments locally. `AdministratorStudentsRepository.load()` now calls it and, once scoped, hides every student
+whose class isn't assigned to that exact campus - including a class never assigned to any campus at all, since
+isolation defaults to excluding the unconfirmed, not including it.
+
+**Deliberately not done this pass (tracked in the `campus-isolation-enforcement-design` memory, not forgotten):**
+Staff and Attendance - the other two "whole-school, zero filtering" surfaces found - need their own design
+decision first (staff are tied to a free-text "work area" label that doesn't reliably match a real structure
+section's name; likely needs its own direct `campusId` on the staff directory entity, the same shape as
+`AcademicClass`, rather than fragile name-matching). Neither the Academics screen's class editor nor the Job
+Assignments screen has a campus picker yet, so the new field can't actually be set through the app - real and
+tested, but inert end-to-end until that UI exists. Principal's existing stage-string scoping and
+Accountant/Finance scoping are both untouched.
+
+Tests: `apps/owner/tests/test_access.py` (new, `has_duty`/`campus_scope_for` directly), `test_jobs.py` additions;
+`test/campus_scope_test.dart`, `test/administrator_students_campus_scope_test.dart`, new fixtures in
+`test/core/real_job_assignment_fixtures.dart`. Full backend and Flutter suites both diffed by failure
+count/name: one fewer backend failure (a trivial stale-assertion fix made in passing), zero new failures either
+side.
