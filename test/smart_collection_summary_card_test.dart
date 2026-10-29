@@ -33,10 +33,26 @@ void main() {
     expect(find.textContaining('never added together'), findsOneWidget);
   });
 
-  testWidgets('payments waiting for review and connections needing attention are both surfaced', (tester) async {
-    await pumpCard(tester, server: (_) async => jsonResponse(summaryJson(pending: 3, needAttention: 1)));
+  testWidgets('payments waiting for review and a connection needing attention are both surfaced', (tester) async {
+    await pumpCard(tester, server: (_) async => jsonResponse(summaryJson(
+      pending: 3,
+      needAttention: 1,
+      connections: [connectionHealthJson(status: 'error', lastErrorCode: 'provider_unavailable', webhookConfirmedAt: null, lastVerifiedAt: null)],
+    )));
     expect(find.textContaining('3 payment(s) waiting'), findsOneWidget);
-    expect(find.textContaining('1 connection(s) need attention'), findsOneWidget);
+    expect(find.textContaining('Needs attention'), findsOneWidget);
+    expect(find.textContaining('provider_unavailable'), findsOneWidget);
+    expect(find.textContaining('Webhook not yet confirmed'), findsOneWidget);
+  });
+
+  testWidgets('a healthy connection shows when its webhook was confirmed and when it was last verified', (tester) async {
+    await pumpCard(tester, server: (_) async => jsonResponse(summaryJson(connections: [
+      connectionHealthJson(webhookConfirmedAt: '2026-09-20T09:00:00+01:00', lastVerifiedAt: '2026-09-25T08:00:00+01:00'),
+    ])));
+    expect(find.textContaining('Webhook confirmed 2026-09-20'), findsOneWidget);
+    expect(find.textContaining('Last verified 2026-09-25'), findsOneWidget);
+    expect(find.textContaining('· Active'), findsOneWidget);
+    expect(find.textContaining('Needs attention'), findsNothing);
   });
 
   testWidgets('no provider connected yet says so honestly, not zeros', (tester) async {

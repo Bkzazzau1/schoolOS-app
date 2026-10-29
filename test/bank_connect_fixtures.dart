@@ -210,6 +210,31 @@ Map<String, Object?> pageJson(List<Map<String, Object?>> payments, {Map<String, 
       if (counts != null) 'counts': counts,
     };
 
+Map<String, Object?> connectionHealthJson({
+  String id = 'conn-1',
+  String provider = 'paystack',
+  String providerName = 'Paystack',
+  String label = '',
+  String status = 'connected',
+  bool isActiveProvider = true,
+  String webhookStatus = 'active',
+  String? webhookConfirmedAt = '2026-09-20T09:00:00+01:00',
+  String? lastVerifiedAt = '2026-09-25T08:00:00+01:00',
+  String lastErrorCode = '',
+}) =>
+    {
+      'id': id,
+      'provider': provider,
+      'providerName': providerName,
+      'label': label,
+      'status': status,
+      'isActiveProvider': isActiveProvider,
+      'webhookStatus': webhookStatus,
+      'webhookConfirmedAt': webhookConfirmedAt,
+      'lastVerifiedAt': lastVerifiedAt,
+      'lastErrorCode': lastErrorCode,
+    };
+
 Map<String, Object?> summaryJson({
   bool available = true,
   int today = 5000000,
@@ -219,6 +244,7 @@ Map<String, Object?> summaryJson({
   int otherCurrency = 0,
   bool owed = false,
   int needAttention = 0,
+  List<Map<String, Object?>>? connections,
 }) =>
     {
       'summary': {
@@ -230,6 +256,7 @@ Map<String, Object?> summaryJson({
           'connected': available ? 1 : 0,
           'needAttention': needAttention,
           'active': available ? {'connectionId': 'conn-1', 'provider': 'paystack', 'environment': 'live', 'merchantName': 'BrightGate Academy'} : null,
+          'connections': connections ?? (available ? [connectionHealthJson()] : []),
         },
         'today': {'amountMinor': today, 'count': today == 0 ? 0 : 1},
         'thisWeek': {'amountMinor': 15000000, 'count': 3},

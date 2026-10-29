@@ -122,18 +122,60 @@ class _SmartCollectionSummaryCardState extends State<SmartCollectionSummaryCard>
                 style: TextStyle(color: scheme.error, fontWeight: FontWeight.w700),
               ),
             ],
-            if (s.providers.needAttention > 0) ...[
+            if (s.providers.connections.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text('Connections', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
-              Text(
-                '${s.providers.needAttention} connection(s) need attention.',
-                style: TextStyle(color: scheme.error),
-              ),
+              for (final c in s.providers.connections) _connectionHealthRow(c),
             ],
           ],
         );
       },
     );
   }
+
+  Widget _connectionHealthRow(ConnectionHealth connection) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = connection.needsAttention ? scheme.error : (connection.status == 'connected' ? const Color(0xFF1B7F3B) : scheme.onSurfaceVariant);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(padding: const EdgeInsets.only(top: 5), child: Icon(Icons.circle, size: 9, color: color)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(connection.displayName, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    if (connection.isActiveProvider) ...[
+                      const SizedBox(width: 6),
+                      Text('· Active', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                    ],
+                  ],
+                ),
+                Text(
+                  connection.webhookConfirmed
+                      ? 'Webhook confirmed ${_date(connection.webhookConfirmedAt)}'
+                      : 'Webhook not yet confirmed - waiting for a real event',
+                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                ),
+                if (connection.lastVerifiedAt != null)
+                  Text('Last verified ${_date(connection.lastVerifiedAt)}', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                if (connection.needsAttention)
+                  Text('Needs attention${connection.lastErrorCode.isEmpty ? '' : ' · ${connection.lastErrorCode}'}', style: TextStyle(fontSize: 12, color: scheme.error, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _date(DateTime? value) => value == null ? '' : value.toIso8601String().split('T').first;
 
   Widget _metric(BuildContext context, String label, String value, String note) {
     final theme = Theme.of(context);

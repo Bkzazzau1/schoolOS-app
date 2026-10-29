@@ -59,9 +59,63 @@ class ReconciliationTotals {
   int get totalMinor => reconciledMinor + unreconciledMinor;
 }
 
+/// One connection's own health, exactly as the Collections screen shows it - never a credential. There is
+/// no scheduled sync to report on: [lastVerifiedAt] is the last time a call to the provider (a webhook, a
+/// manual test) actually succeeded, and [webhookConfirmedAt] is when a real event first proved the webhook
+/// works, not a promise it will keep working.
+class ConnectionHealth {
+  const ConnectionHealth({
+    required this.id,
+    required this.provider,
+    required this.providerName,
+    required this.label,
+    required this.status,
+    required this.isActiveProvider,
+    required this.webhookStatus,
+    required this.webhookConfirmedAt,
+    required this.lastVerifiedAt,
+    required this.lastErrorCode,
+  });
+
+  factory ConnectionHealth.fromJson(Map<String, dynamic> json) => ConnectionHealth(
+        id: json['id'] as String? ?? '',
+        provider: json['provider'] as String? ?? '',
+        providerName: json['providerName'] as String? ?? '',
+        label: json['label'] as String? ?? '',
+        status: json['status'] as String? ?? '',
+        isActiveProvider: json['isActiveProvider'] == true,
+        webhookStatus: json['webhookStatus'] as String? ?? '',
+        webhookConfirmedAt: readTime(json['webhookConfirmedAt']),
+        lastVerifiedAt: readTime(json['lastVerifiedAt']),
+        lastErrorCode: json['lastErrorCode'] as String? ?? '',
+      );
+
+  final String id;
+  final String provider;
+  final String providerName;
+  final String label;
+  final String status;
+  final bool isActiveProvider;
+  final String webhookStatus;
+  final DateTime? webhookConfirmedAt;
+  final DateTime? lastVerifiedAt;
+  final String lastErrorCode;
+
+  bool get needsAttention => status == 'needs_reauth' || status == 'error';
+  bool get webhookConfirmed => webhookConfirmedAt != null;
+
+  String get displayName => label.isNotEmpty ? label : (providerName.isNotEmpty ? providerName : provider);
+}
+
 /// How many provider connections work, and which one is the school's active collection provider.
 class ProvidersBrief {
-  const ProvidersBrief({required this.connected, required this.needAttention, required this.activeProvider, required this.activeMerchant});
+  const ProvidersBrief({
+    required this.connected,
+    required this.needAttention,
+    required this.activeProvider,
+    required this.activeMerchant,
+    required this.connections,
+  });
 
   factory ProvidersBrief.fromJson(Map<String, dynamic> json) {
     final active = readMap(json['active']);
@@ -70,6 +124,7 @@ class ProvidersBrief {
       needAttention: json['needAttention'] as int? ?? 0,
       activeProvider: active['provider'] as String? ?? '',
       activeMerchant: active['merchantName'] as String? ?? '',
+      connections: [for (final c in readMaps(json['connections'])) ConnectionHealth.fromJson(c)],
     );
   }
 
@@ -79,6 +134,9 @@ class ProvidersBrief {
   /// The active provider's code ("paystack", ...), or empty when none has been chosen.
   final String activeProvider;
   final String activeMerchant;
+
+  /// Every live connection's own health - a compact view, not a second management surface.
+  final List<ConnectionHealth> connections;
 }
 
 class RecentPayment {
