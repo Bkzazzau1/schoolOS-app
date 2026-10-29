@@ -26,12 +26,14 @@ class TeacherSyllabusSnapshot {
   TeacherSyllabusStatus effectiveStatus(TeacherSyllabusRow row) =>
       progress[row.id]?.reportedStatus ?? row.approvedStatus;
 
-  bool isBehind(String className) {
-    if (canonical) return false;
-    return rows
-        .where((row) => row.className == className)
-        .any((row) => effectiveStatus(row) == TeacherSyllabusStatus.behind);
-  }
+  /// Real-backend rows never carry a `behind` status today (nothing server-side computes one
+  /// yet - see `apps.lesson_delivery.services.serialize_topic_progress`, which only ever writes
+  /// `completed`/`inProgress`), so this is always false there in practice. No `canonical` guard
+  /// here on purpose: the day a real "behind schedule" signal exists, this picks it up with no
+  /// client change needed, instead of silently suppressing it forever.
+  bool isBehind(String className) => rows
+      .where((row) => row.className == className)
+      .any((row) => effectiveStatus(row) == TeacherSyllabusStatus.behind);
 
   int coverageOf(String className) {
     final classRows = rows.where((row) => row.className == className).toList();

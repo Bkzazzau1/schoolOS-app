@@ -379,6 +379,12 @@ class PrincipalAcademicsRepository {
               ? 0
               : (completed * 100 / topicIds.length).round();
           final hasScheme = topicIds.isNotEmpty;
+          // No real source ever reports `behind` today (see TeacherSyllabusSnapshot.isBehind),
+          // so this is always false in practice - checked for real rather than hardcoded so it
+          // self-heals the day a real "behind schedule" signal exists.
+          final behind = topicIds.any(
+            (id) => progressByTopic[id]?.reportedStatus == TeacherSyllabusStatus.behind,
+          );
 
           final status = !hasEvidence
               ? PrincipalAcademicStatus.notEvaluated
@@ -398,7 +404,7 @@ class PrincipalAcademicsRepository {
             attendance: attendanceByClass[className] ?? 0,
             syllabus: syllabus,
             hasSyllabusScheme: hasScheme,
-            syllabusBehind: false,
+            syllabusBehind: behind,
             assessments: assessments,
             teachers: teachersByClass[className]?.length ?? 0,
             trend: 0,
