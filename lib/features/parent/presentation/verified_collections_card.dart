@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
 import '../../../shared/models/school_membership.dart';
+import '../../bankconnect/domain/bank_labels.dart' show formatMoneyMinor;
 import '../../bankconnect/presentation/bank_widgets.dart' show describeBankError;
 import '../../familyfees/data/family_fees_api.dart';
 import '../../familyfees/domain/family_fees_models.dart';
@@ -140,7 +141,7 @@ class _PositionSummary extends StatelessWidget {
             children: [
               Text(label, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
               const SizedBox(height: 2),
-              Text(_money(amountMinor), style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text(formatMoneyMinor(amountMinor), style: const TextStyle(fontWeight: FontWeight.w900)),
             ],
           ),
         );
@@ -190,7 +191,7 @@ class _PaymentsList extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(child: Text(payment.dateLabel, style: const TextStyle(fontWeight: FontWeight.w700))),
-                    Text(_money(payment.amountMinor), style: const TextStyle(fontWeight: FontWeight.w900)),
+                    Text(formatMoneyMinor(payment.amountMinor), style: const TextStyle(fontWeight: FontWeight.w900)),
                   ],
                 ),
                 Text('${payment.provider} · ${payment.reference}', style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
@@ -203,11 +204,11 @@ class _PaymentsList extends StatelessWidget {
                   for (final allocation in payment.allocations)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text('${allocation.studentName} · ${allocation.item} · ${_money(allocation.amountMinor)}'),
+                      child: Text('${allocation.studentName} · ${allocation.item} · ${formatMoneyMinor(allocation.amountMinor)}'),
                     ),
-                  if (payment.creditMinor > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Held as family credit · ${_money(payment.creditMinor)}')),
+                  if (payment.creditMinor > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Held as family credit · ${formatMoneyMinor(payment.creditMinor)}')),
                   if (payment.unappliedMinor > 0)
-                    Padding(padding: const EdgeInsets.only(top: 4), child: Text('Not yet applied · ${_money(payment.unappliedMinor)}', style: TextStyle(color: scheme.error))),
+                    Padding(padding: const EdgeInsets.only(top: 4), child: Text('Not yet applied · ${formatMoneyMinor(payment.unappliedMinor)}', style: TextStyle(color: scheme.error))),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
@@ -243,16 +244,4 @@ class _Note extends StatelessWidget {
         decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .45), borderRadius: BorderRadius.circular(12)),
         child: Text(text, style: const TextStyle(height: 1.4)),
       );
-}
-
-String _money(int amount) {
-  final negative = amount < 0;
-  final digits = amount.abs().toString();
-  final out = StringBuffer();
-  for (var i = 0; i < digits.length; i++) {
-    final remaining = digits.length - i;
-    out.write(digits[i]);
-    if (remaining > 1 && remaining % 3 == 1) out.write(',');
-  }
-  return '${negative ? '-' : ''}₦$out';
 }

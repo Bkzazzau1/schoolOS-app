@@ -182,6 +182,7 @@ class _FinanceOfficeWorkspacePageState extends State<FinanceOfficeWorkspacePage>
             schoolName: widget.membership.schoolName,
             onNavigate: _select,
             ledger: _ledger,
+            membership: widget.membership,
           ),
         'fee-structure' => FinanceFeeStructurePage(ledger: _ledger, onChanged: _refreshPendingCount),
         'scholarships' => FinanceConcessionsPage(

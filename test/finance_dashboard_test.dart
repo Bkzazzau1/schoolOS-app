@@ -106,7 +106,7 @@ void main() {
     await tester.runAsync(setUpSchool);
     String? opened;
     await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: FinanceOfficeDashboardPage(schoolName: 'BrightGate', onNavigate: (k) => opened = k, ledger: ledger)),
+      home: Scaffold(body: FinanceOfficeDashboardPage(schoolName: 'BrightGate', onNavigate: (k) => opened = k, ledger: ledger, membership: finance)),
     ));
     for (var i = 0; i < 10; i++) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));

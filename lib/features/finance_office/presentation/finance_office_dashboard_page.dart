@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/sync/sync_scope.dart';
+import '../../../shared/models/school_membership.dart';
 import '../../proprietor/domain/concession_request.dart';
 import '../data/finance_billing.dart';
 import '../data/finance_dashboard.dart';
 import '../data/finance_ledger_repository.dart';
+import 'smart_collection_summary_card.dart';
 
 /// The finance desk: fees billed, money collected, who owes, and what is waiting, all worked out from the ledger.
 class FinanceOfficeDashboardPage extends StatefulWidget {
-  const FinanceOfficeDashboardPage({super.key, required this.schoolName, required this.onNavigate, required this.ledger});
+  const FinanceOfficeDashboardPage({
+    super.key,
+    required this.schoolName,
+    required this.onNavigate,
+    required this.ledger,
+    required this.membership,
+  });
 
   final String schoolName;
   final ValueChanged<String> onNavigate;
   final FinanceLedgerRepository ledger;
+  final SchoolMembership membership;
 
   @override
   State<FinanceOfficeDashboardPage> createState() => _FinanceOfficeDashboardPageState();
@@ -80,6 +89,8 @@ class _FinanceOfficeDashboardPageState extends State<FinanceOfficeDashboardPage>
             _Kpi('Awaiting the owner', '${data.pendingConcessions}', 'Scholarships and discounts'),
           ],
         ),
+        const SizedBox(height: 18),
+        SmartCollectionSummaryCard(membership: widget.membership, onOpenCollections: () => widget.onNavigate('collections')),
         const SizedBox(height: 18),
         Card(
           elevation: 0,

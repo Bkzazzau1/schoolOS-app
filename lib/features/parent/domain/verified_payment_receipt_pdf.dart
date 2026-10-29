@@ -97,16 +97,20 @@ pw.Widget _cell(String text, {bool bold = false}) => pw.Padding(
       child: pw.Text(text, style: pw.TextStyle(fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
 
-// The PDF's built-in font has no naira glyph (unlike the screen, which always has one): "NGN" avoids a
-// missing-character box on the printed receipt, where the amount matters most.
-String _money(int amount) {
-  final negative = amount < 0;
-  final digits = amount.abs().toString();
+// [amount] is whole kobo, same as every *Minor field the server sends: divide by 100 for naira.
+// The PDF's built-in font has no naira glyph either (unlike the screen, which always has one), so
+// "NGN" avoids a missing-character box on the printed receipt, where the amount matters most.
+String _money(int amountMinor) {
+  final negative = amountMinor < 0;
+  final absolute = amountMinor.abs();
+  final whole = (absolute ~/ 100).toString();
+  final kobo = absolute % 100;
   final out = StringBuffer();
-  for (var i = 0; i < digits.length; i++) {
-    final remaining = digits.length - i;
-    out.write(digits[i]);
+  for (var i = 0; i < whole.length; i++) {
+    final remaining = whole.length - i;
+    out.write(whole[i]);
     if (remaining > 1 && remaining % 3 == 1) out.write(',');
   }
-  return '${negative ? '-' : ''}NGN $out';
+  final fraction = kobo == 0 ? '' : '.${kobo.toString().padLeft(2, '0')}';
+  return '${negative ? '-' : ''}NGN $out$fraction';
 }
