@@ -61,9 +61,17 @@ Future<Uint8List> buildVerifiedPaymentReceiptPdf({
               ),
               for (final a in payment.allocations) pw.TableRow(children: [_cell(a.studentName), _cell(a.item), _cell(_money(a.amountMinor))]),
               if (payment.creditMinor > 0)
-                pw.TableRow(children: [_cell('-'), _cell('Held as family credit'), _cell(_money(payment.creditMinor))]),
+                pw.TableRow(children: [_cell('-'), _cell('Became family credit at the time'), _cell(_money(payment.creditMinor))]),
             ],
           ),
+          if (payment.creditMinor > 0) ...[
+            pw.SizedBox(height: 6),
+            pw.Text(
+              'Family credit is shared across every charge the family owes: this is what this payment put there at the time, '
+              'not necessarily what remains - it may since have been applied to other charges.',
+              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+            ),
+          ],
           if (payment.unappliedMinor > 0) ...[
             pw.SizedBox(height: 10),
             pw.Text(

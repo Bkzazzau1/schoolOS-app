@@ -397,6 +397,23 @@ void main() {
       expect(find.text('Download receipt'), findsOneWidget);
     });
 
+    testWidgets('an overpayment is worded as a point-in-time fact, never a claim about the current balance', (tester) async {
+      await pumpPage(tester, server: (request) async {
+        if (request.url.path.endsWith('/payments/')) {
+          return jsonResponse(verifiedPaymentsJson([verifiedPaymentJson(amountMinor: 15000000, allocatedMinor: 12000000, creditMinor: 3000000)]));
+        }
+        return jsonResponse(myFamiliesJson([myFamilyJson(accounts: [payAccountJson()], position: familyPositionJson(creditMinor: 500000))]));
+      });
+      // Found in independent review: the old wording ("Held as family credit") read as a live balance.
+      // Credit is shared across every charge, so what one payment created may since have been spent
+      // elsewhere - the wording must say so, and must never be confused with the family's current credit.
+      expect(find.textContaining('Became family credit at the time'), findsOneWidget);
+      expect(find.textContaining('may since have been applied'), findsOneWidget);
+      expect(find.text('Held as family credit'), findsNothing);
+      // The current balance (from the family's real position, not this one payment) is shown separately.
+      expect(find.text('Credit held'), findsOneWidget);
+    });
+
     testWidgets('with no payments yet, verified collections says so honestly rather than showing nothing', (tester) async {
       await pumpPage(tester, server: (request) async {
         if (request.url.path.endsWith('/payments/')) return jsonResponse(verifiedPaymentsJson(const []));

@@ -206,7 +206,14 @@ class _PaymentsList extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 4),
                       child: Text('${allocation.studentName} · ${allocation.item} · ${formatMoneyMinor(allocation.amountMinor)}'),
                     ),
-                  if (payment.creditMinor > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Held as family credit · ${formatMoneyMinor(payment.creditMinor)}')),
+                  if (payment.creditMinor > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      // A point-in-time fact about this one payment, not a current balance: once money
+                      // becomes family credit it is shared with every charge, so it may since have paid
+                      // for something else entirely. "Credit held" above is the figure that is current.
+                      child: Text('Became family credit at the time · ${formatMoneyMinor(payment.creditMinor)} (may since have been applied to other charges)'),
+                    ),
                   if (payment.unappliedMinor > 0)
                     Padding(padding: const EdgeInsets.only(top: 4), child: Text('Not yet applied · ${formatMoneyMinor(payment.unappliedMinor)}', style: TextStyle(color: scheme.error))),
                   Align(
