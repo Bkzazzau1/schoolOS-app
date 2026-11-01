@@ -4,10 +4,14 @@ import '../../../app/app_services.dart';
 import '../../../app/open_home.dart';
 import '../../../core/auth/auth_repository.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../billing/data/billing_repository.dart';
 import '../../billing/presentation/organization_subscription_card.dart';
+import '../data/organization_repository.dart';
 import '../domain/organization_membership.dart';
+import '../domain/organization_school_summary.dart';
 import 'account_readiness_card.dart';
 import 'create_school_page.dart';
+import 'school_billing_only_page.dart';
 
 class AccountHomePage extends StatelessWidget {
   const AccountHomePage({
@@ -110,6 +114,22 @@ class AccountHomePage extends StatelessWidget {
                         organization,
                       ),
                     ),
+                    if (organization.canManageBilling &&
+                        services.organizations != null &&
+                        services.billing != null) ...[
+                      const SizedBox(height: 10),
+                      _BillingOnlySchoolsSection(
+                        organization: organization,
+                        excludeSchoolIds: {
+                          for (final membership
+                              in schoolsByOrganization[organization.organizationId] ??
+                                  const <SchoolMembership>[])
+                            membership.schoolId,
+                        },
+                        organizations: services.organizations!,
+                        billing: services.billing!,
+                      ),
+                    ],
                     const SizedBox(height: 16),
                   ],
                 ],
@@ -423,6 +443,104 @@ class _OrganizationCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The organization's own schools where this billing administrator holds no school-level
+/// membership - a read-only billing destination only, never the full workspace (Phase D
+/// Stage 1.5, Task 5). Renders nothing while loading, on error, or once every school in the
+/// organization is already shown above as a real membership - this section exists only to
+/// fill that specific gap, not to duplicate it.
+class _BillingOnlySchoolsSection extends StatefulWidget {
+  const _BillingOnlySchoolsSection({
+    required this.organization,
+    required this.excludeSchoolIds,
+    required this.organizations,
+    required this.billing,
+  });
+
+  final OrganizationMembership organization;
+  final Set<String> excludeSchoolIds;
+  final OrganizationRepository organizations;
+  final BillingRepository billing;
+
+  @override
+  State<_BillingOnlySchoolsSection> createState() => _BillingOnlySchoolsSectionState();
+}
+
+class _BillingOnlySchoolsSectionState extends State<_BillingOnlySchoolsSection> {
+  List<OrganizationSchoolSummary>? _schools;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final schools = await widget.organizations.schools(widget.organization.organizationId);
+      if (!mounted) return;
+      setState(() => _schools = schools);
+    } catch (_) {
+      // Fails quietly: this section is a supplementary billing-only convenience, never the
+      // primary account view, and must never block or alarm the rest of the account page.
+    }
+  }
+
+  void _open(OrganizationSchoolSummary school) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SchoolBillingOnlyPage(
+          schoolId: school.id,
+          schoolName: school.name,
+          repository: widget.billing,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final schools = _schools;
+    if (schools == null) return const SizedBox.shrink();
+    final billingOnly = schools
+        .where((school) => school.isActive && !widget.excludeSchoolIds.contains(school.id))
+        .toList(growable: false);
+    if (billingOnly.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Other schools you bill for',
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "You manage billing for these without a role in their day-to-day workspace.",
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 10),
+          for (final school in billingOnly)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(school.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: school.location.isEmpty ? null : Text(school.location),
+              trailing: const Icon(Icons.arrow_forward_rounded),
+              onTap: () => _open(school),
+            ),
+        ],
       ),
     );
   }

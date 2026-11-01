@@ -3,6 +3,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exceptions.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/organization_membership.dart';
+import '../domain/organization_school_summary.dart';
 
 enum SchoolKind {
   nursery,
@@ -118,5 +119,19 @@ class OrganizationRepository {
         ),
       ),
     );
+  }
+
+  /// Every school in this organization's own roster - for a billing administrator who may
+  /// hold no school-level membership at all, so [AuthProfile.memberships] alone cannot tell
+  /// them which schools exist. Read-only; implies no operational permission at any of them.
+  Future<List<OrganizationSchoolSummary>> schools(String organizationId) async {
+    final data = await _api.get('organizations/$organizationId/schools/');
+    if (data is! Map || data['schools'] is! List) {
+      throw const ApiException(500, 'The server sent an unexpected answer.');
+    }
+    return [
+      for (final item in data['schools'] as List)
+        if (item is Map) OrganizationSchoolSummary.fromJson(Map<String, dynamic>.from(item)),
+    ];
   }
 }
