@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:schoolos_app/features/billing/data/billing_repository.dart';
+import 'package:schoolos_app/features/billing/presentation/billing_scope.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_cbt_demo_data.dart';
 import 'package:schoolos_app/features/teacher/data/teacher_cbt_repository.dart';
 import 'package:schoolos_app/features/teacher/domain/teacher_cbt_models.dart';
 import 'package:schoolos_app/features/teacher/presentation/teacher_cbt_page.dart';
 import 'package:schoolos_app/shared/models/school_membership.dart';
+
+import 'fake_billing_api_client.dart';
 
 const _teacher = SchoolMembership(
   id: 'teacher-1',
@@ -144,6 +148,59 @@ void main() {
     expect(find.textContaining('Publication queued'), findsOneWidget);
     expect(mutationCallbacks, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the publish button reflects the real entitlement state, never a guess', (tester) async {
+    tester.view.physicalSize = const Size(1400, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final fake = _FakeCbtRepository();
+    final api = FakeApiClient()
+      ..respond('schools/school-1/billing/entitlements/', {
+        'schoolId': 'school-1',
+        'schoolName': 'BrightGate Academy',
+        'organizationId': 'org-1',
+        'viewerRole': 'teacher',
+        'canManageBilling': false,
+        'premiumEnforcementEnabled': true,
+        'paymentStatus': 'unpaid',
+        'academicTerm': null,
+        'academicSession': null,
+        'currentPeriod': null,
+        'enrollment': null,
+        'entitlements': {
+          'cbt_exam_publish': {
+            'planEnabled': true,
+            'schoolPaid': false,
+            'available': false,
+            'reason': "This feature needs this school's current term subscription to be paid.",
+          },
+        },
+        'billing': null,
+      });
+    final billing = BillingRepository(api: api);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BillingScope(
+            repository: billing,
+            child: TeacherCbtPage(repository: fake, schoolId: 'school-1', onNavigate: (_) {}, onMutationQueued: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Fractions Review · JSS 2A'));
+    await tester.pumpAndSettle();
+
+    // The reason is shown, and - because enforcement is genuinely on - the Publish button
+    // is disabled; but creating/editing the draft is never blocked (Task 4 of Phase D's
+    // Stage 1: "Do not block: Creating or editing CBT drafts").
+    expect(find.textContaining("needs this school's current term subscription to be paid"), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Publish')).onPressed, isNull);
+    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Save draft')).onPressed, isNotNull);
   });
 
   testWidgets('creating a new test requires a title and saves a real draft for the chosen class subject', (tester) async {

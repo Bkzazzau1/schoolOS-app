@@ -1,13 +1,21 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exceptions.dart';
 import '../domain/billing_invoice.dart';
 import '../domain/school_entitlement_summary.dart';
 import '../domain/subscription_summary.dart';
 
-class BillingRepository {
+class BillingRepository extends ChangeNotifier {
   BillingRepository({required ApiClient api}) : _api = api;
 
   final ApiClient _api;
+
+  /// Tells every listening [PremiumCapabilityNotice] (or anything else watching this shared
+  /// repository) that an entitlement-affecting event just happened - a verified payment, for
+  /// instance - so each refetches the latest authoritative state instead of relying on
+  /// whatever it last read. Never fired on a fixed timer; only after a real, specific event.
+  void notifyEntitlementsChanged() => notifyListeners();
 
   Future<OrganizationSubscriptionSummary> organizationSubscription(
     String organizationId,

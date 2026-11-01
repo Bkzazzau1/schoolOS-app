@@ -115,6 +115,82 @@ void main() {
     expect(summary.billing, isNull);
   });
 
+  test('a billing detail with no payment attempt yet parses latestPaymentAttempt as null', () {
+    final summary = SchoolEntitlementSummary.fromJson(_payload(
+      canManageBilling: true,
+      billing: {
+        'organizationId': 'org-1',
+        'invoiceId': 'inv-1',
+        'invoiceNumber': 'SOS-20260101-ABC',
+        'status': 'open',
+        'amountDueMinor': 4000000,
+        'amountPaidMinor': 0,
+        'currency': 'NGN',
+        'issuedAt': '2026-01-01T00:00:00Z',
+        'payable': true,
+        'latestPaymentAttempt': null,
+      },
+    ));
+    expect(summary.billing!.latestPaymentAttempt, isNull);
+  });
+
+  test('a pending payment attempt is recoverable from the server response, never only memory', () {
+    final summary = SchoolEntitlementSummary.fromJson(_payload(
+      canManageBilling: true,
+      billing: {
+        'organizationId': 'org-1',
+        'invoiceId': 'inv-1',
+        'invoiceNumber': 'SOS-20260101-ABC',
+        'status': 'open',
+        'amountDueMinor': 4000000,
+        'amountPaidMinor': 0,
+        'currency': 'NGN',
+        'issuedAt': '2026-01-01T00:00:00Z',
+        'payable': true,
+        'latestPaymentAttempt': {
+          'reference': 'ref-abc123',
+          'status': 'pending',
+          'createdAt': '2026-01-01T00:05:00Z',
+          'checkoutUrl': 'https://checkout.paystack.com/abc123',
+        },
+      },
+    ));
+    final attempt = summary.billing!.latestPaymentAttempt!;
+    expect(attempt.pending, isTrue);
+    expect(attempt.succeeded, isFalse);
+    expect(attempt.failed, isFalse);
+    expect(attempt.reference, 'ref-abc123');
+    expect(attempt.checkoutUrl, isNotNull);
+  });
+
+  test('a failed or cancelled payment attempt never reads as pending or succeeded', () {
+    for (final status in ['failed', 'cancelled']) {
+      final summary = SchoolEntitlementSummary.fromJson(_payload(
+        canManageBilling: true,
+        billing: {
+          'organizationId': 'org-1',
+          'invoiceId': 'inv-1',
+          'invoiceNumber': 'SOS-20260101-ABC',
+          'status': 'open',
+          'amountDueMinor': 4000000,
+          'amountPaidMinor': 0,
+          'currency': 'NGN',
+          'issuedAt': '2026-01-01T00:00:00Z',
+          'payable': true,
+          'latestPaymentAttempt': {
+            'reference': 'ref-abc123',
+            'status': status,
+            'createdAt': '2026-01-01T00:05:00Z',
+          },
+        },
+      ));
+      final attempt = summary.billing!.latestPaymentAttempt!;
+      expect(attempt.failed, isTrue, reason: status);
+      expect(attempt.pending, isFalse, reason: status);
+      expect(attempt.succeeded, isFalse, reason: status);
+    }
+  });
+
   test('billing detail parses amounts, outstanding balance and payable state from a real invoice', () {
     final summary = SchoolEntitlementSummary.fromJson(_payload(
       canManageBilling: true,

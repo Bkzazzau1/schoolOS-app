@@ -107,6 +107,36 @@ class SchoolEnrollmentPricing {
       );
 }
 
+/// The invoice's own latest payment attempt, exactly as the server recorded it - never
+/// invented client-side, so a viewer who reopens this screen after abandoning checkout can
+/// recover it from here instead of only from in-memory state that a dropped app would lose.
+class SchoolPendingPaymentAttempt {
+  const SchoolPendingPaymentAttempt({
+    required this.reference,
+    required this.status,
+    required this.createdAt,
+    this.checkoutUrl,
+  });
+
+  final String reference;
+  final String status;
+  final DateTime createdAt;
+  final String? checkoutUrl;
+
+  bool get succeeded => status == 'succeeded';
+  bool get pending => status == 'pending' || status == 'initialized';
+  bool get failed => status == 'failed' || status == 'cancelled';
+
+  factory SchoolPendingPaymentAttempt.fromJson(Map<String, dynamic> json) =>
+      SchoolPendingPaymentAttempt(
+        reference: json['reference'] as String? ?? '',
+        status: json['status'] as String? ?? '',
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+        checkoutUrl: json['checkoutUrl'] as String?,
+      );
+}
+
 /// Sensitive commercial detail (invoice id/number, due date, exact amounts) - present only
 /// when the server decided this viewer has billing authority for this school's organization.
 /// A null [SchoolEntitlementSummary.billing] means "not shown to you," never "nothing owed."
@@ -122,6 +152,7 @@ class SchoolBillingDetail {
     required this.issuedAt,
     required this.payable,
     this.dueAt,
+    this.latestPaymentAttempt,
   });
 
   final String organizationId;
@@ -134,6 +165,7 @@ class SchoolBillingDetail {
   final DateTime issuedAt;
   final DateTime? dueAt;
   final bool payable;
+  final SchoolPendingPaymentAttempt? latestPaymentAttempt;
 
   int get outstandingMinor {
     final due = amountDueMinor < 0 ? 0 : amountDueMinor;
@@ -154,6 +186,11 @@ class SchoolBillingDetail {
             DateTime.fromMillisecondsSinceEpoch(0),
         dueAt: _date(json['dueAt']),
         payable: json['payable'] as bool? ?? false,
+        latestPaymentAttempt: json['latestPaymentAttempt'] is Map
+            ? SchoolPendingPaymentAttempt.fromJson(
+                Map<String, dynamic>.from(json['latestPaymentAttempt'] as Map),
+              )
+            : null,
       );
 }
 
