@@ -234,7 +234,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> with SyncRe
         'assignments' => TeacherAssignmentsPage(repository: _assignments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'assessments' => TeacherAssessmentsPage(repository: _assessments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'class-teacher' => TeacherClassTeacherPage(repository: _classTeacher, onMutationQueued: _refreshPendingCount),
-        'cbt' => TeacherCbtPage(repository: _cbt, onNavigate: _select, onMutationQueued: _refreshPendingCount),
+        'cbt' => TeacherCbtPage(
+            repository: _cbt,
+            schoolId: widget.membership.schoolId,
+            onNavigate: _select,
+            onMutationQueued: _refreshPendingCount,
+          ),
         'learning-progress' => TeacherLearningProgressPage(repository: _learningProgress, onNavigate: _select),
         'students' => TeacherStudentsPage(repository: _students, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'excursions' => ExcursionsPage(

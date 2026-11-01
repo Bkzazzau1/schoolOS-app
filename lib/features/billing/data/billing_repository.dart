@@ -1,6 +1,7 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exceptions.dart';
 import '../domain/billing_invoice.dart';
+import '../domain/school_entitlement_summary.dart';
 import '../domain/subscription_summary.dart';
 
 class BillingRepository {
@@ -20,6 +21,18 @@ class BillingRepository {
     return OrganizationSubscriptionSummary.fromJson(
       Map<String, dynamic>.from(data),
     );
+  }
+
+  /// This specific school's own subscription and premium-entitlement status - never the
+  /// organization-wide [organizationSubscription], which must not be read as proof that any
+  /// one particular school has paid. Always a live server read: the result is never cached,
+  /// so it can never be mistaken for proof of a payment made since the last successful call.
+  Future<SchoolEntitlementSummary> schoolEntitlements(String schoolId) async {
+    final data = await _api.get('schools/$schoolId/billing/entitlements/');
+    if (data is! Map) {
+      throw const ApiException(500, 'The server sent an unexpected answer.');
+    }
+    return SchoolEntitlementSummary.fromJson(Map<String, dynamic>.from(data));
   }
 
   Future<List<BillingPlan>> plans() async {

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../billing/presentation/premium_capability_notice.dart';
 import '../data/teacher_cbt_demo_data.dart';
 import '../data/teacher_cbt_repository.dart';
 import '../domain/teacher_cbt_models.dart';
@@ -10,11 +11,13 @@ class TeacherCbtPage extends StatefulWidget {
   const TeacherCbtPage({
     super.key,
     required this.repository,
+    required this.schoolId,
     required this.onNavigate,
     required this.onMutationQueued,
   });
 
   final TeacherCbtRepository repository;
+  final String schoolId;
   final ValueChanged<String> onNavigate;
   final VoidCallback onMutationQueued;
 
@@ -28,6 +31,7 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
   TeacherCbtTest? _editing;
   String? _notice;
   bool _noticeSuccess = false;
+  bool _publishLocked = false;
 
   @override
   void initState() {
@@ -388,13 +392,20 @@ class _TeacherCbtPageState extends State<TeacherCbtPage> {
                 onChanged: (text) => _replaceEditing(value.copyWith(instructions: text)),
               ),
               const SizedBox(height: 12),
+              if (editable)
+                PremiumCapabilityNotice(
+                  schoolId: widget.schoolId,
+                  code: 'cbt_exam_publish',
+                  featureLabel: 'Publishing a new exam',
+                  onStatus: (enforced, available) => setState(() => _publishLocked = enforced && !available),
+                ),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
                   if (editable) ...[
                     OutlinedButton(onPressed: _saveDraft, child: const Text('Save draft')),
-                    FilledButton(onPressed: _publish, child: const Text('Publish')),
+                    FilledButton(onPressed: _publishLocked ? null : _publish, child: const Text('Publish')),
                   ] else if (value.canClose)
                     FilledButton.tonal(onPressed: () => _close(value), child: const Text('Close test')),
                 ],

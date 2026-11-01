@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
+import '../../billing/presentation/premium_capability_notice.dart';
 import '../data/administrator_academics_repository.dart';
 import '../data/administrator_report_card_repository.dart';
 import '../domain/administrator_academics_models.dart';
@@ -12,12 +13,14 @@ class AdministratorReportCardsPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.academics,
+    required this.schoolId,
     required this.schoolName,
     this.onChanged,
   });
 
   final AdministratorReportCardRepository repository;
   final AdministratorAcademicsRepository academics;
+  final String schoolId;
   final String schoolName;
   final VoidCallback? onChanged;
 
@@ -32,6 +35,7 @@ class _AdministratorReportCardsPageState extends State<AdministratorReportCardsP
   String? _notice;
   bool _noticeSuccess = false;
   bool _compiling = false;
+  bool _compileLocked = false;
 
   @override
   void initState() {
@@ -173,6 +177,12 @@ class _AdministratorReportCardsPageState extends State<AdministratorReportCardsP
                     children: [
                       const Text('Compile a class', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
                       const SizedBox(height: 12),
+                      PremiumCapabilityNotice(
+                        schoolId: widget.schoolId,
+                        code: 'report_card_generation',
+                        featureLabel: 'Generating new report cards',
+                        onStatus: (enforced, available) => setState(() => _compileLocked = enforced && !available),
+                      ),
                       Wrap(
                         spacing: 12,
                         runSpacing: 12,
@@ -202,7 +212,7 @@ class _AdministratorReportCardsPageState extends State<AdministratorReportCardsP
                             ),
                           ),
                           FilledButton(
-                            onPressed: _compiling ? null : _compile,
+                            onPressed: (_compiling || _compileLocked) ? null : _compile,
                             child: Text(_compiling ? 'Compiling…' : 'Compile'),
                           ),
                         ],

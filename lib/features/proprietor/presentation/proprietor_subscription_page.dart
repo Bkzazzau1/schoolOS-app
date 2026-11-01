@@ -6,6 +6,7 @@ import '../../billing/data/billing_repository.dart';
 import '../../billing/domain/subscription_summary.dart';
 import '../../billing/presentation/organization_invoices_card.dart';
 import '../../billing/presentation/organization_subscription_card.dart';
+import '../../billing/presentation/school_entitlement_card.dart';
 
 /// The owner's own school-level view of the account's SkulGen subscription -
 /// the same real data Account Home shows for the account as a whole, reached
@@ -17,6 +18,7 @@ class ProprietorSubscriptionPage extends StatefulWidget {
   const ProprietorSubscriptionPage({
     super.key,
     required this.organizationId,
+    required this.schoolId,
     required this.schoolName,
     required this.repository,
   });
@@ -24,6 +26,7 @@ class ProprietorSubscriptionPage extends StatefulWidget {
   /// Empty when this school has not been linked to an organization account
   /// yet - shown as an honest, unavailable state rather than guessed at.
   final String organizationId;
+  final String schoolId;
   final String schoolName;
   final BillingRepository repository;
 
@@ -72,7 +75,10 @@ class _ProprietorSubscriptionPageState extends State<ProprietorSubscriptionPage>
             const SizedBox(height: 5),
             Text('Subscription', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 5),
-            const Text('The SkulGen plan, billing cadence and entitlements for this account.'),
+            const Text(
+              "This school's own payment status and premium capabilities, and the account's "
+              'overall SkulGen plan and billing cadence.',
+            ),
             const SizedBox(height: 18),
             if (widget.organizationId.isEmpty)
               const Card(
@@ -82,8 +88,18 @@ class _ProprietorSubscriptionPageState extends State<ProprietorSubscriptionPage>
                   child: Text('This school has not been linked to an organization account yet.'),
                 ),
               )
-            else
+            else ...[
+              if (widget.schoolId.isNotEmpty) ...[
+                SchoolEntitlementCard(schoolId: widget.schoolId, repository: widget.repository),
+                const SizedBox(height: 18),
+                Text(
+                  'Organization account',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+              ],
               _body(),
+            ],
           ],
         ),
       ),

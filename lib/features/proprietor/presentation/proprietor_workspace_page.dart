@@ -786,6 +786,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
           ? const _SubscriptionsUnavailable()
           : ProprietorSubscriptionPage(
               organizationId: widget.membership.organizationId ?? '',
+              schoolId: widget.membership.schoolId,
               schoolName: widget.membership.schoolName,
               repository: BillingScope.maybeOf(context)!,
             ),

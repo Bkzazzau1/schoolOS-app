@@ -99,7 +99,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: TeacherCbtPage(repository: _FakeCbtRepository(), onNavigate: (_) {}, onMutationQueued: () {}),
+          body: TeacherCbtPage(repository: _FakeCbtRepository(), schoolId: 'school-1', onNavigate: (_) {}, onMutationQueued: () {}),
         ),
       ),
     );
@@ -127,7 +127,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: TeacherCbtPage(repository: fake, onNavigate: (_) {}, onMutationQueued: () => mutationCallbacks++),
+          body: TeacherCbtPage(repository: fake, schoolId: 'school-1', onNavigate: (_) {}, onMutationQueued: () => mutationCallbacks++),
         ),
       ),
     );
@@ -154,7 +154,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: TeacherCbtPage(repository: fake, onNavigate: (_) {}, onMutationQueued: () {}),
+          body: TeacherCbtPage(repository: fake, schoolId: 'school-1', onNavigate: (_) {}, onMutationQueued: () {}),
         ),
       ),
     );
@@ -188,6 +188,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: TeacherCbtPage(
+            schoolId: 'school-1',
             repository: _FakeCbtRepository(),
             onNavigate: (value) => destination = value,
             onMutationQueued: () {},
@@ -207,7 +208,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: TeacherCbtPage(repository: _EmptyFakeCbtRepository(), onNavigate: (_) {}, onMutationQueued: () {}),
+          body: TeacherCbtPage(repository: _EmptyFakeCbtRepository(), schoolId: 'school-1', onNavigate: (_) {}, onMutationQueued: () {}),
         ),
       ),
     );
@@ -226,7 +227,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: TeacherCbtPage(repository: _FakeCbtRepository(), onNavigate: (_) {}, onMutationQueued: () {}),
+          body: TeacherCbtPage(repository: _FakeCbtRepository(), schoolId: 'school-1', onNavigate: (_) {}, onMutationQueued: () {}),
         ),
       ),
     );
