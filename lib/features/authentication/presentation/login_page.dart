@@ -124,6 +124,11 @@ class _LoginPageState extends State<LoginPage> {
 
       if (profile.memberships.isEmpty && profile.organizations.isEmpty) {
         await auth.signOut();
+        // Defense in depth alongside the endSession() fix (Stage 4, Task 8): this device
+        // may still hold a different, earlier account's cached data from before this sign-in
+        // attempt - never leave it behind just because this particular session never got
+        // far enough to use it itself.
+        await widget.services.localDatabase.wipeAllData();
         _showError(
           'You are signed in, but not connected to a school or school account yet. '
           'Ask your school office to connect your account.',

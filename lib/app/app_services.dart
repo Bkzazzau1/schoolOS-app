@@ -137,6 +137,12 @@ class AppServices {
   Future<void> endSession() async {
     pauseSchoolWorkspace();
     await auth?.signOut();
+    // Every cached academic/student record, queued offline mutation, and media-upload
+    // entry this device holds is erased here - on a shared or school-owned device, the
+    // next person to sign in must never be able to read whoever signed out's cached data
+    // (Phase D Stage 4, Task 8 audit finding). Done last, after signOut()'s own
+    // best-effort server logout, so a network failure there never skips this.
+    await localDatabase.wipeAllData();
   }
 
   static Future<AppServices> bootstrap({

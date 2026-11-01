@@ -30,6 +30,9 @@ class _Database implements LocalDatabase {
     if (invocation.memberName == #getLocalRecords) {
       return Future<List<LocalRecord>>.value([]);
     }
+    if (invocation.memberName == #wipeAllData) {
+      return Future<void>.value();
+    }
     return super.noSuchMethod(invocation);
   }
 }

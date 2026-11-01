@@ -153,6 +153,18 @@ class LocalDatabase implements SyncStore {
     _database = db;
   }
 
+  /// Erases every row this device has ever cached - every school, every account that has
+  /// signed in on it (Phase D Stage 4, Task 8 audit finding): logging out must never leave
+  /// a previous account's cached academic/student records, queued offline mutations, or
+  /// media-upload metadata readable by whoever signs in next on a shared or school-owned
+  /// device. Called from the app's own end-of-session path, never mid-session.
+  Future<void> wipeAllData() async {
+    _db.execute('DELETE FROM local_records;');
+    _db.execute('DELETE FROM sync_outbox;');
+    _db.execute('DELETE FROM sync_cursors;');
+    _db.execute('DELETE FROM media_uploads;');
+  }
+
   @override
   Future<int> readSyncCursor({
     required String tenantId,
