@@ -1,16 +1,37 @@
 /// One premium capability's availability for a specific school, and why - the same reason
 /// text the backend would give if it actually refused the action, so this display can never
 /// drift from the real gate (apps.billing.premium_access.resolve_school_entitlements).
+///
+/// Three separate signals, never collapsed into one boolean: [planEnabled] (the
+/// organization's commercial plan includes this feature at all), [schoolPaid] (this specific
+/// school's own current period is paid), and [available] (what the real gate would actually
+/// decide right now). A fourth, orthogonal signal -
+/// [SchoolEntitlementSummary.premiumEnforcementEnabled] - says whether any of this is
+/// actually enforced yet.
 class SchoolEntitlementCapability {
-  const SchoolEntitlementCapability({required this.available, required this.reason});
+  const SchoolEntitlementCapability({
+    required this.planEnabled,
+    required this.schoolPaid,
+    required this.available,
+    required this.reason,
+  });
 
+  final bool planEnabled;
+  final bool schoolPaid;
   final bool available;
   final String reason;
 
-  static const unavailable = SchoolEntitlementCapability(available: false, reason: '');
+  static const unavailable = SchoolEntitlementCapability(
+    planEnabled: false,
+    schoolPaid: false,
+    available: false,
+    reason: '',
+  );
 
   factory SchoolEntitlementCapability.fromJson(Map<String, dynamic> json) =>
       SchoolEntitlementCapability(
+        planEnabled: json['planEnabled'] as bool? ?? false,
+        schoolPaid: json['schoolPaid'] as bool? ?? false,
         available: json['available'] as bool? ?? false,
         reason: json['reason'] as String? ?? '',
       );

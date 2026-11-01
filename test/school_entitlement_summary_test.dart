@@ -55,6 +55,8 @@ void main() {
       paymentStatus: 'unpaid',
       entitlements: {
         'cbt_exam_publish': {
+          'planEnabled': true,
+          'schoolPaid': false,
           'available': false,
           'reason': "This feature needs this school's current term subscription to be paid.",
         },
@@ -64,6 +66,35 @@ void main() {
     final capability = summary.capability('cbt_exam_publish');
     expect(capability.available, isFalse);
     expect(capability.reason, isNotEmpty);
+  });
+
+  test('plan entitlement and school payment parse as separate signals, never one boolean', () {
+    final planDisabled = SchoolEntitlementSummary.fromJson(_payload(
+      entitlements: {
+        'cbt_exam_publish': {
+          'planEnabled': false,
+          'schoolPaid': true,
+          'available': false,
+          'reason': 'Your current SkulGen plan does not include this feature.',
+        },
+      },
+    )).capability('cbt_exam_publish');
+    expect(planDisabled.planEnabled, isFalse);
+    expect(planDisabled.schoolPaid, isTrue);
+    expect(planDisabled.available, isFalse);
+
+    final unpaidSchool = SchoolEntitlementSummary.fromJson(_payload(
+      entitlements: {
+        'cbt_exam_publish': {
+          'planEnabled': true,
+          'schoolPaid': false,
+          'available': false,
+          'reason': "This feature needs this school's current term subscription to be paid.",
+        },
+      },
+    )).capability('cbt_exam_publish');
+    expect(unpaidSchool.planEnabled, isTrue);
+    expect(unpaidSchool.schoolPaid, isFalse);
   });
 
   test('a legacy school with no organization reports not_applicable and never shows billing', () {
