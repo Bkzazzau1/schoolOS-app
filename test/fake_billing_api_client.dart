@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:schoolos_app/core/auth/token_store.dart';
 import 'package:schoolos_app/core/network/api_client.dart';
 import 'package:schoolos_app/core/network/api_config.dart';
@@ -45,6 +47,16 @@ class FakeApiClient extends ApiClient {
 
   void respondWith(String path, Object? Function(FakeApiCall call) handler) =>
       _handlers[path] = handler;
+
+  /// Registers a response that stays pending until the test completes the returned
+  /// [Completer] - lets a test drive a real await-ordering race (e.g. "the selected school
+  /// changes while this call is still in flight") instead of one that always resolves
+  /// before the test gets a chance to act in between.
+  Completer<Object?> respondLater(String path) {
+    final completer = Completer<Object?>();
+    _handlers[path] = (_) => completer.future;
+    return completer;
+  }
 
   void fail(String path, Object error) => _errors[path] = error;
 

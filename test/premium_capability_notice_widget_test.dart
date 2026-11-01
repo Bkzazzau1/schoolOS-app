@@ -243,4 +243,59 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(Container), findsNothing);
   });
+
+  testWidgets(
+    'a response for a school no longer on screen is discarded, not shown (Stage 2, Task 2)',
+    (tester) async {
+      final api = FakeApiClient();
+      final firstLoad = api.respondLater('schools/school-1/billing/entitlements/');
+      api.respond(
+        'schools/school-2/billing/entitlements/',
+        _entitlementJson(available: true, premiumEnforcementEnabled: true),
+      );
+      final repository = BillingRepository(api: api);
+      final key = GlobalKey();
+
+      await tester.pumpWidget(
+        _wrap(
+          repository,
+          PremiumCapabilityNotice(
+            key: key,
+            schoolId: 'school-1',
+            code: 'cbt_exam_publish',
+            featureLabel: 'Publishing a new exam',
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Switch to school 2 before school 1's own entitlement response ever arrives.
+      await tester.pumpWidget(
+        _wrap(
+          repository,
+          PremiumCapabilityNotice(
+            key: key,
+            schoolId: 'school-2',
+            code: 'cbt_exam_publish',
+            featureLabel: 'Publishing a new exam',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Publishing a new exam'), findsNothing); // school 2 is available
+
+      // School 1's stale, locked response now arrives - it must never be shown for school 2.
+      firstLoad.complete(
+        _entitlementJson(
+          available: false,
+          premiumEnforcementEnabled: true,
+          reason: 'School 1 needs payment.',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('School 1 needs payment.'), findsNothing);
+      expect(find.textContaining('Publishing a new exam'), findsNothing);
+    },
+  );
 }

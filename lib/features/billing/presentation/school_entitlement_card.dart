@@ -39,8 +39,23 @@ class _SchoolEntitlementCardState extends State<SchoolEntitlementCard> {
   @override
   void didUpdateWidget(covariant SchoolEntitlementCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.schoolId != widget.schoolId) _load();
+    if (oldWidget.schoolId != widget.schoolId) {
+      // A switch away from the school an in-flight _pay()/_verify() call started for must
+      // not leave this card stuck "busy" forever - that call's own completion is discarded
+      // below (see _stale), so nothing else will ever clear this flag for the new school.
+      _payBusy = false;
+      _load();
+    }
   }
+
+  /// True once an async call's own result is no longer about the school on screen - either
+  /// this State has been disposed, or [didUpdateWidget] has since swapped in a different
+  /// [widget.schoolId] (the same State object is reused across that swap, so a resumed
+  /// continuation from the old school would otherwise silently narrate or setState for the
+  /// new one). Call this immediately after every `await` before touching state or showing
+  /// a message.
+  bool _stale(String startedForSchoolId) =>
+      !mounted || widget.schoolId != startedForSchoolId;
 
   // Never cached: a viewer who paid moments ago, or whose school was just suspended, must
   // always see the server's current answer, not a stale in-memory one from before a payment.
@@ -49,6 +64,7 @@ class _SchoolEntitlementCardState extends State<SchoolEntitlementCard> {
   // kept only in this widget's own memory, so losing that memory (a dropped app, a fresh
   // navigation) never loses the ability to recover it.
   Future<void> _load() async {
+    final schoolId = widget.schoolId;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -56,21 +72,24 @@ class _SchoolEntitlementCardState extends State<SchoolEntitlementCard> {
       });
     }
     try {
-      final summary = await widget.repository.schoolEntitlements(widget.schoolId);
-      if (!mounted) return;
+      final summary = await widget.repository.schoolEntitlements(schoolId);
+      if (_stale(schoolId)) return;
       setState(() => _summary = summary);
     } on ApiOfflineException {
-      _setError("This school's subscription status is unavailable while SkulGen is offline.");
+      if (!_stale(schoolId)) {
+        _setError("This school's subscription status is unavailable while SkulGen is offline.");
+      }
     } on SessionExpiredException catch (error) {
-      _setError(error.message);
+      if (!_stale(schoolId)) _setError(error.message);
     } on ApiException catch (error) {
-      _setError(error.message);
+      if (!_stale(schoolId)) _setError(error.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (!_stale(schoolId)) setState(() => _loading = false);
     }
   }
 
   Future<void> _pay() async {
+    final schoolId = widget.schoolId;
     final billing = _summary?.billing;
     if (billing == null || _payBusy) return;
     setState(() => _payBusy = true);
@@ -79,27 +98,29 @@ class _SchoolEntitlementCardState extends State<SchoolEntitlementCard> {
         organizationId: billing.organizationId,
         invoiceId: billing.invoiceId,
       );
+      if (_stale(schoolId)) return;
       final rawUrl = checkout.payment.checkoutUrl;
       final uri = rawUrl == null ? null : Uri.tryParse(rawUrl);
-      if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      final opened = uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (_stale(schoolId)) return;
+      if (!opened) {
         _message('The Paystack checkout could not be opened on this device.');
         return;
       }
-      if (!mounted) return;
       _message('Paystack checkout opened. Return here after payment and refresh the status.');
       // Picks up the attempt just created from the server's own record - the one source of
       // truth this card reads from now on, not a locally-remembered copy of it.
       await _load();
     } on ApiOfflineException {
-      _message('Could not reach SkulGen. Check your connection and try again.');
+      if (!_stale(schoolId)) _message('Could not reach SkulGen. Check your connection and try again.');
     } on SessionExpiredException catch (error) {
-      _message(error.message);
+      if (!_stale(schoolId)) _message(error.message);
     } on ApiException catch (error) {
-      _message(error.message);
+      if (!_stale(schoolId)) _message(error.message);
     } catch (_) {
-      _message('The payment checkout could not be opened.');
+      if (!_stale(schoolId)) _message('The payment checkout could not be opened.');
     } finally {
-      if (mounted) setState(() => _payBusy = false);
+      if (!_stale(schoolId)) setState(() => _payBusy = false);
     }
   }
 
@@ -110,6 +131,7 @@ class _SchoolEntitlementCardState extends State<SchoolEntitlementCard> {
   /// charge - it only ever reads and conditionally settles the existing attempt - so it is
   /// always safe to call again.
   Future<void> _verify() async {
+    final schoolId = widget.schoolId;
     final billing = _summary?.billing;
     final attempt = billing?.latestPaymentAttempt;
     if (billing == null || attempt == null || _payBusy) return;
@@ -119,7 +141,7 @@ class _SchoolEntitlementCardState extends State<SchoolEntitlementCard> {
         organizationId: billing.organizationId,
         reference: attempt.reference,
       );
-      if (!mounted) return;
+      if (_stale(schoolId)) return;
 
       // (1) The payment provider's own confirmation.
       if (!result.payment.succeeded) {
@@ -146,7 +168,7 @@ class _SchoolEntitlementCardState extends State<SchoolEntitlementCard> {
       // (3) The school's own entitlement API, reloaded fresh - never assumed from the
       // payment response alone, which knows nothing about plan entitlements.
       await _load();
-      if (!mounted) return;
+      if (_stale(schoolId)) return;
       widget.repository.notifyEntitlementsChanged();
       final summary = _summary;
       if (summary == null || !summary.isPaid) {
@@ -154,21 +176,30 @@ class _SchoolEntitlementCardState extends State<SchoolEntitlementCard> {
             'shortly.');
         return;
       }
-      final stillLocked = summary.entitlements.values.any((capability) => !capability.available);
+      // (4) Whether each premium capability is actually included in this organization's
+      // plan - a payment that settled correctly must never be narrated as having unlocked
+      // a capability the plan itself does not grant (Stage 2, Task 2).
+      final stillLocked = summary.entitlements.values.where((capability) => !capability.available);
+      if (stillLocked.isEmpty) {
+        _message('Payment confirmed. Premium capabilities are now available.');
+        return;
+      }
+      final pendingReflection = stillLocked.any((capability) => capability.planEnabled);
       _message(
-        stillLocked
-            ? 'Payment confirmed for this school. Some premium capabilities remain '
-                'unavailable - see below for why.'
-            : 'Payment confirmed. Premium capabilities are now available.',
+        pendingReflection
+            ? 'Payment confirmed for this school, but some premium capabilities have not '
+                'been reflected yet. Check again shortly.'
+            : "Payment confirmed for this school. The organization's plan does not include "
+                'some premium capabilities - see below for why.',
       );
     } on ApiOfflineException {
-      _message('Could not reach SkulGen. Check your connection and try again.');
+      if (!_stale(schoolId)) _message('Could not reach SkulGen. Check your connection and try again.');
     } on SessionExpiredException catch (error) {
-      _message(error.message);
+      if (!_stale(schoolId)) _message(error.message);
     } on ApiException catch (error) {
-      _message(error.message);
+      if (!_stale(schoolId)) _message(error.message);
     } finally {
-      if (mounted) setState(() => _payBusy = false);
+      if (!_stale(schoolId)) setState(() => _payBusy = false);
     }
   }
 

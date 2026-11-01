@@ -107,11 +107,16 @@ class _PremiumCapabilityNoticeState extends State<PremiumCapabilityNotice>
   Future<void> _load() async {
     final repository = BillingScope.maybeOf(context);
     if (repository == null || widget.schoolId.isEmpty) return;
+    // Captured so a response that resolves after the host screen has already moved on to a
+    // different school or capability code (the same State is reused across that swap) is
+    // discarded below instead of narrating or reporting onStatus for the wrong one.
+    final schoolId = widget.schoolId;
+    final code = widget.code;
     _lastFetchedAt = DateTime.now();
     try {
-      final summary = await repository.schoolEntitlements(widget.schoolId);
-      if (!mounted) return;
-      final capability = summary.capability(widget.code);
+      final summary = await repository.schoolEntitlements(schoolId);
+      if (!mounted || widget.schoolId != schoolId || widget.code != code) return;
+      final capability = summary.capability(code);
       setState(() {
         _premiumEnforcementEnabled = summary.premiumEnforcementEnabled;
         _available = capability.available;
