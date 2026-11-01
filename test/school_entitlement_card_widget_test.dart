@@ -16,6 +16,7 @@ Map<String, dynamic> _entitlementJson({
   Object? academicTerm,
   Object? enrollment,
   Object? billing,
+  Object? census,
   Map<String, dynamic>? entitlements,
 }) {
   final defaultAvailable = paymentStatus == 'paid';
@@ -51,6 +52,7 @@ Map<String, dynamic> _entitlementJson({
           },
         },
     'billing': billing,
+    'census': census,
   };
 }
 
@@ -157,6 +159,75 @@ void main() {
     expect(find.textContaining('requires payment'), findsNothing);
     // Never developer/rollout terminology shown to the person reading this page.
     expect(find.textContaining('enforcement'), findsNothing);
+  });
+
+  testWidgets('a frozen census shows its count; one needing review says so plainly', (
+    tester,
+  ) async {
+    final api = FakeApiClient()
+      ..respond(
+        'schools/school-1/billing/entitlements/',
+        _entitlementJson(
+          census: {
+            'status': 'frozen',
+            'billableStudentCount': 80,
+            'cutoffAt': '2026-01-15T00:00:00Z',
+            'frozenAt': '2026-01-15T00:00:00Z',
+            'isEarly': false,
+            'exceptionReason': null,
+          },
+        ),
+      );
+    final repository = BillingRepository(api: api);
+
+    await tester.pumpWidget(
+      _wrap(SchoolEntitlementCard(schoolId: 'school-1', repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Frozen at 80'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a census needing review says so, never a fabricated bracket', (tester) async {
+    final api = FakeApiClient()
+      ..respond(
+        'schools/school-1/billing/entitlements/',
+        _entitlementJson(
+          census: {
+            'status': 'needs_review',
+            'billableStudentCount': 0,
+            'cutoffAt': '2026-01-15T00:00:00Z',
+            'frozenAt': '2026-01-15T00:00:00Z',
+            'isEarly': false,
+            'exceptionReason': 'The roster census at the cutoff reported zero billable students.',
+          },
+        ),
+      );
+    final repository = BillingRepository(api: api);
+
+    await tester.pumpWidget(
+      _wrap(SchoolEntitlementCard(schoolId: 'school-1', repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Needs review'), findsOneWidget);
+    // Never a raw internal reason string shown on the card itself.
+    expect(find.textContaining('roster census at the cutoff'), findsNothing);
+  });
+
+  testWidgets('no census row yet shows nothing extra - never an error', (tester) async {
+    final api = FakeApiClient()
+      ..respond('schools/school-1/billing/entitlements/', _entitlementJson(census: null));
+    final repository = BillingRepository(api: api);
+
+    await tester.pumpWidget(
+      _wrap(SchoolEntitlementCard(schoolId: 'school-1', repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Census'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a missing academic term shows "Not configured" rather than inventing one', (

@@ -194,6 +194,40 @@ class SchoolBillingDetail {
       );
 }
 
+/// The school's own authoritative enrollment census for its current term (Phase D Stage 3,
+/// Task 1/10) - never shown for MONTHLY/ANNUAL subscriptions, which have no per-school term
+/// for a census to be scoped to. A null [SchoolEntitlementSummary.census] means nothing
+/// about this has fired yet for this school, never an error.
+class SchoolCensusStatus {
+  const SchoolCensusStatus({
+    required this.status,
+    required this.isEarly,
+    this.billableStudentCount,
+    this.cutoffAt,
+    this.frozenAt,
+    this.exceptionReason,
+  });
+
+  final String status;
+  final int? billableStudentCount;
+  final DateTime? cutoffAt;
+  final DateTime? frozenAt;
+  final bool isEarly;
+  final String? exceptionReason;
+
+  bool get isFrozen => status == 'frozen';
+  bool get needsReview => status == 'needs_review';
+
+  factory SchoolCensusStatus.fromJson(Map<String, dynamic> json) => SchoolCensusStatus(
+        status: json['status'] as String? ?? '',
+        billableStudentCount: (json['billableStudentCount'] as num?)?.toInt(),
+        cutoffAt: _date(json['cutoffAt']),
+        frozenAt: _date(json['frozenAt']),
+        isEarly: json['isEarly'] as bool? ?? false,
+        exceptionReason: json['exceptionReason'] as String?,
+      );
+}
+
 /// One school's own subscription and premium-entitlement status - never the organization-wide
 /// accessMode, never a sibling school's payment (apps.billing.premium_access's own module
 /// docstring: "do not rely solely on the organization-wide subscription status").
@@ -213,6 +247,7 @@ class SchoolEntitlementSummary {
     this.currentPeriodEnd,
     this.enrollment,
     this.billing,
+    this.census,
   });
 
   final String schoolId;
@@ -229,6 +264,7 @@ class SchoolEntitlementSummary {
   final SchoolEnrollmentPricing? enrollment;
   final Map<String, SchoolEntitlementCapability> entitlements;
   final SchoolBillingDetail? billing;
+  final SchoolCensusStatus? census;
 
   bool get isPaid => paymentStatus == 'paid';
 
@@ -286,6 +322,9 @@ class SchoolEntitlementSummary {
       entitlements: entitlements,
       billing: json['billing'] is Map
           ? SchoolBillingDetail.fromJson(Map<String, dynamic>.from(json['billing'] as Map))
+          : null,
+      census: json['census'] is Map
+          ? SchoolCensusStatus.fromJson(Map<String, dynamic>.from(json['census'] as Map))
           : null,
     );
   }

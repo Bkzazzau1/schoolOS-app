@@ -325,6 +325,14 @@ class _SchoolEntitlementDetails extends StatelessWidget {
             ),
             if (enrollment?.billableStudentCount != null)
               _Metric(label: 'Billable students', value: '${enrollment!.billableStudentCount}'),
+            if (summary.census != null && (summary.census!.isFrozen || summary.census!.needsReview))
+              _Metric(
+                label: 'Census',
+                value: summary.census!.isFrozen
+                    ? 'Frozen${summary.census!.isEarly ? ' (early)' : ''} at '
+                        '${summary.census!.billableStudentCount ?? enrollment?.billableStudentCount ?? '-'}'
+                    : 'Needs review',
+              ),
           ],
         ),
         const SizedBox(height: 14),
