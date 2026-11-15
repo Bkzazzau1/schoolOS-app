@@ -711,6 +711,7 @@ class _ProprietorWorkspacePageState extends State<ProprietorWorkspacePage> with 
             database: widget.localDatabase, session: widget.schoolSession),
           onChanged: _refreshPendingCount,
           onBack: () => setState(() => _activeModule = 'settings'),
+          onManageStructure: () => setState(() => _activeModule = 'structure'),
         ),
       'settings' => OwnerSettingsPage(
           onOpenJobs: () => setState(() => _activeModule = 'jobs'),

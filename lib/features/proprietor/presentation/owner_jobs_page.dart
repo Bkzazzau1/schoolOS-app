@@ -13,12 +13,17 @@ class OwnerJobsPage extends StatefulWidget {
     required this.repository,
     required this.onChanged,
     this.onBack,
+    this.onManageStructure,
   });
   final JobAssignmentRepository repository;
   final VoidCallback onChanged;
 
   /// Reached from Settings rather than its own menu item, so this shows a way back there.
   final VoidCallback? onBack;
+
+  /// Opens Structure & Leadership, where sections are actually created - offered
+  /// when there are none yet to choose from below.
+  final VoidCallback? onManageStructure;
 
   @override
   State<OwnerJobsPage> createState() => _OwnerJobsPageState();
@@ -350,6 +355,24 @@ class _OwnerJobsPageState extends State<OwnerJobsPage> with SyncRefresh<OwnerJob
                   ? 'Choose the section this person will head.'
                   : null,
             ),
+            if (_sections.isEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'No sections exist yet - set up Nursery, Primary and Secondary (or your own) in Structure & Leadership first.',
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ),
+                  if (widget.onManageStructure != null)
+                    TextButton(
+                      onPressed: widget.onManageStructure,
+                      child: const Text('Set up sections'),
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
             TextFormField(
               controller: _title,

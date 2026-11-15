@@ -301,4 +301,43 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+  testWidgets('with no sections yet, Head of section points to where to make one', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    // Otherwise ProprietorStructureRepository.load() (which sections() delegates to)
+    // auto-seeds the offline demo's own fake Nursery/Primary/Secondary sections,
+    // and this screen would never see an empty list to begin with.
+    LocalDatabase.blockDemoSeeds = true;
+    addTearDown(() => LocalDatabase.blockDemoSeeds = false);
+    var openedStructure = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OwnerJobsPage(
+            repository: repository,
+            onChanged: () {},
+            onManageStructure: () => openedStructure++,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // Shown regardless of the chosen role - it explains up front why "Assignment
+    // scope" only ever offers "Whole school" right now, not only once Head of
+    // section is picked and the chooser is a dead end.
+    expect(find.textContaining('No sections exist yet'), findsOneWidget);
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Head of section').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('No sections exist yet'), findsOneWidget);
+
+    await tester.tap(find.text('Set up sections'));
+    expect(openedStructure, 1);
+  });
 }
