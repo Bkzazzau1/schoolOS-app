@@ -116,6 +116,13 @@ class StaffProposalRepository {
   SchoolMembership get _member => session.requireActiveMembership();
   bool get isOwner => _member.role == SchoolRole.proprietor;
 
+  /// A Principal can approve by default too, same as the owner - but, like
+  /// anyone else the owner assigns below, is still held to
+  /// [delegateApprovableRoles] everywhere `isOwner` alone decides otherwise
+  /// (changing the salary or role, approving their own proposal, ...).
+  bool get _isDefaultApprover =>
+      isOwner || _member.role == SchoolRole.principal;
+
   Future<bool> canPropose() async {
     final member = _member;
     if (const {
@@ -150,9 +157,10 @@ class StaffProposalRepository {
     return payrollAuthoritiesFor(member, authorizers);
   }
 
-  /// The owner, or someone the owner has assigned to approve new staff.
+  /// The owner, a Principal (by default), or someone the owner has assigned
+  /// to approve new staff.
   Future<bool> canApprove() async =>
-      isOwner || (await _authorities()).contains('approveStaff');
+      _isDefaultApprover || (await _authorities()).contains('approveStaff');
 
   /// The owner and assigned approvers see every proposal. Anyone else who can
   /// propose sees only their own.

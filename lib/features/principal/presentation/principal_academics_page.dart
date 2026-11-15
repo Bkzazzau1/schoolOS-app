@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../administrator/data/administrator_academics_repository.dart';
+import '../../administrator/domain/administrator_academics_models.dart';
 import '../data/principal_academics_demo_data.dart';
 import '../data/principal_academics_repository.dart';
 import '../domain/principal_academics_models.dart';
@@ -8,10 +10,16 @@ class PrincipalAcademicsPage extends StatefulWidget {
   const PrincipalAcademicsPage({
     super.key,
     required this.repository,
+    required this.classes,
     required this.onNavigate,
   });
 
   final PrincipalAcademicsRepository repository;
+
+  /// Shared with the Administrator workspace. Reading is open to any role;
+  /// saving a class is too, now, but only this Principal's own Secondary -
+  /// see AdministratorAcademicsRepository.saveClass.
+  final AdministratorAcademicsRepository classes;
   final ValueChanged<String> onNavigate;
 
   @override
@@ -26,10 +34,14 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
   String _status = 'All statuses';
   String _selectedClass = 'JSS 2B';
 
+  AdministratorAcademicsSnapshot? _classesSnapshot;
+  String? _classesError;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _loadClasses();
   }
 
   Future<void> _load() async {
@@ -46,6 +58,20 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = '$error');
+    }
+  }
+
+  Future<void> _loadClasses() async {
+    try {
+      final snapshot = await widget.classes.load();
+      if (!mounted) return;
+      setState(() {
+        _classesSnapshot = snapshot;
+        _classesError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _classesError = '$error');
     }
   }
 
@@ -128,6 +154,8 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
                   ]),
             const SizedBox(height: 16),
             _classworkOversight(context, snapshot.classwork),
+            const SizedBox(height: 16),
+            _classRosterCard(context),
             const SizedBox(height: 14),
             _scopeBoundary(context),
           ],
@@ -511,6 +539,166 @@ class _PrincipalAcademicsPageState extends State<PrincipalAcademicsPage> {
         runSpacing: 10,
         children: [for (final item in items) SizedBox(width: 125, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.$1, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)), Text(item.$2, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900))]))],
       );
+
+  Widget _classRosterCard(BuildContext context) {
+    final secondary = (_classesSnapshot?.classes ?? const <AdministratorAcademicClass>[])
+        .where((row) => row.section.trim().toLowerCase() == 'secondary')
+        .toList();
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                  Text('Secondary classes', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                  Text('Add or rename the classes students are placed into, e.g. "1A", "1B".'),
+                ]),
+              ),
+              FilledButton.icon(
+                onPressed: () => _editClass(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('New class'),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            if (_classesError != null) Text(_classesError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            if (_classesError == null && _classesSnapshot == null) const LinearProgressIndicator(),
+            if (_classesSnapshot != null && secondary.isEmpty)
+              const Padding(padding: EdgeInsets.all(4), child: Text('No Secondary classes yet.')),
+            for (final row in secondary)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(row.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text('Code ${row.code}${row.stream.isEmpty ? '' : ' · Stream ${row.stream}'}${row.isActive ? '' : ' · Inactive'}'),
+                trailing: TextButton(onPressed: () => _editClass(row), child: const Text('Edit')),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editClass([AdministratorAcademicClass? existing]) async {
+    final snapshot = _classesSnapshot;
+    if (snapshot == null) return;
+    final name = TextEditingController(text: existing?.name ?? '');
+    final code = TextEditingController(text: existing?.code ?? '');
+    final order = TextEditingController(text: '${existing?.levelOrder ?? 1}');
+    final stream = TextEditingController(text: existing?.stream ?? '');
+    var nextClassId = existing?.nextClassId ?? '';
+    var terminal = existing?.isTerminal ?? false;
+    var active = existing?.isActive ?? true;
+    final secondaryClasses = snapshot.classes.where((row) => row.section.trim().toLowerCase() == 'secondary').toList();
+    final result = await showDialog<AdministratorAcademicClass>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(existing == null ? 'New Secondary class' : 'Edit Secondary class'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: name,
+                    decoration: const InputDecoration(labelText: 'Class name', hintText: '1A'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: code,
+                    decoration: const InputDecoration(labelText: 'Class code', hintText: 'JSS1A'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: order,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Progression order'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: stream,
+                    decoration: const InputDecoration(labelText: 'Stream (optional)', hintText: 'A'),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: nextClassId,
+                    decoration: const InputDecoration(labelText: 'Default next class'),
+                    items: [
+                      const DropdownMenuItem(value: '', child: Text('None')),
+                      for (final item in secondaryClasses.where((item) => item.id != existing?.id))
+                        DropdownMenuItem(value: item.id, child: Text(item.name)),
+                    ],
+                    onChanged: terminal ? null : (value) => setState(() => nextClassId = value ?? ''),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Terminal class'),
+                    subtitle: const Text('Graduation is allowed only from a terminal class.'),
+                    value: terminal,
+                    onChanged: (value) => setState(() {
+                      terminal = value;
+                      if (terminal) nextClassId = '';
+                    }),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Active class'),
+                    value: active,
+                    onChanged: (value) => setState(() => active = value),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final levelOrder = int.tryParse(order.text.trim());
+                if (name.text.trim().isEmpty || code.text.trim().isEmpty || levelOrder == null || levelOrder < 1) {
+                  return;
+                }
+                Navigator.pop(
+                  context,
+                  AdministratorAcademicClass(
+                    id: existing?.id ?? AdministratorAcademicsRepository.newId(),
+                    code: code.text.trim(),
+                    name: name.text.trim(),
+                    section: 'Secondary',
+                    levelOrder: levelOrder,
+                    stream: stream.text.trim(),
+                    nextClassId: nextClassId,
+                    isTerminal: terminal,
+                    isActive: active,
+                    campusId: existing?.campusId ?? '',
+                    pendingSync: true,
+                  ),
+                );
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    name.dispose();
+    code.dispose();
+    order.dispose();
+    stream.dispose();
+    if (result == null) return;
+    try {
+      await widget.classes.saveClass(result);
+      await _loadClasses();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _classesError = '$error');
+    }
+  }
 
   Widget _scopeBoundary(BuildContext context) => Card(
         elevation: 0,

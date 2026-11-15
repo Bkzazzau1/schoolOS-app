@@ -281,17 +281,19 @@ void main() {
   });
 
   test('people only see their own proposals; the owner sees all', () async {
+    // Neither proposer here is a default approver (a Principal is - see the
+    // dedicated Principal-approval test below), so each sees only their own.
     final db = _Database();
-    final principal = await _repo(db, _principal, sessions);
+    final admin = await _repo(db, _admin, sessions);
     final finance = await _repo(db, _finance, sessions);
-    await propose(principal);
+    await propose(admin);
     await finance.propose(
       name: 'Aisha', roleTitle: 'Bursar Assistant', systemRole: 'teacher', workArea: 'Finance office',
       phone: '08055550000', nin: '99999999999', email: 'aisha@school.ng',
       gross: 100000, deductions: 0,
     );
-    expect(await principal.load(), hasLength(1));
-    expect((await principal.load()).single.proposedBy, 'principal');
+    expect(await admin.load(), hasLength(1));
+    expect((await admin.load()).single.proposedBy, 'admin');
     expect((await finance.load()).single.name, 'Aisha');
     final owner = await _repo(db, _owner, sessions);
     expect(await owner.load(), hasLength(2));
@@ -873,15 +875,18 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    // A Principal is excluded here - unlike every other role, they can approve
+    // staff by default (see the dedicated Principal-approval test below), so
+    // they no longer represent "a proposer who is not an approver".
     final db = _Database();
-    final finance = await _repo(db, _finance, sessions);
-    await propose(finance);
-    assign(db, _principal, {'approve'}); // payroll only, not staff approval
     final principal = await _repo(db, _principal, sessions);
+    await propose(principal);
+    assign(db, _finance, {'approve'}); // payroll only, not staff approval
+    final finance = await _repo(db, _finance, sessions);
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: SingleChildScrollView(
-          child: StaffProposalsPanel(repository: principal, onChanged: () {}),
+          child: StaffProposalsPanel(repository: finance, onChanged: () {}),
         ),
       ),
     ));

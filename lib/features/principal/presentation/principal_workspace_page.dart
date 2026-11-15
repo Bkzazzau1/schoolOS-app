@@ -8,6 +8,7 @@ import '../../../core/appearance/school_appearance_controller.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
+import '../../administrator/data/administrator_academics_repository.dart';
 import '../../administrator/data/administrator_attendance_repository.dart';
 import '../../administrator/data/administrator_students_repository.dart';
 import '../../administrator/presentation/administrator_workspace_page.dart';
@@ -81,6 +82,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
   late final PrincipalAssignmentsRepository _assignments;
   late final PrincipalClassTeachersRepository _classTeachers;
   late final PrincipalAcademicsRepository _academics;
+  late final AdministratorAcademicsRepository _academicClasses;
   late final PrincipalStudentsRepository _students;
   late final PrincipalAttendanceRepository _attendance;
   late final PrincipalApprovalsRepository _approvals;
@@ -131,6 +133,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
       assignments: _assignments,
       attendance: _attendance,
     );
+    _academicClasses = AdministratorAcademicsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _approvals = PrincipalApprovalsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _results = PrincipalResultsRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession);
     _timetable = PrincipalTimetableRepository(localDatabase: widget.localDatabase, schoolSession: widget.schoolSession, assignments: _assignments);
@@ -222,7 +225,7 @@ class _PrincipalWorkspacePageState extends State<PrincipalWorkspacePage> with Sy
         'staff-profiles' => OwnerStaffProfilesPage(repository: OwnerStaffProfileRepository(database: widget.localDatabase, session: widget.schoolSession), proposals: StaffProposalRepository(remote: StaffServerScope.maybeOf(context), database: widget.localDatabase, session: widget.schoolSession), payrollBatches: PayrollBatchRepository(confirm: ServerConfirmScope.maybeOf(context), database: widget.localDatabase, session: widget.schoolSession), onChanged: _refreshPendingCount),
         'assignments' => PrincipalAssignmentsPage(repository: _assignments, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'class-teachers' => PrincipalClassTeachersPage(repository: _classTeachers, onMutationQueued: _refreshPendingCount),
-        'academics' => PrincipalAcademicsPage(repository: _academics, onNavigate: _select),
+        'academics' => PrincipalAcademicsPage(repository: _academics, classes: _academicClasses, onNavigate: _select),
         'students' => PrincipalStudentsPage(repository: _students, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'attendance' => PrincipalAttendancePage(repository: _attendance, onNavigate: _select, onMutationQueued: _refreshPendingCount),
         'approvals' => PrincipalApprovalsPage(repository: _approvals, onNavigate: _select, onMutationQueued: _refreshPendingCount),

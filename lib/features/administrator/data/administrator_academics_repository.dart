@@ -24,9 +24,11 @@ class AdministratorAcademicsRepository {
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
 
-  SchoolMembership _requireAdministrator() {
+  SchoolMembership _requireAdministrator({bool allowPrincipal = false}) {
     final membership = _schoolSession.requireActiveMembership();
-    if (membership.role != SchoolRole.administrator) {
+    final allowed = membership.role == SchoolRole.administrator ||
+        (allowPrincipal && membership.role == SchoolRole.principal);
+    if (!allowed) {
       throw StateError('Academic structure changes require the Administrator workspace.');
     }
     return membership;
@@ -174,8 +176,17 @@ class AdministratorAcademicsRepository {
   Future<void> saveTerm(AdministratorAcademicTerm term) =>
       _save(termEntityType, term.id, term.toJson());
 
-  Future<void> saveClass(AdministratorAcademicClass academicClass) =>
-      _save(classEntityType, academicClass.id, academicClass.toJson());
+  /// A Principal may save a class too, by default - but, same as the server
+  /// (apps.owner.jobs.access.require_stage_access), only their own Secondary;
+  /// checked here first so they see a clear message instead of a sync failure.
+  Future<void> saveClass(AdministratorAcademicClass academicClass) {
+    final membership = _schoolSession.requireActiveMembership();
+    if (membership.role == SchoolRole.principal &&
+        academicClass.section.trim().toLowerCase() != 'secondary') {
+      throw StateError('A Principal can only create or edit Secondary classes.');
+    }
+    return _save(classEntityType, academicClass.id, academicClass.toJson(), allowPrincipal: true);
+  }
 
   Future<void> saveSubject(AdministratorSubject subject) =>
       _save(subjectEntityType, subject.id, subject.toJson());
@@ -192,9 +203,10 @@ class AdministratorAcademicsRepository {
   Future<void> _save(
     String entityType,
     String entityId,
-    Map<String, Object?> payload,
-  ) async {
-    final membership = _requireAdministrator();
+    Map<String, Object?> payload, {
+    bool allowPrincipal = false,
+  }) async {
+    final membership = _requireAdministrator(allowPrincipal: allowPrincipal);
     final existing = await _localDatabase.getLocalRecord(
       tenantId: membership.schoolId,
       entityType: entityType,
