@@ -1,3 +1,4 @@
+import '../core/announcements/announcements_controller.dart';
 import '../core/appearance/school_appearance_controller.dart';
 import '../core/auth/auth_repository.dart';
 import '../core/auth/token_store.dart';
@@ -48,6 +49,7 @@ class AppServices {
     this.syncCoordinator,
     this.access,
     this.notifications,
+    this.announcements,
     this.ownerAccess,
     this.localAccess,
     this.staffServer,
@@ -86,6 +88,7 @@ class AppServices {
   final SyncCoordinator? syncCoordinator;
   final AccessController? access;
   final NotificationsController? notifications;
+  final AnnouncementsController? announcements;
   final OwnerAccessSource? ownerAccess;
 
   /// Who-sees-what for the demo (no server): the same rules, kept on the device.
@@ -120,6 +123,7 @@ class AppServices {
   Future<void> beginSchool(SchoolMembership membership) async {
     await access?.restore(membership);
     await notifications?.restore(membership);
+    await announcements?.restore(membership);
     syncCoordinator?.start();
     mediaQueue.start();
   }
@@ -132,6 +136,7 @@ class AppServices {
     mediaQueue.stop();
     access?.clear();
     notifications?.clear();
+    announcements?.clear();
   }
 
   Future<void> endSession() async {
@@ -171,6 +176,7 @@ class AppServices {
     SyncCoordinator? syncCoordinator;
     AccessController? access;
     NotificationsController? notifications;
+    AnnouncementsController? announcements;
     OwnerAccessSource? ownerAccess;
     StaffServerApi? staffServer;
     AlumniServerApi? alumniServer;
@@ -235,9 +241,11 @@ class AppServices {
       transferVerifyNetwork = TransferVerifyNetworkApi(api: api);
       access = AccessController(api: api, store: localDatabase);
       notifications = NotificationsController(api: api, store: localDatabase);
+      announcements = AnnouncementsController(api: api, store: localDatabase);
       final followUp = RoundFollowUp(
         access: access,
         notifications: notifications,
+        announcements: announcements,
         unsent: _LocalUnsentWork(localDatabase),
         activeMembership: () => schoolSession.activeMembership,
       );
@@ -270,6 +278,7 @@ class AppServices {
       syncCoordinator: syncCoordinator,
       access: access,
       notifications: notifications,
+      announcements: announcements,
       ownerAccess: ownerAccess,
       localAccess: localAccess,
       staffServer: staffServer,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schoolos_app/core/access/access_controller.dart';
+import 'package:schoolos_app/core/announcements/announcements_controller.dart';
 import 'package:schoolos_app/core/appearance/school_appearance_controller.dart';
 import 'package:schoolos_app/core/database/local_database.dart';
 import 'package:schoolos_app/core/network/api_exceptions.dart';
@@ -68,6 +69,7 @@ void main() {
     late FakeServer server;
     late AccessController access;
     late NotificationsController notifications;
+    late AnnouncementsController announcements;
     late _Unsent unsent;
     late RoundFollowUp followUp;
     var access0 = _access(['driver.dashboard', 'driver.riders']);
@@ -93,8 +95,15 @@ void main() {
       final api = apiFor(server);
       access = AccessController(api: api, store: store);
       notifications = NotificationsController(api: api, store: store);
+      announcements = AnnouncementsController(api: api, store: store);
       unsent = _Unsent();
-      followUp = RoundFollowUp(access: access, notifications: notifications, unsent: unsent, activeMembership: () => driver);
+      followUp = RoundFollowUp(
+        access: access,
+        notifications: notifications,
+        announcements: announcements,
+        unsent: unsent,
+        activeMembership: () => driver,
+      );
     });
 
     test('reads what the person may use and their inbox', () async {
@@ -138,7 +147,13 @@ void main() {
     });
 
     test('with no school chosen it does nothing', () async {
-      final none = RoundFollowUp(access: access, notifications: notifications, unsent: unsent, activeMembership: () => null);
+      final none = RoundFollowUp(
+        access: access,
+        notifications: notifications,
+        announcements: announcements,
+        unsent: unsent,
+        activeMembership: () => null,
+      );
       await none(_quiet);
       expect(server.requests, isEmpty);
     });

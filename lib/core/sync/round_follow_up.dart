@@ -1,4 +1,5 @@
 import '../access/access_controller.dart';
+import '../announcements/announcements_controller.dart';
 import '../notifications/notifications_controller.dart';
 import '../../shared/models/school_membership.dart';
 import 'sync_engine.dart';
@@ -20,12 +21,14 @@ class RoundFollowUp {
   RoundFollowUp({
     required this.access,
     required this.notifications,
+    required this.announcements,
     required this.unsent,
     required this.activeMembership,
   });
 
   final AccessController access;
   final NotificationsController notifications;
+  final AnnouncementsController announcements;
   final UnsentWork unsent;
   final SchoolMembership? Function() activeMembership;
 
@@ -35,6 +38,7 @@ class RoundFollowUp {
 
     // Each is tried on its own: an inbox problem must not stop access from updating.
     await _attempt(() => notifications.refresh(membership));
+    await _attempt(() => announcements.refresh(membership));
     await _attempt(() => access.refresh(membership));
 
     final waiting = access.blocking;

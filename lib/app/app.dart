@@ -29,6 +29,7 @@ import '../features/billing/presentation/billing_scope.dart';
 import '../features/proprietor/data/owner_access_scope.dart';
 import '../features/proprietor/data/staff_server_api.dart';
 import '../features/invitations/presentation/invitation_accept_page.dart';
+import 'announcement_popup_host.dart';
 import 'app_services.dart';
 import 'sync_status_banner.dart';
 import '../features/student/presentation/student_workspace_page.dart';
@@ -262,6 +263,15 @@ class SchoolOsApp extends StatelessWidget {
             final access = services.accessView;
             final notifications = services.notifications;
             Widget tree = scoped;
+            final announcements = services.announcements;
+            if (announcements != null) {
+              tree = AnnouncementPopupHost(
+                controller: announcements,
+                schoolSession: services.schoolSession,
+                navigatorKey: _navigatorKey,
+                child: tree,
+              );
+            }
             if (access != null) tree = AccessScope(access: access, child: tree);
             final serverConfirm = services.serverConfirm;
             if (serverConfirm != null) tree = ServerConfirmScope(confirm: serverConfirm, child: tree);
