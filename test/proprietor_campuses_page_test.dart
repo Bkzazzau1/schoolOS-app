@@ -63,7 +63,7 @@ void main() {
 
   testWidgets('adding a real campus shows it as its own card', (tester) async {
     await pump(tester);
-    expect(find.textContaining('Kaduna Campus'), findsWidgets);
+    expect(find.textContaining('Main Campus'), findsWidgets);
     expect(find.textContaining('Zaria Campus'), findsNothing);
 
     await tester.tap(find.text('Add campus'));
@@ -97,10 +97,10 @@ void main() {
     await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
 
-    // "Nursery / Early Years" sorts first in the assignment list; every seeded section starts on
-    // the real "kaduna" campus.
+    // "Nursery / Early Years" sorts first in the assignment list; every standard section starts
+    // on the one default "main" campus.
     final before = (await repository.structure.load()).sections.singleWhere((s) => s.name == 'Nursery / Early Years');
-    expect(before.campusId, 'kaduna');
+    expect(before.campusId, 'main');
     final zaria = (await repository.load()).campuses.singleWhere((c) => c.name == 'Zaria Campus');
 
     await tester.tap(find.byType(DropdownButtonFormField<String?>).first);

@@ -29,12 +29,13 @@ class _ProprietorStructurePageState extends State<ProprietorStructurePage> with 
   void onSynced() => _load();
 
   ProprietorStructureSnapshot? _snapshot;
+  List<String> _people = const [];
   String _selectedSectionId = 'secondary';
-  String _person = 'Mrs. Grace Musa';
-  String _title = 'Vice Principal Administration';
+  String _person = '';
+  String _title = '';
   LeadershipLevel _level = LeadershipLevel.deputy;
   String _department = '';
-  String? _reportsTo = 'L-003';
+  String? _reportsTo;
   bool _loading = true;
   bool _saving = false;
   String? _notice;
@@ -48,10 +49,15 @@ class _ProprietorStructurePageState extends State<ProprietorStructurePage> with 
   Future<void> _load() async {
     setState(() => _loading = true);
     final snapshot = await widget.repository.load();
+    final people = await widget.repository.people();
     if (!mounted) return;
     final sectionExists = snapshot.sections.any((s) => s.id == _selectedSectionId);
     setState(() {
       _snapshot = snapshot;
+      _people = people;
+      if (!people.contains(_person)) {
+        _person = people.isEmpty ? '' : people.first;
+      }
       if (!sectionExists && snapshot.sections.isNotEmpty) {
         _selectedSectionId = snapshot.sections.first.id;
       }
@@ -188,7 +194,7 @@ class _ProprietorStructurePageState extends State<ProprietorStructurePage> with 
                       onDashboard: () => widget.onActionRequested('overview'),
                     ),
                     const SizedBox(height: 18),
-                    const _GovernanceBanner(),
+                    _GovernanceBanner(campuses: _snapshot!.campuses),
                     const SizedBox(height: 18),
                     _SectionGrid(
                       sections: _snapshot!.sections,
@@ -203,7 +209,8 @@ class _ProprietorStructurePageState extends State<ProprietorStructurePage> with 
                       section: _selectedSection,
                       leaders: _sectionLeaders,
                       allLeaders: _snapshot!.leaders,
-                      people: proprietorStructurePeople,
+                      people: _people,
+                      onInviteStaff: () => widget.onActionRequested('staff'),
                       selectedPerson: _person,
                       level: _level,
                       title: _title,
@@ -360,7 +367,9 @@ class _Header extends StatelessWidget {
 }
 
 class _GovernanceBanner extends StatelessWidget {
-  const _GovernanceBanner();
+  const _GovernanceBanner({required this.campuses});
+
+  final List<Campus> campuses;
 
   @override
   Widget build(BuildContext context) {
@@ -394,7 +403,7 @@ class _GovernanceBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          const Chip(label: Text('Kaduna Campus')),
+          Chip(label: Text(campuses.isEmpty ? 'No campus yet' : campuses.first.name)),
         ],
       ),
     );
@@ -425,7 +434,9 @@ class _SectionGrid extends StatelessWidget {
       crossAxisCount: columns,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: compact ? 2.15 : 1.4,
+      // A touch taller than before: the card's fixed row of text (stage, name, campus,
+      // leader title/name, class count) was overflowing its own box by a few pixels.
+      childAspectRatio: compact ? 1.8 : 1.2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       children: [
@@ -477,7 +488,10 @@ class _SectionCard extends StatelessWidget {
               Text(campusName ?? 'Not assigned to a campus', style: theme.textTheme.bodySmall),
               const Spacer(),
               Text(section.leaderTitle, style: const TextStyle(fontWeight: FontWeight.w800)),
-              Text(section.leaderName),
+              Text(
+                section.leaderName.isEmpty ? 'Not yet appointed' : section.leaderName,
+                style: section.leaderName.isEmpty ? const TextStyle(fontStyle: FontStyle.italic) : null,
+              ),
               const SizedBox(height: 8),
               Text('${section.classes} configured classes', style: theme.textTheme.bodySmall),
             ],
@@ -510,6 +524,7 @@ class _StructureWorkspace extends StatelessWidget {
     required this.onDepartmentChanged,
     required this.onReportsToChanged,
     required this.onAppoint,
+    required this.onInviteStaff,
   });
 
   final bool compact;
@@ -532,6 +547,7 @@ class _StructureWorkspace extends StatelessWidget {
   final ValueChanged<String> onDepartmentChanged;
   final ValueChanged<String?> onReportsToChanged;
   final VoidCallback onAppoint;
+  final VoidCallback onInviteStaff;
 
   @override
   Widget build(BuildContext context) {
@@ -541,13 +557,34 @@ class _StructureWorkspace extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _HeadControl(section: section, people: people, saving: saving, onChanged: onReplaceHead),
+          _HeadControl(section: section, people: people, saving: saving, onChanged: onReplaceHead, onInviteStaff: onInviteStaff),
           const SizedBox(height: 16),
           for (final leader in leaders)
             _HierarchyRow(leader: leader, allLeaders: allLeaders),
         ],
       ),
     );
+    if (people.isEmpty) {
+      final right = _ModuleCard(
+        title: 'Appoint leader',
+        subtitle: 'Add a deputy, HOD, coordinator or section head.',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('No staff members yet. Add your real staff first, then come back to appoint them.'),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onInviteStaff,
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              label: const Text('Add staff'),
+            ),
+          ],
+        ),
+      );
+      return compact
+          ? Column(children: [left, const SizedBox(height: 14), right])
+          : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(flex: 3, child: left), const SizedBox(width: 14), Expanded(flex: 2, child: right)]);
+    }
     final right = _ModuleCard(
       title: 'Appoint leader',
       subtitle: 'Add a deputy, HOD, coordinator or section head.',
@@ -556,7 +593,7 @@ class _StructureWorkspace extends StatelessWidget {
           DropdownButtonFormField<String>(
           isExpanded: true,
             key: ValueKey('person-$selectedPerson'),
-            initialValue: selectedPerson,
+            initialValue: people.contains(selectedPerson) ? selectedPerson : null,
             decoration: const InputDecoration(labelText: 'Staff member'),
             items: [for (final person in people) DropdownMenuItem(value: person, child: Text(person))],
             onChanged: saving ? null : (value) { if (value != null) onPersonChanged(value); },
@@ -634,15 +671,23 @@ class _StructureWorkspace extends StatelessWidget {
 }
 
 class _HeadControl extends StatelessWidget {
-  const _HeadControl({required this.section, required this.people, required this.saving, required this.onChanged});
+  const _HeadControl({
+    required this.section,
+    required this.people,
+    required this.saving,
+    required this.onChanged,
+    required this.onInviteStaff,
+  });
 
   final AcademicSection section;
   final List<String> people;
   final bool saving;
   final ValueChanged<String> onChanged;
+  final VoidCallback onInviteStaff;
 
   @override
   Widget build(BuildContext context) {
+    final hasLeader = section.leaderName.isNotEmpty;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -655,16 +700,23 @@ class _HeadControl extends StatelessWidget {
           const Text('SECTION HEAD', style: TextStyle(fontWeight: FontWeight.w900)),
           const SizedBox(height: 5),
           Text(section.leaderTitle, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-          Text(section.leaderName),
+          Text(hasLeader ? section.leaderName : 'Not yet appointed', style: hasLeader ? null : const TextStyle(fontStyle: FontStyle.italic)),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-          isExpanded: true,
-            key: ValueKey('head-${section.id}-${section.leaderName}'),
-            initialValue: people.contains(section.leaderName) ? section.leaderName : null,
-            decoration: const InputDecoration(labelText: 'Replace section head'),
-            items: [for (final person in people) DropdownMenuItem(value: person, child: Text(person))],
-            onChanged: saving ? null : (value) { if (value != null && value != section.leaderName) onChanged(value); },
-          ),
+          if (people.isEmpty)
+            OutlinedButton.icon(
+              onPressed: onInviteStaff,
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              label: const Text('Add staff to appoint one'),
+            )
+          else
+            DropdownButtonFormField<String>(
+            isExpanded: true,
+              key: ValueKey('head-${section.id}-${section.leaderName}'),
+              initialValue: people.contains(section.leaderName) ? section.leaderName : null,
+              decoration: const InputDecoration(labelText: 'Replace section head'),
+              items: [for (final person in people) DropdownMenuItem(value: person, child: Text(person))],
+              onChanged: saving ? null : (value) { if (value != null && value != section.leaderName) onChanged(value); },
+            ),
         ],
       ),
     );

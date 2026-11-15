@@ -1,5 +1,36 @@
 import '../domain/proprietor_structure_models.dart';
 
+/// A real school's starting structure: the standard sections, with no leader
+/// assigned yet and no made-up campus name. Used by
+/// [ProprietorStructureRepository.setUpStandardStructure] for a real,
+/// backend-connected school - never these invented names, which exist only for
+/// the offline demo below.
+const standardCampuses = <Campus>[
+  Campus(id: 'main', name: 'Main Campus'),
+];
+
+const standardAcademicSections = <AcademicSection>[
+  AcademicSection(
+    id: 'nursery', name: 'Nursery / Early Years', stage: 'Nursery', campusId: 'main',
+    leaderTitle: 'Head Teacher', leaderName: '', classes: 0,
+  ),
+  AcademicSection(
+    id: 'primary', name: 'Primary School', stage: 'Primary', campusId: 'main',
+    leaderTitle: 'Headmistress', leaderName: '', classes: 0,
+  ),
+  AcademicSection(
+    id: 'secondary', name: 'Secondary School', stage: 'Secondary', campusId: 'main',
+    leaderTitle: 'Principal', leaderName: '', classes: 0,
+  ),
+];
+
+/// A brand-new real school has nobody appointed yet - the proprietor appoints
+/// their own real staff from here (see [_HeadControl] and "Appoint leader").
+const standardLeadershipAppointments = <LeadershipAppointment>[];
+
+/// Illustrative names for the OFFLINE DEMO ONLY (no backend configured at
+/// all - see LocalDatabase.blockDemoSeeds). Never shown or synced for a real,
+/// backend-connected school.
 const proprietorStructurePeople = <String>[
   'Mrs. Mary Daniel',
   'Mrs. Hauwa Sule',

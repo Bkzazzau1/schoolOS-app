@@ -5,6 +5,7 @@ import 'package:schoolos_app/core/security/payload_cipher.dart';
 import 'package:schoolos_app/core/sync/server_confirm.dart';
 import 'package:schoolos_app/core/sync/sync_mutation.dart';
 import 'package:schoolos_app/core/tenancy/school_session_controller.dart';
+import 'package:schoolos_app/features/administrator/data/administrator_staff_repository.dart';
 import 'package:schoolos_app/features/proprietor/data/proprietor_structure_demo_data.dart';
 import 'package:schoolos_app/features/proprietor/data/proprietor_structure_repository.dart';
 import 'package:schoolos_app/features/proprietor/domain/proprietor_structure_models.dart';
@@ -97,27 +98,27 @@ void main() {
       expect(await db.getLocalRecords(tenantId: owner.schoolId, entityType: 'academic_section'), isEmpty);
     });
 
-    test('setting up creates the sections first and then the posts that belong to them', () async {
+    test('setting up creates the standard sections with nobody appointed yet - never fake leaders', () async {
       final result = await repo().setUpStandardStructure();
       expect(result.success, isTrue);
-      final firstPost = sent.indexWhere((s) => s.startsWith('leadership_appointment:'));
-      final lastSection = sent.lastIndexWhere((s) => s.startsWith('academic_section:'));
-      expect(sent.where((s) => s.startsWith('academic_section:')).length, initialAcademicSections.length);
-      expect(sent.where((s) => s.startsWith('leadership_appointment:')).length, initialLeadershipAppointments.length);
-      expect(lastSection, lessThan(firstPost));                                // a post needs its section on the server first
+      expect(sent.where((s) => s.startsWith('academic_section:')).length, standardAcademicSections.length);
+      expect(sent.any((s) => s.startsWith('leadership_appointment:')), isFalse); // nobody to appoint yet
 
       final after = await repo().load();
-      expect((after.needsSetup, after.sections.length, after.leaders.length), (false, initialAcademicSections.length, initialLeadershipAppointments.length));
+      expect((after.needsSetup, after.sections.length, after.leaders.length), (false, standardAcademicSections.length, 0));
+      for (final section in after.sections) {
+        expect(section.leaderName, isEmpty, reason: 'a brand-new real section must start with nobody appointed');
+      }
+      expect(after.campuses.single.name, 'Main Campus'); // never the old hardcoded "Kaduna Campus"
       expect(db.syncQueueItems(tenantId: owner.schoolId), isEmpty);
     });
 
     test('it stops at the first refusal, says why, and leaves nothing half-made on the device', () async {
-      serverSays = (item) => item.entityId == initialAcademicSections[1].id ? 'The section name is required.' : 'ok';
+      serverSays = (item) => item.entityId == standardAcademicSections[1].id ? 'The section name is required.' : 'ok';
       final result = await repo().setUpStandardStructure();
       expect((result.success, result.message), (false, 'The section name is required.'));
-      expect(sent.any((s) => s.startsWith('leadership_appointment:')), isFalse);   // never got as far as the posts
       final sections = await db.getLocalRecords(tenantId: owner.schoolId, entityType: 'academic_section');
-      expect(sections.map((r) => r.entityId), [initialAcademicSections.first.id]);
+      expect(sections.map((r) => r.entityId), [standardAcademicSections.first.id]);
       expect(db.syncQueueItems(tenantId: owner.schoolId), isEmpty);
     });
 
@@ -134,10 +135,28 @@ void main() {
       return repo();
     }
 
-    test('an appointment is sent at once, and a refusal is shown with nothing kept', () async {
+    /// Setup alone leaves a section with nobody appointed - these tests need a real
+    /// Section Head on the books first, appointed through the normal flow (never a
+    /// made-up seed), before they can test a deputy reporting to one or a replacement.
+    Future<(ProprietorStructureRepository, AcademicSection)> setUpWithHead() async {
       final structure = await setUpFirst();
+      final section = (await structure.load()).sections.first;
+      final title = switch (section.stage) {
+        'Primary' => 'Headmaster / Headmistress',
+        'Secondary' => 'Principal',
+        _ => 'Head Teacher',
+      };
+      final appointed = await structure.appoint(
+        section: section, person: 'Mrs. First Head', level: LeadershipLevel.sectionHead, title: title,
+      );
+      expect(appointed.success, isTrue);
+      sent.clear();
+      return (structure, section);
+    }
+
+    test('an appointment is sent at once, and a refusal is shown with nothing kept', () async {
+      final (structure, section) = await setUpWithHead();
       final snapshot = await structure.load();
-      final section = snapshot.sections.first;
       final manager = snapshot.leaders.firstWhere((l) => l.sectionId == section.id && l.level == LeadershipLevel.sectionHead);
 
       serverSays = (_) => 'Choose a reporting manager from the same section: its head or a deputy.';
@@ -156,8 +175,7 @@ void main() {
     });
 
     test('replacing a head sends the appointment first and then the section', () async {
-      final structure = await setUpFirst();
-      final section = (await structure.load()).sections.first;
+      final (structure, section) = await setUpWithHead();
       final result = await structure.replaceSectionHead(section: section, person: 'Mrs. Amina Yusuf');
       expect(result.success, isTrue);
       expect(sent.map((s) => s.split(':').first), ['leadership_appointment', 'academic_section']);
@@ -171,7 +189,7 @@ void main() {
       expect(firstCampus, lessThan(firstSection));
 
       final after = await repo().load();
-      expect(after.campuses.length, initialCampuses.length);
+      expect(after.campuses.length, standardCampuses.length);
       for (final section in after.sections) {
         expect(section.campusId, isNotEmpty);
       }
@@ -256,7 +274,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.text('Use the standard sections'), findsNothing);
-      expect(find.text(initialAcademicSections.first.name), findsWidgets);
+      expect(find.text(standardAcademicSections.first.name), findsWidgets);
+      expect(find.text('Not yet appointed'), findsWidgets); // never a fake leader name
       expect(changed, 1);
     });
 
@@ -277,6 +296,36 @@ void main() {
       await tester.pump();
       expect(find.text('Only the owner can change the structure.'), findsOneWidget);
       expect(find.text('Use the standard sections'), findsOneWidget);          // it can be tried again
+    });
+  });
+
+  group('who can be appointed', () {
+    // serverVersion simulates a record actually downloaded from the server - without it,
+    // blockDemoSeeds treats an un-dirty write as a throwaway sample and never stores it
+    // (see the "sample records with a server" tests above).
+    Future<void> addStaff(String id, String name) => db.upsertLocalRecord(
+          tenantId: owner.schoolId,
+          entityType: AdministratorStaffRepository.directoryEntityType,
+          entityId: id,
+          payload: {'id': id, 'name': name, 'role': 'Teacher', 'section': 'Secondary', 'fileStatus': 'Complete'},
+          serverVersion: 1,
+        );
+
+    test('with a server, only this school\'s own real staff - never the fixed demo names', () async {
+      await addStaff('s1', 'Mrs. Real Teacher');
+      await addStaff('s2', 'Mr. Another Teacher');
+      final people = await repo().people();
+      expect(people, ['Mr. Another Teacher', 'Mrs. Real Teacher']); // sorted
+      expect(people.any(proprietorStructurePeople.contains), isFalse);
+    });
+
+    test('with a server and no staff yet, nobody can be appointed', () async {
+      expect(await repo().people(), isEmpty);
+    });
+
+    test('without a server (the offline demo), the illustrative names are used', () async {
+      LocalDatabase.blockDemoSeeds = false;
+      expect(await repo().people(), proprietorStructurePeople);
     });
   });
 }

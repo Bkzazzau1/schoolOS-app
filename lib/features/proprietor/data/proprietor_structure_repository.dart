@@ -4,6 +4,7 @@ import '../../../core/sync/sync_mutation.dart';
 import '../../../core/tenancy/school_session_controller.dart';
 import '../../../shared/models/school_membership.dart';
 import '../domain/proprietor_structure_models.dart';
+import 'owner_staff_profile_repository.dart';
 import 'proprietor_structure_demo_data.dart';
 
 class ProprietorStructureSnapshot {
@@ -34,14 +35,26 @@ class ProprietorStructureRepository {
     required LocalDatabase localDatabase,
     required SchoolSessionController schoolSession,
     this.confirm,
+    OwnerStaffProfileRepository? staffProfiles,
   })  : _localDatabase = localDatabase,
-        _schoolSession = schoolSession;
+        _schoolSession = schoolSession,
+        _staffProfiles = staffProfiles ?? OwnerStaffProfileRepository(database: localDatabase, session: schoolSession);
 
   /// Set when there is a server: each change is then sent at once and a refusal is shown.
   final ServerConfirm? confirm;
 
   final LocalDatabase _localDatabase;
   final SchoolSessionController _schoolSession;
+  final OwnerStaffProfileRepository _staffProfiles;
+
+  /// Who can be appointed: this school's own real staff once there is a server
+  /// (never the fixed demo names - see [proprietorStructurePeople]'s own doc),
+  /// the illustrative demo roster only in the fully offline demo.
+  Future<List<String>> people() async {
+    if (!LocalDatabase.blockDemoSeeds) return proprietorStructurePeople;
+    final staff = await _staffProfiles.people();
+    return [for (final person in staff) person.name]..sort();
+  }
 
   static const _sectionEntity = 'academic_section';
   static const _leaderEntity = 'leadership_appointment';
@@ -268,31 +281,28 @@ class ProprietorStructureRepository {
     return null;
   }
 
-  /// With a server: creates the standard sections and their leadership posts on it, sections first
-  /// (a post needs its section to exist). Only the owner can. Stops at the first refusal.
+  /// With a server: creates the standard sections (and one default campus) on it. Never
+  /// invents leaders or a campus name for a real school - that was a bug (fake "Kaduna
+  /// Campus" and fake staff names were being synced as if real); the owner names the
+  /// campus and appoints their own real staff afterwards. Only the owner can.
   Future<StructureChangeResult> setUpStandardStructure() async {
     final membership = _schoolSession.requireActiveMembership();
     if (membership.role != SchoolRole.proprietor) {
       return const StructureChangeResult(success: false, message: 'Only the school owner can set up the structure.');
     }
-    for (final campus in initialCampuses) {
+    for (final campus in standardCampuses) {
       await _createOnServer(membership, _campusEntity, campus.id, campus.toJson());
       final refused = await _confirm(membership.schoolId, _campusEntity, campus.id);
       if (refused != null) return refused;
     }
-    for (final section in initialAcademicSections) {
+    for (final section in standardAcademicSections) {
       await _createOnServer(membership, _sectionEntity, section.id, section.toJson());
       final refused = await _confirm(membership.schoolId, _sectionEntity, section.id);
       if (refused != null) return refused;
     }
-    for (final leader in initialLeadershipAppointments) {
-      await _createOnServer(membership, _leaderEntity, leader.id, leader.toJson());
-      final refused = await _confirm(membership.schoolId, _leaderEntity, leader.id);
-      if (refused != null) return refused;
-    }
     return const StructureChangeResult(
       success: true,
-      message: 'The standard sections and leadership posts were set up. Rename them and appoint people as needed.',
+      message: 'The standard sections were set up with no leader yet. Rename the campus and appoint your own staff below.',
     );
   }
 
