@@ -38,28 +38,6 @@ void main() {
     expect(initialLeadershipAppointments.length, 5);
   });
 
-  test('authority matrix keeps school identity under proprietor control', () {
-    final owner = proprietorAuthorityMatrix.first;
-    expect(owner.schoolIdentity, 'Manage');
-    for (final row in proprietorAuthorityMatrix.skip(1)) {
-      expect(row.schoolIdentity, 'No');
-    }
-  });
-
-  test('access resolution preserves tenant and scope ordering', () {
-    expect(
-      proprietorAccessResolution,
-      const [
-        'User',
-        'School',
-        'Campus',
-        'Academic Section',
-        'Role + Permissions',
-        'Allowed records',
-      ],
-    );
-  });
-
   test('leadership appointment serializes without losing scope', () {
     const appointment = LeadershipAppointment(
       id: 'L-006',

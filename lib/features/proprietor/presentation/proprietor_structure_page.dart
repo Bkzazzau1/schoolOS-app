@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/sync/sync_scope.dart';
 
-import '../data/proprietor_structure_demo_data.dart';
 import '../data/proprietor_structure_repository.dart';
 import '../domain/proprietor_structure_models.dart';
 
@@ -234,10 +233,6 @@ class _ProprietorStructurePageState extends State<ProprietorStructurePage> with 
                       onReportsToChanged: (value) => setState(() => _reportsTo = value),
                       onAppoint: _appoint,
                     ),
-                    const SizedBox(height: 18),
-                    _AuthorityMatrix(compact: compact),
-                    const SizedBox(height: 18),
-                    const _AccessResolutionCard(),
                   ],
                 ),
               ),
@@ -330,7 +325,7 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Create school sections, appoint leaders and define who controls each academic scope in $schoolName.',
+          'Sections and leadership for $schoolName.',
           style: theme.textTheme.bodyLarge?.copyWith(
             height: 1.5,
             color: theme.colorScheme.onSurfaceVariant,
@@ -381,25 +376,14 @@ class _GovernanceBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(Icons.admin_panel_settings_rounded, color: theme.colorScheme.primary),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('OWNER CONTROL', style: TextStyle(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 4),
-                Text(
-                  'Structure first, permissions second',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  'Every operational leader receives authority from a school membership scoped to campus + section + role. Leadership appointments never grant access outside that scope.',
-                ),
-              ],
+            child: Text(
+              'OWNER CONTROL',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
             ),
           ),
           const SizedBox(width: 10),
@@ -769,90 +753,6 @@ class _HierarchyRow extends StatelessWidget {
                 Text(manager == null ? 'Top of section' : 'Reports to ${manager.title}', style: const TextStyle(fontWeight: FontWeight.w700)),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuthorityMatrix extends StatelessWidget {
-  const _AuthorityMatrix({required this.compact});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return _ModuleCard(
-      title: 'Who controls what?',
-      subtitle: 'Default delegated authority by school section.',
-      child: compact
-          ? Column(
-              children: [
-                for (final row in proprietorAuthorityMatrix)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(row.role, style: const TextStyle(fontWeight: FontWeight.w900)),
-                    subtitle: Text(
-                      'Students: ${row.students} · Teachers: ${row.teachers}\nAssignments: ${row.assignments} · Results: ${row.results} · School identity: ${row.schoolIdentity}',
-                    ),
-                  ),
-              ],
-            )
-          : SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Leadership role')),
-                  DataColumn(label: Text('Students')),
-                  DataColumn(label: Text('Teachers')),
-                  DataColumn(label: Text('Subject assignments')),
-                  DataColumn(label: Text('Results')),
-                  DataColumn(label: Text('School identity')),
-                ],
-                rows: [
-                  for (final row in proprietorAuthorityMatrix)
-                    DataRow(cells: [
-                      DataCell(Text(row.role, style: const TextStyle(fontWeight: FontWeight.w800))),
-                      DataCell(Text(row.students)),
-                      DataCell(Text(row.teachers)),
-                      DataCell(Text(row.assignments)),
-                      DataCell(Text(row.results)),
-                      DataCell(Text(row.schoolIdentity)),
-                    ]),
-                ],
-              ),
-            ),
-    );
-  }
-}
-
-class _AccessResolutionCard extends StatelessWidget {
-  const _AccessResolutionCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _ModuleCard(
-      title: 'How SkulGen decides what a leader can see',
-      subtitle: 'ACCESS RESOLUTION',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              for (var i = 0; i < proprietorAccessResolution.length; i++) ...[
-                Chip(label: Text(proprietorAccessResolution[i])),
-                if (i != proprietorAccessResolution.length - 1)
-                  const Icon(Icons.arrow_forward_rounded, size: 18),
-              ],
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'One person can hold multiple valid memberships. For example, a small school may appoint the same person as Primary Headmaster and Secondary Principal, but the two memberships remain distinct and can be revoked independently.',
           ),
         ],
       ),

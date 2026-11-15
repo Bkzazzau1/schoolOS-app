@@ -144,21 +144,3 @@ class LeadershipAppointment {
     );
   }
 }
-
-class AuthorityMatrixRow {
-  const AuthorityMatrixRow({
-    required this.role,
-    required this.students,
-    required this.teachers,
-    required this.assignments,
-    required this.results,
-    required this.schoolIdentity,
-  });
-
-  final String role;
-  final String students;
-  final String teachers;
-  final String assignments;
-  final String results;
-  final String schoolIdentity;
-}
